@@ -1,0 +1,16 @@
+import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+export default function RegisterPage() {
+ const navigate=useNavigate(); const [region,setRegion]=useState<"Melbourne"|"Sydney"|"">(""); const [confirmed,setConfirmed]=useState(false);
+ return <main className="registration-layout"><aside className="registration-image"><div className="brand auth-brand"><span className="brand-mark">HT</span>HTT FLOORING</div><div><h1>Join our<br/>trade partners.</h1><p>Apply for access to HTT Flooring's customer portal and get exclusive stock information, pricing and support from our team.</p></div></aside>
+ <section className="registration-panel"><form className="registration-form" onSubmit={e=>{e.preventDefault();if(region&&confirmed) navigate("/application-submitted");}}><h1>Create your trade account</h1><p>Complete the form below to apply for customer access.<br/>Our team will review your application.</p>
+ <h3>Business details</h3><div className="form-grid"><label>Business / Trading Name *<input defaultValue="ABC Flooring" required/></label><label>ABN *<input placeholder="12 345 678 901" required/></label><label>Business Type *<select defaultValue="Flooring Retailer"><option>Flooring Retailer</option><option>Builder</option><option>Developer</option><option>Designer</option></select></label><label>Website<input placeholder="https://www.example.com"/></label></div>
+ <h3>Region *</h3><div className="region-options"><button type="button" className={region==="Melbourne"?"region-card selected":"region-card"} onClick={()=>setRegion("Melbourne")}><span>Melbourne</span><small>VIC</small></button><button type="button" className={region==="Sydney"?"region-card selected":"region-card"} onClick={()=>setRegion("Sydney")}><span>Sydney</span><small>NSW</small></button></div>
+ <div className="region-warning"><AlertTriangle size={20}/><div><strong>Important</strong><p>Please select your region carefully. Once your registration has been submitted, your selected region cannot be changed. Melbourne and Sydney accounts operate separately. Your region determines the stock availability, pricing and promotions available to your account.</p></div></div>
+ <label className="region-confirm"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/><span>I confirm that I have selected the correct region and understand that it cannot be changed after registration.</span></label>
+ <h3>Contact details</h3><div className="form-grid"><label>First Name *<input defaultValue="John" required/></label><label>Last Name *<input defaultValue="Smith" required/></label><label className="wide">Business Email *<input type="email" required/></label><label>Mobile *<input required/></label><label>Phone<input/></label></div>
+ <h3>Business address</h3><div className="form-grid"><label className="wide">Address *<input required/></label><label>Suburb *<input required/></label><label>State *<select><option>Victoria</option><option>New South Wales</option></select></label><label>Postcode *<input required/></label></div>
+ <button className="primary-button" type="submit" disabled={!region||!confirmed}>Submit Application</button></form></section></main>;
+}
