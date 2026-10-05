@@ -1,5 +1,5 @@
-import 'customer.dart';
-import 'quote.dart';
+import 'customer_snapshot.dart';
+import 'sales_document_item.dart';
 
 enum SalesDocumentStatus { quotation, order, invoice, cancelled }
 
@@ -8,9 +8,9 @@ enum InvoicePaymentStatus { unpaid, partiallyPaid, paid, overdue }
 class SalesDocument {
   final String number;
 
-  final Customer customer;
+  final CustomerSnapshot customer;
 
-  final List<QuoteItem> items;
+  final List<SalesDocumentItem> items;
 
   final DateTime createdAt;
 

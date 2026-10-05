@@ -25,6 +25,10 @@ class QuoteService extends ChangeNotifier {
     return _customer != null;
   }
 
+  bool get hasActiveCustomer {
+    return _customer != null && !_customer!.archived;
+  }
+
   bool get hasItems {
     return _items.isNotEmpty;
   }
@@ -34,6 +38,14 @@ class QuoteService extends ChangeNotifier {
   }
 
   void selectCustomer(Customer customer) {
+    // Archived Customer cannot be used for new quotations.
+    if (customer.archived) {
+      throw StateError(
+        '${customer.businessName} has been archived '
+        'and cannot be used for new quotations.',
+      );
+    }
+
     // 正式创建后的 Quote 不允许修改客户
     if (isCreated) {
       throw StateError('Created quotation cannot be modified.');
@@ -44,6 +56,29 @@ class QuoteService extends ChangeNotifier {
         _customer!.id != customer.id &&
         _items.isNotEmpty) {
       throw StateError('Cannot change customer while quote contains items.');
+    }
+
+    _customer = customer;
+
+    notifyListeners();
+  }
+
+  void refreshCustomerSnapshot(Customer customer) {
+    final currentCustomer = _customer;
+
+    if (currentCustomer == null) {
+      return;
+    }
+
+    // Only refresh the same selected customer.
+    if (currentCustomer.id != customer.id) {
+      throw StateError('Cannot refresh quotation with a different customer.');
+    }
+
+    // A created quotation is a historical snapshot.
+    // Never change it after Create & Lock.
+    if (isCreated) {
+      return;
     }
 
     _customer = customer;
@@ -111,6 +146,29 @@ class QuoteService extends ChangeNotifier {
     // 一个 Quote 只能分配一次号码
     if (_documentNumber != null) {
       return;
+    }
+
+    final selectedCustomer = _customer;
+
+    if (selectedCustomer == null) {
+      throw StateError(
+        'A customer must be selected before '
+        'creating the quotation.',
+      );
+    }
+
+    if (selectedCustomer.archived) {
+      throw StateError(
+        '${selectedCustomer.businessName} has been archived '
+        'and cannot be used for new quotations.',
+      );
+    }
+
+    if (_items.isEmpty) {
+      throw StateError(
+        'At least one product is required before '
+        'creating the quotation.',
+      );
     }
 
     _documentNumber = number;

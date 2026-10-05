@@ -23,8 +23,6 @@ class CustomerDetailScreen extends StatefulWidget {
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
-  Customer get customer => widget.customer;
-
   Future<void> _callPhone(String phone) async {
     final cleanedPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
 
@@ -77,6 +75,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final customerService = context.watch<CustomerService>();
+
+    final customer =
+        customerService.findById(widget.customer.id) ?? widget.customer;
+
     final documentService = context.watch<SalesDocumentService>();
 
     final outstanding = documentService.getCustomerOutstanding(customer.id);
@@ -87,12 +90,48 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       customer.id,
     );
 
-    final customerService = context.watch<CustomerService>();
-
     final contacts = customerService.getContactsForCustomer(customer.id);
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'archive') {
+                _confirmArchiveCustomer(customer);
+              }
+
+              if (value == 'restore') {
+                _restoreCustomer(customer);
+              }
+            },
+            itemBuilder: (_) => [
+              if (!customer.archived)
+                const PopupMenuItem(
+                  value: 'archive',
+                  child: Row(
+                    children: [
+                      Icon(Icons.archive_outlined),
+                      SizedBox(width: 10),
+                      Text('Archive Customer'),
+                    ],
+                  ),
+                ),
+              if (customer.archived)
+                const PopupMenuItem(
+                  value: 'restore',
+                  child: Row(
+                    children: [
+                      Icon(Icons.unarchive_outlined),
+                      SizedBox(width: 10),
+                      Text('Restore Customer'),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
 
       body: ListView(
         children: [
@@ -116,6 +155,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   customer.businessName,
                   style: const TextStyle(fontFamily: 'serif', fontSize: 28),
                 ),
+
+                if (customer.archived) ...[
+                  const SizedBox(height: 6),
+                  const Chip(
+                    avatar: Icon(Icons.archive_outlined, size: 15),
+                    label: Text('Archived'),
+                  ),
+                ],
 
                 Text(
                   customer.type,
@@ -201,14 +248,24 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (customer.address.trim().isNotEmpty ||
-                          customer.abn.trim().isNotEmpty) ...[
-                        const Text(
-                          'Company Details',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.text,
-                          ),
+                      ...[
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Company Details',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.text,
+                                ),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _showEditCompanyDialog(customer),
+                              icon: const Icon(Icons.edit_outlined, size: 17),
+                              label: const Text('Edit'),
+                            ),
+                          ],
                         ),
 
                         const SizedBox(height: 10),
@@ -226,6 +283,18 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                           ),
                           child: Column(
                             children: [
+                              _buildCompanyInfo(
+                                icon: Icons.business_outlined,
+                                label: 'Company Name',
+                                value: customer.businessName,
+                              ),
+
+                              if (customer.address.trim().isNotEmpty)
+                                const Divider(
+                                  height: 1,
+                                  color: AppColors.border,
+                                ),
+
                               if (customer.address.trim().isNotEmpty)
                                 _buildContactAction(
                                   icon: Icons.location_on_outlined,
@@ -243,7 +312,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
                               if (customer.abn.trim().isNotEmpty)
                                 _buildCompanyInfo(
-                                  icon: Icons.business_outlined,
+                                  icon: Icons.badge_outlined,
                                   label: 'ABN',
                                   value: customer.abn,
                                 ),
@@ -575,6 +644,40 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   ],
                 ),
               ),
+              PopupMenuButton<String>(
+                tooltip: 'Contact actions',
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showEditContactDialog(contact);
+                  }
+
+                  if (value == 'delete') {
+                    _confirmDeleteContact(contact);
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined),
+                        SizedBox(width: 10),
+                        Text('Edit Contact'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline),
+                        SizedBox(width: 10),
+                        Text('Delete Contact'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
 
@@ -694,6 +797,119 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _confirmArchiveCustomer(Customer customer) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Archive Customer?'),
+          content: Text(
+            '${customer.businessName} will be hidden '
+            'from active customers and cannot be '
+            'selected for new sales documents.\n\n'
+            'Existing orders and invoices will '
+            'remain unchanged.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Archive'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    context.read<CustomerService>().archiveCustomer(customer.id);
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pop();
+  }
+
+  void _restoreCustomer(Customer customer) {
+    context.read<CustomerService>().restoreCustomer(customer.id);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${customer.businessName} restored.')),
+    );
+  }
+
+  Future<void> _showEditCompanyDialog(Customer customer) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        return _EditCompanyDialog(customer: customer);
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteContact(CustomerContact contact) async {
+    final displayName = contact.name.trim().isEmpty
+        ? 'this contact'
+        : contact.name.trim();
+
+    final isPrimary = contact.isPrimary;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete Contact?'),
+          content: Text(
+            isPrimary
+                ? '$displayName is the Primary Contact.\n\n'
+                      'If deleted, another contact will '
+                      'automatically become Primary.'
+                : 'Delete $displayName from this company?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    context.read<CustomerService>().deleteContact(contact.id);
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$displayName deleted.')));
+  }
+
+  Future<void> _showEditContactDialog(CustomerContact contact) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        return _EditContactDialog(contact: contact);
+      },
     );
   }
 
@@ -869,6 +1085,264 @@ class _AddContactDialogState extends State<_AddContactDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(onPressed: _save, child: const Text('Add')),
+      ],
+    );
+  }
+}
+
+class _EditCompanyDialog extends StatefulWidget {
+  const _EditCompanyDialog({required this.customer});
+
+  final Customer customer;
+
+  @override
+  State<_EditCompanyDialog> createState() => _EditCompanyDialogState();
+}
+
+class _EditCompanyDialogState extends State<_EditCompanyDialog> {
+  late final TextEditingController _businessNameController;
+  late final TextEditingController _abnController;
+  late final TextEditingController _addressController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _businessNameController = TextEditingController(
+      text: widget.customer.businessName,
+    );
+
+    _abnController = TextEditingController(text: widget.customer.abn);
+
+    _addressController = TextEditingController(text: widget.customer.address);
+  }
+
+  @override
+  void dispose() {
+    _businessNameController.dispose();
+    _abnController.dispose();
+    _addressController.dispose();
+
+    super.dispose();
+  }
+
+  void _save() {
+    final businessName = _businessNameController.text.trim();
+
+    if (businessName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Company name is required.')),
+      );
+
+      return;
+    }
+
+    context.read<CustomerService>().updateCustomer(
+      customerId: widget.customer.id,
+      businessName: businessName,
+      abn: _abnController.text.trim(),
+      address: _addressController.text.trim(),
+    );
+
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Company'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _businessNameController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Company Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _abnController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'ABN'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _addressController,
+              textCapitalization: TextCapitalization.words,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Address'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+}
+
+class _EditContactDialog extends StatefulWidget {
+  const _EditContactDialog({required this.contact});
+
+  final CustomerContact contact;
+
+  @override
+  State<_EditContactDialog> createState() => _EditContactDialogState();
+}
+
+class _EditContactDialogState extends State<_EditContactDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _jobTitleController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _emailController;
+
+  late bool _isPrimary;
+  late bool _isAccountsContact;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _nameController = TextEditingController(text: widget.contact.name);
+
+    _jobTitleController = TextEditingController(text: widget.contact.jobTitle);
+
+    _phoneController = TextEditingController(text: widget.contact.phone);
+
+    _emailController = TextEditingController(text: widget.contact.email);
+
+    _isPrimary = widget.contact.isPrimary;
+    _isAccountsContact = widget.contact.isAccountsContact;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _jobTitleController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+
+    super.dispose();
+  }
+
+  void _save() {
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
+
+    if (name.isEmpty && phone.isEmpty && email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a name, phone or email.')),
+      );
+
+      return;
+    }
+
+    final customerService = context.read<CustomerService>();
+
+    final duplicate = customerService.findContactDuplicate(
+      customerId: widget.contact.customerId,
+      phone: phone,
+      email: email,
+    );
+
+    if (duplicate != null && duplicate.id != widget.contact.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            duplicate.name.trim().isEmpty
+                ? 'This phone or email is already used by another contact.'
+                : '${duplicate.name} already uses this phone or email.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    customerService.updateContact(
+      contactId: widget.contact.id,
+      name: name,
+      jobTitle: _jobTitleController.text.trim(),
+      phone: phone,
+      email: email,
+      isPrimary: _isPrimary,
+      isAccountsContact: _isAccountsContact,
+    );
+
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Contact'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _jobTitleController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Job Title'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Phone'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              textCapitalization: TextCapitalization.none,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Primary Contact'),
+              value: _isPrimary,
+              onChanged: (value) {
+                setState(() {
+                  _isPrimary = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Accounts Contact'),
+              subtitle: const Text('Use for invoices and statements'),
+              value: _isAccountsContact,
+              onChanged: (value) {
+                setState(() {
+                  _isAccountsContact = value;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
       ],
     );
   }

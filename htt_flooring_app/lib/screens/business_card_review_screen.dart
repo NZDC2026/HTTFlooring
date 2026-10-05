@@ -22,14 +22,16 @@ class BusinessCardReviewScreen extends StatefulWidget {
 class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
   late final TextEditingController _businessController;
   late final TextEditingController _contactController;
+  late final TextEditingController _jobTitleController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
-  late final TextEditingController _websiteController;
   late final TextEditingController _addressController;
+  late final TextEditingController _abnController;
 
   Customer? _matchedCustomer;
   CustomerContact? _matchedContact;
 
+  bool _matchedByAbn = false;
   bool _matchChecked = false;
 
   @override
@@ -42,13 +44,15 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
 
     _contactController = TextEditingController(text: widget.result.contactName);
 
+    _jobTitleController = TextEditingController(text: widget.result.jobTitle);
+
     _phoneController = TextEditingController(text: widget.result.phone);
 
     _emailController = TextEditingController(text: widget.result.email);
 
-    _websiteController = TextEditingController(text: widget.result.website);
-
     _addressController = TextEditingController(text: widget.result.address);
+
+    _abnController = TextEditingController(text: widget.result.abn);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -61,10 +65,11 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
   void dispose() {
     _businessController.dispose();
     _contactController.dispose();
+    _jobTitleController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
-    _websiteController.dispose();
     _addressController.dispose();
+    _abnController.dispose();
 
     super.dispose();
   }
@@ -79,6 +84,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     }
 
     final businessName = _businessController.text.trim();
+    final abn = _abnController.text.trim();
     final phone = _phoneController.text.trim();
     final email = _emailController.text.trim();
 
@@ -87,14 +93,24 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
 
     Customer? matchedCustomer;
     CustomerContact? matchedContact;
+    var matchedByAbn = false;
 
-    if (businessName.isNotEmpty) {
+    if (businessName.isNotEmpty || abn.isNotEmpty) {
       matchedCustomer = customerService.findMatchingCustomer(
         businessName: businessName,
+        abn: abn,
         region: session.currentUser.region,
       );
 
       if (matchedCustomer != null) {
+        final scannedAbn = _normalizeAbn(abn);
+        final existingAbn = _normalizeAbn(matchedCustomer.abn);
+
+        matchedByAbn =
+            scannedAbn.isNotEmpty &&
+            existingAbn.isNotEmpty &&
+            scannedAbn == existingAbn;
+
         matchedContact = customerService.findContactDuplicate(
           customerId: matchedCustomer.id,
           phone: phone,
@@ -106,6 +122,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     setState(() {
       _matchedCustomer = matchedCustomer;
       _matchedContact = matchedContact;
+      _matchedByAbn = matchedByAbn;
       _matchChecked = true;
     });
   }
@@ -139,6 +156,18 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
 
             const SizedBox(height: 24),
 
+            const Text(
+              'COMPANY',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
             _Field(
               label: 'Business Name',
               controller: _businessController,
@@ -147,9 +176,46 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
             ),
 
             _Field(
+              label: 'ABN',
+              controller: _abnController,
+              icon: Icons.badge_outlined,
+              keyboardType: TextInputType.number,
+              onChanged: _onFieldChanged,
+            ),
+
+            _Field(
+              label: 'Address',
+              controller: _addressController,
+              icon: Icons.location_on_outlined,
+              maxLines: 2,
+              onChanged: _onFieldChanged,
+            ),
+
+            const SizedBox(height: 8),
+
+            const Text(
+              'EMPLOYEE',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            _Field(
               label: 'Contact Name',
               controller: _contactController,
               icon: Icons.person_outline,
+              onChanged: _onFieldChanged,
+            ),
+
+            _Field(
+              label: 'Job Title',
+              controller: _jobTitleController,
+              icon: Icons.work_outline,
               onChanged: _onFieldChanged,
             ),
 
@@ -166,22 +232,6 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
               controller: _emailController,
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
-              onChanged: _onFieldChanged,
-            ),
-
-            _Field(
-              label: 'Website',
-              controller: _websiteController,
-              icon: Icons.language_outlined,
-              keyboardType: TextInputType.url,
-              onChanged: _onFieldChanged,
-            ),
-
-            _Field(
-              label: 'Address',
-              controller: _addressController,
-              icon: Icons.location_on_outlined,
-              maxLines: 2,
               onChanged: _onFieldChanged,
             ),
 
@@ -309,7 +359,16 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
   }
 
   Widget _buildMatchedCompanyCard(Customer customer) {
+    final scannedBusinessName = _businessController.text.trim();
+
     final contactName = _contactController.text.trim();
+
+    final jobTitle = _jobTitleController.text.trim();
+
+    final companyNameDifferent =
+        scannedBusinessName.isNotEmpty &&
+        scannedBusinessName.toLowerCase() !=
+            customer.businessName.toLowerCase();
 
     return Container(
       width: double.infinity,
@@ -322,14 +381,16 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.business_outlined, color: AppColors.success),
-              SizedBox(width: 8),
+              const Icon(Icons.business_outlined, color: AppColors.success),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Existing Company Found',
-                  style: TextStyle(
+                  _matchedByAbn
+                      ? 'Company Matched by ABN'
+                      : 'Existing Company Found',
+                  style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     color: AppColors.text,
                   ),
@@ -339,6 +400,47 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
           ),
 
           const SizedBox(height: 12),
+
+          if (_matchedByAbn && companyNameDifferent) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppColors.warningLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Company name differs',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Scanned: $scannedBusinessName',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Existing: ${customer.businessName}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.text,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           Text(
             customer.businessName,
@@ -366,6 +468,27 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
           ],
 
           const SizedBox(height: 12),
+
+          if (contactName.isNotEmpty) ...[
+            Text(
+              contactName,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+              ),
+            ),
+
+            if (jobTitle.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                jobTitle,
+                style: const TextStyle(fontSize: 13, color: AppColors.muted),
+              ),
+            ],
+
+            const SizedBox(height: 8),
+          ],
 
           Text(
             contactName.isEmpty
@@ -568,10 +691,13 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
 
   void _createCompanyAndContact() {
     final businessName = _businessController.text.trim();
+    final abn = _abnController.text.trim();
+    final address = _addressController.text.trim();
+
     final contactName = _contactController.text.trim();
+    final jobTitle = _jobTitleController.text.trim();
     final phone = _phoneController.text.trim();
     final email = _emailController.text.trim();
-    final address = _addressController.text.trim();
 
     if (businessName.isEmpty) {
       _showMessage('Business name is required.');
@@ -584,6 +710,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     // Re-check immediately before writing.
     final existingCustomer = customerService.findMatchingCustomer(
       businessName: businessName,
+      abn: abn,
       region: session.currentUser.region,
     );
 
@@ -600,7 +727,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     final customer = customerService.createCustomer(
       businessName: businessName,
       address: address,
-      abn: '',
+      abn: abn,
       region: session.currentUser.region,
     );
 
@@ -608,7 +735,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
       customerService.addContact(
         customerId: customer.id,
         name: contactName,
-        jobTitle: '',
+        jobTitle: jobTitle,
         phone: phone,
         email: email,
         isPrimary: true,
@@ -627,6 +754,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     }
 
     final contactName = _contactController.text.trim();
+    final jobTitle = _jobTitleController.text.trim();
     final phone = _phoneController.text.trim();
     final email = _emailController.text.trim();
 
@@ -657,7 +785,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     customerService.addContact(
       customerId: customer.id,
       name: contactName,
-      jobTitle: '',
+      jobTitle: jobTitle,
       phone: phone,
       email: email,
     );
@@ -682,6 +810,16 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
         builder: (_) => CustomerDetailScreen(customer: customer),
       ),
     );
+  }
+
+  String _normalizeAbn(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+
+    if (digits.length != 11) {
+      return '';
+    }
+
+    return digits;
   }
 
   bool _hasContactDetails(String name, String phone, String email) {

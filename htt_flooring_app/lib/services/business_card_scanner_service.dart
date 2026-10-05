@@ -34,7 +34,9 @@ class BusinessCardScannerService {
     String website = '';
     String businessName = '';
     String contactName = '';
+    String jobTitle = '';
     String address = '';
+    String abn = '';
 
     // ------------------------------------------------------------
     // 1. Email
@@ -76,13 +78,26 @@ class BusinessCardScannerService {
     }
 
     // ------------------------------------------------------------
-    // 4. Address
+    // 4. ABN
+    // ------------------------------------------------------------
+
+    for (final line in lines) {
+      final detected = _extractAbn(line);
+
+      if (detected.isNotEmpty) {
+        abn = detected;
+        break;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // 5. Address
     // ------------------------------------------------------------
 
     address = _guessAddress(lines);
 
     // ------------------------------------------------------------
-    // 5. Remove contact information before guessing names
+    // 6. Remove contact information before guessing names
     // ------------------------------------------------------------
 
     final candidateLines = lines.where((line) {
@@ -98,6 +113,10 @@ class BusinessCardScannerService {
         return false;
       }
 
+      if (_isAbnLine(line)) {
+        return false;
+      }
+
       if (_isAddressLine(line)) {
         return false;
       }
@@ -106,7 +125,7 @@ class BusinessCardScannerService {
     }).toList();
 
     // ------------------------------------------------------------
-    // 6. Contact name
+    // 7. Contact name
     //
     // Person name is detected BEFORE company name.
     // This prevents:
@@ -120,7 +139,13 @@ class BusinessCardScannerService {
     contactName = _guessContactName(candidateLines);
 
     // ------------------------------------------------------------
-    // 7. Business name
+    // 8. Job title
+    // ------------------------------------------------------------
+
+    jobTitle = _guessJobTitle(candidateLines, contactName);
+
+    // ------------------------------------------------------------
+    // 9. Business name
     // ------------------------------------------------------------
 
     businessName = _guessBusinessName(candidateLines, contactName);
@@ -128,10 +153,12 @@ class BusinessCardScannerService {
     return BusinessCardScanResult(
       businessName: businessName,
       contactName: contactName,
+      jobTitle: jobTitle,
       phone: phone,
       email: email,
       website: website,
       address: address,
+      abn: abn,
       rawText: rawText,
     );
   }
@@ -283,6 +310,52 @@ class BusinessCardScannerService {
   }
 
   // ============================================================
+  // ABN
+  // ============================================================
+
+  String _extractAbn(String line) {
+    final value = line.trim();
+
+    // Only treat the line as an ABN when an ABN label exists.
+    // This prevents phone numbers from being mistaken for ABNs.
+    if (!RegExp(
+      r'\bA\.?\s*B\.?\s*N\.?\b',
+      caseSensitive: false,
+    ).hasMatch(value)) {
+      return '';
+    }
+
+    final withoutLabel = value.replaceFirst(
+      RegExp(r'.*?\bA\.?\s*B\.?\s*N\.?\b\s*[:\-]?\s*', caseSensitive: false),
+      '',
+    );
+
+    final digits = withoutLabel.replaceAll(RegExp(r'\D'), '');
+
+    // Australian Business Numbers contain exactly 11 digits.
+    if (digits.length != 11) {
+      return '';
+    }
+
+    return _formatAbn(digits);
+  }
+
+  bool _isAbnLine(String line) {
+    return _extractAbn(line).isNotEmpty;
+  }
+
+  String _formatAbn(String digits) {
+    if (digits.length != 11) {
+      return digits;
+    }
+
+    return '${digits.substring(0, 2)} '
+        '${digits.substring(2, 5)} '
+        '${digits.substring(5, 8)} '
+        '${digits.substring(8, 11)}';
+  }
+
+  // ============================================================
   // CONTACT NAME
   // ============================================================
 
@@ -366,6 +439,51 @@ class BusinessCardScannerService {
   // ============================================================
   // JOB TITLE
   // ============================================================
+
+  String _guessJobTitle(List<String> lines, String contactName) {
+    if (contactName.isNotEmpty) {
+      final contactIndex = lines.indexOf(contactName);
+
+      // Strongest signal:
+      //
+      // John Smith
+      // Sales Manager
+      //
+      if (contactIndex >= 0 && contactIndex + 1 < lines.length) {
+        final nextLine = lines[contactIndex + 1];
+
+        if (_isJobTitle(nextLine)) {
+          return nextLine;
+        }
+      }
+
+      // Some cards use:
+      //
+      // Sales Manager
+      // John Smith
+      //
+      if (contactIndex > 0) {
+        final previousLine = lines[contactIndex - 1];
+
+        if (_isJobTitle(previousLine)) {
+          return previousLine;
+        }
+      }
+    }
+
+    // Fallback when title isn't directly beside the name.
+    for (final line in lines) {
+      if (line == contactName) {
+        continue;
+      }
+
+      if (_isJobTitle(line)) {
+        return line;
+      }
+    }
+
+    return '';
+  }
 
   bool _isJobTitle(String line) {
     final lower = line.toLowerCase();

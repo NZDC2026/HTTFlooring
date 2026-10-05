@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/customer.dart';
+import '../models/customer_snapshot.dart';
 import '../models/quote.dart';
 import '../models/sales_document.dart';
+import '../models/sales_document_item.dart';
 
 class SalesDocumentService extends ChangeNotifier {
   final List<SalesDocument> _documents = [];
@@ -80,12 +82,22 @@ class SalesDocumentService extends ChangeNotifier {
       throw StateError('Quotation must contain at least one item.');
     }
 
+    final customerSnapshot = CustomerSnapshot.fromCustomer(customer);
+
+    final documentItems = items
+        .map(SalesDocumentItem.fromQuoteItem)
+        .toList(growable: false);
+
     _documents.add(
       SalesDocument(
         number: number,
-        customer: customer,
 
-        items: List<QuoteItem>.unmodifiable(List<QuoteItem>.from(items)),
+        // Freeze customer details at Create & Lock.
+        customer: customerSnapshot,
+
+        // Freeze product details, quantity and selling price
+        // at Create & Lock.
+        items: List<SalesDocumentItem>.unmodifiable(documentItems),
 
         createdAt: DateTime.now(),
 

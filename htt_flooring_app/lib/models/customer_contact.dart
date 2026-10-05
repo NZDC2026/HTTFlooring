@@ -42,4 +42,30 @@ class CustomerContact {
       isAccountsContact: isAccountsContact ?? this.isAccountsContact,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'customerId': customerId,
+      'name': name,
+      'jobTitle': jobTitle,
+      'phone': phone,
+      'email': email,
+      'isPrimary': isPrimary,
+      'isAccountsContact': isAccountsContact,
+    };
+  }
+
+  factory CustomerContact.fromJson(Map<String, dynamic> json) {
+    return CustomerContact(
+      id: json['id'] as String,
+      customerId: json['customerId'] as String,
+      name: json['name'] as String? ?? '',
+      jobTitle: json['jobTitle'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      isPrimary: json['isPrimary'] as bool? ?? false,
+      isAccountsContact: json['isAccountsContact'] as bool? ?? false,
+    );
+  }
 }

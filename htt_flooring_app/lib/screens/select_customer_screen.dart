@@ -24,6 +24,10 @@ class _SelectCustomerScreenState extends State<SelectCustomerScreen> {
     final customerService = context.watch<CustomerService>();
 
     final visibleCustomers = customerService.customers.where((customer) {
+      if (customer.archived) {
+        return false;
+      }
+
       if (!session.canAccessRegion(customer.region)) {
         return false;
       }
@@ -110,6 +114,19 @@ class _SelectCustomerScreenState extends State<SelectCustomerScreen> {
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
+                    if (customer.archived) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${customer.businessName} has been archived '
+                            'and cannot be used for new quotations.',
+                          ),
+                        ),
+                      );
+
+                      return;
+                    }
+
                     Navigator.pop(context, customer);
                   },
                 );

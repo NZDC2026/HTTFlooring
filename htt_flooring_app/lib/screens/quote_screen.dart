@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/customer.dart';
 import '../models/sales_user.dart';
+import '../services/customer_service.dart';
 import '../services/document_number_service.dart';
 import '../services/quote_service.dart';
 import '../services/sales_document_service.dart';
+import '../services/sales_session.dart';
 import '../theme/app_theme.dart';
 import 'quote_product_picker_screen.dart';
 
@@ -14,14 +17,29 @@ class QuoteScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final quote = context.watch<QuoteService>();
+    final customerService = context.watch<CustomerService>();
 
-    final customer = quote.customer;
+    final frozenCustomer = quote.customer;
 
-    if (customer == null) {
+    if (frozenCustomer == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Quotation')),
         body: const Center(child: Text('No customer selected.')),
       );
+    }
+
+    // Draft quotation:
+    // Always display the latest live Customer data.
+    //
+    // Created quotation:
+    // Always display the frozen Customer snapshot
+    // captured at Create & Lock.
+    final Customer customer;
+
+    if (quote.isCreated) {
+      customer = frozenCustomer;
+    } else {
+      customer = customerService.findById(frozenCustomer.id) ?? frozenCustomer;
     }
 
     return Scaffold(
@@ -132,6 +150,40 @@ class QuoteScreen extends StatelessWidget {
                         '${customer.region.label} 🔒',
                         style: const TextStyle(color: AppColors.muted),
                       ),
+
+                      if (!quote.isCreated && customer.archived) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.dangerLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.archive_outlined,
+                                size: 17,
+                                color: AppColors.danger,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'This customer has been archived. '
+                                  'This draft cannot be created.',
+                                  style: TextStyle(
+                                    color: AppColors.danger,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -408,12 +460,10 @@ class QuoteScreen extends StatelessWidget {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Create quotation?'),
-
           content: const Text(
             'Once created, this quotation will be locked. '
             'Customer, products, quantities and prices can no longer be changed.',
           ),
-
           actions: [
             TextButton(
               onPressed: () {
@@ -421,21 +471,116 @@ class QuoteScreen extends StatelessWidget {
               },
               child: const Text('Cancel'),
             ),
-
             FilledButton(
               onPressed: () {
                 final quote = context.read<QuoteService>();
 
-                // 双重保护
+                // 1. Already created.
                 if (quote.isCreated) {
                   Navigator.pop(dialogContext);
                   return;
                 }
 
+                // 2. Quote must contain products.
                 if (quote.items.isEmpty) {
                   Navigator.pop(dialogContext);
+
+                  _showQuoteError(
+                    context,
+                    title: 'No Products',
+                    message: 'Add at least one product before creating the quotation.',
+                  );
+
                   return;
                 }
+
+                // 3. Quote must have a customer.
+                final draftCustomer = quote.customer;
+
+                if (draftCustomer == null) {
+                  Navigator.pop(dialogContext);
+
+                  _showQuoteError(
+                    context,
+                    title: 'Customer Required',
+                    message: 'Please select an active customer before creating the quotation.',
+                  );
+
+                  return;
+                }
+
+                final customerService = context.read<CustomerService>();
+
+                // IMPORTANT:
+                // Always get the latest customer from CustomerService.
+                // Do not trust the Customer object stored in QuoteService.
+                final currentCustomer = customerService.findById(
+                  draftCustomer.id,
+                );
+
+                // 4. Customer may have been removed / unavailable.
+                if (currentCustomer == null) {
+                  Navigator.pop(dialogContext);
+
+                  _showQuoteError(
+                    context,
+                    title: 'Customer Unavailable',
+                    message:
+                        '${draftCustomer.businessName} is no longer available.\n\n'
+                        'Please select an active customer.',
+                  );
+
+                  return;
+                }
+
+                // 5. Customer may have been archived after
+                // the quote draft was opened.
+                if (currentCustomer.archived) {
+                  Navigator.pop(dialogContext);
+
+                  _showQuoteError(
+                    context,
+                    title: 'Customer Unavailable',
+                    message:
+                        '${currentCustomer.businessName} has been archived '
+                        'and can no longer be used for new quotations.\n\n'
+                        'Please select an active customer.',
+                  );
+
+                  return;
+                }
+
+                // 6. Check region access again using the
+                // current SalesSession.
+                final session = context.read<SalesSession>();
+
+                if (!session.canAccessRegion(currentCustomer.region)) {
+                  Navigator.pop(dialogContext);
+
+                  _showQuoteError(
+                    context,
+                    title: 'Region Access Denied',
+                    message:
+                        '${currentCustomer.businessName} belongs to '
+                        '${currentCustomer.region.label}.\n\n'
+                        'Your current account cannot create quotations '
+                        'for this region.',
+                  );
+
+                  return;
+                }
+
+                // Refresh the draft with the latest customer data.
+                //
+                // This keeps the same customerId but updates fields such as
+                // business name, address and ABN before Create & Lock.
+                quote.refreshCustomerSnapshot(currentCustomer);
+
+                // ------------------------------------------------
+                // ALL VALIDATION HAS PASSED.
+                //
+                // Do not issue an HTT number before this point.
+                // ------------------------------------------------
 
                 final numberService = context.read<DocumentNumberService>();
 
@@ -447,7 +592,11 @@ class QuoteScreen extends StatelessWidget {
 
                 documentService.createQuotation(
                   number: number,
-                  customer: quote.customer!,
+
+                  // Use the CURRENT customer rather than the
+                  // stale Customer object stored in the draft.
+                  customer: currentCustomer,
+
                   items: quote.items,
                 );
 
@@ -459,8 +608,37 @@ class QuoteScreen extends StatelessWidget {
                   ),
                 );
               },
-
               child: const Text('Create & Lock'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showQuoteError(
+    BuildContext context, {
+    required String title,
+    required String message,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+              const SizedBox(width: 10),
+              Expanded(child: Text(title)),
+            ],
+          ),
+          content: Text(message),
+          actions: [
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('OK'),
             ),
           ],
         );
