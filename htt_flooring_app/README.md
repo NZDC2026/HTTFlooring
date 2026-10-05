@@ -1,4 +1,4 @@
-# sales_app
+# htt_flooring_app
 
 A new Flutter project.
 

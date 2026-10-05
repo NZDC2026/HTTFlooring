@@ -1,84 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'screens/home_screen.dart';
-import 'screens/customers_screen.dart';
-import 'screens/inventory_screen.dart';
-import 'screens/sales_documents_screen.dart';
-import 'screens/more_screen.dart';
+import 'navigation/role_router.dart';
 
-import 'services/sales_session.dart';
-import 'services/customer_service.dart';
-import 'services/quote_service.dart';
-import 'services/pricing_service.dart';
-import 'services/document_number_service.dart';
-import 'services/sales_document_service.dart';
+import 'services/app_session.dart';
+import 'services/customer_location_service.dart';
 import 'services/customer_note_service.dart';
+import 'services/customer_service.dart';
+import 'services/document_number_service.dart';
+import 'services/pricing_service.dart';
+import 'services/quote_service.dart';
+import 'services/sales_document_service.dart';
+import 'services/sales_session.dart';
+
 import 'theme/app_theme.dart';
-import 'widgets/app_shell.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => SalesSession()),
-        ChangeNotifierProvider(create: (_) => CustomerService()),
-        ChangeNotifierProvider(create: (_) => QuoteService()),
-        ChangeNotifierProvider(create: (_) => PricingService()),
-        ChangeNotifierProvider(create: (_) => DocumentNumberService()),
-        ChangeNotifierProvider(create: (_) => SalesDocumentService()),
-        ChangeNotifierProvider(create: (_) => CustomerNoteService()),
-      ],
+        ChangeNotifierProvider(create: (_) => AppSession()),
 
-      child: const HttSalesApp(),
+        ChangeNotifierProvider(create: (_) => CustomerService()),
+
+        ChangeNotifierProvider(create: (_) => CustomerLocationService()),
+
+        ChangeNotifierProvider(create: (_) => CustomerNoteService()),
+
+        ChangeNotifierProvider(create: (_) => DocumentNumberService()),
+
+        ChangeNotifierProvider(create: (_) => PricingService()),
+
+        ChangeNotifierProvider(create: (_) => QuoteService()),
+
+        ChangeNotifierProvider(create: (_) => SalesDocumentService()),
+
+        // Temporary compatibility provider.
+        // Existing Sales screens still depend on SalesSession.
+        ChangeNotifierProvider(create: (_) => SalesSession()),
+      ],
+      child: const HttFlooringApp(),
     ),
   );
 }
 
-class HttSalesApp extends StatelessWidget {
-  const HttSalesApp({super.key});
+class HttFlooringApp extends StatelessWidget {
+  const HttFlooringApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'HTT Flooring Sales',
+      title: 'HTT Flooring',
       theme: buildTheme(),
-      home: const MainNavigation(),
-    );
-  }
-}
-
-class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
-
-  @override
-  State<MainNavigation> createState() => _MainNavigationState();
-}
-
-class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 0;
-
-  void _onDestinationSelected(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screens = [
-      HomeScreen(onNavigateToTab: _onDestinationSelected),
-      const CustomersScreen(),
-      const InventoryScreen(),
-      const SalesDocumentsScreen(),
-      const MoreScreen(),
-    ];
-
-    return AppShell(
-      currentIndex: _currentIndex,
-      onDestinationSelected: _onDestinationSelected,
-      child: IndexedStack(index: _currentIndex, children: screens),
+      home: const RoleRouter(),
     );
   }
 }

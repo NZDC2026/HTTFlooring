@@ -1,6 +1,6 @@
 {
-    "name": "sales_app",
-    "short_name": "sales_app",
+    "name": "htt_flooring_app",
+    "short_name": "htt_flooring_app",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
