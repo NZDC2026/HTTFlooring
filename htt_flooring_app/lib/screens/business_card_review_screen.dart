@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../models/business_card_scan_result.dart';
 import '../models/customer.dart';
-import '../services/sales_session.dart';
+import '../models/customer_contact.dart';
 import '../services/customer_service.dart';
+import '../services/sales_session.dart';
 import '../theme/app_theme.dart';
 import 'customer_detail_screen.dart';
 
@@ -20,16 +21,16 @@ class BusinessCardReviewScreen extends StatefulWidget {
 
 class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
   late final TextEditingController _businessController;
-
   late final TextEditingController _contactController;
-
   late final TextEditingController _phoneController;
-
   late final TextEditingController _emailController;
-
   late final TextEditingController _websiteController;
-
   late final TextEditingController _addressController;
+
+  Customer? _matchedCustomer;
+  CustomerContact? _matchedContact;
+
+  bool _matchChecked = false;
 
   @override
   void initState() {
@@ -48,6 +49,12 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     _websiteController = TextEditingController(text: widget.result.website);
 
     _addressController = TextEditingController(text: widget.result.address);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _checkMatch();
+      }
+    });
   }
 
   @override
@@ -60,6 +67,47 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     _addressController.dispose();
 
     super.dispose();
+  }
+
+  void _onFieldChanged(String _) {
+    _checkMatch();
+  }
+
+  void _checkMatch() {
+    if (!mounted) {
+      return;
+    }
+
+    final businessName = _businessController.text.trim();
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
+
+    final session = context.read<SalesSession>();
+    final customerService = context.read<CustomerService>();
+
+    Customer? matchedCustomer;
+    CustomerContact? matchedContact;
+
+    if (businessName.isNotEmpty) {
+      matchedCustomer = customerService.findMatchingCustomer(
+        businessName: businessName,
+        region: session.currentUser.region,
+      );
+
+      if (matchedCustomer != null) {
+        matchedContact = customerService.findContactDuplicate(
+          customerId: matchedCustomer.id,
+          phone: phone,
+          email: email,
+        );
+      }
+    }
+
+    setState(() {
+      _matchedCustomer = matchedCustomer;
+      _matchedContact = matchedContact;
+      _matchChecked = true;
+    });
   }
 
   @override
@@ -85,7 +133,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
             const SizedBox(height: 5),
 
             const Text(
-              'Check the information before creating the customer.',
+              'Check the company and employee details before saving.',
               style: TextStyle(color: AppColors.muted, height: 1.4),
             ),
 
@@ -95,12 +143,14 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
               label: 'Business Name',
               controller: _businessController,
               icon: Icons.business_outlined,
+              onChanged: _onFieldChanged,
             ),
 
             _Field(
               label: 'Contact Name',
               controller: _contactController,
               icon: Icons.person_outline,
+              onChanged: _onFieldChanged,
             ),
 
             _Field(
@@ -108,6 +158,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
               controller: _phoneController,
               icon: Icons.phone_outlined,
               keyboardType: TextInputType.phone,
+              onChanged: _onFieldChanged,
             ),
 
             _Field(
@@ -115,6 +166,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
               controller: _emailController,
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
+              onChanged: _onFieldChanged,
             ),
 
             _Field(
@@ -122,6 +174,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
               controller: _websiteController,
               icon: Icons.language_outlined,
               keyboardType: TextInputType.url,
+              onChanged: _onFieldChanged,
             ),
 
             _Field(
@@ -129,80 +182,20 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
               controller: _addressController,
               icon: Icons.location_on_outlined,
               maxLines: 2,
+              onChanged: _onFieldChanged,
             ),
 
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
 
-            const Text(
-              'REGION',
-              style: TextStyle(
-                color: AppColors.muted,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            _buildRegionCard(session),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    color: AppColors.copper,
-                  ),
+            if (_matchChecked) _buildMatchResult(),
 
-                  const SizedBox(width: 10),
+            const SizedBox(height: 18),
 
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          session.regionName,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-
-                        const SizedBox(height: 2),
-
-                        const Text(
-                          'Customer will be assigned to your sales region.',
-                          style: TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const Icon(
-                    Icons.lock_outline,
-                    size: 17,
-                    color: AppColors.muted,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            SizedBox(
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: () {
-                  _createCustomer();
-                },
-                icon: const Icon(Icons.person_add_alt_1_outlined),
-                label: const Text('Create Customer'),
-              ),
-            ),
+            SizedBox(height: 52, child: _buildPrimaryAction()),
 
             const SizedBox(height: 12),
 
@@ -236,51 +229,472 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     );
   }
 
-  void _createCustomer() {
+  Widget _buildRegionCard(SalesSession session) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'REGION',
+          style: TextStyle(
+            color: AppColors.muted,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.location_on_outlined, color: AppColors.copper),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      session.regionName,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Company matching is limited to your sales region.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.lock_outline, size: 17, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMatchResult() {
+    final customer = _matchedCustomer;
+    final contact = _matchedContact;
+
+    if (_businessController.text.trim().isEmpty) {
+      return _buildStatusCard(
+        icon: Icons.info_outline,
+        title: 'Business name required',
+        message: 'Enter the company name before saving this contact.',
+        backgroundColor: AppColors.warningLight,
+        iconColor: AppColors.warning,
+      );
+    }
+
+    if (customer == null) {
+      return _buildStatusCard(
+        icon: Icons.add_business_outlined,
+        title: 'New Company',
+        message: 'No matching company was found in this region. A new company will be created.',
+        backgroundColor: AppColors.copperLight,
+        iconColor: AppColors.copper,
+      );
+    }
+
+    if (contact != null) {
+      return _buildExistingContactCard(customer, contact);
+    }
+
+    return _buildMatchedCompanyCard(customer);
+  }
+
+  Widget _buildMatchedCompanyCard(Customer customer) {
+    final contactName = _contactController.text.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.successLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.success),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.business_outlined, color: AppColors.success),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Existing Company Found',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            customer.businessName,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.text,
+            ),
+          ),
+
+          if (customer.address.trim().isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              customer.address,
+              style: const TextStyle(color: AppColors.muted),
+            ),
+          ],
+
+          if (customer.abn.trim().isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              'ABN ${customer.abn}',
+              style: const TextStyle(color: AppColors.muted),
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          Text(
+            contactName.isEmpty
+                ? 'This employee can be added to the existing company.'
+                : '$contactName can be added as a contact for ${customer.businessName}.',
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: AppColors.text,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExistingContactCard(Customer customer, CustomerContact contact) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.warning),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.person_search_outlined, color: AppColors.warning),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Existing Contact',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            customer.businessName,
+            style: const TextStyle(fontSize: 13, color: AppColors.muted),
+          ),
+
+          const SizedBox(height: 5),
+
+          Text(
+            contact.name.isEmpty ? 'Existing Contact' : contact.name,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.text,
+            ),
+          ),
+
+          if (contact.jobTitle.trim().isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              contact.jobTitle,
+              style: const TextStyle(color: AppColors.muted),
+            ),
+          ],
+
+          if (contact.phone.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.phone_outlined,
+                  size: 16,
+                  color: AppColors.muted,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    contact.phone,
+                    style: const TextStyle(color: AppColors.text),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          if (contact.email.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(
+                  Icons.email_outlined,
+                  size: 16,
+                  color: AppColors.muted,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    contact.email,
+                    style: const TextStyle(color: AppColors.text),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          const Text(
+            'This contact already exists. A duplicate will not be created.',
+            style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.text),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusCard({
+    required IconData icon,
+    required String title,
+    required String message,
+    required Color backgroundColor,
+    required Color iconColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: iconColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrimaryAction() {
+    if (_businessController.text.trim().isEmpty) {
+      return FilledButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.business_outlined),
+        label: const Text('Business Name Required'),
+      );
+    }
+
+    if (_matchedCustomer == null) {
+      return FilledButton.icon(
+        onPressed: _createCompanyAndContact,
+        icon: const Icon(Icons.add_business_outlined),
+        label: const Text('Create Company & Add Contact'),
+      );
+    }
+
+    if (_matchedContact != null) {
+      return FilledButton.icon(
+        onPressed: _openExistingCompany,
+        icon: const Icon(Icons.open_in_new),
+        label: const Text('View Existing Contact'),
+      );
+    }
+
+    return FilledButton.icon(
+      onPressed: _addToExistingCompany,
+      icon: const Icon(Icons.person_add_alt_1_outlined),
+      label: const Text('Add as Contact'),
+    );
+  }
+
+  void _createCompanyAndContact() {
     final businessName = _businessController.text.trim();
     final contactName = _contactController.text.trim();
     final phone = _phoneController.text.trim();
     final email = _emailController.text.trim();
-    final website = _websiteController.text.trim();
     final address = _addressController.text.trim();
 
     if (businessName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Business name is required.')),
-      );
+      _showMessage('Business name is required.');
       return;
     }
 
     final session = context.read<SalesSession>();
     final customerService = context.read<CustomerService>();
 
-    final duplicate = customerService.findDuplicate(
+    // Re-check immediately before writing.
+    final existingCustomer = customerService.findMatchingCustomer(
       businessName: businessName,
-      phone: phone,
-      email: email,
       region: session.currentUser.region,
     );
 
-    if (duplicate != null) {
-      _showDuplicateCustomerDialog(duplicate);
+    if (existingCustomer != null) {
+      _checkMatch();
+
+      _showMessage(
+        '${existingCustomer.businessName} already exists. Add the employee to the existing company instead.',
+      );
+
       return;
     }
 
     final customer = customerService.createCustomer(
       businessName: businessName,
-      contactName: contactName,
-      phone: phone,
-      email: email,
-      website: website,
       address: address,
+      abn: '',
       region: session.currentUser.region,
     );
 
-    if (!mounted) return;
+    if (_hasContactDetails(contactName, phone, email)) {
+      customerService.addContact(
+        customerId: customer.id,
+        name: contactName,
+        jobTitle: '',
+        phone: phone,
+        email: email,
+        isPrimary: true,
+      );
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${customer.businessName} created successfully.')),
+    _finish(customer, '${customer.businessName} created successfully.');
+  }
+
+  void _addToExistingCompany() {
+    final customer = _matchedCustomer;
+
+    if (customer == null) {
+      _checkMatch();
+      return;
+    }
+
+    final contactName = _contactController.text.trim();
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
+
+    if (!_hasContactDetails(contactName, phone, email)) {
+      _showMessage('Enter at least a contact name, phone or email.');
+      return;
+    }
+
+    final customerService = context.read<CustomerService>();
+
+    // Re-check duplicate immediately before writing.
+    final duplicate = customerService.findContactDuplicate(
+      customerId: customer.id,
+      phone: phone,
+      email: email,
     );
+
+    if (duplicate != null) {
+      setState(() {
+        _matchedContact = duplicate;
+      });
+
+      _showMessage('This contact already exists.');
+
+      return;
+    }
+
+    customerService.addContact(
+      customerId: customer.id,
+      name: contactName,
+      jobTitle: '',
+      phone: phone,
+      email: email,
+    );
+
+    _finish(
+      customer,
+      contactName.isEmpty
+          ? 'Contact added to ${customer.businessName}.'
+          : '$contactName added to ${customer.businessName}.',
+    );
+  }
+
+  void _openExistingCompany() {
+    final customer = _matchedCustomer;
+
+    if (customer == null) {
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CustomerDetailScreen(customer: customer),
+      ),
+    );
+  }
+
+  bool _hasContactDetails(String name, String phone, String email) {
+    return name.isNotEmpty || phone.isNotEmpty || email.isNotEmpty;
+  }
+
+  void _finish(Customer customer, String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
@@ -290,47 +704,13 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     );
   }
 
-  Future<void> _showDuplicateCustomerDialog(Customer customer) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Possible Duplicate'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('A customer with matching details already exists.'),
-              const SizedBox(height: 16),
-              Text(
-                customer.businessName,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              if (customer.contactName.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(customer.contactName),
-              ],
-              if (customer.phone.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(customer.phone),
-              ],
-              if (customer.email.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(customer.email),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Back'),
-            ),
-          ],
-        );
-      },
-    );
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -340,6 +720,7 @@ class _Field extends StatelessWidget {
   final IconData icon;
   final TextInputType? keyboardType;
   final int maxLines;
+  final ValueChanged<String>? onChanged;
 
   const _Field({
     required this.label,
@@ -347,6 +728,7 @@ class _Field extends StatelessWidget {
     required this.icon,
     this.keyboardType,
     this.maxLines = 1,
+    this.onChanged,
   });
 
   @override
@@ -357,6 +739,7 @@ class _Field extends StatelessWidget {
         controller: controller,
         keyboardType: keyboardType,
         maxLines: maxLines,
+        onChanged: onChanged,
         textCapitalization: TextCapitalization.words,
         decoration: InputDecoration(
           labelText: label,

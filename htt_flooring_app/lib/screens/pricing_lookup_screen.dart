@@ -42,10 +42,7 @@ class _PricingLookupScreenState extends State<PricingLookupScreen> {
 
       final query = _searchQuery.toLowerCase();
 
-      return customer.businessName.toLowerCase().contains(query) ||
-          customer.contactName.toLowerCase().contains(query) ||
-          customer.email.toLowerCase().contains(query) ||
-          customer.phone.toLowerCase().contains(query);
+      return customerService.customerMatchesSearch(customer, query);
     }).toList();
 
     regionCustomers.sort(
@@ -213,12 +210,24 @@ class _CustomerPricingCard extends StatelessWidget {
 
                       const SizedBox(height: 3),
 
-                      Text(
-                        customer.contactName,
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 12,
-                        ),
+                      Builder(
+                        builder: (context) {
+                          final primaryContact = context
+                              .read<CustomerService>()
+                              .getPrimaryContact(customer.id);
+
+                          if (primaryContact == null) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Text(
+                            primaryContact.name,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
                       ),
 
                       const SizedBox(height: 4),

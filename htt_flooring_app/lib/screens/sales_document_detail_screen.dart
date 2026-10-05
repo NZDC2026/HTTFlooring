@@ -95,9 +95,7 @@ class SalesDocumentDetailScreen extends StatelessWidget {
                       const SizedBox(height: 3),
 
                       Text(
-                        '${currentDocument.customer.region.label}'
-                        ' · '
-                        '${currentDocument.customer.contactName}',
+                        currentDocument.customer.region.label,
                         style: const TextStyle(color: AppColors.muted),
                       ),
                     ],

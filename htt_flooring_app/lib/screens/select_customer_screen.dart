@@ -34,8 +34,7 @@ class _SelectCustomerScreenState extends State<SelectCustomerScreen> {
 
       final query = search.toLowerCase();
 
-      return customer.businessName.toLowerCase().contains(query) ||
-          customer.contactName.toLowerCase().contains(query);
+      return customerService.customerMatchesSearch(customer, query);
     }).toList();
 
     return Scaffold(
