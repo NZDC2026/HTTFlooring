@@ -16,7 +16,7 @@ class SalesDocumentDetailScreen extends StatelessWidget {
     final service = context.watch<SalesDocumentService>();
 
     // 不直接使用传进来的旧 document。
-    // 转 Order 后重新读取最新状态。
+    // Re-read the latest document state after conversion/payment changes.
     final currentDocument = service.findByNumber(document.number) ?? document;
 
     return Scaffold(
@@ -252,7 +252,7 @@ class SalesDocumentDetailScreen extends StatelessWidget {
                         child: Text(
                           'Business number ${currentDocument.number} '
                           'is permanent and will remain the same '
-                          'through Quotation, Order and Invoice.',
+                          'from Quotation through to Invoice.',
                           style: const TextStyle(
                             color: AppColors.success,
                             fontWeight: FontWeight.w600,
@@ -340,55 +340,58 @@ class _QuotationAction extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        color: AppColors.card,
+        decoration: const BoxDecoration(
+          color: AppColors.card,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
         child: FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.copper),
-          onPressed: () {
-            _confirmConvert(context);
-          },
-          icon: const Icon(Icons.shopping_cart_checkout),
-          label: const Text('Convert to Order'),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.copper,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          onPressed: () => _confirmCreateInvoice(context),
+          icon: const Icon(Icons.receipt_long_outlined),
+          label: const Text(
+            'Create Invoice',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
         ),
       ),
     );
   }
 
-  void _confirmConvert(BuildContext context) {
-    showDialog(
+  void _confirmCreateInvoice(BuildContext context) {
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Convert to order?'),
-
+          title: const Text('Create invoice?'),
           content: Text(
-            'Quotation ${document.number} '
-            'will become Sales Order ${document.number}. '
-            'The business number will not change.',
+            'Quotation ${document.number}\n\n'
+            '${document.customer.businessName}\n'
+            'Total: \$${document.total.toStringAsFixed(2)}\n\n'
+            'This quotation will become Invoice ${document.number}. '
+            'The document number, customer snapshot, products, quantities '
+            'and selling prices will remain unchanged.',
           ),
-
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
-
             FilledButton(
               onPressed: () {
                 final service = context.read<SalesDocumentService>();
-
-                service.convertQuotationToOrder(document.number);
-
+                service.convertQuotationToInvoice(document.number);
                 Navigator.pop(dialogContext);
-
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Sales Order ${document.number} created.'),
+                    content: Text('Invoice ${document.number} created.'),
                   ),
                 );
               },
-              child: const Text('Convert'),
+              child: const Text('Create Invoice'),
             ),
           ],
         );
@@ -404,62 +407,9 @@ class _OrderAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        color: AppColors.card,
-        child: FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.copper),
-          onPressed: () {
-            _confirmConvertToInvoice(context);
-          },
-          icon: const Icon(Icons.receipt_long_outlined),
-          label: const Text('Convert to Invoice'),
-        ),
-      ),
-    );
-  }
-
-  void _confirmConvertToInvoice(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Convert to invoice?'),
-          content: Text(
-            'Sales Order ${document.number} '
-            'will become Invoice ${document.number}. '
-            'The business number will remain unchanged.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final service = context.read<SalesDocumentService>();
-
-                service.convertOrderToInvoice(document.number);
-
-                Navigator.pop(dialogContext);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Invoice ${document.number} created.'),
-                  ),
-                );
-              },
-              child: const Text('Create Invoice'),
-            ),
-          ],
-        );
-      },
-    );
+    // Orders are retained in the shared domain for warehouse/internal
+    // fulfilment, but Sales cannot create or convert them.
+    return const SizedBox.shrink();
   }
 }
 

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:htt_flooring_app/models/sales_user.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/customer.dart';
-import '../../../models/sales_user.dart';
-import '../../../services/sales_session.dart';
 import '../../../services/customer_service.dart';
+import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
 import 'customer_pricing_screen.dart';
 
@@ -31,50 +31,49 @@ class _PricingLookupScreenState extends State<PricingLookupScreen> {
     final session = context.watch<SalesSession>();
     final customerService = context.watch<CustomerService>();
 
-    final regionCustomers = customerService.customers.where((customer) {
-      if (!session.canAccessRegion(customer.region)) {
-        return false;
-      }
+    final customers =
+        customerService.customers.where((customer) {
+          if (!session.canAccessRegion(customer.region)) {
+            return false;
+          }
 
-      if (_searchQuery.isEmpty) {
-        return true;
-      }
+          if (_searchQuery.isEmpty) {
+            return true;
+          }
 
-      final query = _searchQuery.toLowerCase();
-
-      return customerService.customerMatchesSearch(customer, query);
-    }).toList();
-
-    regionCustomers.sort(
-      (a, b) =>
-          a.businessName.toLowerCase().compareTo(b.businessName.toLowerCase()),
-    );
+          return customerService.customerMatchesSearch(customer, _searchQuery);
+        }).toList()..sort(
+          (a, b) => a.businessName.toLowerCase().compareTo(
+            b.businessName.toLowerCase(),
+          ),
+        );
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Pricing Lookup')),
+      appBar: AppBar(title: const Text('Customer Pricing')),
       body: ListView(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 30),
         children: [
           const Text(
-            'Customer Pricing',
+            'Select Customer',
             style: TextStyle(
+              color: AppColors.text,
               fontFamily: 'serif',
               fontSize: 26,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
-
           const SizedBox(height: 5),
-
           Text(
-            'Select a ${session.regionName} customer '
-            'to view customer-specific pricing.',
-            style: const TextStyle(color: AppColors.muted, height: 1.4),
+            'View customer-specific pricing for '
+            '${session.regionName} customers.',
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 13,
+              height: 1.4,
+            ),
           ),
-
           const SizedBox(height: 20),
-
           TextField(
             controller: _searchController,
             onChanged: (value) {
@@ -83,7 +82,7 @@ class _PricingLookupScreenState extends State<PricingLookupScreen> {
               });
             },
             decoration: InputDecoration(
-              hintText: 'Search customer...',
+              hintText: 'Search customer or contact...',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: _searchQuery.isEmpty
                   ? null
@@ -99,68 +98,67 @@ class _PricingLookupScreenState extends State<PricingLookupScreen> {
                     ),
               filled: true,
               fillColor: AppColors.card,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: AppColors.border),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.green),
               ),
             ),
           ),
-
-          const SizedBox(height: 22),
-
+          const SizedBox(height: 25),
           Row(
             children: [
               const Expanded(
                 child: Text(
                   'Customers',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    color: AppColors.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-
               Text(
-                '${regionCustomers.length}',
+                '${customers.length}',
                 style: const TextStyle(
                   color: AppColors.muted,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-
           const SizedBox(height: 12),
-
-          if (regionCustomers.isEmpty)
+          if (customers.isEmpty)
             const _EmptyCustomerState()
           else
-            ...regionCustomers.map(
-              (customer) => _CustomerPricingCard(customer: customer),
-            ),
+            ...customers.map((customer) => _CustomerCard(customer: customer)),
         ],
       ),
     );
   }
 }
 
-class _CustomerPricingCard extends StatelessWidget {
-  final Customer customer;
+class _CustomerCard extends StatelessWidget {
+  const _CustomerCard({required this.customer});
 
-  const _CustomerPricingCard({required this.customer});
+  final Customer customer;
 
   @override
   Widget build(BuildContext context) {
-    final initials = _getInitials(customer.businessName);
+    final customerService = context.read<CustomerService>();
+    final primaryContact = customerService.getPrimaryContact(customer.id);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
           onTap: () {
             Navigator.push(
               context,
@@ -170,32 +168,25 @@ class _CustomerPricingCard extends StatelessWidget {
             );
           },
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.copperLight,
-                    shape: BoxShape.circle,
-                  ),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.copperLight,
                   child: Text(
-                    initials,
+                    _initials(customer.businessName),
                     style: const TextStyle(
                       color: AppColors.copper,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-
-                const SizedBox(width: 12),
-
+                const SizedBox(width: 13),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,47 +194,40 @@ class _CustomerPricingCard extends StatelessWidget {
                       Text(
                         customer.businessName,
                         style: const TextStyle(
+                          color: AppColors.text,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-
-                      const SizedBox(height: 3),
-
-                      Builder(
-                        builder: (context) {
-                          final primaryContact = context
-                              .read<CustomerService>()
-                              .getPrimaryContact(customer.id);
-
-                          if (primaryContact == null) {
-                            return const SizedBox.shrink();
-                          }
-
-                          return Text(
-                            primaryContact.name,
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 12,
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 4),
-
+                      if (primaryContact != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          primaryContact.name,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 5),
                       Row(
                         children: [
                           const Icon(
                             Icons.location_on_outlined,
                             size: 13,
-                            color: AppColors.muted,
+                            color: AppColors.copper,
                           ),
-
-                          const SizedBox(width: 3),
-
+                          const SizedBox(width: 4),
                           Text(
                             customer.region.label,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            customer.type,
                             style: const TextStyle(
                               color: AppColors.muted,
                               fontSize: 11,
@@ -254,28 +238,6 @@ class _CustomerPricingCard extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.copperLight,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'PRICING',
-                    style: TextStyle(
-                      color: AppColors.copper,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 5),
-
                 const Icon(Icons.chevron_right, color: AppColors.muted),
               ],
             ),
@@ -285,8 +247,8 @@ class _CustomerPricingCard extends StatelessWidget {
     );
   }
 
-  String _getInitials(String name) {
-    final words = name
+  String _initials(String value) {
+    final words = value
         .trim()
         .split(RegExp(r'\s+'))
         .where((word) => word.isNotEmpty)
@@ -297,7 +259,9 @@ class _CustomerPricingCard extends StatelessWidget {
     }
 
     if (words.length == 1) {
-      return words.first.substring(0, 1).toUpperCase();
+      final word = words.first;
+
+      return word.substring(0, word.length >= 2 ? 2 : 1).toUpperCase();
     }
 
     return '${words[0][0]}${words[1][0]}'.toUpperCase();
@@ -310,26 +274,25 @@ class _EmptyCustomerState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(30),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 38),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
       child: const Column(
         children: [
-          Icon(Icons.person_search_outlined, size: 34, color: AppColors.muted),
-
-          SizedBox(height: 10),
-
+          Icon(Icons.person_search_outlined, size: 40, color: AppColors.muted),
+          SizedBox(height: 12),
           Text(
             'No customers found',
-            style: TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: AppColors.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-
-          SizedBox(height: 4),
-
+          SizedBox(height: 5),
           Text(
             'Try another customer name or contact.',
             textAlign: TextAlign.center,

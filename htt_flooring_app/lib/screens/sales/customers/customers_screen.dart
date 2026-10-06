@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:htt_flooring_app/models/sales_user.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/customer.dart';
+import '../../../models/customer_location.dart';
+import '../../../services/customer_location_service.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
-import 'customer_detail_screen.dart';
 
-enum _CustomerView { active, archived }
+import 'business_card_scanner_screen.dart';
+import 'customer_detail_screen.dart';
+import 'customer_map_screen.dart';
+
+enum _CustomerFilter { all, nearby, recent, alphabetical }
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -21,7 +26,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   String _query = '';
-  _CustomerView _view = _CustomerView.active;
+
+  _CustomerFilter _filter = _CustomerFilter.all;
 
   @override
   void dispose() {
@@ -33,420 +39,545 @@ class _CustomersScreenState extends State<CustomersScreen> {
   Widget build(BuildContext context) {
     final session = context.watch<SalesSession>();
     final customerService = context.watch<CustomerService>();
+    final locationService = context.watch<CustomerLocationService>();
 
-    final activeCustomers = customerService.customers
-        .where((customer) => session.canAccessRegion(customer.region))
+    final customers = customerService.customers
+        .where(
+          (customer) =>
+              session.canAccessRegion(customer.region) &&
+              customerService.customerMatchesSearch(customer, _query),
+        )
         .toList();
 
-    final archivedCustomers = customerService.archivedCustomers
-        .where((customer) => session.canAccessRegion(customer.region))
-        .toList();
-
-    final sourceCustomers = _view == _CustomerView.active
-        ? activeCustomers
-        : archivedCustomers;
-
-    final customers = sourceCustomers.where((customer) {
-      if (_query.isEmpty) {
-        return true;
-      }
-
-      return customerService.customerMatchesSearch(customer, _query);
-    }).toList();
-
-    customers.sort(
-      (a, b) =>
-          a.businessName.toLowerCase().compareTo(b.businessName.toLowerCase()),
-    );
+    final filteredCustomers = _applyFilter(customers, locationService);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Customers')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _query = value.trim();
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search company, address or ABN...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-
-                          setState(() {
-                            _query = '';
-                          });
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
-                filled: true,
-                fillColor: AppColors.card,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text('Customers'),
+        actions: [
+          IconButton(
+            tooltip: 'Scan Business Card',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BusinessCardScannerScreen(),
                 ),
-              ),
-            ),
+              );
+            },
+            icon: const Icon(Icons.document_scanner_outlined),
           ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildViewButton(
-                    label: 'Active',
-                    count: activeCustomers.length,
-                    icon: Icons.business_outlined,
-                    selected: _view == _CustomerView.active,
-                    onTap: () {
-                      setState(() {
-                        _view = _CustomerView.active;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildViewButton(
-                    label: 'Archived',
-                    count: archivedCustomers.length,
-                    icon: Icons.archive_outlined,
-                    selected: _view == _CustomerView.archived,
-                    onTap: () {
-                      setState(() {
-                        _view = _CustomerView.archived;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: customers.isEmpty
-                ? _buildEmptyState()
-                : ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    itemCount: customers.length,
-                    separatorBuilder: (_, _) =>
-                        const Divider(height: 1, color: AppColors.border),
-                    itemBuilder: (context, index) {
-                      final customer = customers[index];
-
-                      if (_view == _CustomerView.archived) {
-                        return _buildArchivedCustomerTile(customer);
-                      }
-
-                      return _buildActiveCustomerTile(customer);
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildViewButton({
-    required String label,
-    required int count,
-    required IconData icon,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: selected ? AppColors.copperLight : AppColors.card,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected ? AppColors.copper : AppColors.border,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: selected ? AppColors.copper : AppColors.muted,
-              ),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? AppColors.copper : AppColors.text,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.card : AppColors.background,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? AppColors.copper : AppColors.muted,
-                  ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'archived') {
+                _showArchivedCustomers(context);
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'archived',
+                child: Row(
+                  children: [
+                    Icon(Icons.archive_outlined),
+                    SizedBox(width: 10),
+                    Text('Archived Customers'),
+                  ],
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildActiveCustomerTile(Customer customer) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      leading: _buildAvatar(customer),
-      title: _buildCompanyName(customer),
-      subtitle: _buildCompanyDetails(customer),
-      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CustomerDetailScreen(customer: customer),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildArchivedCustomerTile(Customer customer) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
         children: [
-          _buildAvatar(customer),
+          _buildSearch(),
 
-          const SizedBox(width: 14),
+          _buildViewSwitcher(),
+
+          _buildFilters(),
 
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildCompanyName(customer),
+            child: filteredCustomers.isEmpty
+                ? _buildEmptyState()
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+                    itemCount: filteredCustomers.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final customer = filteredCustomers[index];
 
-                const SizedBox(height: 7),
+                      final locations = locationService.getForCustomer(
+                        customer.id,
+                      );
 
-                _buildCompanyDetails(customer),
+                      final primaryLocation = _primaryLocation(locations);
 
-                if (customer.archivedAt != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.archive_outlined,
-                        size: 14,
-                        color: AppColors.muted,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'Archived ${DateFormat('d MMM yyyy').format(customer.archivedAt!)}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                    ],
+                      return _buildCustomerCard(customer, primaryLocation);
+                    },
                   ),
-                ],
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 10),
-
-          OutlinedButton.icon(
-            onPressed: () => _confirmRestore(customer),
-            icon: const Icon(Icons.unarchive_outlined, size: 17),
-            label: const Text('Restore'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAvatar(Customer customer) {
-    return CircleAvatar(
-      backgroundColor: AppColors.copperLight,
-      child: Text(
-        _companyInitials(customer.businessName),
-        style: const TextStyle(
-          color: AppColors.copper,
-          fontWeight: FontWeight.w700,
+  Widget _buildSearch() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) {
+          setState(() {
+            _query = value.trim();
+          });
+        },
+        decoration: InputDecoration(
+          hintText: 'Search customers...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _query.isEmpty
+              ? null
+              : IconButton(
+                  onPressed: () {
+                    _searchController.clear();
+
+                    setState(() {
+                      _query = '';
+                    });
+                  },
+                  icon: const Icon(Icons.close),
+                ),
+          filled: true,
+          fillColor: AppColors.card,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCompanyName(Customer customer) {
-    return Text(
-      customer.businessName,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: AppColors.text,
-      ),
-    );
-  }
-
-  Widget _buildCompanyDetails(Customer customer) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (customer.address.trim().isNotEmpty)
-          _buildCompanyInfo(
-            icon: Icons.location_on_outlined,
-            text: customer.address,
-          ),
-
-        if (customer.address.trim().isNotEmpty &&
-            customer.abn.trim().isNotEmpty)
-          const SizedBox(height: 5),
-
-        if (customer.abn.trim().isNotEmpty)
-          _buildCompanyInfo(
-            icon: Icons.badge_outlined,
-            text: 'ABN ${customer.abn}',
-          ),
-
-        if (customer.address.trim().isEmpty && customer.abn.trim().isEmpty)
-          const Text(
-            'No company details',
-            style: TextStyle(fontSize: 13, color: AppColors.muted),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _confirmRestore(Customer customer) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Restore Customer?'),
-          content: Text(
-            '${customer.businessName} will be restored '
-            'to Active Customers and can be used '
-            'for new sales documents again.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+  Widget _buildViewSwitcher() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _viewButton(
+                icon: Icons.list,
+                label: 'List',
+                selected: true,
+                onTap: () {},
+              ),
             ),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              icon: const Icon(Icons.unarchive_outlined),
-              label: const Text('Restore'),
+            Expanded(
+              child: _viewButton(
+                icon: Icons.map_outlined,
+                label: 'Map',
+                selected: false,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CustomerMapScreen(),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
-    context.read<CustomerService>().restoreCustomer(customer.id);
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${customer.businessName} restored.')),
+        ),
+      ),
     );
   }
 
-  Widget _buildCompanyInfo({required IconData icon, required String text}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 15, color: AppColors.muted),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.3,
-              color: AppColors.muted,
+  Widget _viewButton({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(9),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.green : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? Colors.white : AppColors.muted,
             ),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : AppColors.text,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return SizedBox(
+      height: 46,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        children: [
+          _filterChip('All', _CustomerFilter.all),
+          _filterChip('Nearby', _CustomerFilter.nearby),
+          _filterChip('Recent', _CustomerFilter.recent),
+          _filterChip('A-Z', _CustomerFilter.alphabetical),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, _CustomerFilter value) {
+    final selected = _filter == value;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        selectedColor: AppColors.copperLight,
+        backgroundColor: AppColors.card,
+        side: BorderSide(color: selected ? AppColors.copper : AppColors.border),
+        labelStyle: TextStyle(
+          color: selected ? AppColors.copper : AppColors.text,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        onSelected: (_) {
+          setState(() {
+            _filter = value;
+          });
+        },
+      ),
+    );
+  }
+
+  List<Customer> _applyFilter(
+    List<Customer> source,
+    CustomerLocationService locationService,
+  ) {
+    final customers = List<Customer>.from(source);
+
+    switch (_filter) {
+      case _CustomerFilter.all:
+        return customers;
+
+      case _CustomerFilter.nearby:
+        customers.removeWhere((customer) {
+          final locations = locationService.getForCustomer(customer.id);
+
+          if (locations.isEmpty) {
+            return true;
+          }
+
+          return !locations.any((location) => location.distanceKm <= 20);
+        });
+
+        customers.sort((a, b) {
+          final aDistance = _nearestDistance(
+            locationService.getForCustomer(a.id),
+          );
+
+          final bDistance = _nearestDistance(
+            locationService.getForCustomer(b.id),
+          );
+
+          return aDistance.compareTo(bDistance);
+        });
+
+        return customers;
+
+      case _CustomerFilter.recent:
+        customers.sort((a, b) {
+          final aDate = a.lastOrderDate ?? DateTime(2000);
+
+          final bDate = b.lastOrderDate ?? DateTime(2000);
+
+          return bDate.compareTo(aDate);
+        });
+
+        return customers;
+
+      case _CustomerFilter.alphabetical:
+        customers.sort(
+          (a, b) => a.businessName.toLowerCase().compareTo(
+            b.businessName.toLowerCase(),
+          ),
+        );
+
+        return customers;
+    }
+  }
+
+  double _nearestDistance(List<CustomerLocation> locations) {
+    if (locations.isEmpty) {
+      return double.infinity;
+    }
+
+    return locations
+        .map((location) => location.distanceKm)
+        .reduce((a, b) => a < b ? a : b);
+  }
+
+  CustomerLocation? _primaryLocation(List<CustomerLocation> locations) {
+    if (locations.isEmpty) {
+      return null;
+    }
+
+    for (final location in locations) {
+      if (location.isPrimary) {
+        return location;
+      }
+    }
+
+    return locations.first;
+  }
+
+  Widget _buildCustomerCard(Customer customer, CustomerLocation? location) {
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CustomerDetailScreen(customer: customer),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: AppColors.copperLight,
+                child: Text(
+                  _companyInitials(customer.businessName),
+                  style: const TextStyle(
+                    color: AppColors.copper,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 13),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      customer.businessName,
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    Row(
+                      children: [
+                        if (location != null) ...[
+                          const Icon(
+                            Icons.near_me_outlined,
+                            size: 13,
+                            color: AppColors.copper,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${location.distanceKm.toStringAsFixed(1)} km',
+                            style: const TextStyle(
+                              color: AppColors.copper,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(
+                          customer.region.label,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 7),
+
+                    Text(
+                      location?.address ?? customer.address,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildEmptyState() {
-    final archived = _view == _CustomerView.archived;
-
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              archived ? Icons.archive_outlined : Icons.business_outlined,
-              size: 42,
-              color: AppColors.muted,
-            ),
-            const SizedBox(height: 12),
+            Icon(Icons.people_outline, size: 44, color: AppColors.muted),
+            SizedBox(height: 12),
             Text(
-              _query.isNotEmpty
-                  ? 'No matching companies'
-                  : archived
-                  ? 'No archived customers'
-                  : 'No active customers',
-              style: const TextStyle(
+              'No customers found',
+              style: TextStyle(
+                color: AppColors.text,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: AppColors.text,
               ),
             ),
-            if (_query.isNotEmpty) ...[
-              const SizedBox(height: 5),
-              const Text(
-                'Try another company name, address or ABN.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppColors.muted),
-              ),
-            ],
           ],
         ),
       ),
+    );
+  }
+
+  void _showArchivedCustomers(BuildContext context) {
+    final service = context.read<CustomerService>();
+
+    final session = context.read<SalesSession>();
+
+    final archived = service.archivedCustomers
+        .where((customer) => session.canAccessRegion(customer.region))
+        .toList();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.background,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(sheetContext).height * 0.72,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Archived Customers',
+                          style: TextStyle(
+                            color: AppColors.text,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1, color: AppColors.border),
+
+                Expanded(
+                  child: archived.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No archived customers',
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: archived.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final customer = archived[index];
+
+                            return ListTile(
+                              title: Text(customer.businessName),
+                              subtitle: Text(customer.address),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+
+                                Navigator.push(
+                                  this.context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CustomerDetailScreen(
+                                      customer: customer,
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -464,13 +595,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
     if (words.length == 1) {
       final word = words.first;
 
-      if (word.length == 1) {
-        return word.toUpperCase();
-      }
-
-      return word.substring(0, 2).toUpperCase();
+      return word.length == 1
+          ? word.toUpperCase()
+          : word.substring(0, 2).toUpperCase();
     }
 
-    return '${words.first[0]}${words[1][0]}'.toUpperCase();
+    return '${words[0][0]}${words[1][0]}'.toUpperCase();
   }
 }

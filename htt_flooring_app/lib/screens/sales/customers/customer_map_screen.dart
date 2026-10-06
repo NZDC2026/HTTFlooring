@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../models/customer.dart';
 import '../../../models/customer_location.dart';
 import '../../../services/customer_location_service.dart';
 import '../../../services/customer_service.dart';
@@ -12,9 +11,14 @@ import '../../../theme/app_theme.dart';
 import 'customer_detail_screen.dart';
 
 class CustomerMapScreen extends StatefulWidget {
-  const CustomerMapScreen({super.key, this.initialDistanceKm = 20});
+  const CustomerMapScreen({
+    super.key,
+    this.initialDistanceKm = 20,
+    this.customerId,
+  });
 
   final double initialDistanceKm;
+  final String? customerId;
 
   @override
   State<CustomerMapScreen> createState() => _CustomerMapScreenState();
@@ -40,10 +44,16 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
 
     final locationService = context.watch<CustomerLocationService>();
 
-    final locations = locationService.getForRegion(
+    final regionLocations = locationService.getForRegion(
       session.region,
       maxDistanceKm: _distanceKm,
     );
+
+    final locations = widget.customerId == null
+        ? regionLocations
+        : regionLocations
+              .where((location) => location.customerId == widget.customerId)
+              .toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,

@@ -12,6 +12,7 @@ import 'services/pricing_service.dart';
 import 'services/quote_service.dart';
 import 'services/sales_document_service.dart';
 import 'services/sales_session.dart';
+import 'services/warehouse_order_service.dart';
 
 import 'theme/app_theme.dart';
 
@@ -38,6 +39,8 @@ void main() {
         // Temporary compatibility provider.
         // Existing Sales screens still depend on SalesSession.
         ChangeNotifierProvider(create: (_) => SalesSession()),
+
+        ChangeNotifierProvider(create: (_) => WarehouseOrderService()),
       ],
       child: const HttFlooringApp(),
     ),

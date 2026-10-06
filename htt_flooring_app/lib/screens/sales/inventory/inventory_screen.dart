@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../../../services/sales_session.dart';
 import '../../../data/mock_data.dart';
 import '../../../models/product.dart';
+import '../../../models/sales_user.dart';
+import '../../../models/warehouse_inventory.dart';
+import '../../../services/inventory_service.dart';
 import '../../../theme/app_theme.dart';
 import 'product_detail_screen.dart';
 
@@ -17,7 +18,9 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-  String _selectedCategory = 'All';
+  final InventoryService _inventoryService = const InventoryService();
+
+  String _selectedFilter = 'All';
 
   List<Product> get filteredProducts {
     final query = _searchController.text.trim().toLowerCase();
@@ -27,12 +30,33 @@ class _InventoryScreenState extends State<InventoryScreen> {
           query.isEmpty ||
           product.name.toLowerCase().contains(query) ||
           product.sku.toLowerCase().contains(query) ||
-          product.colour.toLowerCase().contains(query);
+          product.colour.toLowerCase().contains(query) ||
+          product.category.toLowerCase().contains(query);
 
-      final matchesCategory =
-          _selectedCategory == 'All' || product.category == _selectedCategory;
+      bool matchesFilter;
 
-      return matchesSearch && matchesCategory;
+      switch (_selectedFilter) {
+        case 'In Stock':
+          matchesFilter = _inventoryService.isInStock(product.id);
+          break;
+
+        case 'Hybrid':
+          matchesFilter = product.category.toLowerCase() == 'hybrid';
+          break;
+
+        case 'Laminate':
+          matchesFilter = product.category.toLowerCase() == 'laminate';
+          break;
+
+        case 'Timber':
+          matchesFilter = product.category.toLowerCase().contains('timber');
+          break;
+
+        default:
+          matchesFilter = true;
+      }
+
+      return matchesSearch && matchesFilter;
     }).toList();
   }
 
@@ -44,29 +68,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<SalesSession>();
-
     final visibleProducts = filteredProducts;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-
       appBar: AppBar(
         title: const Text('Inventory Lookup'),
         automaticallyImplyLeading: false,
       ),
-
       body: Column(
         children: [
-          _buildHeader(session),
-
-          _buildCategories(),
-
+          _buildSearch(),
+          _buildFilters(),
           Expanded(
             child: visibleProducts.isEmpty
                 ? _buildEmptyState()
                 : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                     itemCount: visibleProducts.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
@@ -79,41 +97,45 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildHeader(SalesSession session) {
+  Widget _buildSearch() {
     return Container(
       color: AppColors.green,
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.location_on_outlined, size: 16, color: Colors.white70),
-              SizedBox(width: 5),
-              Text(
-                '${session.regionName} Inventory',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(width: 5),
-              Icon(Icons.lock_outline, size: 13, color: Colors.white70),
-            ],
+          const Text(
+            'Check stock across warehouses',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-
+          const SizedBox(height: 4),
+          const Text(
+            'Sydney and Melbourne inventory',
+            style: TextStyle(color: Colors.white70, fontSize: 11),
+          ),
           const SizedBox(height: 14),
-
           TextField(
             controller: _searchController,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) {
+              setState(() {});
+            },
             decoration: InputDecoration(
-              hintText: 'Search by name, colour or SKU...',
+              hintText: 'Search product, colour or SKU...',
               prefixIcon: const Icon(Icons.search),
-              suffixIcon: IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.qr_code_scanner),
-              ),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _searchController.clear();
+
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
               filled: true,
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(vertical: 13),
@@ -123,21 +145,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
             ),
           ),
-
-          const SizedBox(height: 10),
-
-          Text(
-            'Only products and stock available to your '
-            '${session.regionName} sales region are shown.',
-            style: TextStyle(color: Colors.white70, fontSize: 11),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildCategories() {
-    final categories = ['All', 'Engineered Timber', 'Hybrid', 'Laminate'];
+  Widget _buildFilters() {
+    const filters = ['All', 'In Stock', 'Timber', 'Hybrid', 'Laminate'];
 
     return Container(
       width: double.infinity,
@@ -146,17 +160,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: categories.map((category) {
-            final selected = _selectedCategory == category;
+          children: filters.map((filter) {
+            final selected = _selectedFilter == filter;
 
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(category),
+                label: Text(filter),
                 selected: selected,
+                showCheckmark: false,
+                selectedColor: AppColors.copperLight,
+                backgroundColor: AppColors.background,
+                side: BorderSide(
+                  color: selected ? AppColors.copper : AppColors.border,
+                ),
+                labelStyle: TextStyle(
+                  color: selected ? AppColors.copper : AppColors.text,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
                 onSelected: (_) {
                   setState(() {
-                    _selectedCategory = category;
+                    _selectedFilter = filter;
                   });
                 },
               ),
@@ -168,138 +193,184 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildProductCard(Product product) {
-    final lowStock = product.status == 'Low Stock';
-    final session = context.watch<SalesSession>();
+    final sydney = _inventoryService.getForProductAndRegion(
+      product.id,
+      SalesRegion.sydney,
+    );
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProductDetailScreen(product: product),
-          ),
-        );
-      },
+    final melbourne = _inventoryService.getForProductAndRegion(
+      product.id,
+      SalesRegion.melbourne,
+    );
 
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-
-        child: Row(
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                color: AppColors.copperLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.texture,
-                color: AppColors.copper,
-                size: 30,
-              ),
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProductDetailScreen(product: product),
             ),
-
-            const SizedBox(width: 13),
-
-            Expanded(
-              child: Column(
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: [
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    product.name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: AppColors.copperLight,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.texture,
+                      color: AppColors.copper,
+                      size: 28,
                     ),
                   ),
-
-                  const SizedBox(height: 2),
-
-                  Text(
-                    '${product.sku} · ${product.category}',
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 11,
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.name,
+                          style: const TextStyle(
+                            color: AppColors.text,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${product.sku} · '
+                          '${product.category}',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 10,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          '\$${product.standardPrice.toStringAsFixed(2)} / m²',
+                          style: const TextStyle(
+                            color: AppColors.copper,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-
-                  const SizedBox(height: 9),
-
-                  Text(
-                    session.regionName,
-                    style: TextStyle(color: AppColors.muted, fontSize: 10),
-                  ),
-
-                  const SizedBox(height: 2),
-
-                  Text(
-                    '${product.stockBoxes} boxes · '
-                    '${product.stockSqm.toStringAsFixed(2)} m²',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  const Icon(Icons.chevron_right, color: AppColors.muted),
                 ],
               ),
-            ),
-
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: lowStock
-                        ? AppColors.warningLight
-                        : AppColors.successLight,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    product.status,
-                    style: TextStyle(
-                      color: lowStock ? AppColors.warning : AppColors.success,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 22),
-
-                const Icon(Icons.chevron_right, color: AppColors.muted),
-              ],
-            ),
-          ],
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: AppColors.border),
+              const SizedBox(height: 13),
+              Row(
+                children: [
+                  Expanded(child: _warehouseSummary('Sydney', sydney)),
+                  Container(width: 1, height: 52, color: AppColors.border),
+                  Expanded(child: _warehouseSummary('Melbourne', melbourne)),
+                ],
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _warehouseSummary(String warehouse, WarehouseInventory? inventory) {
+    final boxes = inventory?.stockBoxes ?? 0;
+    final inStock = boxes > 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            warehouse,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '$boxes boxes',
+            style: const TextStyle(
+              color: AppColors.text,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: inStock ? AppColors.success : AppColors.danger,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                inStock ? 'In Stock' : 'Out of Stock',
+                style: TextStyle(
+                  color: inStock ? AppColors.success : AppColors.danger,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
     return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.inventory_2_outlined, size: 42, color: AppColors.muted),
-          SizedBox(height: 12),
-          Text(
-            'No products found',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Try another product name, colour or SKU.',
-            style: TextStyle(color: AppColors.muted),
-          ),
-        ],
+      child: Padding(
+        padding: EdgeInsets.all(30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 42, color: AppColors.muted),
+            SizedBox(height: 12),
+            Text(
+              'No products found',
+              style: TextStyle(
+                color: AppColors.text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Try another product, colour or SKU.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.muted),
+            ),
+          ],
+        ),
       ),
     );
   }

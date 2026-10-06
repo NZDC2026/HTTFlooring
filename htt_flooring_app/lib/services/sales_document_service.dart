@@ -108,6 +108,30 @@ class SalesDocumentService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void convertQuotationToInvoice(String number) {
+    final index = _findIndex(number);
+
+    final document = _documents[index];
+
+    if (document.status != SalesDocumentStatus.quotation) {
+      throw StateError('Only quotations can be converted to invoices.');
+    }
+
+    final invoiceDate = DateTime.now();
+    final dueDate = invoiceDate.add(const Duration(days: 30));
+
+    _documents[index] = document.copyWith(
+      status: SalesDocumentStatus.invoice,
+      convertedToInvoiceAt: invoiceDate,
+      invoiceDate: invoiceDate,
+      dueDate: dueDate,
+      amountPaid: 0,
+    );
+
+    notifyListeners();
+  }
+
+  // Retained for the internal/warehouse workflow. Sales UI must not call this.
   void convertQuotationToOrder(String number) {
     final index = _findIndex(number);
 
