@@ -22,13 +22,29 @@ const pageNames: Record<string, string> = {
 export function Topbar() {
     const location = useLocation();
 
-    const pageTitle =
+    let pageTitle =
+        pageNames[location.pathname] ??
+        "HTT Management";
+
+    if (
+        location.pathname ===
+        "/contacts/customers/new"
+    ) {
+        pageTitle = "New Customer";
+    } else if (
+        location.pathname.startsWith(
+            "/contacts/customers/",
+        ) &&
+        location.pathname.endsWith("/edit")
+    ) {
+        pageTitle = "Edit Customer";
+    } else if (
         location.pathname.startsWith(
             "/contacts/customers/",
         )
-            ? "Customer"
-            : pageNames[location.pathname] ??
-            "HTT Management";
+    ) {
+        pageTitle = "Customer";
+    }
 
     return (
         <header

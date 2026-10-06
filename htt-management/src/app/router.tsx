@@ -4,6 +4,7 @@ import { AppLayout } from "../layouts/AppLayout";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { CustomersPage } from "../features/contacts/pages/CustomersPage";
 import { CustomerDetailPage } from "../features/contacts/pages/CustomerDetailPage";
+import { CustomerFormPage } from "../features/contacts/pages/CustomerFormPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
 export const router = createHashRouter([
@@ -50,6 +51,18 @@ export const router = createHashRouter([
             {
                 path: "contacts",
                 element: <CustomersPage />,
+            },
+            {
+                path: "contacts/customers/new",
+                element: (
+                    <CustomerFormPage mode="create" />
+                ),
+            },
+            {
+                path: "contacts/customers/:customerId/edit",
+                element: (
+                    <CustomerFormPage mode="edit" />
+                ),
             },
             {
                 path: "contacts/customers/:customerId",

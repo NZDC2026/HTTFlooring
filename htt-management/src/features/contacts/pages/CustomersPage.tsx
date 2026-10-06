@@ -1,6 +1,7 @@
-import { useMemo } from "react";
 import { Plus } from "lucide-react";
+
 import { useNavigate } from "react-router-dom";
+
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { DataTable } from "../../../components/data-table/DataTable";
@@ -8,165 +9,195 @@ import { Button } from "../../../components/ui/Button";
 
 import { CustomerStatusBadge } from "../components/CustomerStatusBadge";
 
-import { mockCustomers } from "../data/mockCustomers";
+import { useCustomers } from "../data/useCustomers";
 
 import type { Customer } from "../types/customer";
 
-const columns: ColumnDef<Customer, unknown>[] = [
-    {
-        accessorKey: "businessName",
-        header: "Customer",
-        cell: ({ row }) => (
-            <div>
-                <div className="font-medium text-[var(--color-primary)]">
-                    {row.original.businessName}
-                </div>
+const columns: ColumnDef<
+    Customer,
+    unknown
+>[] = [
+        {
+            accessorKey: "businessName",
+            header: "Customer",
 
-                <div className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
-                    {row.original.code}
-                </div>
-            </div>
-        ),
-    },
-
-    {
-        accessorKey: "businessType",
-        header: "Business Type",
-        cell: ({ row }) => (
-            <span className="text-[var(--color-text-secondary)]">
-                {row.original.businessType}
-            </span>
-        ),
-    },
-
-    {
-        id: "primaryContact",
-        header: "Primary Contact",
-        accessorFn: (customer) => {
-            const contact = customer.contacts.find(
-                (item) =>
-                    item.id === customer.primaryContactId,
-            );
-
-            return contact
-                ? `${contact.firstName} ${contact.lastName}`
-                : "";
-        },
-
-        cell: ({ row }) => {
-            const contact = row.original.contacts.find(
-                (item) =>
-                    item.id ===
-                    row.original.primaryContactId,
-            );
-
-            if (!contact) {
-                return (
-                    <span className="text-[var(--color-text-muted)]">
-                        —
-                    </span>
-                );
-            }
-
-            return (
+            cell: ({ row }) => (
                 <div>
-                    <div>
-                        {contact.firstName} {contact.lastName}
+                    <div className="font-medium text-[var(--color-primary)]">
+                        {row.original.businessName}
                     </div>
 
                     <div className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
-                        {contact.email}
+                        {row.original.code}
                     </div>
                 </div>
-            );
+            ),
         },
-    },
 
-    {
-        id: "location",
-        header: "Location",
-        accessorFn: (customer) => {
-            return (
+        {
+            accessorKey: "businessType",
+            header: "Business Type",
+
+            cell: ({ row }) => (
+                <span className="text-[var(--color-text-secondary)]">
+                    {row.original.businessType}
+                </span>
+            ),
+        },
+
+        {
+            id: "primaryContact",
+            header: "Primary Contact",
+
+            accessorFn: (customer) => {
+                const contact =
+                    customer.contacts.find(
+                        (item) =>
+                            item.id ===
+                            customer.primaryContactId,
+                    );
+
+                return contact
+                    ? `${contact.firstName} ${contact.lastName}`
+                    : "";
+            },
+
+            cell: ({ row }) => {
+                const contact =
+                    row.original.contacts.find(
+                        (item) =>
+                            item.id ===
+                            row.original.primaryContactId,
+                    );
+
+                if (!contact) {
+                    return (
+                        <span className="text-[var(--color-text-muted)]">
+                            —
+                        </span>
+                    );
+                }
+
+                return (
+                    <div>
+                        <div>
+                            {contact.firstName}{" "}
+                            {contact.lastName}
+                        </div>
+
+                        <div className="mt-0.5 text-[11px] text-[var(--color-text-muted)]">
+                            {contact.email}
+                        </div>
+                    </div>
+                );
+            },
+        },
+
+        {
+            id: "location",
+            header: "Location",
+
+            accessorFn: (customer) =>
                 customer.locations.find(
                     (location) =>
                         location.id ===
                         customer.primaryLocationId,
-                )?.name ?? ""
-            );
-        },
+                )?.name ?? "",
 
-        cell: ({ row }) => {
-            const location =
-                row.original.locations.find(
-                    (item) =>
-                        item.id ===
-                        row.original.primaryLocationId,
+            cell: ({ row }) => {
+                const location =
+                    row.original.locations.find(
+                        (item) =>
+                            item.id ===
+                            row.original.primaryLocationId,
+                    );
+
+                return (
+                    <span className="text-[var(--color-text-secondary)]">
+                        {location?.name ?? "—"}
+                    </span>
                 );
-
-            return (
-                <span className="text-[var(--color-text-secondary)]">
-                    {location?.name ?? "—"}
-                </span>
-            );
+            },
         },
-    },
 
-    {
-        accessorKey: "currentBalance",
-        header: "Balance",
-        cell: ({ row }) => (
-            <div className="money text-right font-medium">
-                $
-                {row.original.currentBalance.toLocaleString(
-                    "en-AU",
-                    {
-                        minimumFractionDigits: 2,
-                    },
-                )}
-            </div>
-        ),
-    },
+        {
+            accessorKey: "currentBalance",
+            header: "Balance",
 
-    {
-        accessorKey: "overdueBalance",
-        header: "Overdue",
-        cell: ({ row }) => (
-            <div
-                className={
-                    row.original.overdueBalance > 0
-                        ? "money text-right font-medium text-[var(--color-danger)]"
-                        : "money text-right text-[var(--color-text-secondary)]"
-                }
-            >
-                $
-                {row.original.overdueBalance.toLocaleString(
-                    "en-AU",
-                    {
-                        minimumFractionDigits: 2,
-                    },
-                )}
-            </div>
-        ),
-    },
+            cell: ({ row }) => (
+                <div className="money text-right font-medium">
+                    $
+                    {row.original.currentBalance.toLocaleString(
+                        "en-AU",
+                        {
+                            minimumFractionDigits: 2,
+                        },
+                    )}
+                </div>
+            ),
+        },
 
-    {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => (
-            <CustomerStatusBadge
-                status={row.original.status}
-            />
-        ),
-    },
-];
+        {
+            accessorKey: "overdueBalance",
+            header: "Overdue",
+
+            cell: ({ row }) => (
+                <div
+                    className={
+                        row.original.overdueBalance > 0
+                            ? "money text-right font-medium text-[var(--color-danger)]"
+                            : "money text-right text-[var(--color-text-secondary)]"
+                    }
+                >
+                    $
+                    {row.original.overdueBalance.toLocaleString(
+                        "en-AU",
+                        {
+                            minimumFractionDigits: 2,
+                        },
+                    )}
+                </div>
+            ),
+        },
+
+        {
+            accessorKey: "status",
+            header: "Status",
+
+            cell: ({ row }) => (
+                <CustomerStatusBadge
+                    status={row.original.status}
+                />
+            ),
+        },
+    ];
 
 export function CustomersPage() {
     const navigate = useNavigate();
 
-    const customers = useMemo(
-        () => mockCustomers,
-        [],
-    );
+    const customers = useCustomers();
+
+    const activeCustomers =
+        customers.filter(
+            (customer) =>
+                customer.status === "ACTIVE",
+        ).length;
+
+    const outstanding =
+        customers.reduce(
+            (total, customer) =>
+                total +
+                customer.currentBalance,
+            0,
+        );
+
+    const overdue =
+        customers.reduce(
+            (total, customer) =>
+                total +
+                customer.overdueBalance,
+            0,
+        );
 
     return (
         <div className="pb-8">
@@ -181,12 +212,20 @@ export function CustomersPage() {
                     </h1>
 
                     <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                        Manage customer accounts, locations,
-                        contacts and trading information.
+                        Manage customer accounts,
+                        locations, contacts and trading
+                        information.
                     </p>
                 </div>
 
-                <Button variant="accent">
+                <Button
+                    variant="accent"
+                    onClick={() =>
+                        navigate(
+                            "/contacts/customers/new",
+                        )
+                    }
+                >
                     <Plus size={16} />
                     New customer
                 </Button>
@@ -200,36 +239,21 @@ export function CustomersPage() {
 
                 <Summary
                     label="Active"
-                    value={customers
-                        .filter(
-                            (customer) =>
-                                customer.status === "ACTIVE",
-                        )
-                        .length.toString()}
+                    value={activeCustomers.toString()}
                 />
 
                 <Summary
                     label="Outstanding"
-                    value={`$${customers
-                        .reduce(
-                            (total, customer) =>
-                                total +
-                                customer.currentBalance,
-                            0,
-                        )
-                        .toLocaleString("en-AU")}`}
+                    value={`$${outstanding.toLocaleString(
+                        "en-AU",
+                    )}`}
                 />
 
                 <Summary
                     label="Overdue"
-                    value={`$${customers
-                        .reduce(
-                            (total, customer) =>
-                                total +
-                                customer.overdueBalance,
-                            0,
-                        )
-                        .toLocaleString("en-AU")}`}
+                    value={`$${overdue.toLocaleString(
+                        "en-AU",
+                    )}`}
                     danger
                 />
             </div>
@@ -240,7 +264,11 @@ export function CustomersPage() {
                 search={{
                     placeholder:
                         "Search customer, code, contact or email...",
-                    filterFn: (customer, query) => {
+
+                    filterFn: (
+                        customer,
+                        query,
+                    ) => {
                         const contactText =
                             customer.contacts
                                 .map(

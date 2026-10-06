@@ -23,16 +23,15 @@ import {
 
 import { CustomerStatusBadge } from "../components/CustomerStatusBadge";
 
-import { getCustomerById } from "../data/mockCustomers";
+import { useCustomer } from "../data/useCustomers";
 
 export function CustomerDetailPage() {
     const { customerId } = useParams();
 
     const navigate = useNavigate();
 
-    const customer = customerId
-        ? getCustomerById(customerId)
-        : undefined;
+    const customer =
+        useCustomer(customerId);
 
     if (!customer) {
         return (
@@ -89,7 +88,14 @@ export function CustomerDetailPage() {
                     </p>
                 </div>
 
-                <Button variant="secondary">
+                <Button
+                    variant="secondary"
+                    onClick={() =>
+                        navigate(
+                            `/contacts/customers/${customer.id}/edit`,
+                        )
+                    }
+                >
                     <Pencil size={15} />
                     Edit customer
                 </Button>
