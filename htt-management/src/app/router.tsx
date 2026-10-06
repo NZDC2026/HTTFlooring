@@ -2,6 +2,8 @@ import { createHashRouter, Navigate } from "react-router-dom";
 
 import { AppLayout } from "../layouts/AppLayout";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
+import { CustomersPage } from "../features/contacts/pages/CustomersPage";
+import { CustomerDetailPage } from "../features/contacts/pages/CustomerDetailPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
 export const router = createHashRouter([
@@ -47,7 +49,11 @@ export const router = createHashRouter([
             },
             {
                 path: "contacts",
-                element: <PlaceholderPage title="Contacts" />,
+                element: <CustomersPage />,
+            },
+            {
+                path: "contacts/customers/:customerId",
+                element: <CustomerDetailPage />,
             },
             {
                 path: "documents",

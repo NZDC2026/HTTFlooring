@@ -23,7 +23,12 @@ export function Topbar() {
     const location = useLocation();
 
     const pageTitle =
-        pageNames[location.pathname] ?? "HTT Management";
+        location.pathname.startsWith(
+            "/contacts/customers/",
+        )
+            ? "Customer"
+            : pageNames[location.pathname] ??
+            "HTT Management";
 
     return (
         <header
