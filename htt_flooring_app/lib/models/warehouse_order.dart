@@ -30,7 +30,7 @@ class WarehouseOrder {
   final String number;
   final String customerName;
   WarehouseOrderStatus status;
-  final WarehouseFulfilmentType fulfilmentType;
+  WarehouseFulfilmentType fulfilmentType;
   final DateTime fulfilmentDate;
   final List<WarehouseOrderItem> items;
 

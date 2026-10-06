@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/stock_adjustment.dart';
+import '../../../services/app_session.dart';
 import '../../../services/stock_adjustment_service.dart';
 import '../../../theme/app_theme.dart';
 
@@ -27,7 +28,6 @@ class _StockLevelCheckView extends StatefulWidget {
 class _StockLevelCheckViewState extends State<_StockLevelCheckView> {
   final Map<String, TextEditingController> _controllers = {};
   final Set<String> _selected = {};
-  String _region = 'Sydney';
 
   @override
   void didChangeDependencies() {
@@ -89,7 +89,8 @@ class _StockLevelCheckViewState extends State<_StockLevelCheckView> {
       return;
     }
 
-    final request = service.submit(region: _region, lines: lines);
+    final session = context.read<AppSession>();
+    final request = service.submit(region: session.regionName, lines: lines);
 
     setState(() {
       _selected.clear();
@@ -124,7 +125,10 @@ class _StockLevelCheckViewState extends State<_StockLevelCheckView> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Stock Level Check'),
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.green,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
       body: SafeArea(
         child: Column(
@@ -148,27 +152,46 @@ class _StockLevelCheckViewState extends State<_StockLevelCheckView> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Text(
-                        'Warehouse',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      const Spacer(),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'Sydney', label: Text('Sydney')),
-                          ButtonSegment(
-                            value: 'Melbourne',
-                            label: Text('Melbourne'),
-                          ),
-                        ],
-                        selected: {_region},
-                        onSelectionChanged: (value) {
-                          setState(() => _region = value.first);
-                        },
-                      ),
-                    ],
+                  Consumer<AppSession>(
+                    builder: (context, session, _) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.warehouse_outlined,
+                              color: AppColors.green,
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Warehouse',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.text,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${session.regionName} Store',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

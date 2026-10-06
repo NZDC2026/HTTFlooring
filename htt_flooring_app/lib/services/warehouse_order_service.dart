@@ -174,6 +174,21 @@ class WarehouseOrderService extends ChangeNotifier {
     return true;
   }
 
+  void setFulfilmentType(
+    String orderId,
+    WarehouseFulfilmentType fulfilmentType,
+  ) {
+    final order = findOrder(orderId);
+    if (order == null ||
+        order.status == WarehouseOrderStatus.readyForDispatch ||
+        order.status == WarehouseOrderStatus.completed) {
+      return;
+    }
+
+    order.fulfilmentType = fulfilmentType;
+    notifyListeners();
+  }
+
   bool confirmPickupOrTransport(String orderId, String collectedBy) {
     final order = findOrder(orderId);
     final name = collectedBy.trim();
