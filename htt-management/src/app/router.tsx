@@ -17,6 +17,9 @@ import { AgedReceivablesPage } from "../features/reports/pages/AgedReceivablesPa
 import { PurchaseOrdersPage } from "../features/purchases/pages/PurchaseOrdersPage";
 import { PurchaseOrderFormPage } from "../features/purchases/pages/PurchaseOrderFormPage";
 import { PurchaseOrderDetailPage } from "../features/purchases/pages/PurchaseOrderDetailPage";
+import { ReceiveGoodsPage } from "../features/purchases/pages/ReceiveGoodsPage";
+import { GoodsReceiptDetailPage } from "../features/purchases/pages/GoodsReceiptDetailPage";
+import { InventoryPage } from "../features/inventory/pages/InventoryPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
 export const router = createHashRouter([
@@ -67,6 +70,14 @@ export const router = createHashRouter([
                 ),
             },
             {
+                path: "purchases/goods-receipts/:goodsReceiptId",
+                element: <GoodsReceiptDetailPage />,
+            },
+            {
+                path: "purchases/:purchaseOrderId/receive",
+                element: <ReceiveGoodsPage />,
+            },
+            {
                 path: "purchases/:purchaseOrderId/edit",
                 element: (
                     <PurchaseOrderFormPage mode="edit" />
@@ -78,7 +89,7 @@ export const router = createHashRouter([
             },
             {
                 path: "inventory",
-                element: <PlaceholderPage title="Inventory" />,
+                element: <InventoryPage />,
             },
             {
                 path: "banking",

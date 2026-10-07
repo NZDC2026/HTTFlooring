@@ -2,6 +2,7 @@ import {
     ArrowLeft,
     Ban,
     Check,
+    PackageCheck,
     Pencil,
     Send,
 } from "lucide-react";
@@ -28,6 +29,10 @@ import {
     usePurchaseOrder,
 } from "../data/usePurchaseOrders";
 
+import {
+    usePurchaseOrderGoodsReceipts,
+} from "../data/useGoodsReceipts";
+
 export function PurchaseOrderDetailPage() {
     const navigate =
         useNavigate();
@@ -38,6 +43,11 @@ export function PurchaseOrderDetailPage() {
 
     const purchaseOrder =
         usePurchaseOrder(
+            purchaseOrderId,
+        );
+
+    const goodsReceipts =
+        usePurchaseOrderGoodsReceipts(
             purchaseOrderId,
         );
 
@@ -242,6 +252,28 @@ export function PurchaseOrderDetailPage() {
                                 </Button>
                             </>
                         )}
+
+                    {[
+                        "SENT",
+                        "PARTIALLY_RECEIVED",
+                    ].includes(
+                        purchaseOrder.status,
+                    ) && (
+                            <Button
+                                variant="accent"
+                                onClick={() =>
+                                    navigate(
+                                        `/purchases/${purchaseOrder.id}/receive`,
+                                    )
+                                }
+                            >
+                                <PackageCheck
+                                    size={15}
+                                />
+
+                                Receive Goods
+                            </Button>
+                        )}
                 </div>
             </div>
 
@@ -277,6 +309,44 @@ export function PurchaseOrderDetailPage() {
                             .total,
                     )}
                 />
+            </div>
+
+            <div className="mb-5 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="font-display text-xl">
+                            Receiving
+                            Progress
+                        </h2>
+
+                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                            Quantity
+                            received
+                            against this
+                            purchase
+                            order.
+                        </p>
+                    </div>
+
+                    <div className="text-sm font-semibold">
+                        {getReceivingProgress(
+                            purchaseOrder,
+                        )}
+                        %
+                    </div>
+                </div>
+
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-surface-muted)]">
+                    <div
+                        className="h-full rounded-full bg-[var(--color-primary)] transition-all"
+                        style={{
+                            width:
+                                `${getReceivingProgress(
+                                    purchaseOrder,
+                                )}%`,
+                        }}
+                    />
+                </div>
             </div>
 
             <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
@@ -465,18 +535,121 @@ export function PurchaseOrderDetailPage() {
                     </div>
                 )}
 
+            <div className="mt-5 overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
+                <div className="border-b border-[var(--color-border)] px-5 py-4">
+                    <h2 className="font-display text-xl">
+                        Goods Receipt
+                        History
+                    </h2>
+
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                        Posted
+                        deliveries
+                        received
+                        against this
+                        purchase
+                        order.
+                    </p>
+                </div>
+
+                {goodsReceipts.length ===
+                    0 ? (
+                    <div className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">
+                        No goods have
+                        been received
+                        against this
+                        purchase order.
+                    </div>
+                ) : (
+                    <div className="divide-y divide-[var(--color-border)]">
+                        {goodsReceipts.map(
+                            (receipt) => {
+                                const totalUnits =
+                                    receipt.lines.reduce(
+                                        (
+                                            total,
+                                            line,
+                                        ) =>
+                                            total +
+                                            line.receivedQuantity,
+                                        0,
+                                    );
+
+                                return (
+                                    <button
+                                        key={
+                                            receipt.id
+                                        }
+                                        type="button"
+                                        onClick={() =>
+                                            navigate(
+                                                `/purchases/goods-receipts/${receipt.id}`,
+                                            )
+                                        }
+                                        className="grid w-full grid-cols-[1.2fr_1fr_1.5fr_1fr_auto] items-center gap-4 px-5 py-4 text-left transition hover:bg-[var(--color-surface-muted)]"
+                                    >
+                                        <div>
+                                            <div className="text-sm font-semibold text-[var(--color-primary)]">
+                                                {
+                                                    receipt.receiptNumber
+                                                }
+                                            </div>
+
+                                            <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                                Posted
+                                            </div>
+                                        </div>
+
+                                        <div className="text-sm">
+                                            {
+                                                receipt.receiptDate
+                                            }
+                                        </div>
+
+                                        <div>
+                                            <div className="text-sm font-medium">
+                                                {
+                                                    receipt.siteName
+                                                }
+                                            </div>
+
+                                            <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                                {
+                                                    receipt.siteCode
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div className="text-sm">
+                                            {totalUnits.toLocaleString(
+                                                "en-AU",
+                                            )}{" "}
+                                            received
+                                        </div>
+
+                                        <div className="text-xs font-medium text-[var(--color-primary)]">
+                                            View →
+                                        </div>
+                                    </button>
+                                );
+                            },
+                        )}
+                    </div>
+                )}
+            </div>
+
             <div className="mt-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs text-[var(--color-text-secondary)]">
-                Purchase
-                orders do not
-                create inventory
-                movements or
-                accounts payable
-                balances. Those
-                events occur
-                during Goods
-                Receipt and
-                Supplier Bill
-                processing.
+                Purchase order
+                approval and sending
+                do not affect
+                inventory. Inventory
+                is increased only
+                when a Goods Receipt
+                is posted. Accounts
+                payable remains
+                unaffected until a
+                Supplier Bill is
+                created.
             </div>
         </div>
     );
@@ -613,5 +786,52 @@ function showError(
             Error
             ? error.message
             : "Unable to update purchase order.",
+    );
+}
+
+function getReceivingProgress(
+    purchaseOrder: {
+        lines: Array<{
+            orderedQuantity:
+            number;
+
+            receivedQuantity:
+            number;
+        }>;
+    },
+) {
+    const ordered =
+        purchaseOrder.lines.reduce(
+            (
+                total,
+                line,
+            ) =>
+                total +
+                line.orderedQuantity,
+            0,
+        );
+
+    if (ordered <= 0) {
+        return 0;
+    }
+
+    const received =
+        purchaseOrder.lines.reduce(
+            (
+                total,
+                line,
+            ) =>
+                total +
+                line.receivedQuantity,
+            0,
+        );
+
+    return Math.min(
+        100,
+        Math.round(
+            (received /
+                ordered) *
+            100,
+        ),
     );
 }

@@ -604,6 +604,187 @@ export const purchaseOrderRepository =
         );
     },
 
+    recordGoodsReceipt(
+        purchaseOrderId:
+            string,
+
+        receivedLines:
+            Array<{
+                purchaseOrderLineId:
+                string;
+
+                receivedQuantity:
+                number;
+            }>,
+    ) {
+        const existing =
+            purchaseOrderRepository.getById(
+                purchaseOrderId,
+            );
+
+        if (!existing) {
+            throw new Error(
+                "Purchase order was not found.",
+            );
+        }
+
+        if (
+            ![
+                "SENT",
+                "PARTIALLY_RECEIVED",
+            ].includes(
+                existing.status,
+            )
+        ) {
+            throw new Error(
+                "This purchase order cannot receive goods.",
+            );
+        }
+
+        if (
+            receivedLines.length ===
+            0
+        ) {
+            throw new Error(
+                "At least one received line is required.",
+            );
+        }
+
+        const receivedByLineId =
+            new Map<
+                string,
+                number
+            >();
+
+        for (
+            const receivedLine of
+            receivedLines
+        ) {
+            if (
+                !Number.isFinite(
+                    receivedLine.receivedQuantity,
+                ) ||
+                receivedLine.receivedQuantity <=
+                0
+            ) {
+                throw new Error(
+                    "Received quantity must be greater than zero.",
+                );
+            }
+
+            if (
+                receivedByLineId.has(
+                    receivedLine.purchaseOrderLineId,
+                )
+            ) {
+                throw new Error(
+                    "Duplicate purchase order receipt line.",
+                );
+            }
+
+            receivedByLineId.set(
+                receivedLine.purchaseOrderLineId,
+                receivedLine.receivedQuantity,
+            );
+        }
+
+        const updatedLines =
+            existing.lines.map(
+                (line) => {
+                    const receivedNow =
+                        receivedByLineId.get(
+                            line.id,
+                        );
+
+                    if (
+                        receivedNow ===
+                        undefined
+                    ) {
+                        return line;
+                    }
+
+                    const nextReceived =
+                        Math.round(
+                            (line.receivedQuantity +
+                                receivedNow +
+                                Number.EPSILON) *
+                            10000,
+                        ) / 10000;
+
+                    if (
+                        nextReceived >
+                        line.orderedQuantity
+                    ) {
+                        throw new Error(
+                            `${line.description} cannot be received above the ordered quantity.`,
+                        );
+                    }
+
+                    return {
+                        ...line,
+
+                        receivedQuantity:
+                            nextReceived,
+                    };
+                },
+            );
+
+        for (
+            const receivedLine of
+            receivedLines
+        ) {
+            const exists =
+                existing.lines.some(
+                    (line) =>
+                        line.id ===
+                        receivedLine.purchaseOrderLineId,
+                );
+
+            if (!exists) {
+                throw new Error(
+                    "Purchase order receipt line was not found.",
+                );
+            }
+        }
+
+        const fullyReceived =
+            updatedLines.every(
+                (line) =>
+                    line.receivedQuantity >=
+                    line.orderedQuantity,
+            );
+
+        const updated:
+            PurchaseOrder =
+        {
+            ...existing,
+
+            lines:
+                updatedLines,
+
+            status:
+                fullyReceived
+                    ? "RECEIVED"
+                    : "PARTIALLY_RECEIVED",
+
+            updatedAt:
+                new Date().toISOString(),
+        };
+
+        purchaseOrders =
+            purchaseOrders.map(
+                (purchaseOrder) =>
+                    purchaseOrder.id ===
+                        existing.id
+                        ? updated
+                        : purchaseOrder,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
     cancel(
         purchaseOrderId:
             string,
