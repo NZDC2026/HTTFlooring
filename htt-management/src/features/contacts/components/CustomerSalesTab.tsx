@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 
 import {
     Banknote,
+    ClipboardList,
     FileCheck2,
     FileText,
     Plus,
@@ -14,6 +15,9 @@ import {
     Search,
     ShoppingCart,
 } from "lucide-react";
+
+
+import type { Customer } from "../types/customer";
 
 import { Badge } from "../../../components/ui/Badge";
 import { Input } from "../../../components/ui/Input";
@@ -23,22 +27,22 @@ import { QuoteForm } from "../../sales/components/QuoteForm";
 import {
     CustomerAgingSummary,
 } from "../../sales/components/CustomerAgingSummary";
+import {
+    OutstandingInvoiceList,
+} from "../../sales/components/OutstandingInvoiceList";
 
 import {
     useCustomerAccountsReceivable,
 } from "../../sales/data/useAccountsReceivable";
-
 import { useCustomerSalesDocuments } from "../../sales/data/useSalesDocuments";
 import { useCustomerPayments } from "../../sales/data/usePayments";
 
 import type {
+    Invoice,
     SalesDocument,
     SalesDocumentStatus,
 } from "../../sales/types/salesDocument";
-
 import type { Payment } from "../../sales/types/payment";
-
-import type { Customer } from "../types/customer";
 
 type SalesFilter =
     | "ALL"
@@ -83,6 +87,25 @@ export function CustomerSalesTab({
     const accountsReceivable =
         useCustomerAccountsReceivable(
             customer,
+        );
+
+    const outstandingInvoices =
+        useMemo(
+            () =>
+                documents.filter(
+                    (
+                        document,
+                    ): document is Invoice =>
+                        document.type ===
+                        "INVOICE" &&
+                        document.status !==
+                        "VOID" &&
+                        document.amountDue >
+                        0,
+                ),
+            [
+                documents,
+            ],
         );
 
     const [filter, setFilter] =
@@ -287,18 +310,38 @@ export function CustomerSalesTab({
                     </p>
                 </div>
 
-                {!creatingQuote && (
+                <div className="flex items-center gap-3">
                     <Button
+                        variant="secondary"
                         onClick={() =>
-                            setCreatingQuote(
-                                true,
+                            navigate(
+                                `/sales/statements/${customer.id}`,
                             )
                         }
                     >
-                        <Plus size={15} />
-                        New Quote
+                        <ClipboardList
+                            size={15}
+                        />
+
+                        Customer Statement
                     </Button>
-                )}
+
+                    {!creatingQuote && (
+                        <Button
+                            onClick={() =>
+                                setCreatingQuote(
+                                    true,
+                                )
+                            }
+                        >
+                            <Plus
+                                size={15}
+                            />
+
+                            New Quote
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <div className="mb-5 grid grid-cols-4 gap-4">
@@ -336,6 +379,19 @@ export function CustomerSalesTab({
             <CustomerAgingSummary
                 accountsReceivable={
                     accountsReceivable
+                }
+            />
+
+            <OutstandingInvoiceList
+                invoices={
+                    outstandingInvoices
+                }
+                onOpenInvoice={(
+                    invoiceId,
+                ) =>
+                    navigate(
+                        `/sales/invoices/${invoiceId}`,
+                    )
                 }
             />
 

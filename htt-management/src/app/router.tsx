@@ -8,6 +8,7 @@ import { CustomerFormPage } from "../features/contacts/pages/CustomerFormPage";
 import { QuoteDetailPage } from "../features/sales/pages/QuoteDetailPage";
 import { SalesOrderDetailPage } from "../features/sales/pages/SalesOrderDetailPage";
 import { InvoiceDetailPage } from "../features/sales/pages/InvoiceDetailPage";
+import { CustomerStatementPage } from "../features/sales/pages/CustomerStatementPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
 export const router = createHashRouter([
@@ -38,6 +39,10 @@ export const router = createHashRouter([
             {
                 path: "sales/invoices/:invoiceId",
                 element: <InvoiceDetailPage />,
+            },
+            {
+                path: "sales/statements/:customerId",
+                element: <CustomerStatementPage />,
             },
             {
                 path: "purchases",

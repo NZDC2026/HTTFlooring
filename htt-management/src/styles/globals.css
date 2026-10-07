@@ -107,3 +107,52 @@ a {
     border: 3px solid transparent;
     background-clip: padding-box;
 }
+
+@media print {
+    @page {
+        size: A4;
+        margin: 10mm;
+    }
+
+    html,
+    body {
+        width: 100%;
+        background: #ffffff !important;
+    }
+
+    body {
+        font-size: 9pt;
+    }
+
+    aside,
+    header {
+        display: none !important;
+    }
+
+    main {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    .print\:hidden {
+        display: none !important;
+    }
+
+    button {
+        display: none !important;
+    }
+
+    * {
+        box-sizing: border-box;
+        box-shadow: none !important;
+    }
+
+    table,
+    tr,
+    .statement-row {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
