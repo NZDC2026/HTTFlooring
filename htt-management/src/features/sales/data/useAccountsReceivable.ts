@@ -16,6 +16,7 @@ import {
 
 import {
     useCreditAllocations,
+    useCreditNotes,
 } from "./useCreditNotes";
 
 import {
@@ -35,7 +36,25 @@ export function useCustomerAccountsReceivable(
             customer.id,
         );
 
-    const creditAllocations = useCreditAllocations();
+    const creditAllocations =
+        useCreditAllocations();
+
+    const allCreditNotes =
+        useCreditNotes();
+
+    const customerCreditNotes =
+        useMemo(
+            () =>
+                allCreditNotes.filter(
+                    (creditNote) =>
+                        creditNote.customerId ===
+                        customer.id,
+                ),
+            [
+                allCreditNotes,
+                customer.id,
+            ],
+        );
 
     return useMemo(
         () =>
@@ -44,11 +63,14 @@ export function useCustomerAccountsReceivable(
                 documents,
                 payments,
                 creditAllocations,
+                customerCreditNotes,
             ),
         [
             customer,
             documents,
             payments,
+            creditAllocations,
+            customerCreditNotes,
         ],
     );
 }

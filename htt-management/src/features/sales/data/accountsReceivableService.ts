@@ -18,6 +18,7 @@ import type {
 
 import type {
     CreditAllocation,
+    CreditNote,
 } from "../types/creditNote";
 
 import {
@@ -30,6 +31,8 @@ export function calculateCustomerAccountsReceivable(
     payments: Payment[] = [],
     creditAllocations:
         CreditAllocation[] = [],
+    creditNotes:
+        CreditNote[] = [],
     asOfDate = getToday(),
 ): CustomerAccountsReceivable {
     const invoices =
@@ -184,12 +187,51 @@ export function calculateCustomerAccountsReceivable(
             overdueAmount,
         );
 
+    const unallocatedCredit =
+        roundCurrency(
+            creditNotes.reduce(
+                (
+                    total,
+                    creditNote,
+                ) => {
+                    if (
+                        creditNote.customerId !==
+                        customer.id ||
+                        creditNote.status ===
+                        "DRAFT" ||
+                        creditNote.status ===
+                        "VOID" ||
+                        creditNote.creditDate >
+                        asOfDate
+                    ) {
+                        return total;
+                    }
+
+                    return (
+                        total +
+                        creditNote.amountAvailable
+                    );
+                },
+                0,
+            ),
+        );
+
+    const netAccountBalance =
+        roundCurrency(
+            normalizedOutstanding -
+            unallocatedCredit,
+        );
+
     return {
         customerId:
             customer.id,
 
         totalOutstanding:
             normalizedOutstanding,
+
+        unallocatedCredit,
+
+        netAccountBalance,
 
         overdueAmount:
             normalizedOverdue,
@@ -202,7 +244,10 @@ export function calculateCustomerAccountsReceivable(
                 Math.max(
                     0,
                     customer.creditLimit -
-                    normalizedOutstanding,
+                    Math.max(
+                        0,
+                        netAccountBalance,
+                    ),
                 ),
             ),
 

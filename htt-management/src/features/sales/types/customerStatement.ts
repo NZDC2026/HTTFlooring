@@ -1,7 +1,10 @@
 export type StatementEntryType =
     | "INVOICE"
+    | "INVOICE_VOID"
     | "PAYMENT"
-    | "PAYMENT_REVERSAL";
+    | "PAYMENT_REVERSAL"
+    | "CREDIT_NOTE"
+    | "CREDIT_NOTE_VOID";
 
 export interface StatementEntry {
     id: string;
@@ -16,6 +19,7 @@ export interface StatementEntry {
 
     invoiceId?: string;
     paymentId?: string;
+    creditNoteId?: string;
 
     debit: number;
     credit: number;

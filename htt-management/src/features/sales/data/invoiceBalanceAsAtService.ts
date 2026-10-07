@@ -30,7 +30,7 @@ export function calculateInvoiceBalanceAsAt(
     invoice: Invoice,
     payments: Payment[],
     creditAllocations:
-        CreditAllocation[] = [],
+        CreditAllocation[],
     asOfDate: string,
 ): InvoiceBalanceAsAt {
     /*

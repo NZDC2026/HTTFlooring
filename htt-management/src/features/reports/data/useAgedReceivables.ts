@@ -12,6 +12,10 @@ import {
 } from "../../sales/data/useSalesDocuments";
 
 import {
+    useCreditNotes,
+} from "../../sales/data/useCreditNotes";
+
+import {
     paymentRepository,
 } from "../../sales/data/paymentRepository";
 
@@ -46,6 +50,9 @@ export function useAgedReceivables(
             creditNoteRepository.getAllocationSnapshot,
         );
 
+    const creditNotes =
+        useCreditNotes();
+
     return useMemo(
         () =>
             buildAgedReceivablesReport({
@@ -53,6 +60,7 @@ export function useAgedReceivables(
                 documents,
                 payments,
                 creditAllocations,
+                creditNotes,
                 asOfDate,
             }),
         [
@@ -60,6 +68,7 @@ export function useAgedReceivables(
             documents,
             payments,
             creditAllocations,
+            creditNotes,
             asOfDate,
         ],
     );

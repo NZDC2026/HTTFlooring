@@ -8,6 +8,10 @@ import type {
 } from "../types/payment";
 
 import type {
+    CreditNote,
+} from "../types/creditNote";
+
+import type {
     CustomerStatement,
     StatementEntry,
 } from "../types/customerStatement";
@@ -18,6 +22,8 @@ interface BuildCustomerStatementInput {
     documents: SalesDocument[];
 
     payments: Payment[];
+
+    creditNotes: CreditNote[];
 
     fromDate: string;
     toDate: string;
@@ -39,6 +45,7 @@ interface PendingStatementEntry {
 
     invoiceId?: string;
     paymentId?: string;
+    creditNoteId?: string;
 
     debit: number;
     credit: number;
@@ -48,6 +55,7 @@ export function buildCustomerStatement({
     customerId,
     documents,
     payments,
+    creditNotes,
     fromDate,
     toDate,
 }: BuildCustomerStatementInput): CustomerStatement {
@@ -57,6 +65,14 @@ export function buildCustomerStatement({
         );
     }
 
+    /*
+     * IMPORTANT:
+     *
+     * Do NOT filter current VOID status here.
+     *
+     * A currently void invoice may still have existed
+     * historically before its void date.
+     */
     const invoices =
         documents.filter(
             (
@@ -66,8 +82,6 @@ export function buildCustomerStatement({
                 "INVOICE" &&
                 document.customerId ===
                 customerId &&
-                document.status !==
-                "VOID" &&
                 document.documentDate <=
                 toDate,
         );
@@ -82,12 +96,28 @@ export function buildCustomerStatement({
             ),
         );
 
+    const customerCreditNotes =
+        creditNotes.filter(
+            (creditNote) =>
+                creditNote.customerId ===
+                customerId &&
+                creditNote.creditDate <=
+                toDate &&
+                creditNote.status !==
+                "DRAFT",
+        );
+
     const allEntries:
         PendingStatementEntry[] =
         [];
 
     /*
      * INVOICES
+     *
+     * Invoice creates Accounts Receivable.
+     *
+     * Debit:
+     *     Customer owes us more.
      */
     for (
         const invoice of invoices
@@ -121,10 +151,64 @@ export function buildCustomerStatement({
 
             credit: 0,
         });
+
+        /*
+         * INVOICE VOID
+         *
+         * Do not delete the historical invoice.
+         *
+         * Instead reverse the original invoice on
+         * the actual void date.
+         */
+        if (
+            invoice.voidedAt
+        ) {
+            const voidDate =
+                toDateKey(
+                    invoice.voidedAt,
+                );
+
+            if (
+                voidDate <=
+                toDate
+            ) {
+                allEntries.push({
+                    id:
+                        `invoice-void-${invoice.id}`,
+
+                    date:
+                        voidDate,
+
+                    sortDateTime:
+                        invoice.voidedAt,
+
+                    type:
+                        "INVOICE_VOID",
+
+                    reference:
+                        `${invoice.documentNumber} VOID`,
+
+                    description:
+                        invoice.voidReason
+                            ? `Invoice void — ${invoice.voidReason}`
+                            : "Invoice void",
+
+                    invoiceId:
+                        invoice.id,
+
+                    debit: 0,
+
+                    credit:
+                        roundCurrency(
+                            invoice.totals.total,
+                        ),
+                });
+            }
+        }
     }
 
     /*
-     * PAYMENTS + REVERSALS
+     * PAYMENTS + PAYMENT REVERSALS
      */
     for (
         const payment of payments
@@ -181,6 +265,15 @@ export function buildCustomerStatement({
                 ),
         });
 
+        /*
+         * A reversed payment still existed
+         * historically before the reversal.
+         *
+         * Therefore:
+         *
+         * Payment date  -> Credit
+         * Reversal date -> Debit
+         */
         if (
             payment.status ===
             "REVERSED" &&
@@ -233,6 +326,123 @@ export function buildCustomerStatement({
         }
     }
 
+    /*
+     * CREDIT NOTES
+     *
+     * A Credit Note creates customer credit
+     * immediately when issued.
+     *
+     * It therefore reduces the customer's
+     * overall Accounts Receivable balance.
+     *
+     * IMPORTANT:
+     *
+     * Credit allocations are deliberately NOT
+     * added to this statement.
+     *
+     * Allocation only assigns existing customer
+     * credit to an invoice. Adding allocation
+     * here would double-count the credit.
+     */
+    for (
+        const creditNote of
+        customerCreditNotes
+    ) {
+        allEntries.push({
+            id:
+                `credit-note-${creditNote.id}`,
+
+            date:
+                creditNote.creditDate,
+
+            sortDateTime:
+                creditNote.issuedAt ??
+                creditNote.createdAt,
+
+            type:
+                "CREDIT_NOTE",
+
+            reference:
+                creditNote.creditNoteNumber,
+
+            description:
+                creditNote.reason
+                    ? `Credit note — ${creditNote.reason}`
+                    : "Credit note",
+
+            invoiceId:
+                creditNote.sourceInvoiceId,
+
+            creditNoteId:
+                creditNote.id,
+
+            debit: 0,
+
+            credit:
+                roundCurrency(
+                    creditNote.totals.total,
+                ),
+        });
+
+        /*
+         * CREDIT NOTE VOID
+         *
+         * Same historical model as payment
+         * reversal and invoice void.
+         *
+         * Original credit remains on its original
+         * date and is reversed on the void date.
+         */
+        if (
+            creditNote.voidedAt
+        ) {
+            const voidDate =
+                toDateKey(
+                    creditNote.voidedAt,
+                );
+
+            if (
+                voidDate <=
+                toDate
+            ) {
+                allEntries.push({
+                    id:
+                        `credit-note-void-${creditNote.id}`,
+
+                    date:
+                        voidDate,
+
+                    sortDateTime:
+                        creditNote.voidedAt,
+
+                    type:
+                        "CREDIT_NOTE_VOID",
+
+                    reference:
+                        `${creditNote.creditNoteNumber} VOID`,
+
+                    description:
+                        creditNote.voidReason
+                            ? `Credit note void — ${creditNote.voidReason}`
+                            : "Credit note void",
+
+                    invoiceId:
+                        creditNote.sourceInvoiceId,
+
+                    creditNoteId:
+                        creditNote.id,
+
+                    debit:
+                        roundCurrency(
+                            creditNote.totals.total,
+                        ),
+
+                    credit: 0,
+                });
+            }
+        }
+    }
+
     allEntries.sort(
         compareEntries,
     );
@@ -241,6 +451,10 @@ export function buildCustomerStatement({
      * OPENING BALANCE
      *
      * Everything strictly before fromDate.
+     *
+     * This means invoices, payments,
+     * reversals, credit notes and voids all
+     * participate in historical opening balance.
      */
     const openingBalance =
         roundCurrency(
@@ -309,6 +523,9 @@ export function buildCustomerStatement({
 
                     paymentId:
                         entry.paymentId,
+
+                    creditNoteId:
+                        entry.creditNoteId,
 
                     debit:
                         entry.debit,
@@ -389,6 +606,11 @@ function compareEntries(
         return dateCompare;
     }
 
+    /*
+     * ISO timestamps give deterministic ordering
+     * when multiple accounting events happen on
+     * the same date.
+     */
     return a.sortDateTime.localeCompare(
         b.sortDateTime,
     );

@@ -9,6 +9,7 @@ import {
     CalendarDays,
     CheckCircle2,
     Clock3,
+    FileMinus2,
     FileText,
     ReceiptText,
     RotateCcw,
@@ -38,6 +39,11 @@ import {
     InvoiceVoidForm,
 } from "../components/InvoiceVoidForm";
 
+import {
+    CreateCreditNoteForm,
+    type CreateCreditNoteValues,
+} from "../components/CreateCreditNoteForm";
+
 import { salesRepository } from "../data/salesRepository";
 
 import {
@@ -48,6 +54,10 @@ import {
     useInvoice,
     useSalesDocument,
 } from "../data/useSalesDocuments";
+
+import {
+    useInvoiceCreditNotes,
+} from "../data/useCreditNotes";
 
 import type {
     Payment,
@@ -79,6 +89,11 @@ export function InvoiceDetailPage() {
             invoiceId,
         );
 
+    const creditNotes =
+        useInvoiceCreditNotes(
+            invoiceId,
+        );
+
     const [
         paymentOpen,
         setPaymentOpen,
@@ -87,6 +102,11 @@ export function InvoiceDetailPage() {
     const [
         voidOpen,
         setVoidOpen,
+    ] = useState(false);
+
+    const [
+        creditNoteOpen,
+        setCreditNoteOpen,
     ] = useState(false);
 
     const [
@@ -148,6 +168,12 @@ export function InvoiceDetailPage() {
         );
 
     const canVoid =
+        invoice.status !==
+        "VOID" &&
+        invoice.status !==
+        "DRAFT";
+
+    const canCreateCreditNote =
         invoice.status !==
         "VOID" &&
         invoice.status !==
@@ -253,6 +279,48 @@ export function InvoiceDetailPage() {
         }
     }
 
+    function handleCreateCreditNote(
+        values:
+            CreateCreditNoteValues,
+    ) {
+        setActionError(
+            null,
+        );
+
+        try {
+            const creditNote =
+                salesRepository
+                    .createCreditNoteFromInvoice({
+                        invoiceId:
+                            resolvedInvoiceId,
+
+                        creditDate:
+                            values.creditDate,
+
+                        reason:
+                            values.reason,
+
+                        lines:
+                            values.lines,
+                    });
+
+            setCreditNoteOpen(
+                false,
+            );
+
+            navigate(
+                `/sales/credit-notes/${creditNote.id}`,
+            );
+        } catch (error) {
+            setActionError(
+                error instanceof
+                    Error
+                    ? error.message
+                    : "Unable to create credit note.",
+            );
+        }
+    }
+
     return (
         <div className="mx-auto w-full max-w-[1600px]">
             <button
@@ -297,6 +365,27 @@ export function InvoiceDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {canCreateCreditNote && (
+                        <Button
+                            variant="secondary"
+                            onClick={() => {
+                                setActionError(
+                                    null,
+                                );
+
+                                setCreditNoteOpen(
+                                    true,
+                                );
+                            }}
+                        >
+                            <FileMinus2
+                                size={15}
+                            />
+
+                            Create Credit Note
+                        </Button>
+                    )}
+
                     {canVoid && (
                         <Button
                             variant="secondary"
@@ -655,6 +744,87 @@ export function InvoiceDetailPage() {
                 )}
             </div>
 
+            {creditNotes.length >
+                0 && (
+                    <div className="mt-5 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <FileMinus2
+                                    size={16}
+                                    className="text-[var(--color-accent)]"
+                                />
+
+                                <h2 className="text-sm font-semibold">
+                                    Credit Notes
+                                </h2>
+                            </div>
+
+                            <div className="text-xs text-[var(--color-text-muted)]">
+                                {
+                                    creditNotes.length
+                                }{" "}
+                                {
+                                    creditNotes.length ===
+                                        1
+                                        ? "credit note"
+                                        : "credit notes"
+                                }
+                            </div>
+                        </div>
+
+                        <div className="divide-y divide-[var(--color-border)]">
+                            {creditNotes.map(
+                                (
+                                    creditNote,
+                                ) => (
+                                    <button
+                                        key={
+                                            creditNote.id
+                                        }
+                                        type="button"
+                                        onClick={() =>
+                                            navigate(
+                                                `/sales/credit-notes/${creditNote.id}`,
+                                            )
+                                        }
+                                        className="grid w-full grid-cols-[150px_130px_1fr_140px_140px] items-center gap-4 py-3 text-left transition hover:bg-[var(--color-background-subtle)]"
+                                    >
+                                        <div className="font-mono text-xs font-semibold text-[var(--color-accent)]">
+                                            {
+                                                creditNote.creditNoteNumber
+                                            }
+                                        </div>
+
+                                        <div className="text-xs text-[var(--color-text-secondary)]">
+                                            {formatDate(
+                                                creditNote.creditDate,
+                                            )}
+                                        </div>
+
+                                        <div className="truncate text-sm">
+                                            {
+                                                creditNote.reason
+                                            }
+                                        </div>
+
+                                        <div className="money text-right text-sm">
+                                            {formatMoney(
+                                                creditNote.totals.total,
+                                            )}
+                                        </div>
+
+                                        <div className="text-right text-xs font-semibold">
+                                            {
+                                                creditNote.status
+                                            }
+                                        </div>
+                                    </button>
+                                ),
+                            )}
+                        </div>
+                    </div>
+                )}
+
             <div className="mt-5 grid grid-cols-[1fr_380px] gap-5">
                 <PaymentHistory
                     payments={
@@ -789,6 +959,22 @@ export function InvoiceDetailPage() {
                     }
                     onSubmit={
                         handleVoidInvoice
+                    }
+                />
+            )}
+
+            {creditNoteOpen && (
+                <CreateCreditNoteForm
+                    invoice={
+                        invoice
+                    }
+                    onCancel={() =>
+                        setCreditNoteOpen(
+                            false,
+                        )
+                    }
+                    onSubmit={
+                        handleCreateCreditNote
                     }
                 />
             )}

@@ -16,7 +16,6 @@ import {
     ShoppingCart,
 } from "lucide-react";
 
-
 import type { Customer } from "../types/customer";
 
 import { Badge } from "../../../components/ui/Badge";
@@ -36,6 +35,9 @@ import {
 } from "../../sales/data/useAccountsReceivable";
 import { useCustomerSalesDocuments } from "../../sales/data/useSalesDocuments";
 import { useCustomerPayments } from "../../sales/data/usePayments";
+import {
+    useCreditNotes,
+} from "../../sales/data/useCreditNotes";
 
 import type {
     Invoice,
@@ -87,6 +89,36 @@ export function CustomerSalesTab({
     const accountsReceivable =
         useCustomerAccountsReceivable(
             customer,
+        );
+
+    const allCreditNotes =
+        useCreditNotes();
+
+    const unallocatedCreditNotes =
+        useMemo(
+            () =>
+                allCreditNotes
+                    .filter(
+                        (creditNote) =>
+                            creditNote.customerId ===
+                            customer.id &&
+                            creditNote.status !==
+                            "DRAFT" &&
+                            creditNote.status !==
+                            "VOID" &&
+                            creditNote.amountAvailable >
+                            0,
+                    )
+                    .sort(
+                        (a, b) =>
+                            b.creditDate.localeCompare(
+                                a.creditDate,
+                            ),
+                    ),
+            [
+                allCreditNotes,
+                customer.id,
+            ],
         );
 
     const outstandingInvoices =
@@ -181,8 +213,8 @@ export function CustomerSalesTab({
             return {
                 totalInvoiced,
 
-                outstanding:
-                    accountsReceivable.totalOutstanding,
+                accountBalance:
+                    accountsReceivable.netAccountBalance,
 
                 paymentsReceived,
 
@@ -191,7 +223,7 @@ export function CustomerSalesTab({
         }, [
             documents,
             payments,
-            accountsReceivable.totalOutstanding,
+            accountsReceivable.netAccountBalance,
         ]);
 
     const history =
@@ -357,7 +389,7 @@ export function CustomerSalesTab({
                     icon={FileCheck2}
                     label="Outstanding"
                     value={formatMoney(
-                        summary.outstanding,
+                        summary.accountBalance,
                     )}
                 />
 
@@ -381,6 +413,111 @@ export function CustomerSalesTab({
                     accountsReceivable
                 }
             />
+
+            {unallocatedCreditNotes.length >
+                0 && (
+                    <div className="mb-5 overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
+                        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+                            <div>
+                                <h3 className="text-sm font-semibold">
+                                    Unallocated Credits
+                                </h3>
+
+                                <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                    Issued customer
+                                    credits not yet fully
+                                    applied to invoices.
+                                </p>
+                            </div>
+
+                            <div className="money text-sm font-semibold text-[var(--color-accent)]">
+                                -
+                                {formatMoney(
+                                    accountsReceivable.unallocatedCredit,
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-[150px_130px_minmax(0,1fr)_130px_130px_130px] gap-4 bg-[var(--color-background-subtle)] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--color-text-muted)]">
+                            <div>
+                                Credit Note
+                            </div>
+
+                            <div>
+                                Date
+                            </div>
+
+                            <div>
+                                Reason
+                            </div>
+
+                            <div className="text-right">
+                                Total
+                            </div>
+
+                            <div className="text-right">
+                                Applied
+                            </div>
+
+                            <div className="text-right">
+                                Available
+                            </div>
+                        </div>
+
+                        {unallocatedCreditNotes.map(
+                            (creditNote) => (
+                                <button
+                                    key={
+                                        creditNote.id
+                                    }
+                                    type="button"
+                                    onClick={() =>
+                                        navigate(
+                                            `/sales/credit-notes/${creditNote.id}`,
+                                        )
+                                    }
+                                    className="grid w-full grid-cols-[150px_130px_minmax(0,1fr)_130px_130px_130px] items-center gap-4 border-t border-[var(--color-border)] px-5 py-4 text-left transition hover:bg-[var(--color-background-subtle)]"
+                                >
+                                    <div className="font-mono text-xs font-semibold text-[var(--color-accent)]">
+                                        {
+                                            creditNote.creditNoteNumber
+                                        }
+                                    </div>
+
+                                    <div className="text-xs text-[var(--color-text-secondary)]">
+                                        {formatDate(
+                                            creditNote.creditDate,
+                                        )}
+                                    </div>
+
+                                    <div className="truncate text-sm">
+                                        {
+                                            creditNote.reason
+                                        }
+                                    </div>
+
+                                    <div className="money text-right text-sm">
+                                        {formatMoney(
+                                            creditNote.totals.total,
+                                        )}
+                                    </div>
+
+                                    <div className="money text-right text-sm">
+                                        {formatMoney(
+                                            creditNote.amountApplied,
+                                        )}
+                                    </div>
+
+                                    <div className="money text-right text-sm font-semibold text-[var(--color-accent)]">
+                                        {formatMoney(
+                                            creditNote.amountAvailable,
+                                        )}
+                                    </div>
+                                </button>
+                            ),
+                        )}
+                    </div>
+                )}
 
             <OutstandingInvoiceList
                 invoices={

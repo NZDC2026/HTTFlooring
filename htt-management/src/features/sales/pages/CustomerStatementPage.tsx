@@ -622,7 +622,17 @@ function StatementRow({
 }) {
     const reversed =
         entry.type ===
-        "PAYMENT_REVERSAL";
+        "PAYMENT_REVERSAL" ||
+        entry.type ===
+        "CREDIT_NOTE_VOID";
+
+    const voidedInvoice =
+        entry.type ===
+        "INVOICE_VOID";
+
+    const creditNote =
+        entry.type ===
+        "CREDIT_NOTE";
 
     return (
         <div className="statement-row grid grid-cols-[90px_135px_minmax(0,1fr)_100px_100px_110px] items-center gap-3 border-b border-[var(--color-border)] px-4 py-4 text-xs last:border-b-0">
@@ -634,8 +644,12 @@ function StatementRow({
 
             <div>
                 {entry.invoiceId &&
-                    entry.type ===
-                    "INVOICE" &&
+                    (
+                        entry.type ===
+                        "INVOICE" ||
+                        entry.type ===
+                        "INVOICE_VOID"
+                    ) &&
                     onOpenInvoice ? (
                     <button
                         type="button"
@@ -652,9 +666,13 @@ function StatementRow({
                     <span
                         className={[
                             "font-mono font-semibold",
-                            reversed
+
+                            reversed ||
+                                voidedInvoice
                                 ? "text-[var(--color-danger)]"
-                                : "",
+                                : creditNote
+                                    ? "text-[var(--color-accent)]"
+                                    : "",
                         ].join(
                             " ",
                         )}
@@ -669,9 +687,13 @@ function StatementRow({
             <div
                 className={[
                     "min-w-0 break-words",
-                    reversed
+
+                    reversed ||
+                        voidedInvoice
                         ? "text-[var(--color-danger)]"
-                        : "text-[var(--color-text-secondary)]",
+                        : creditNote
+                            ? "font-medium text-[var(--color-accent)]"
+                            : "text-[var(--color-text-secondary)]",
                 ].join(" ")}
             >
                 {

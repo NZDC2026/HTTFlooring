@@ -11,6 +11,10 @@ import {
 } from "./usePayments";
 
 import {
+    useCreditNotes,
+} from "./useCreditNotes";
+
+import {
     buildCustomerStatement,
 } from "./customerStatementService";
 
@@ -33,6 +37,30 @@ export function useCustomerStatement(
             customerId,
         );
 
+    const allCreditNotes =
+        useCreditNotes();
+
+    const creditNotes =
+        useMemo(
+            () => {
+                if (
+                    !customerId
+                ) {
+                    return [];
+                }
+
+                return allCreditNotes.filter(
+                    (creditNote) =>
+                        creditNote.customerId ===
+                        customerId,
+                );
+            },
+            [
+                allCreditNotes,
+                customerId,
+            ],
+        );
+
     return useMemo(() => {
         if (
             !customerId ||
@@ -44,15 +72,22 @@ export function useCustomerStatement(
 
         return buildCustomerStatement({
             customerId,
+
             documents,
+
             payments,
+
+            creditNotes,
+
             fromDate,
+
             toDate,
         });
     }, [
         customerId,
         documents,
         payments,
+        creditNotes,
         fromDate,
         toDate,
     ]);

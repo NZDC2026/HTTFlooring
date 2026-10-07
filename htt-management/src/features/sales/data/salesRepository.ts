@@ -1263,6 +1263,283 @@ export const salesRepository = {
         return allocation;
     },
 
+    reverseCreditAllocation(
+        input: {
+            allocationId: string;
+            reason: string;
+        },
+    ): CreditAllocation {
+        const allocation =
+            creditNoteRepository
+                .getAllocationById(
+                    input.allocationId,
+                );
+
+        if (!allocation) {
+            throw new Error(
+                `Credit allocation ${input.allocationId} was not found`,
+            );
+        }
+
+        if (
+            allocation.status ===
+            "REVERSED"
+        ) {
+            throw new Error(
+                "This credit allocation has already been reversed",
+            );
+        }
+
+        const reason =
+            input.reason.trim();
+
+        if (
+            reason.length < 3
+        ) {
+            throw new Error(
+                "A reversal reason is required",
+            );
+        }
+
+        const creditNote =
+            creditNoteRepository.getById(
+                allocation.creditNoteId,
+            );
+
+        if (!creditNote) {
+            throw new Error(
+                "Credit note was not found",
+            );
+        }
+
+        if (
+            creditNote.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "Allocations on a void credit note cannot be reversed here",
+            );
+        }
+
+        const invoice =
+            invoices.find(
+                (item) =>
+                    item.id ===
+                    allocation.invoiceId,
+            );
+
+        if (!invoice) {
+            throw new Error(
+                "Allocated invoice was not found",
+            );
+        }
+
+        if (
+            invoice.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "Credit allocation cannot be reversed after the invoice has been voided",
+            );
+        }
+
+        const now =
+            new Date().toISOString();
+
+        const reversedAllocation:
+            CreditAllocation = {
+            ...allocation,
+
+            status:
+                "REVERSED",
+
+            reversedAt:
+                now,
+
+            reversalReason:
+                reason,
+
+            updatedAt:
+                now,
+        };
+
+        creditNoteRepository
+            .updateAllocation(
+                reversedAllocation,
+            );
+
+        /*
+         * Recalculate the Credit Note from active
+         * allocations instead of subtracting the
+         * reversed amount manually.
+         *
+         * This keeps the snapshot correct even after
+         * multiple allocations/reversals.
+         */
+        const activeAllocations =
+            creditNoteRepository
+                .getAllocationsByCreditNote(
+                    creditNote.id,
+                )
+                .filter(
+                    (item) =>
+                        item.status ===
+                        "APPLIED",
+                );
+
+        const amountApplied =
+            roundCurrency(
+                activeAllocations.reduce(
+                    (
+                        total,
+                        item,
+                    ) =>
+                        total +
+                        item.amount,
+                    0,
+                ),
+            );
+
+        const amountAvailable =
+            roundCurrency(
+                Math.max(
+                    0,
+                    creditNote.totals.total -
+                    amountApplied,
+                ),
+            );
+
+        creditNoteRepository.update({
+            ...creditNote,
+
+            amountApplied,
+
+            amountAvailable,
+
+            status:
+                amountAvailable === 0
+                    ? "FULLY_APPLIED"
+                    : "ISSUED",
+
+            updatedAt:
+                now,
+        });
+
+        /*
+         * Reversed allocation no longer reduces
+         * this invoice.
+         */
+        this.recalculateInvoiceBalance(
+            invoice.id,
+        );
+
+        return reversedAllocation;
+    },
+
+    voidCreditNote(
+        input: {
+            creditNoteId: string;
+            reason: string;
+        },
+    ): CreditNote {
+        const creditNote =
+            creditNoteRepository.getById(
+                input.creditNoteId,
+            );
+
+        if (!creditNote) {
+            throw new Error(
+                `Credit note ${input.creditNoteId} was not found`,
+            );
+        }
+
+        if (
+            creditNote.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "This credit note has already been voided",
+            );
+        }
+
+        if (
+            creditNote.status ===
+            "DRAFT"
+        ) {
+            throw new Error(
+                "A draft credit note cannot be voided here",
+            );
+        }
+
+        const reason =
+            input.reason.trim();
+
+        if (
+            reason.length < 3
+        ) {
+            throw new Error(
+                "A void reason is required",
+            );
+        }
+
+        const activeAllocations =
+            creditNoteRepository
+                .getAllocationsByCreditNote(
+                    creditNote.id,
+                )
+                .filter(
+                    (allocation) =>
+                        allocation.status ===
+                        "APPLIED",
+                );
+
+        if (
+            activeAllocations.length >
+            0
+        ) {
+            throw new Error(
+                "Reverse all active credit allocations before voiding this credit note",
+            );
+        }
+
+        const now =
+            new Date().toISOString();
+
+        const voided:
+            CreditNote = {
+            ...creditNote,
+
+            status:
+                "VOID",
+
+            /*
+             * No active allocations remain, so the
+             * credit was fully available immediately
+             * before being voided.
+             *
+             * After voiding it is no longer available
+             * customer credit.
+             */
+            amountApplied: 0,
+            amountAvailable: 0,
+
+            voidedAt:
+                now,
+
+            voidReason:
+                reason,
+
+            updatedAt:
+                now,
+        };
+
+        creditNoteRepository.update(
+            voided,
+        );
+
+        return voided;
+    },
+
     recordInvoicePayment(
         input: {
             invoiceId: string;

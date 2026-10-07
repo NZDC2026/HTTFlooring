@@ -9,7 +9,25 @@ export interface AgingBuckets {
 export interface CustomerAccountsReceivable {
     customerId: string;
 
+    /**
+     * Gross outstanding balance of invoices
+     * after payments and applied credits.
+     */
     totalOutstanding: number;
+
+    /**
+     * Customer credit that has been issued
+     * but has not yet been allocated.
+     */
+    unallocatedCredit: number;
+
+    /**
+     * Customer-level receivable position.
+     *
+     * invoice AR - unallocated customer credit
+     */
+    netAccountBalance: number;
+
     overdueAmount: number;
 
     creditLimit: number;

@@ -201,4 +201,45 @@ export const creditNoteRepository = {
 
         return allocation;
     },
+
+    updateAllocation(
+        updated:
+            CreditAllocation,
+    ) {
+        const exists =
+            allocations.some(
+                (item) =>
+                    item.id ===
+                    updated.id,
+            );
+
+        if (!exists) {
+            throw new Error(
+                `Credit allocation ${updated.id} was not found`,
+            );
+        }
+
+        allocations =
+            allocations.map(
+                (item) =>
+                    item.id ===
+                        updated.id
+                        ? updated
+                        : item,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
+    getAllocationById(
+        allocationId: string,
+    ) {
+        return allocations.find(
+            (allocation) =>
+                allocation.id ===
+                allocationId,
+        );
+    },
 };

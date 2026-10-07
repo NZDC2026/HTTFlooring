@@ -9,6 +9,7 @@ import { QuoteDetailPage } from "../features/sales/pages/QuoteDetailPage";
 import { SalesOrderDetailPage } from "../features/sales/pages/SalesOrderDetailPage";
 import { InvoiceDetailPage } from "../features/sales/pages/InvoiceDetailPage";
 import { CustomerStatementPage } from "../features/sales/pages/CustomerStatementPage";
+import { CreditNoteDetailPage } from "../features/sales/pages/CreditNoteDetailPage";
 import { AgedReceivablesPage } from "../features/reports/pages/AgedReceivablesPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
@@ -40,6 +41,10 @@ export const router = createHashRouter([
             {
                 path: "sales/invoices/:invoiceId",
                 element: <InvoiceDetailPage />,
+            },
+            {
+                path: "sales/credit-notes/:creditNoteId",
+                element: <CreditNoteDetailPage />,
             },
             {
                 path: "sales/statements/:customerId",

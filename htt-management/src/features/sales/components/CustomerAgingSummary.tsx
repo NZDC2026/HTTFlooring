@@ -1,8 +1,8 @@
 import {
-    AlertTriangle,
     CircleDollarSign,
     CreditCard,
     ReceiptText,
+    WalletCards,
 } from "lucide-react";
 
 import type {
@@ -48,37 +48,53 @@ export function CustomerAgingSummary({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                     <AccountCard
                         icon={
                             CircleDollarSign
                         }
-                        label="Total Owing"
+                        label="Invoice AR"
                         value={formatMoney(
                             ar.totalOutstanding,
                         )}
+                        detail={`${ar.outstandingInvoiceCount} outstanding ${ar.outstandingInvoiceCount ===
+                            1
+                            ? "invoice"
+                            : "invoices"
+                            }`}
                     />
 
                     <AccountCard
                         icon={
-                            AlertTriangle
+                            WalletCards
                         }
-                        label="Overdue"
+                        label="Unallocated Credits"
                         value={formatMoney(
-                            ar.overdueAmount,
+                            ar.unallocatedCredit,
+                        )}
+                        detail="Available customer credit"
+                        credit={
+                            ar.unallocatedCredit >
+                            0
+                        }
+                    />
+
+                    <AccountCard
+                        icon={
+                            CircleDollarSign
+                        }
+                        label="Net Account Balance"
+                        value={formatMoney(
+                            ar.netAccountBalance,
                         )}
                         detail={
-                            ar.overdueInvoiceCount >
+                            ar.netAccountBalance <
                                 0
-                                ? `${ar.overdueInvoiceCount} overdue ${ar.overdueInvoiceCount ===
-                                    1
-                                    ? "invoice"
-                                    : "invoices"
-                                }`
-                                : "No overdue invoices"
+                                ? "Customer is in credit"
+                                : "Net amount owing"
                         }
-                        danger={
-                            ar.overdueAmount >
+                        credit={
+                            ar.netAccountBalance <
                             0
                         }
                     />
@@ -120,10 +136,29 @@ export function CustomerAgingSummary({
                         </div>
                     </div>
 
-                    <div className="money text-sm font-semibold text-[var(--color-primary)]">
-                        {formatMoney(
-                            ar.totalOutstanding,
-                        )}
+                    <div className="text-right">
+                        <div className="money text-sm font-semibold text-[var(--color-primary)]">
+                            {formatMoney(
+                                ar.totalOutstanding,
+                            )}
+                        </div>
+
+                        <div
+                            className={[
+                                "mt-1 text-[10px]",
+                                ar.overdueAmount >
+                                    0
+                                    ? "text-[var(--color-danger)]"
+                                    : "text-[var(--color-text-muted)]",
+                            ].join(" ")}
+                        >
+                            {ar.overdueAmount >
+                                0
+                                ? `${formatMoney(
+                                    ar.overdueAmount,
+                                )} overdue`
+                                : "No overdue balance"}
+                        </div>
                     </div>
                 </div>
 
@@ -183,6 +218,7 @@ function AccountCard({
     value,
     detail,
     danger = false,
+    credit = false,
 }: {
     icon:
     typeof CircleDollarSign;
@@ -191,6 +227,7 @@ function AccountCard({
     value: string;
     detail?: string;
     danger?: boolean;
+    credit?: boolean;
 }) {
     return (
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white px-5 py-4 shadow-[var(--shadow-xs)]">
@@ -204,7 +241,9 @@ function AccountCard({
                     className={
                         danger
                             ? "text-[var(--color-danger)]"
-                            : "text-[var(--color-text-muted)]"
+                            : credit
+                                ? "text-[var(--color-accent)]"
+                                : "text-[var(--color-text-muted)]"
                     }
                 />
             </div>
@@ -212,9 +251,12 @@ function AccountCard({
             <div
                 className={[
                     "money mt-3 text-xl font-semibold",
+
                     danger
                         ? "text-[var(--color-danger)]"
-                        : "text-[var(--color-primary)]",
+                        : credit
+                            ? "text-[var(--color-accent)]"
+                            : "text-[var(--color-primary)]",
                 ].join(" ")}
             >
                 {value}
