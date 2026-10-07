@@ -25,6 +25,10 @@ import {
     calculateInvoiceBalanceAsAt,
 } from "./invoiceBalanceAsAtService";
 
+import {
+    calculateCreditNoteBalanceAsAt,
+} from "./creditNoteBalanceAsAtService";
+
 export function calculateCustomerAccountsReceivable(
     customer: Customer,
     documents: SalesDocument[],
@@ -196,20 +200,21 @@ export function calculateCustomerAccountsReceivable(
                 ) => {
                     if (
                         creditNote.customerId !==
-                        customer.id ||
-                        creditNote.status ===
-                        "DRAFT" ||
-                        creditNote.status ===
-                        "VOID" ||
-                        creditNote.creditDate >
-                        asOfDate
+                        customer.id
                     ) {
                         return total;
                     }
 
+                    const balance =
+                        calculateCreditNoteBalanceAsAt(
+                            creditNote,
+                            creditAllocations,
+                            asOfDate,
+                        );
+
                     return (
                         total +
-                        creditNote.amountAvailable
+                        balance.amountAvailable
                     );
                 },
                 0,

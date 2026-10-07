@@ -29,6 +29,9 @@ import {
 import {
     OutstandingInvoiceList,
 } from "../../sales/components/OutstandingInvoiceList";
+import {
+    AccountsReceivableReconciliation,
+} from "../../sales/components/AccountsReceivableReconciliation";
 
 import {
     useCustomerAccountsReceivable,
@@ -38,6 +41,9 @@ import { useCustomerPayments } from "../../sales/data/usePayments";
 import {
     useCreditNotes,
 } from "../../sales/data/useCreditNotes";
+import {
+    useAccountsReceivableReconciliation,
+} from "../../sales/data/useAccountsReceivableReconciliation";
 
 import type {
     Invoice,
@@ -88,6 +94,11 @@ export function CustomerSalesTab({
 
     const accountsReceivable =
         useCustomerAccountsReceivable(
+            customer,
+        );
+
+    const reconciliation =
+        useAccountsReceivableReconciliation(
             customer,
         );
 
@@ -411,6 +422,12 @@ export function CustomerSalesTab({
             <CustomerAgingSummary
                 accountsReceivable={
                     accountsReceivable
+                }
+            />
+
+            <AccountsReceivableReconciliation
+                reconciliation={
+                    reconciliation
                 }
             />
 

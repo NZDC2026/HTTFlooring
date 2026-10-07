@@ -1733,6 +1733,26 @@ export const salesRepository = {
             );
         }
 
+        const activeCreditAllocations =
+            creditNoteRepository
+                .getAllocationsByInvoice(
+                    invoice.id,
+                )
+                .filter(
+                    (allocation) =>
+                        allocation.status ===
+                        "APPLIED",
+                );
+
+        if (
+            activeCreditAllocations.length >
+            0
+        ) {
+            throw new Error(
+                "This invoice has applied credits. Reverse all active credit allocations before voiding the invoice.",
+            );
+        }
+
         const now =
             new Date().toISOString();
 

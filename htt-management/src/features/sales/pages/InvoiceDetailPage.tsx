@@ -56,6 +56,8 @@ import {
 } from "../data/useSalesDocuments";
 
 import {
+    useCreditNotes,
+    useInvoiceCreditAllocations,
     useInvoiceCreditNotes,
 } from "../data/useCreditNotes";
 
@@ -91,6 +93,14 @@ export function InvoiceDetailPage() {
 
     const creditNotes =
         useInvoiceCreditNotes(
+            invoiceId,
+        );
+
+    const allCreditNotes =
+        useCreditNotes();
+
+    const creditAllocations =
+        useInvoiceCreditAllocations(
             invoiceId,
         );
 
@@ -165,6 +175,36 @@ export function InvoiceDetailPage() {
             (payment) =>
                 payment.status ===
                 "RECEIVED",
+        );
+
+    function creditNotesById(
+        creditNoteId: string,
+    ) {
+        return allCreditNotes.find(
+            (creditNote) =>
+                creditNote.id ===
+                creditNoteId,
+        );
+    }
+
+    const activeCreditAllocations =
+        creditAllocations.filter(
+            (allocation) =>
+                allocation.status ===
+                "APPLIED",
+        );
+
+    const amountCredited =
+        roundCurrency(
+            activeCreditAllocations.reduce(
+                (
+                    total,
+                    allocation,
+                ) =>
+                    total +
+                    allocation.amount,
+                0,
+            ),
         );
 
     const canVoid =
@@ -436,8 +476,12 @@ export function InvoiceDetailPage() {
             )}
 
             {canVoid &&
-                activePayments.length >
-                0 && (
+                (
+                    activePayments.length >
+                    0 ||
+                    activeCreditAllocations.length >
+                    0
+                ) && (
                     <div className="mb-5 flex items-start gap-3 rounded-lg border border-[var(--color-warning)]/20 bg-[var(--color-warning)]/5 px-4 py-3">
                         <RotateCcw
                             size={16}
@@ -446,20 +490,49 @@ export function InvoiceDetailPage() {
 
                         <div>
                             <div className="text-sm font-medium">
-                                Active payments must be reversed before this invoice can be voided.
+                                Active allocations must be reversed before this invoice can be voided.
                             </div>
 
                             <div className="mt-1 text-xs text-[var(--color-text-muted)]">
-                                {
-                                    activePayments.length
-                                }{" "}
-                                active{" "}
-                                {activePayments.length ===
-                                    1
-                                    ? "payment is"
-                                    : "payments are"}{" "}
-                                currently allocated to
-                                this invoice.
+                                {activePayments.length >
+                                    0 && (
+                                        <span>
+                                            {
+                                                activePayments.length
+                                            }{" "}
+                                            active{" "}
+                                            {activePayments.length ===
+                                                1
+                                                ? "payment"
+                                                : "payments"}
+                                        </span>
+                                    )}
+
+                                {activePayments.length >
+                                    0 &&
+                                    activeCreditAllocations.length >
+                                    0 && (
+                                        <span>
+                                            {" "}
+                                            and{" "}
+                                        </span>
+                                    )}
+
+                                {activeCreditAllocations.length >
+                                    0 && (
+                                        <span>
+                                            {
+                                                activeCreditAllocations.length
+                                            }{" "}
+                                            active credit{" "}
+                                            {activeCreditAllocations.length ===
+                                                1
+                                                ? "allocation"
+                                                : "allocations"}
+                                        </span>
+                                    )}
+
+                                {" "}must be reversed first.
                             </div>
                         </div>
                     </div>
@@ -549,12 +622,11 @@ export function InvoiceDetailPage() {
                 />
             </div>
 
-            <div className="mb-5 grid grid-cols-3 gap-4">
+            <div className="mb-5 grid grid-cols-4 gap-4">
                 <MoneyCard
                     label="Invoice Total"
                     value={
-                        invoice.totals
-                            .total
+                        invoice.totals.total
                     }
                     icon={
                         ReceiptText
@@ -568,6 +640,16 @@ export function InvoiceDetailPage() {
                     }
                     icon={
                         CheckCircle2
+                    }
+                />
+
+                <MoneyCard
+                    label="Applied Credits"
+                    value={
+                        amountCredited
+                    }
+                    icon={
+                        FileMinus2
                     }
                 />
 
@@ -825,6 +907,180 @@ export function InvoiceDetailPage() {
                     </div>
                 )}
 
+            {creditAllocations.length >
+                0 && (
+                    <div className="mt-5 overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
+                        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-surface-muted)]">
+                                    <FileMinus2
+                                        size={16}
+                                        className="text-[var(--color-accent)]"
+                                    />
+                                </div>
+
+                                <div>
+                                    <h2 className="text-sm font-semibold">
+                                        Applied Credits
+                                    </h2>
+
+                                    <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
+                                        Credit allocations applied to this invoice.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="text-right">
+                                <div className="money text-sm font-semibold text-[var(--color-accent)]">
+                                    {formatMoney(
+                                        amountCredited,
+                                    )}
+                                </div>
+
+                                <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                    Current applied credit
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-[150px_150px_130px_minmax(0,1fr)_140px_120px] gap-4 bg-[var(--color-background-subtle)] px-5 py-3 text-[10px] font-medium uppercase tracking-[0.06em] text-[var(--color-text-muted)]">
+                            <div>
+                                Allocation
+                            </div>
+
+                            <div>
+                                Credit Note
+                            </div>
+
+                            <div>
+                                Date
+                            </div>
+
+                            <div>
+                                Details
+                            </div>
+
+                            <div className="text-right">
+                                Amount
+                            </div>
+
+                            <div className="text-right">
+                                Status
+                            </div>
+                        </div>
+
+                        <div className="divide-y divide-[var(--color-border)]">
+                            {creditAllocations.map(
+                                (allocation) => {
+                                    const allocationCreditNote =
+                                        creditNotesById(
+                                            allocation.creditNoteId,
+                                        );
+
+                                    const reversed =
+                                        allocation.status ===
+                                        "REVERSED";
+
+                                    return (
+                                        <button
+                                            key={
+                                                allocation.id
+                                            }
+                                            type="button"
+                                            onClick={() =>
+                                                navigate(
+                                                    `/sales/credit-notes/${allocation.creditNoteId}`,
+                                                )
+                                            }
+                                            className="grid w-full grid-cols-[150px_150px_130px_minmax(0,1fr)_140px_120px] items-center gap-4 px-5 py-4 text-left transition hover:bg-[var(--color-background-subtle)]"
+                                        >
+                                            <div
+                                                className={[
+                                                    "font-mono text-xs font-semibold",
+
+                                                    reversed
+                                                        ? "text-[var(--color-text-muted)]"
+                                                        : "text-[var(--color-primary)]",
+                                                ].join(
+                                                    " ",
+                                                )}
+                                            >
+                                                {
+                                                    allocation.allocationNumber
+                                                }
+                                            </div>
+
+                                            <div className="font-mono text-xs font-semibold text-[var(--color-accent)]">
+                                                {allocationCreditNote
+                                                    ?.creditNoteNumber ??
+                                                    "Credit Note"}
+                                            </div>
+
+                                            <div className="text-xs text-[var(--color-text-secondary)]">
+                                                {formatDate(
+                                                    allocation.allocationDate,
+                                                )}
+                                            </div>
+
+                                            <div className="min-w-0">
+                                                {reversed ? (
+                                                    <>
+                                                        <div className="text-xs font-medium text-[var(--color-danger)]">
+                                                            Allocation reversed
+                                                        </div>
+
+                                                        {allocation.reversalReason && (
+                                                            <div className="mt-1 truncate text-[10px] text-[var(--color-text-muted)]">
+                                                                {
+                                                                    allocation.reversalReason
+                                                                }
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <div className="text-xs text-[var(--color-text-secondary)]">
+                                                        Applied to this invoice
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div
+                                                className={[
+                                                    "money text-right text-sm font-semibold",
+
+                                                    reversed
+                                                        ? "text-[var(--color-text-muted)] line-through"
+                                                        : "",
+                                                ].join(
+                                                    " ",
+                                                )}
+                                            >
+                                                {formatMoney(
+                                                    allocation.amount,
+                                                )}
+                                            </div>
+
+                                            <div className="text-right">
+                                                <Badge
+                                                    variant={
+                                                        reversed
+                                                            ? "danger"
+                                                            : "success"
+                                                    }
+                                                >
+                                                    {reversed
+                                                        ? "Reversed"
+                                                        : "Applied"}
+                                                </Badge>
+                                            </div>
+                                        </button>
+                                    );
+                                },
+                            )}
+                        </div>
+                    </div>
+                )}
+
             <div className="mt-5 grid grid-cols-[1fr_380px] gap-5">
                 <PaymentHistory
                     payments={
@@ -847,7 +1103,7 @@ export function InvoiceDetailPage() {
                         />
 
                         <h2 className="text-sm font-semibold">
-                            Invoice Total
+                            Financial Summary
                         </h2>
                     </div>
 
@@ -881,13 +1137,26 @@ export function InvoiceDetailPage() {
 
                         <div className="border-t border-[var(--color-border)] pt-3">
                             <TotalRow
-                                label="Paid"
-                                value={formatMoney(
-                                    invoice.amountPaid,
-                                )}
+                                label="Payments"
+                                value={
+                                    `-${formatMoney(
+                                        invoice.amountPaid,
+                                    )}`
+                                }
                             />
 
                             <div className="mt-3">
+                                <TotalRow
+                                    label="Applied Credits"
+                                    value={
+                                        `-${formatMoney(
+                                            amountCredited,
+                                        )}`
+                                    }
+                                />
+                            </div>
+
+                            <div className="mt-4 border-t border-[var(--color-border)] pt-4">
                                 <TotalRow
                                     label="Amount Due"
                                     value={formatMoney(
@@ -1449,6 +1718,18 @@ function formatPaymentMethod(
         case "OTHER":
             return "Other";
     }
+}
+
+function roundCurrency(
+    value: number,
+) {
+    return (
+        Math.round(
+            (value +
+                Number.EPSILON) *
+            100,
+        ) / 100
+    );
 }
 
 function formatMoney(
