@@ -218,17 +218,30 @@ export function CustomersPage() {
                     </p>
                 </div>
 
-                <Button
-                    variant="accent"
-                    onClick={() =>
-                        navigate(
-                            "/contacts/customers/new",
-                        )
-                    }
-                >
-                    <Plus size={16} />
-                    New customer
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                "/contacts/suppliers",
+                            )
+                        }
+                    >
+                        Suppliers
+                    </Button>
+
+                    <Button
+                        variant="accent"
+                        onClick={() =>
+                            navigate(
+                                "/contacts/customers/new",
+                            )
+                        }
+                    >
+                        <Plus size={16} />
+                        New customer
+                    </Button>
+                </div>
             </div>
 
             <div className="mb-4 grid grid-cols-4 gap-4">

@@ -5,12 +5,18 @@ import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { CustomersPage } from "../features/contacts/pages/CustomersPage";
 import { CustomerDetailPage } from "../features/contacts/pages/CustomerDetailPage";
 import { CustomerFormPage } from "../features/contacts/pages/CustomerFormPage";
+import { SuppliersPage } from "../features/contacts/pages/SuppliersPage";
+import { SupplierDetailPage } from "../features/contacts/pages/SupplierDetailPage";
+import { SupplierFormPage } from "../features/contacts/pages/SupplierFormPage";
 import { QuoteDetailPage } from "../features/sales/pages/QuoteDetailPage";
 import { SalesOrderDetailPage } from "../features/sales/pages/SalesOrderDetailPage";
 import { InvoiceDetailPage } from "../features/sales/pages/InvoiceDetailPage";
 import { CustomerStatementPage } from "../features/sales/pages/CustomerStatementPage";
 import { CreditNoteDetailPage } from "../features/sales/pages/CreditNoteDetailPage";
 import { AgedReceivablesPage } from "../features/reports/pages/AgedReceivablesPage";
+import { PurchaseOrdersPage } from "../features/purchases/pages/PurchaseOrdersPage";
+import { PurchaseOrderFormPage } from "../features/purchases/pages/PurchaseOrderFormPage";
+import { PurchaseOrderDetailPage } from "../features/purchases/pages/PurchaseOrderDetailPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
 export const router = createHashRouter([
@@ -52,7 +58,23 @@ export const router = createHashRouter([
             },
             {
                 path: "purchases",
-                element: <PlaceholderPage title="Purchases" />,
+                element: <PurchaseOrdersPage />,
+            },
+            {
+                path: "purchases/new",
+                element: (
+                    <PurchaseOrderFormPage mode="create" />
+                ),
+            },
+            {
+                path: "purchases/:purchaseOrderId/edit",
+                element: (
+                    <PurchaseOrderFormPage mode="edit" />
+                ),
+            },
+            {
+                path: "purchases/:purchaseOrderId",
+                element: <PurchaseOrderDetailPage />,
             },
             {
                 path: "inventory",
@@ -113,6 +135,26 @@ export const router = createHashRouter([
             {
                 path: "contacts/customers/:customerId/activity",
                 element: <CustomerDetailPage />,
+            },
+            {
+                path: "contacts/suppliers",
+                element: <SuppliersPage />,
+            },
+            {
+                path: "contacts/suppliers/new",
+                element: (
+                    <SupplierFormPage mode="create" />
+                ),
+            },
+            {
+                path: "contacts/suppliers/:supplierId/edit",
+                element: (
+                    <SupplierFormPage mode="edit" />
+                ),
+            },
+            {
+                path: "contacts/suppliers/:supplierId",
+                element: <SupplierDetailPage />,
             },
             {
                 path: "documents",
