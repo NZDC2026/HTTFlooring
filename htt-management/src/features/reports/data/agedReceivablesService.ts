@@ -14,6 +14,10 @@ import type {
     Payment,
 } from "../../sales/types/payment";
 
+import type {
+    CreditAllocation,
+} from "../../sales/types/creditNote";
+
 import {
     calculateCustomerAccountsReceivable,
 } from "../../sales/data/accountsReceivableService";
@@ -27,6 +31,7 @@ interface BuildAgedReceivablesReportInput {
     customers: Customer[];
     documents: SalesDocument[];
     payments: Payment[];
+    creditAllocations: CreditAllocation[];
     asOfDate: string;
 }
 
@@ -34,6 +39,7 @@ export function buildAgedReceivablesReport({
     customers,
     documents,
     payments,
+    creditAllocations,
     asOfDate,
 }: BuildAgedReceivablesReportInput): AgedReceivablesReport {
     const rows: AgedReceivablesRow[] =
@@ -50,6 +56,7 @@ export function buildAgedReceivablesReport({
                             customer,
                             documents,
                             payments,
+                            creditAllocations,
                             asOfDate,
                         );
 

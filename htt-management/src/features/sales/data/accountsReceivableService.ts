@@ -16,6 +16,10 @@ import type {
     Payment,
 } from "../types/payment";
 
+import type {
+    CreditAllocation,
+} from "../types/creditNote";
+
 import {
     calculateInvoiceBalanceAsAt,
 } from "./invoiceBalanceAsAtService";
@@ -24,6 +28,8 @@ export function calculateCustomerAccountsReceivable(
     customer: Customer,
     documents: SalesDocument[],
     payments: Payment[] = [],
+    creditAllocations:
+        CreditAllocation[] = [],
     asOfDate = getToday(),
 ): CustomerAccountsReceivable {
     const invoices =
@@ -59,8 +65,9 @@ export function calculateCustomerAccountsReceivable(
             calculateInvoiceBalanceAsAt(
                 invoice,
                 payments,
+                creditAllocations,
                 asOfDate,
-            );
+            );;
 
         const amount =
             balance.amountDue;

@@ -6,6 +6,10 @@ import type {
     Payment,
 } from "../types/payment";
 
+import type {
+    CreditAllocation,
+} from "../types/creditNote";
+
 export interface InvoiceBalanceAsAt {
     invoiceId: string;
 
@@ -14,14 +18,19 @@ export interface InvoiceBalanceAsAt {
     invoiceTotal: number;
 
     amountPaid: number;
+    amountCredited: number;
+
     amountDue: number;
 
     appliedPaymentCount: number;
+    appliedCreditCount: number;
 }
 
 export function calculateInvoiceBalanceAsAt(
     invoice: Invoice,
     payments: Payment[],
+    creditAllocations:
+        CreditAllocation[] = [],
     asOfDate: string,
 ): InvoiceBalanceAsAt {
     /*
@@ -43,9 +52,14 @@ export function calculateInvoiceBalanceAsAt(
                 ),
 
             amountPaid: 0,
+
+            amountCredited: 0,
+
             amountDue: 0,
 
             appliedPaymentCount: 0,
+
+            appliedCreditCount: 0,
         };
     }
 
@@ -80,9 +94,14 @@ export function calculateInvoiceBalanceAsAt(
                 ),
 
             amountPaid: 0,
+
+            amountCredited: 0,
+
             amountDue: 0,
 
             appliedPaymentCount: 0,
+
+            appliedCreditCount: 0,
         };
     }
 
@@ -119,6 +138,34 @@ export function calculateInvoiceBalanceAsAt(
             ),
         );
 
+    const effectiveCreditAllocations =
+        creditAllocations.filter(
+            (allocation) =>
+                allocation.invoiceId ===
+                invoice.id &&
+                allocation.customerId ===
+                invoice.customerId &&
+                allocation.allocationDate <=
+                asOfDate &&
+                isCreditAllocationEffectiveAsAt(
+                    allocation,
+                    asOfDate,
+                ),
+        );
+
+    const amountCredited =
+        roundCurrency(
+            effectiveCreditAllocations.reduce(
+                (
+                    total,
+                    allocation,
+                ) =>
+                    total +
+                    allocation.amount,
+                0,
+            ),
+        );
+
     const invoiceTotal =
         roundCurrency(
             invoice.totals.total,
@@ -129,7 +176,8 @@ export function calculateInvoiceBalanceAsAt(
             Math.max(
                 0,
                 invoiceTotal -
-                amountPaid,
+                amountPaid -
+                amountCredited,
             ),
         );
 
@@ -143,10 +191,15 @@ export function calculateInvoiceBalanceAsAt(
 
         amountPaid,
 
+        amountCredited,
+
         amountDue,
 
         appliedPaymentCount:
             effectivePayments.length,
+
+        appliedCreditCount:
+            effectiveCreditAllocations.length,
     };
 }
 
@@ -204,6 +257,45 @@ export function isPaymentEffectiveAsAt(
 
         return asOfDate <
             reversalDate;
+    }
+
+    return false;
+}
+
+export function isCreditAllocationEffectiveAsAt(
+    allocation:
+        CreditAllocation,
+
+    asOfDate: string,
+) {
+    if (
+        allocation.allocationDate >
+        asOfDate
+    ) {
+        return false;
+    }
+
+    if (
+        allocation.status ===
+        "APPLIED"
+    ) {
+        return true;
+    }
+
+    if (
+        allocation.status ===
+        "REVERSED"
+    ) {
+        if (
+            !allocation.reversedAt
+        ) {
+            return false;
+        }
+
+        return asOfDate <
+            toDateKey(
+                allocation.reversedAt,
+            );
     }
 
     return false;

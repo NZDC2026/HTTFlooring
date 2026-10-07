@@ -16,6 +16,10 @@ import {
 } from "../../sales/data/paymentRepository";
 
 import {
+    creditNoteRepository,
+} from "../../sales/data/creditNoteRepository";
+
+import {
     buildAgedReceivablesReport,
 } from "./agedReceivablesService";
 
@@ -35,18 +39,27 @@ export function useAgedReceivables(
             paymentRepository.getSnapshot,
         );
 
+    const creditAllocations =
+        useSyncExternalStore(
+            creditNoteRepository.subscribe,
+            creditNoteRepository.getAllocationSnapshot,
+            creditNoteRepository.getAllocationSnapshot,
+        );
+
     return useMemo(
         () =>
             buildAgedReceivablesReport({
                 customers,
                 documents,
                 payments,
+                creditAllocations,
                 asOfDate,
             }),
         [
             customers,
             documents,
             payments,
+            creditAllocations,
             asOfDate,
         ],
     );

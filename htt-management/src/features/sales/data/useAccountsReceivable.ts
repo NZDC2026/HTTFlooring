@@ -15,6 +15,10 @@ import {
 } from "./usePayments";
 
 import {
+    useCreditAllocations,
+} from "./useCreditNotes";
+
+import {
     calculateCustomerAccountsReceivable,
 } from "./accountsReceivableService";
 
@@ -31,12 +35,15 @@ export function useCustomerAccountsReceivable(
             customer.id,
         );
 
+    const creditAllocations = useCreditAllocations();
+
     return useMemo(
         () =>
             calculateCustomerAccountsReceivable(
                 customer,
                 documents,
                 payments,
+                creditAllocations,
             ),
         [
             customer,

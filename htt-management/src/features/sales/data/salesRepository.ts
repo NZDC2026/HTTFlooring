@@ -20,6 +20,15 @@ import type {
     PaymentMethod,
 } from "../types/payment";
 
+import type {
+    CreditAllocation,
+    CreditNote,
+} from "../types/creditNote";
+
+import {
+    creditNoteRepository,
+} from "./creditNoteRepository";
+
 import {
     buildSalesLine,
 } from "./salesPricingService";
@@ -837,6 +846,423 @@ export const salesRepository = {
         return invoice;
     },
 
+    createCreditNoteFromInvoice(
+        input: {
+            invoiceId: string;
+
+            creditDate: string;
+
+            reason: string;
+
+            lines:
+            SalesDocumentLine[];
+        },
+    ): CreditNote {
+        const invoice =
+            invoices.find(
+                (item) =>
+                    item.id ===
+                    input.invoiceId,
+            );
+
+        if (!invoice) {
+            throw new Error(
+                `Invoice ${input.invoiceId} was not found`,
+            );
+        }
+
+        if (
+            invoice.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "A credit note cannot be created from a void invoice",
+            );
+        }
+
+        if (
+            invoice.status ===
+            "DRAFT"
+        ) {
+            throw new Error(
+                "A credit note cannot be created from a draft invoice",
+            );
+        }
+
+        const reason =
+            input.reason.trim();
+
+        if (
+            reason.length < 3
+        ) {
+            throw new Error(
+                "A credit reason is required",
+            );
+        }
+
+        if (
+            input.lines.length ===
+            0
+        ) {
+            throw new Error(
+                "A credit note must contain at least one line",
+            );
+        }
+
+        if (
+            input.creditDate <
+            invoice.documentDate
+        ) {
+            throw new Error(
+                "Credit date cannot be earlier than the invoice date",
+            );
+        }
+
+        const lines =
+            structuredClone(
+                input.lines,
+            );
+
+        const totals =
+            calculateDocumentTotals(
+                lines,
+            );
+
+        if (
+            totals.total <= 0
+        ) {
+            throw new Error(
+                "Credit note total must be greater than zero",
+            );
+        }
+
+        const existingCredits =
+            creditNoteRepository
+                .getByInvoice(
+                    invoice.id,
+                )
+                .filter(
+                    (creditNote) =>
+                        creditNote.status !==
+                        "VOID",
+                );
+
+        const alreadyCredited =
+            roundCurrency(
+                existingCredits.reduce(
+                    (
+                        total,
+                        creditNote,
+                    ) =>
+                        total +
+                        creditNote.totals.total,
+                    0,
+                ),
+            );
+
+        if (
+            roundCurrency(
+                alreadyCredited +
+                totals.total,
+            ) >
+            roundCurrency(
+                invoice.totals.total,
+            )
+        ) {
+            throw new Error(
+                "Total credit notes cannot exceed the original invoice total",
+            );
+        }
+
+        const now =
+            new Date().toISOString();
+
+        const creditNote:
+            CreditNote = {
+            id:
+                createId(
+                    "credit-note",
+                ),
+
+            creditNoteNumber:
+                getNextDocumentNumber(
+                    "CN",
+                    creditNoteRepository
+                        .getAll()
+                        .map(
+                            (item) =>
+                                item.creditNoteNumber,
+                        ),
+                ),
+
+            customerId:
+                invoice.customerId,
+
+            sourceInvoiceId:
+                invoice.id,
+
+            creditDate:
+                input.creditDate,
+
+            status:
+                "ISSUED",
+
+            reason,
+
+            lines,
+
+            totals,
+
+            amountApplied: 0,
+
+            amountAvailable:
+                totals.total,
+
+            issuedAt:
+                now,
+
+            createdAt:
+                now,
+
+            updatedAt:
+                now,
+        };
+
+        creditNoteRepository.create(
+            creditNote,
+        );
+
+        return creditNote;
+    },
+
+    applyCreditToInvoice(
+        input: {
+            creditNoteId: string;
+
+            invoiceId: string;
+
+            allocationDate: string;
+
+            amount: number;
+        },
+    ): CreditAllocation {
+        const creditNote =
+            creditNoteRepository.getById(
+                input.creditNoteId,
+            );
+
+        if (!creditNote) {
+            throw new Error(
+                `Credit note ${input.creditNoteId} was not found`,
+            );
+        }
+
+        const invoice =
+            invoices.find(
+                (item) =>
+                    item.id ===
+                    input.invoiceId,
+            );
+
+        if (!invoice) {
+            throw new Error(
+                `Invoice ${input.invoiceId} was not found`,
+            );
+        }
+
+        if (
+            creditNote.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "A void credit note cannot be applied",
+            );
+        }
+
+        if (
+            creditNote.status ===
+            "DRAFT"
+        ) {
+            throw new Error(
+                "A draft credit note cannot be applied",
+            );
+        }
+
+        if (
+            invoice.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "Credit cannot be applied to a void invoice",
+            );
+        }
+
+        if (
+            invoice.status ===
+            "DRAFT"
+        ) {
+            throw new Error(
+                "Credit cannot be applied to a draft invoice",
+            );
+        }
+
+        if (
+            creditNote.customerId !==
+            invoice.customerId
+        ) {
+            throw new Error(
+                "Credit note and invoice must belong to the same customer",
+            );
+        }
+
+        if (
+            input.allocationDate <
+            creditNote.creditDate
+        ) {
+            throw new Error(
+                "Allocation date cannot be earlier than the credit note date",
+            );
+        }
+
+        const amount =
+            roundCurrency(
+                input.amount,
+            );
+
+        if (
+            !Number.isFinite(
+                amount,
+            ) ||
+            amount <= 0
+        ) {
+            throw new Error(
+                "Credit amount must be greater than zero",
+            );
+        }
+
+        const currentCredit =
+            creditNoteRepository.getById(
+                creditNote.id,
+            );
+
+        if (!currentCredit) {
+            throw new Error(
+                "Credit note was not found",
+            );
+        }
+
+        if (
+            amount >
+            currentCredit.amountAvailable
+        ) {
+            throw new Error(
+                "Credit amount cannot exceed the available credit",
+            );
+        }
+
+        const currentInvoice =
+            this.recalculateInvoiceBalance(
+                invoice.id,
+            );
+
+        if (
+            amount >
+            currentInvoice.amountDue
+        ) {
+            throw new Error(
+                "Credit amount cannot exceed the invoice amount due",
+            );
+        }
+
+        const now =
+            new Date().toISOString();
+
+        const allocation:
+            CreditAllocation = {
+            id:
+                createId(
+                    "credit-allocation",
+                ),
+
+            allocationNumber:
+                getNextDocumentNumber(
+                    "CA",
+                    creditNoteRepository
+                        .getAllAllocations()
+                        .map(
+                            (item) =>
+                                item.allocationNumber,
+                        ),
+                ),
+
+            customerId:
+                invoice.customerId,
+
+            creditNoteId:
+                currentCredit.id,
+
+            invoiceId:
+                invoice.id,
+
+            allocationDate:
+                input.allocationDate,
+
+            amount,
+
+            status:
+                "APPLIED",
+
+            createdAt:
+                now,
+
+            updatedAt:
+                now,
+        };
+
+        creditNoteRepository
+            .createAllocation(
+                allocation,
+            );
+
+        const amountApplied =
+            roundCurrency(
+                currentCredit.amountApplied +
+                amount,
+            );
+
+        const amountAvailable =
+            roundCurrency(
+                Math.max(
+                    0,
+                    currentCredit.totals.total -
+                    amountApplied,
+                ),
+            );
+
+        creditNoteRepository.update({
+            ...currentCredit,
+
+            amountApplied,
+
+            amountAvailable,
+
+            status:
+                amountAvailable ===
+                    0
+                    ? "FULLY_APPLIED"
+                    : "ISSUED",
+
+            updatedAt:
+                now,
+        });
+
+        this.recalculateInvoiceBalance(
+            invoice.id,
+        );
+
+        return allocation;
+    },
+
     recordInvoicePayment(
         input: {
             invoiceId: string;
@@ -1158,6 +1584,17 @@ export const salesRepository = {
                 invoiceId,
             );
 
+        const appliedCredits =
+            creditNoteRepository
+                .getAllocationsByInvoice(
+                    invoiceId,
+                )
+                .filter(
+                    (allocation) =>
+                        allocation.status ===
+                        "APPLIED",
+                );
+
         const amountPaid =
             roundCurrency(
                 receivedPayments.reduce(
@@ -1171,12 +1608,26 @@ export const salesRepository = {
                 ),
             );
 
+        const amountCredited =
+            roundCurrency(
+                appliedCredits.reduce(
+                    (
+                        total,
+                        allocation,
+                    ) =>
+                        total +
+                        allocation.amount,
+                    0,
+                ),
+            );
+
         const amountDue =
             roundCurrency(
                 Math.max(
                     0,
                     invoice.totals.total -
-                    amountPaid,
+                    amountPaid -
+                    amountCredited,
                 ),
             );
 
@@ -1184,12 +1635,12 @@ export const salesRepository = {
             InvoiceStatus;
 
         if (
-            amountDue === 0 &&
-            amountPaid > 0
+            amountDue === 0
         ) {
             status = "PAID";
         } else if (
-            amountPaid > 0
+            amountPaid > 0 ||
+            amountCredited > 0
         ) {
             status =
                 "PARTIALLY_PAID";
