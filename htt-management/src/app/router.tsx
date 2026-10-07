@@ -14,11 +14,19 @@ import { InvoiceDetailPage } from "../features/sales/pages/InvoiceDetailPage";
 import { CustomerStatementPage } from "../features/sales/pages/CustomerStatementPage";
 import { CreditNoteDetailPage } from "../features/sales/pages/CreditNoteDetailPage";
 import { AgedReceivablesPage } from "../features/reports/pages/AgedReceivablesPage";
+import { AgedPayablesPage } from "../features/reports/pages/AgedPayablesPage";
 import { PurchaseOrdersPage } from "../features/purchases/pages/PurchaseOrdersPage";
 import { PurchaseOrderFormPage } from "../features/purchases/pages/PurchaseOrderFormPage";
 import { PurchaseOrderDetailPage } from "../features/purchases/pages/PurchaseOrderDetailPage";
 import { ReceiveGoodsPage } from "../features/purchases/pages/ReceiveGoodsPage";
 import { GoodsReceiptDetailPage } from "../features/purchases/pages/GoodsReceiptDetailPage";
+import { CreateSupplierBillPage } from "../features/purchases/pages/CreateSupplierBillPage";
+import { SupplierBillDetailPage } from "../features/purchases/pages/SupplierBillDetailPage";
+import { AccountsPayablePage } from "../features/purchases/pages/AccountsPayablePage";
+import { CreateSupplierPaymentPage } from "../features/purchases/pages/CreateSupplierPaymentPage";
+import { SupplierPaymentDetailPage } from "../features/purchases/pages/SupplierPaymentDetailPage";
+import { SupplierStatementPage } from "../features/purchases/pages/SupplierStatementPage";
+import { AccountsPayableReconciliationPage } from "../features/purchases/pages/AccountsPayableReconciliationPage";
 import { InventoryPage } from "../features/inventory/pages/InventoryPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
@@ -70,6 +78,12 @@ export const router = createHashRouter([
                 ),
             },
             {
+                path: "purchases/bills/:supplierBillId",
+                element: (
+                    <SupplierBillDetailPage />
+                ),
+            },
+            {
                 path: "purchases/goods-receipts/:goodsReceiptId",
                 element: <GoodsReceiptDetailPage />,
             },
@@ -78,9 +92,45 @@ export const router = createHashRouter([
                 element: <ReceiveGoodsPage />,
             },
             {
+                path: "purchases/:purchaseOrderId/bill",
+                element: (
+                    <CreateSupplierBillPage />
+                ),
+            },
+            {
                 path: "purchases/:purchaseOrderId/edit",
                 element: (
                     <PurchaseOrderFormPage mode="edit" />
+                ),
+            },
+            {
+                path: "purchases/payments/new",
+                element: (
+                    <CreateSupplierPaymentPage />
+                ),
+            },
+            {
+                path: "purchases/payments/:supplierPaymentId",
+                element: (
+                    <SupplierPaymentDetailPage />
+                ),
+            },
+            {
+                path: "purchases/statements/:supplierId",
+                element: (
+                    <SupplierStatementPage />
+                ),
+            },
+            {
+                path: "purchases/payables/reconciliation",
+                element: (
+                    <AccountsPayableReconciliationPage />
+                ),
+            },
+            {
+                path: "purchases/payables",
+                element: (
+                    <AccountsPayablePage />
                 ),
             },
             {
@@ -106,6 +156,12 @@ export const router = createHashRouter([
             {
                 path: "reports",
                 element: <AgedReceivablesPage />,
+            },
+            {
+                path: "reports/aged-payables",
+                element: (
+                    <AgedPayablesPage />
+                ),
             },
             {
                 path: "contacts",

@@ -2,6 +2,7 @@ import {
     ArrowLeft,
     Ban,
     Check,
+    FileText,
     PackageCheck,
     Pencil,
     Send,
@@ -33,6 +34,10 @@ import {
     usePurchaseOrderGoodsReceipts,
 } from "../data/useGoodsReceipts";
 
+import {
+    usePurchaseOrderSupplierBills,
+} from "../data/useSupplierBills";
+
 export function PurchaseOrderDetailPage() {
     const navigate =
         useNavigate();
@@ -48,6 +53,11 @@ export function PurchaseOrderDetailPage() {
 
     const goodsReceipts =
         usePurchaseOrderGoodsReceipts(
+            purchaseOrderId,
+        );
+
+    const supplierBills =
+        usePurchaseOrderSupplierBills(
             purchaseOrderId,
         );
 
@@ -274,6 +284,34 @@ export function PurchaseOrderDetailPage() {
                                 Receive Goods
                             </Button>
                         )}
+
+                    {[
+                        "PARTIALLY_RECEIVED",
+                        "RECEIVED",
+                        "BILLED",
+                    ].includes(
+                        purchaseOrder.status,
+                    ) &&
+                        purchaseOrder.lines.some(
+                            (line) =>
+                                line.receivedQuantity >
+                                line.billedQuantity,
+                        ) && (
+                            <Button
+                                variant="secondary"
+                                onClick={() =>
+                                    navigate(
+                                        `/purchases/${purchaseOrder.id}/bill`,
+                                    )
+                                }
+                            >
+                                <FileText
+                                    size={15}
+                                />
+
+                                Create Supplier Bill
+                            </Button>
+                        )}
                 </div>
             </div>
 
@@ -378,6 +416,14 @@ export function PurchaseOrderDetailPage() {
                                 </Header>
 
                                 <Header align="right">
+                                    Billed
+                                </Header>
+
+                                <Header align="right">
+                                    Billable
+                                </Header>
+
+                                <Header align="right">
                                     Unit
                                     Cost
                                 </Header>
@@ -436,6 +482,28 @@ export function PurchaseOrderDetailPage() {
                                         <NumberCell
                                             value={
                                                 line.receivedQuantity
+                                            }
+                                        />
+
+                                        <NumberCell
+                                            value={
+                                                line.billedQuantity
+                                            }
+                                        />
+
+                                        <NumberCell
+                                            value={
+                                                Math.max(
+                                                    0,
+                                                    Math.round(
+                                                        (
+                                                            line.receivedQuantity -
+                                                            line.billedQuantity +
+                                                            Number.EPSILON
+                                                        ) *
+                                                        10000,
+                                                    ) / 10000,
+                                                )
                                             }
                                         />
 
@@ -638,6 +706,103 @@ export function PurchaseOrderDetailPage() {
                 )}
             </div>
 
+            <div className="mt-5 overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
+                <div className="border-b border-[var(--color-border)] px-5 py-4">
+                    <h2 className="font-display text-xl">
+                        Supplier Bill
+                        History
+                    </h2>
+
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                        Supplier
+                        invoices matched
+                        against received
+                        quantities on this
+                        purchase order.
+                    </p>
+                </div>
+
+                {supplierBills.length ===
+                    0 ? (
+                    <div className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">
+                        No supplier
+                        bills have been
+                        created for this
+                        purchase order.
+                    </div>
+                ) : (
+                    <div className="divide-y divide-[var(--color-border)]">
+                        {supplierBills.map(
+                            (bill) => (
+                                <button
+                                    key={
+                                        bill.id
+                                    }
+                                    type="button"
+                                    onClick={() =>
+                                        navigate(
+                                            `/purchases/bills/${bill.id}`,
+                                        )
+                                    }
+                                    className="grid w-full grid-cols-[1fr_1.2fr_1fr_1fr_1fr_auto] items-center gap-4 px-5 py-4 text-left transition hover:bg-[var(--color-surface-muted)]"
+                                >
+                                    <div>
+                                        <div className="text-sm font-semibold text-[var(--color-primary)]">
+                                            {
+                                                bill.billNumber
+                                            }
+                                        </div>
+
+                                        <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                            {
+                                                bill.status
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="text-sm font-medium">
+                                            {
+                                                bill.supplierInvoiceNumber
+                                            }
+                                        </div>
+
+                                        <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                            Supplier
+                                            Invoice
+                                        </div>
+                                    </div>
+
+                                    <div className="text-sm">
+                                        {
+                                            bill.billDate
+                                        }
+                                    </div>
+
+                                    <div className="text-sm">
+                                        Due{" "}
+                                        {
+                                            bill.dueDate
+                                        }
+                                    </div>
+
+                                    <div className="text-right text-sm font-semibold">
+                                        {formatMoney(
+                                            bill.totals
+                                                .amountDue,
+                                        )}
+                                    </div>
+
+                                    <div className="text-xs font-medium text-[var(--color-primary)]">
+                                        View →
+                                    </div>
+                                </button>
+                            ),
+                        )}
+                    </div>
+                )}
+            </div>
+
             <div className="mt-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs text-[var(--color-text-secondary)]">
                 Purchase order
                 approval and sending
@@ -712,6 +877,10 @@ function NumberCell({
         <td className="px-4 py-4 text-right text-sm">
             {value.toLocaleString(
                 "en-AU",
+                {
+                    maximumFractionDigits:
+                        4,
+                },
             )}
         </td>
     );

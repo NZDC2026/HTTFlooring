@@ -237,8 +237,9 @@ function buildLines(
                 orderedQuantity:
                     draftLine.orderedQuantity,
 
-                receivedQuantity:
-                    0,
+                receivedQuantity: 0,
+
+                billedQuantity: 0,
 
                 unitCost:
                     draftLine.unitCost,
@@ -785,6 +786,200 @@ export const purchaseOrderRepository =
         return updated;
     },
 
+    recordSupplierBill(
+        purchaseOrderId:
+            string,
+
+        billedLines:
+            Array<{
+                purchaseOrderLineId:
+                string;
+
+                billedQuantity:
+                number;
+            }>,
+    ) {
+        const existing =
+            purchaseOrderRepository.getById(
+                purchaseOrderId,
+            );
+
+        if (!existing) {
+            throw new Error(
+                "Purchase order was not found.",
+            );
+        }
+
+        if (
+            ![
+                "PARTIALLY_RECEIVED",
+                "RECEIVED",
+                "BILLED",
+            ].includes(
+                existing.status,
+            )
+        ) {
+            throw new Error(
+                "This purchase order cannot be billed.",
+            );
+        }
+
+        if (
+            billedLines.length ===
+            0
+        ) {
+            throw new Error(
+                "At least one billed line is required.",
+            );
+        }
+
+        const billedByLineId =
+            new Map<
+                string,
+                number
+            >();
+
+        for (
+            const billedLine of
+            billedLines
+        ) {
+            if (
+                !Number.isFinite(
+                    billedLine.billedQuantity,
+                ) ||
+                billedLine.billedQuantity <=
+                0
+            ) {
+                throw new Error(
+                    "Billed quantity must be greater than zero.",
+                );
+            }
+
+            if (
+                billedByLineId.has(
+                    billedLine.purchaseOrderLineId,
+                )
+            ) {
+                throw new Error(
+                    "Duplicate purchase order bill line.",
+                );
+            }
+
+            billedByLineId.set(
+                billedLine.purchaseOrderLineId,
+                billedLine.billedQuantity,
+            );
+        }
+
+        const updatedLines =
+            existing.lines.map(
+                (line) => {
+                    const billedNow =
+                        billedByLineId.get(
+                            line.id,
+                        );
+
+                    if (
+                        billedNow ===
+                        undefined
+                    ) {
+                        return line;
+                    }
+
+                    const nextBilled =
+                        roundQuantity(
+                            line.billedQuantity +
+                            billedNow,
+                        );
+
+                    if (
+                        nextBilled >
+                        line.receivedQuantity
+                    ) {
+                        throw new Error(
+                            `${line.description} cannot be billed above the received quantity.`,
+                        );
+                    }
+
+                    return {
+                        ...line,
+
+                        billedQuantity:
+                            nextBilled,
+                    };
+                },
+            );
+
+        for (
+            const billedLine of
+            billedLines
+        ) {
+            const exists =
+                existing.lines.some(
+                    (line) =>
+                        line.id ===
+                        billedLine.purchaseOrderLineId,
+                );
+
+            if (!exists) {
+                throw new Error(
+                    "Purchase order bill line was not found.",
+                );
+            }
+        }
+
+        const fullyReceived =
+            updatedLines.every(
+                (line) =>
+                    line.receivedQuantity >=
+                    line.orderedQuantity,
+            );
+
+        const fullyBilled =
+            updatedLines.every(
+                (line) =>
+                    line.billedQuantity >=
+                    line.orderedQuantity,
+            );
+
+        const nextStatus:
+            PurchaseOrder["status"] =
+            fullyReceived &&
+                fullyBilled
+                ? "BILLED"
+                : fullyReceived
+                    ? "RECEIVED"
+                    : "PARTIALLY_RECEIVED";
+
+        const updated:
+            PurchaseOrder =
+        {
+            ...existing,
+
+            lines:
+                updatedLines,
+
+            status:
+                nextStatus,
+
+            updatedAt:
+                new Date().toISOString(),
+        };
+
+        purchaseOrders =
+            purchaseOrders.map(
+                (purchaseOrder) =>
+                    purchaseOrder.id ===
+                        existing.id
+                        ? updated
+                        : purchaseOrder,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
     cancel(
         purchaseOrderId:
             string,
@@ -873,4 +1068,15 @@ function updateStatus(
     emitChange();
 
     return updated;
+}
+
+function roundQuantity(
+    value: number,
+) {
+    return (
+        Math.round(
+            (value + Number.EPSILON) *
+            10000,
+        ) / 10000
+    );
 }

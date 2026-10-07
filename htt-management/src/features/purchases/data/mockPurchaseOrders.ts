@@ -58,6 +58,8 @@ export const mockPurchaseOrders: PurchaseOrder[] =
                     receivedQuantity:
                         0,
 
+                    billedQuantity: 0,
+
                     unitCost:
                         105,
 
@@ -93,6 +95,8 @@ export const mockPurchaseOrders: PurchaseOrder[] =
 
                     receivedQuantity:
                         0,
+
+                    billedQuantity: 0,
 
                     unitCost:
                         42,
@@ -177,6 +181,8 @@ export const mockPurchaseOrders: PurchaseOrder[] =
 
                     receivedQuantity:
                         0,
+
+                    billedQuantity: 0,
 
                     unitCost:
                         66,

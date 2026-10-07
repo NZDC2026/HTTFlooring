@@ -25,7 +25,7 @@ export interface PurchaseOrderLine {
 
     orderedQuantity: number;
     receivedQuantity: number;
-
+    billedQuantity: number;
     unitCost: number;
 
     lineSubtotal: number;
