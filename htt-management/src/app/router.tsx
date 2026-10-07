@@ -5,6 +5,9 @@ import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { CustomersPage } from "../features/contacts/pages/CustomersPage";
 import { CustomerDetailPage } from "../features/contacts/pages/CustomerDetailPage";
 import { CustomerFormPage } from "../features/contacts/pages/CustomerFormPage";
+import { QuoteDetailPage } from "../features/sales/pages/QuoteDetailPage";
+import { SalesOrderDetailPage } from "../features/sales/pages/SalesOrderDetailPage";
+import { InvoiceDetailPage } from "../features/sales/pages/InvoiceDetailPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
 export const router = createHashRouter([
@@ -23,6 +26,18 @@ export const router = createHashRouter([
             {
                 path: "sales",
                 element: <PlaceholderPage title="Sales" />,
+            },
+            {
+                path: "sales/quotes/:quoteId",
+                element: <QuoteDetailPage />,
+            },
+            {
+                path: "sales/orders/:orderId",
+                element: <SalesOrderDetailPage />,
+            },
+            {
+                path: "sales/invoices/:invoiceId",
+                element: <InvoiceDetailPage />,
             },
             {
                 path: "purchases",
@@ -66,6 +81,26 @@ export const router = createHashRouter([
             },
             {
                 path: "contacts/customers/:customerId",
+                element: <CustomerDetailPage />,
+            },
+            {
+                path: "contacts/customers/:customerId/locations",
+                element: <CustomerDetailPage />,
+            },
+            {
+                path: "contacts/customers/:customerId/contacts",
+                element: <CustomerDetailPage />,
+            },
+            {
+                path: "contacts/customers/:customerId/pricing",
+                element: <CustomerDetailPage />,
+            },
+            {
+                path: "contacts/customers/:customerId/sales",
+                element: <CustomerDetailPage />,
+            },
+            {
+                path: "contacts/customers/:customerId/activity",
                 element: <CustomerDetailPage />,
             },
             {
