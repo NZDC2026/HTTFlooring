@@ -151,6 +151,16 @@ export interface Invoice
 
     amountPaid: number;
     amountDue: number;
+
+    /**
+     * Audit information for invoice voiding.
+     *
+     * Historical AR uses voidedAt to determine
+     * whether the invoice was still valid at a
+     * previous As At date.
+     */
+    voidedAt?: string;
+    voidReason?: string;
 }
 
 export type SalesDocument =

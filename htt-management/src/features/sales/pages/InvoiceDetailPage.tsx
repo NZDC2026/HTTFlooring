@@ -5,6 +5,7 @@ import {
 import {
     ArrowLeft,
     Banknote,
+    Ban,
     CalendarDays,
     CheckCircle2,
     Clock3,
@@ -32,6 +33,10 @@ import {
 import {
     PaymentReversalForm,
 } from "../components/PaymentReversalForm";
+
+import {
+    InvoiceVoidForm,
+} from "../components/InvoiceVoidForm";
 
 import { salesRepository } from "../data/salesRepository";
 
@@ -77,6 +82,11 @@ export function InvoiceDetailPage() {
     const [
         paymentOpen,
         setPaymentOpen,
+    ] = useState(false);
+
+    const [
+        voidOpen,
+        setVoidOpen,
     ] = useState(false);
 
     const [
@@ -129,6 +139,19 @@ export function InvoiceDetailPage() {
         "PARTIALLY_PAID" ||
         invoice.status ===
         "OVERDUE";
+
+    const activePayments =
+        payments.filter(
+            (payment) =>
+                payment.status ===
+                "RECEIVED",
+        );
+
+    const canVoid =
+        invoice.status !==
+        "VOID" &&
+        invoice.status !==
+        "DRAFT";
 
     function handlePayment(
         values:
@@ -200,6 +223,36 @@ export function InvoiceDetailPage() {
         }
     }
 
+    function handleVoidInvoice(
+        reason: string,
+    ) {
+        setActionError(
+            null,
+        );
+
+        try {
+            salesRepository.voidInvoice(
+                resolvedInvoiceId,
+                reason,
+            );
+
+            setVoidOpen(
+                false,
+            );
+        } catch (error) {
+            setVoidOpen(
+                false,
+            );
+
+            setActionError(
+                error instanceof
+                    Error
+                    ? error.message
+                    : "Unable to void invoice.",
+            );
+        }
+    }
+
     return (
         <div className="mx-auto w-full max-w-[1600px]">
             <button
@@ -243,25 +296,48 @@ export function InvoiceDetailPage() {
                     </p>
                 </div>
 
-                {canReceivePayment && (
-                    <Button
-                        onClick={() => {
-                            setActionError(
-                                null,
-                            );
+                <div className="flex items-center gap-3">
+                    {canVoid && (
+                        <Button
+                            variant="secondary"
+                            onClick={() => {
+                                setActionError(
+                                    null,
+                                );
 
-                            setPaymentOpen(
-                                true,
-                            );
-                        }}
-                    >
-                        <Banknote
-                            size={15}
-                        />
+                                setVoidOpen(
+                                    true,
+                                );
+                            }}
+                        >
+                            <Ban
+                                size={15}
+                            />
 
-                        Allocate Payment
-                    </Button>
-                )}
+                            Void Invoice
+                        </Button>
+                    )}
+
+                    {canReceivePayment && (
+                        <Button
+                            onClick={() => {
+                                setActionError(
+                                    null,
+                                );
+
+                                setPaymentOpen(
+                                    true,
+                                );
+                            }}
+                        >
+                            <Banknote
+                                size={15}
+                            />
+
+                            Allocate Payment
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {actionError && (
@@ -269,6 +345,36 @@ export function InvoiceDetailPage() {
                     {actionError}
                 </div>
             )}
+
+            {canVoid &&
+                activePayments.length >
+                0 && (
+                    <div className="mb-5 flex items-start gap-3 rounded-lg border border-[var(--color-warning)]/20 bg-[var(--color-warning)]/5 px-4 py-3">
+                        <RotateCcw
+                            size={16}
+                            className="mt-0.5 shrink-0 text-[var(--color-warning)]"
+                        />
+
+                        <div>
+                            <div className="text-sm font-medium">
+                                Active payments must be reversed before this invoice can be voided.
+                            </div>
+
+                            <div className="mt-1 text-xs text-[var(--color-text-muted)]">
+                                {
+                                    activePayments.length
+                                }{" "}
+                                active{" "}
+                                {activePayments.length ===
+                                    1
+                                    ? "payment is"
+                                    : "payments are"}{" "}
+                                currently allocated to
+                                this invoice.
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             <InvoiceLifecycleBanner
                 status={
@@ -278,6 +384,50 @@ export function InvoiceDetailPage() {
                     invoice.amountDue
                 }
             />
+
+            {invoice.status ===
+                "VOID" &&
+                invoice.voidedAt && (
+                    <div className="mb-5 rounded-[var(--radius-card)] border border-[var(--color-danger)]/20 bg-white px-5 py-4 shadow-[var(--shadow-xs)]">
+                        <div className="flex items-start gap-3">
+                            <Ban
+                                size={16}
+                                className="mt-0.5 shrink-0 text-[var(--color-danger)]"
+                            />
+
+                            <div className="min-w-0">
+                                <div className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--color-danger)]">
+                                    Void Audit
+                                </div>
+
+                                <div className="mt-3 grid grid-cols-2 gap-6">
+                                    <div>
+                                        <div className="text-[10px] text-[var(--color-text-muted)]">
+                                            Voided At
+                                        </div>
+
+                                        <div className="mt-1 text-sm font-medium">
+                                            {formatDateTime(
+                                                invoice.voidedAt,
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="text-[10px] text-[var(--color-text-muted)]">
+                                            Reason
+                                        </div>
+
+                                        <div className="mt-1 text-sm font-medium">
+                                            {invoice.voidReason ??
+                                                "—"}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             <div className="mb-5 grid grid-cols-4 gap-4">
                 <InfoCard
@@ -510,6 +660,10 @@ export function InvoiceDetailPage() {
                     payments={
                         payments
                     }
+                    allowReverse={
+                        invoice.status !==
+                        "VOID"
+                    }
                     onReverse={
                         setReversingPayment
                     }
@@ -622,16 +776,36 @@ export function InvoiceDetailPage() {
                     }
                 />
             )}
+
+            {voidOpen && (
+                <InvoiceVoidForm
+                    invoiceNumber={
+                        invoice.documentNumber
+                    }
+                    onCancel={() =>
+                        setVoidOpen(
+                            false,
+                        )
+                    }
+                    onSubmit={
+                        handleVoidInvoice
+                    }
+                />
+            )}
         </div>
     );
 }
 
 function PaymentHistory({
     payments,
+    allowReverse,
     onReverse,
 }: {
     payments:
     Payment[];
+
+    allowReverse:
+    boolean;
 
     onReverse:
     (
@@ -754,23 +928,24 @@ function PaymentHistory({
                                     </div>
 
                                     <div className="flex justify-end">
-                                        {!reversed && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                    onReverse(
-                                                        payment,
-                                                    )
-                                                }
-                                            >
-                                                <RotateCcw
-                                                    size={13}
-                                                />
+                                        {!reversed &&
+                                            allowReverse && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        onReverse(
+                                                            payment,
+                                                        )
+                                                    }
+                                                >
+                                                    <RotateCcw
+                                                        size={13}
+                                                    />
 
-                                                Reverse
-                                            </Button>
-                                        )}
+                                                    Reverse
+                                                </Button>
+                                            )}
                                     </div>
                                 </div>
                             );

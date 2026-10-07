@@ -11,6 +11,10 @@ import {
 } from "./useSalesDocuments";
 
 import {
+    useCustomerPayments,
+} from "./usePayments";
+
+import {
     calculateCustomerAccountsReceivable,
 } from "./accountsReceivableService";
 
@@ -22,15 +26,22 @@ export function useCustomerAccountsReceivable(
             customer.id,
         );
 
+    const payments =
+        useCustomerPayments(
+            customer.id,
+        );
+
     return useMemo(
         () =>
             calculateCustomerAccountsReceivable(
                 customer,
                 documents,
+                payments,
             ),
         [
             customer,
             documents,
+            payments,
         ],
     );
 }

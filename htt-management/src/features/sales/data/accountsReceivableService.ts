@@ -12,9 +12,18 @@ import type {
     CustomerAccountsReceivable,
 } from "../types/accountsReceivable";
 
+import type {
+    Payment,
+} from "../types/payment";
+
+import {
+    calculateInvoiceBalanceAsAt,
+} from "./invoiceBalanceAsAtService";
+
 export function calculateCustomerAccountsReceivable(
     customer: Customer,
     documents: SalesDocument[],
+    payments: Payment[] = [],
     asOfDate = getToday(),
 ): CustomerAccountsReceivable {
     const invoices =
@@ -26,10 +35,8 @@ export function calculateCustomerAccountsReceivable(
                 "INVOICE" &&
                 document.customerId ===
                 customer.id &&
-                document.status !==
-                "VOID" &&
-                document.amountDue >
-                0,
+                document.documentDate <=
+                asOfDate,
         );
 
     const aging: AgingBuckets = {
@@ -42,15 +49,33 @@ export function calculateCustomerAccountsReceivable(
 
     let totalOutstanding = 0;
     let overdueAmount = 0;
+    let outstandingInvoiceCount = 0;
     let overdueInvoiceCount = 0;
 
     for (
         const invoice of invoices
     ) {
-        const amount =
-            roundCurrency(
-                invoice.amountDue,
+        const balance =
+            calculateInvoiceBalanceAsAt(
+                invoice,
+                payments,
+                asOfDate,
             );
+
+        const amount =
+            balance.amountDue;
+
+        /*
+         * Fully paid as at the selected date.
+         */
+        if (
+            amount <= 0
+        ) {
+            continue;
+        }
+
+        outstandingInvoiceCount +=
+            1;
 
         totalOutstanding +=
             amount;
@@ -61,6 +86,9 @@ export function calculateCustomerAccountsReceivable(
                 asOfDate,
             );
 
+        /*
+         * Not yet due or due today.
+         */
         if (
             daysOverdue <= 0
         ) {
@@ -70,6 +98,10 @@ export function calculateCustomerAccountsReceivable(
             continue;
         }
 
+        /*
+         * Anything past due contributes
+         * to overdue totals.
+         */
         overdueAmount +=
             amount;
 
@@ -81,20 +113,30 @@ export function calculateCustomerAccountsReceivable(
         ) {
             aging.days1To30 +=
                 amount;
-        } else if (
+
+            continue;
+        }
+
+        if (
             daysOverdue <= 60
         ) {
             aging.days31To60 +=
                 amount;
-        } else if (
+
+            continue;
+        }
+
+        if (
             daysOverdue <= 90
         ) {
             aging.days61To90 +=
                 amount;
-        } else {
-            aging.days90Plus +=
-                amount;
+
+            continue;
         }
+
+        aging.days90Plus +=
+            amount;
     }
 
     const normalizedAging:
@@ -160,8 +202,7 @@ export function calculateCustomerAccountsReceivable(
         aging:
             normalizedAging,
 
-        outstandingInvoiceCount:
-            invoices.length,
+        outstandingInvoiceCount,
 
         overdueInvoiceCount,
     };

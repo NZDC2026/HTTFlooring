@@ -962,6 +962,115 @@ export const salesRepository = {
         return payment;
     },
 
+    voidInvoice(
+        invoiceId: string,
+        reason: string,
+    ): Invoice {
+        const invoice =
+            invoices.find(
+                (item) =>
+                    item.id ===
+                    invoiceId,
+            );
+
+        if (!invoice) {
+            throw new Error(
+                `Invoice ${invoiceId} was not found`,
+            );
+        }
+
+        if (
+            invoice.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "This invoice has already been voided",
+            );
+        }
+
+        if (
+            invoice.status ===
+            "DRAFT"
+        ) {
+            throw new Error(
+                "A draft invoice cannot be voided here",
+            );
+        }
+
+        const normalizedReason =
+            reason.trim();
+
+        if (
+            normalizedReason.length <
+            3
+        ) {
+            throw new Error(
+                "A void reason is required",
+            );
+        }
+
+        /*
+         * An invoice with active payments cannot be
+         * voided because that would leave received
+         * money attached to a void accounting document.
+         *
+         * Payments must be reversed first.
+         */
+        const receivedPayments =
+            paymentRepository.getReceivedByInvoice(
+                invoice.id,
+            );
+
+        if (
+            receivedPayments.length >
+            0
+        ) {
+            throw new Error(
+                "This invoice has received payments. Reverse all active payments before voiding the invoice.",
+            );
+        }
+
+        const now =
+            new Date().toISOString();
+
+        const updated:
+            Invoice = {
+            ...invoice,
+
+            status:
+                "VOID",
+
+            /*
+             * A void invoice no longer contributes
+             * to the current accounts receivable.
+             */
+            amountPaid: 0,
+            amountDue: 0,
+
+            voidedAt:
+                now,
+
+            voidReason:
+                normalizedReason,
+
+            updatedAt:
+                now,
+        };
+
+        invoices =
+            invoices.map(
+                (item) =>
+                    item.id ===
+                        invoiceId
+                        ? updated
+                        : item,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
     reverseInvoicePayment(
         paymentId: string,
         reason: string,
