@@ -13,7 +13,15 @@ export const environmentSchema = z.object({
         .default(3000),
 
     LOG_LEVEL: z
-        .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent',])
+        .enum([
+            'fatal',
+            'error',
+            'warn',
+            'info',
+            'debug',
+            'trace',
+            'silent',
+        ])
         .default('info'),
 
     CORS_ORIGINS: z
@@ -30,6 +38,25 @@ export const environmentSchema = z.object({
         .string()
         .url()
         .startsWith('postgresql://'),
+
+    ACCESS_TOKEN_SECRET: z
+        .string()
+        .min(
+            32,
+            'ACCESS_TOKEN_SECRET must be at least 32 characters',
+        ),
+
+    ACCESS_TOKEN_TTL_SECONDS: z.coerce
+        .number()
+        .int()
+        .positive()
+        .default(900),
+
+    REFRESH_TOKEN_TTL_DAYS: z.coerce
+        .number()
+        .int()
+        .positive()
+        .default(30),
 });
 
 export type EnvironmentVariables = z.infer<typeof environmentSchema>;

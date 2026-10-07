@@ -65,8 +65,11 @@ export class HttpLoggingInterceptor
 
         this.logger.log({
             event: 'http_request_completed',
-            requestId:
-                this.requestContext.getRequestId(),
+            requestId: this.requestContext.getRequestId(),
+            userId: this.requestContext.getUserId(),
+            tenantId: this.requestContext.getTenantId(),
+            organizationId: this.requestContext.getOrganizationId(),
+            membershipId: this.requestContext.getMembershipId(),
             method: request.method,
             path: request.originalUrl,
             statusCode: response.statusCode,
