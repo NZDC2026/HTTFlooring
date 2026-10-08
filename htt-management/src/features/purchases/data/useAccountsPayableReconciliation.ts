@@ -23,7 +23,9 @@ import {
     reconcileAccountsPayable,
 } from "./accountsPayableReconciliationService";
 
-export function useAccountsPayableReconciliation() {
+export function useAccountsPayableReconciliation(
+    asOfDate?: string,
+) {
     const suppliers =
         useSuppliers();
 
@@ -47,6 +49,7 @@ export function useAccountsPayableReconciliation() {
                 payments,
                 credits,
                 creditAllocations,
+                asOfDate,
             }),
         [
             suppliers,
@@ -54,6 +57,7 @@ export function useAccountsPayableReconciliation() {
             payments,
             credits,
             creditAllocations,
+            asOfDate,
         ],
     );
 }

@@ -52,6 +52,10 @@ import {
 } from "../../purchases/data/useSupplierPayments";
 
 import {
+    useSupplierCreditsBySupplier,
+} from "../../purchases/data/useSupplierCredits";
+
+import {
     SupplierBillStatusBadge,
 } from "../../purchases/components/SupplierBillStatusBadge";
 
@@ -60,6 +64,7 @@ type SupplierTab =
     | "purchases"
     | "bills"
     | "payments"
+    | "credits"
     | "account";
 
 export function SupplierDetailPage() {
@@ -92,6 +97,11 @@ export function SupplierDetailPage() {
 
     const payments =
         useSupplierPaymentsBySupplier(
+            supplierId,
+        );
+
+    const credits =
+        useSupplierCreditsBySupplier(
             supplierId,
         );
 
@@ -249,6 +259,20 @@ export function SupplierDetailPage() {
                     }
                 >
                     Payments
+                </Tab>
+
+                <Tab
+                    active={
+                        activeTab ===
+                        "credits"
+                    }
+                    onClick={() =>
+                        setActiveTab(
+                            "credits",
+                        )
+                    }
+                >
+                    Credits
                 </Tab>
 
                 <Tab
@@ -475,6 +499,107 @@ export function SupplierDetailPage() {
                                         </button>
                                     ),
                                 )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+            {activeTab ===
+                "credits" && (
+                    <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
+                        <SectionHeader
+                            title="Supplier Credits"
+                            description="Issued, applied and voided supplier credits for this supplier."
+                        />
+
+                        {credits.length ===
+                            0 ? (
+                            <EmptyState>
+                                No supplier
+                                credits have
+                                been recorded.
+                            </EmptyState>
+                        ) : (
+                            <div className="divide-y divide-[var(--color-border)]">
+                                {[...credits]
+                                    .sort(
+                                        (
+                                            a,
+                                            b,
+                                        ) =>
+                                            b.creditDate.localeCompare(
+                                                a.creditDate,
+                                            ),
+                                    )
+                                    .map(
+                                        (
+                                            credit,
+                                        ) => (
+                                            <button
+                                                key={
+                                                    credit.id
+                                                }
+                                                type="button"
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/purchases/credits/${credit.id}`,
+                                                    )
+                                                }
+                                                className="grid w-full grid-cols-[1fr_1.2fr_1fr_1fr_1fr_auto] items-center gap-4 px-5 py-4 text-left transition hover:bg-[var(--color-surface-muted)]"
+                                            >
+                                                <div>
+                                                    <div className="text-sm font-semibold text-[var(--color-primary)]">
+                                                        {
+                                                            credit.creditNumber
+                                                        }
+                                                    </div>
+
+                                                    <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                                        {
+                                                            credit.status
+                                                        }
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <div className="text-sm">
+                                                        {
+                                                            credit.supplierCreditNumber
+                                                        }
+                                                    </div>
+
+                                                    <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                                        Supplier
+                                                        credit
+                                                        reference
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-sm">
+                                                    {
+                                                        credit.creditDate
+                                                    }
+                                                </div>
+
+                                                <div className="money text-right text-sm font-semibold">
+                                                    {formatMoney(
+                                                        credit.totals
+                                                            .total,
+                                                    )}
+                                                </div>
+
+                                                <div className="money text-right text-sm font-semibold text-[var(--color-primary)]">
+                                                    {formatMoney(
+                                                        credit.amountAvailable,
+                                                    )}
+                                                </div>
+
+                                                <div className="text-xs font-medium text-[var(--color-primary)]">
+                                                    View →
+                                                </div>
+                                            </button>
+                                        ),
+                                    )}
                             </div>
                         )}
                     </div>

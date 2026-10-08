@@ -1,4 +1,8 @@
 import {
+    useState,
+} from "react";
+
+import {
     AlertTriangle,
     ArrowLeft,
     CheckCircle2,
@@ -18,8 +22,18 @@ export function AccountsPayableReconciliationPage() {
     const navigate =
         useNavigate();
 
+    const [
+        asOfDate,
+        setAsOfDate,
+    ] =
+        useState(
+            getToday(),
+        );
+
     const reconciliation =
-        useAccountsPayableReconciliation();
+        useAccountsPayableReconciliation(
+            asOfDate,
+        );
 
     return (
         <div className="pb-8">
@@ -58,17 +72,26 @@ export function AccountsPayableReconciliationPage() {
                     </p>
                 </div>
 
-                <div className="rounded-lg border border-[var(--color-border)] bg-white px-4 py-2.5">
+                <label className="rounded-lg border border-[var(--color-border)] bg-white px-4 py-2.5">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--color-text-muted)]">
                         As At
                     </div>
 
-                    <div className="mt-0.5 text-sm font-semibold">
-                        {
-                            reconciliation.asOfDate
+                    <input
+                        type="date"
+                        value={
+                            asOfDate
                         }
-                    </div>
-                </div>
+                        onChange={(
+                            event,
+                        ) =>
+                            setAsOfDate(
+                                event.target.value,
+                            )
+                        }
+                        className="mt-0.5 bg-transparent text-sm font-semibold outline-none"
+                    />
+                </label>
             </div>
 
             <div
@@ -217,7 +240,7 @@ export function AccountsPayableReconciliationPage() {
                                 </Header>
 
                                 <Header align="right">
-                                    Net Bills
+                                    Net AP
                                 </Header>
 
                                 <Header align="right">
@@ -367,15 +390,13 @@ export function AccountsPayableReconciliationPage() {
 
             <div className="mt-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)]">
                 Reconciliation compares
-                current Supplier Bill
-                balances against Supplier
+                historical Supplier Bill
+                balances, unallocated
+                Supplier Credits, Supplier
                 Account balances, Aged
                 Payables and Supplier
-                Statement closing balances.
-                Historical reconciliation
-                will be enabled after
-                historical bill balances
-                are transaction-derived.
+                Statement closing balances
+                as at the selected date.
             </div>
         </div>
     );
@@ -505,4 +526,31 @@ function formatMoney(
                 "AUD",
         },
     ).format(value);
+}
+
+function getToday() {
+    const now =
+        new Date();
+
+    const year =
+        now.getFullYear();
+
+    const month =
+        String(
+            now.getMonth() +
+            1,
+        ).padStart(
+            2,
+            "0",
+        );
+
+    const day =
+        String(
+            now.getDate(),
+        ).padStart(
+            2,
+            "0",
+        );
+
+    return `${year}-${month}-${day}`;
 }

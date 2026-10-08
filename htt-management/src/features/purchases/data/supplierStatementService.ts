@@ -9,6 +9,7 @@ import type {
 import type {
     SupplierStatement,
     SupplierStatementEntry,
+    SupplierStatementEntryType,
 } from "../types/supplierStatement";
 
 import type {
@@ -73,21 +74,6 @@ export function buildSupplierStatement({
         PendingStatementEntry[] =
         [];
 
-    /*
-     * SUPPLIER BILLS
-     *
-     * Supplier Bill creates Accounts Payable.
-     *
-     * Credit:
-     *     We owe the supplier more.
-     *
-     * Current Supplier Bill implementation
-     * does not yet expose a bill-void
-     * lifecycle event/date.
-     *
-     * Therefore VOID bills are excluded
-     * from the statement.
-     */
     for (
         const bill of
         bills
@@ -593,18 +579,123 @@ function compareEntries(
         return dateCompare;
     }
 
-    return a.sortDateTime.localeCompare(
-        b.sortDateTime,
+    const typeOrder:
+        Record<
+            SupplierStatementEntryType,
+            number
+        > = {
+        BILL: 10,
+        PAYMENT: 20,
+        SUPPLIER_CREDIT: 30,
+        PAYMENT_REVERSAL: 40,
+        SUPPLIER_CREDIT_VOID: 50,
+        BILL_VOID: 60,
+    };
+
+    const typeCompare =
+        typeOrder[
+        a.type
+        ] -
+        typeOrder[
+        b.type
+        ];
+
+    if (
+        typeCompare !==
+        0
+    ) {
+        return typeCompare;
+    }
+
+    const timeCompare =
+        a.sortDateTime.localeCompare(
+            b.sortDateTime,
+        );
+
+    if (
+        timeCompare !==
+        0
+    ) {
+        return timeCompare;
+    }
+
+    return a.id.localeCompare(
+        b.id,
     );
 }
 
 function toDateKey(
     value: string,
 ) {
-    return value.slice(
-        0,
-        10,
-    );
+    const date =
+        new Date(
+            value,
+        );
+
+    if (
+        Number.isNaN(
+            date.getTime(),
+        )
+    ) {
+        return value.slice(
+            0,
+            10,
+        );
+    }
+
+    const parts =
+        new Intl.DateTimeFormat(
+            "en-CA",
+            {
+                timeZone:
+                    "Pacific/Auckland",
+
+                year:
+                    "numeric",
+
+                month:
+                    "2-digit",
+
+                day:
+                    "2-digit",
+            },
+        ).formatToParts(
+            date,
+        );
+
+    const year =
+        parts.find(
+            (part) =>
+                part.type ===
+                "year",
+        )?.value;
+
+    const month =
+        parts.find(
+            (part) =>
+                part.type ===
+                "month",
+        )?.value;
+
+    const day =
+        parts.find(
+            (part) =>
+                part.type ===
+                "day",
+        )?.value;
+
+    if (
+        !year ||
+        !month ||
+        !day
+    ) {
+        return value.slice(
+            0,
+            10,
+        );
+    }
+
+    return `${year}-${month}-${day}`;
 }
 
 function roundCurrency(

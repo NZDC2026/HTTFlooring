@@ -21,8 +21,20 @@ import {
 } from "../data/useSupplierBills";
 
 import {
+    useSupplierPayments,
+} from "../data/useSupplierPayments";
+
+import {
+    useSupplierCreditAllocations,
+} from "../data/useSupplierCredits";
+
+import {
     useAccountsPayable,
 } from "../data/useAccountsPayable";
+
+import {
+    calculateSupplierBillBalanceAsAt,
+} from "../data/supplierBillBalanceAsAtService";
 
 import {
     SupplierBillStatusBadge,
@@ -54,6 +66,12 @@ export function AccountsPayablePage() {
     const bills =
         useSupplierBills();
 
+    const payments =
+        useSupplierPayments();
+
+    const creditAllocations =
+        useSupplierCreditAllocations();
+
     const summary =
         useAccountsPayable(
             asOfDate,
@@ -69,16 +87,28 @@ export function AccountsPayablePage() {
             return bills
                 .filter(
                     (bill) =>
-                        bill.status !==
-                        "VOID" &&
                         bill.billDate <=
-                        asOfDate &&
-                        bill.totals
-                            .amountDue >
+                        asOfDate,
+                )
+                .map(
+                    (bill) => ({
+                        bill,
+                        balance:
+                            calculateSupplierBillBalanceAsAt(
+                                bill,
+                                payments,
+                                creditAllocations,
+                                asOfDate,
+                            ),
+                    }),
+                )
+                .filter(
+                    ({ balance }) =>
+                        balance.amountDue >
                         0,
                 )
                 .filter(
-                    (bill) => {
+                    ({ bill }) => {
                         const overdue =
                             bill.dueDate <
                             asOfDate;
@@ -111,12 +141,14 @@ export function AccountsPayablePage() {
                 )
                 .sort(
                     (a, b) =>
-                        a.dueDate.localeCompare(
-                            b.dueDate,
+                        a.bill.dueDate.localeCompare(
+                            b.bill.dueDate,
                         ),
                 );
         }, [
             bills,
+            payments,
+            creditAllocations,
             asOfDate,
             search,
             filter,
@@ -439,7 +471,10 @@ export function AccountsPayablePage() {
 
                             <tbody>
                                 {outstandingBills.map(
-                                    (bill) => {
+                                    ({
+                                        bill,
+                                        balance,
+                                    }) => {
                                         const overdue =
                                             bill.dueDate <
                                             asOfDate;
@@ -506,22 +541,19 @@ export function AccountsPayablePage() {
 
                                                 <MoneyCell
                                                     value={
-                                                        bill.totals
-                                                            .total
+                                                        balance.total
                                                     }
                                                 />
 
                                                 <MoneyCell
                                                     value={
-                                                        bill.totals
-                                                            .amountPaid
+                                                        balance.amountPaid
                                                     }
                                                 />
 
                                                 <MoneyCell
                                                     value={
-                                                        bill.totals
-                                                            .amountDue
+                                                        balance.amountDue
                                                     }
                                                     strong
                                                 />

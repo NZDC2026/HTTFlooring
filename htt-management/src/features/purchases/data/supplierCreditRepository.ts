@@ -652,6 +652,15 @@ export const supplierCreditRepository =
             );
         }
 
+        if (
+            input.allocationDate <
+            bill.billDate
+        ) {
+            throw new Error(
+                "Allocation date cannot be earlier than the supplier bill date.",
+            );
+        }
+
         const amount =
             roundCurrency(
                 input.amount,

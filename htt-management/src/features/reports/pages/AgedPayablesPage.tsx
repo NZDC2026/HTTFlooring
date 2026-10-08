@@ -102,11 +102,11 @@ export function AgedPayablesPage() {
         ]);
 
     const overduePercentage =
-        report.totalOutstanding >
+        report.grossOutstanding >
             0
             ? (
                 (report.totalOverdue /
-                    report.totalOutstanding) *
+                    report.grossOutstanding) *
                 100
             ).toFixed(1)
             : "0.0";
@@ -228,10 +228,16 @@ export function AgedPayablesPage() {
                             </p>
                         </div>
 
-                        <div className="money text-sm font-semibold text-[var(--color-primary)]">
-                            {formatMoney(
-                                report.totalOutstanding,
-                            )}
+                        <div className="text-right">
+                            <div className="money text-sm font-semibold text-[var(--color-primary)]">
+                                {formatMoney(
+                                    report.grossOutstanding,
+                                )}
+                            </div>
+
+                            <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                                Gross outstanding bills
+                            </div>
                         </div>
                     </div>
 
@@ -388,7 +394,7 @@ export function AgedPayablesPage() {
                     </div>
 
                     <div className="text-right">
-                        Total
+                        Gross Total
                     </div>
 
                     <div />
@@ -481,7 +487,7 @@ export function AgedPayablesPage() {
                                             row,
                                         ) =>
                                             total +
-                                            row.totalOutstanding,
+                                            row.grossOutstanding,
                                         0,
                                     ),
                                 )}
@@ -493,10 +499,13 @@ export function AgedPayablesPage() {
             </div>
 
             <div className="mt-3 text-[10px] text-[var(--color-text-muted)]">
-                Balances are reconstructed
-                from invoices, payments and
-                payment reversals as at the
-                selected date.
+                Aging buckets represent gross
+                outstanding supplier bills as at
+                the selected date. Unallocated
+                supplier credits reduce net
+                payables but are not assigned to
+                aging buckets until allocated to
+                a bill.
             </div>
         </div>
     );
@@ -588,7 +597,7 @@ function SupplierRow({
 
             <div className="money whitespace-nowrap text-right text-sm font-semibold text-[var(--color-primary)]">
                 {formatMoney(
-                    row.totalOutstanding,
+                    row.grossOutstanding,
                 )}
             </div>
 
