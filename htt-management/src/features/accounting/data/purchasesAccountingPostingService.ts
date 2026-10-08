@@ -6,6 +6,10 @@ import {
     journalEntryRepository,
 } from "./journalEntryRepository";
 
+import {
+    bankAccountRepository,
+} from "../../banking/data/bankAccountRepository";
+
 import type {
     SupplierBill,
 } from "../../purchases/types/supplierBill";
@@ -303,6 +307,20 @@ export const purchasesAccountingPostingService =
             return existing;
         }
 
+        const bankAccount =
+            bankAccountRepository
+                .requireById(
+                    payment.bankAccountId,
+                );
+
+        if (
+            !bankAccount.active
+        ) {
+            throw new Error(
+                "The bank account for this supplier payment is inactive.",
+            );
+        }
+
         return journalEntryRepository.post(
             {
                 journalDate:
@@ -340,9 +358,7 @@ export const purchasesAccountingPostingService =
 
                     {
                         accountId:
-                            getAccountId(
-                                "BANK",
-                            ),
+                            bankAccount.glAccountId,
 
                         description:
                             payment.paymentNumber,

@@ -10,6 +10,10 @@ import {
     purchasesAccountingPostingService,
 } from "../../accounting/data/purchasesAccountingPostingService";
 
+import {
+    bankAccountRepository,
+} from "../../banking/data/bankAccountRepository";
+
 import type {
     SupplierPayment,
     SupplierPaymentAllocation,
@@ -121,6 +125,33 @@ export const supplierPaymentRepository =
         ) {
             throw new Error(
                 "Payment method is required.",
+            );
+        }
+
+        if (
+            !draft.bankAccountId
+        ) {
+            throw new Error(
+                "Bank account is required.",
+            );
+        }
+
+        const bankAccount =
+            bankAccountRepository.getById(
+                draft.bankAccountId,
+            );
+
+        if (!bankAccount) {
+            throw new Error(
+                "Bank account was not found.",
+            );
+        }
+
+        if (
+            !bankAccount.active
+        ) {
+            throw new Error(
+                "The selected bank account is inactive.",
             );
         }
 
@@ -307,6 +338,9 @@ export const supplierPaymentRepository =
 
             method:
                 draft.method,
+
+            bankAccountId:
+                bankAccount.id,
 
             reference:
                 normalizeOptional(

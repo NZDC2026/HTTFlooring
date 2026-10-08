@@ -5,9 +5,14 @@ import {
 
 import {
     BookOpen,
+    ChartNoAxesCombined,
+    CircleCheckBig,
+    Landmark,
+    LibraryBig,
     Plus,
     Scale,
     Search,
+    TableProperties,
 } from "lucide-react";
 
 import {
@@ -412,6 +417,108 @@ export function ChartOfAccountsPage() {
                         />
 
                         Journal Register
+                    </Button>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                "/accounting/trial-balance",
+                            )
+                        }
+                    >
+                        <TableProperties
+                            size={
+                                16
+                            }
+                        />
+
+                        Trial Balance
+                    </Button>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                "/accounting/general-ledger",
+                            )
+                        }
+                    >
+                        <LibraryBig
+                            size={
+                                16
+                            }
+                        />
+
+                        General Ledger
+                    </Button>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                "/accounting/profit-and-loss",
+                            )
+                        }
+                    >
+                        <ChartNoAxesCombined
+                            size={
+                                16
+                            }
+                        />
+
+                        Profit & Loss
+                    </Button>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                "/accounting/balance-sheet",
+                            )
+                        }
+                    >
+                        <Landmark
+                            size={
+                                16
+                            }
+                        />
+
+                        Balance Sheet
+                    </Button>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                "/accounting/finance-controls",
+                            )
+                        }
+                    >
+                        <CircleCheckBig
+                            size={
+                                16
+                            }
+                        />
+
+                        Finance Controls
+                    </Button>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                "/accounting/journals/new",
+                            )
+                        }
+                    >
+                        <Plus
+                            size={
+                                16
+                            }
+                        />
+
+                        New Journal
                     </Button>
 
                     <Button

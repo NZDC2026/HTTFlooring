@@ -54,6 +54,43 @@ let bankAccounts:
             updatedAt:
                 now,
         },
+        {
+            id:
+                "bank_002",
+
+            name:
+                "Savings Account",
+
+            bankName:
+                "Business Bank",
+
+            accountNumber:
+                "•••• 1010",
+
+            accountType:
+                "SAVINGS",
+
+            currency:
+                "AUD",
+
+            glAccountId:
+                "acc_1010",
+
+            openingBalance:
+                0,
+
+            openingBalanceDate:
+                "2026-01-01",
+
+            active:
+                true,
+
+            createdAt:
+                now,
+
+            updatedAt:
+                now,
+        },
     ];
 
 function emitChange() {

@@ -35,6 +35,8 @@ export interface SupplierPayment {
 
     method: SupplierPaymentMethod;
 
+    bankAccountId: string;
+
     reference?: string;
     notes?: string;
 
@@ -60,6 +62,8 @@ export interface SupplierPaymentDraft {
     paymentDate: string;
 
     method: SupplierPaymentMethod;
+
+    bankAccountId: string;
 
     reference?: string;
     notes?: string;

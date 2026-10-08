@@ -4,8 +4,10 @@ import {
 
 import {
     ArrowRight,
+    ArrowRightLeft,
     Building2,
     Landmark,
+    Plus,
 } from "lucide-react";
 
 import {
@@ -101,23 +103,60 @@ export function BankingPage() {
 
     return (
         <div className="pb-8">
-            <div className="mb-7">
-                <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
-                    Finance
-                </p>
+            <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
+                        Finance
+                    </p>
 
-                <h1 className="font-display text-3xl font-semibold text-[var(--color-primary)]">
-                    Banking
-                </h1>
+                    <h1 className="font-display text-3xl font-semibold text-[var(--color-primary)]">
+                        Banking
+                    </h1>
 
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">
-                    Review bank
-                    accounts and the
-                    accounting
-                    transactions that
-                    make up each bank
-                    register.
-                </p>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">
+                        Review bank
+                        accounts and the
+                        accounting
+                        transactions that
+                        make up each bank
+                        register.
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                "/banking/transfers/new",
+                            )
+                        }
+                    >
+                        <ArrowRightLeft
+                            size={
+                                16
+                            }
+                        />
+
+                        Transfer Money
+                    </Button>
+
+                    <Button
+                        onClick={() =>
+                            navigate(
+                                "/banking/transactions/new",
+                            )
+                        }
+                    >
+                        <Plus
+                            size={
+                                16
+                            }
+                        />
+
+                        New Transaction
+                    </Button>
+                </div>
             </div>
 
             <div className="mb-6 grid gap-4 md:grid-cols-3">

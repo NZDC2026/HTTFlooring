@@ -24,6 +24,10 @@ import {
 } from "../data/useSupplierBills";
 
 import {
+    useBankAccounts,
+} from "../../banking/data/useBanking";
+
+import {
     supplierPaymentRepository,
 } from "../data/supplierPaymentRepository";
 
@@ -47,6 +51,21 @@ export function CreateSupplierPaymentPage() {
 
     const bills =
         useSupplierBills();
+
+    const bankAccounts =
+        useBankAccounts();
+
+    const activeBankAccounts =
+        useMemo(
+            () =>
+                bankAccounts.filter(
+                    (bankAccount) =>
+                        bankAccount.active,
+                ),
+            [
+                bankAccounts,
+            ],
+        );
 
     const requestedSupplierId =
         searchParams.get(
@@ -79,6 +98,15 @@ export function CreateSupplierPaymentPage() {
         useState<SupplierPaymentMethod>(
             "BANK_TRANSFER",
         );
+
+    const [
+        bankAccountId,
+        setBankAccountId,
+    ] = useState(
+        activeBankAccounts[0]
+            ?.id ??
+        "",
+    );
 
     const [
         reference,
@@ -137,6 +165,31 @@ export function CreateSupplierPaymentPage() {
                 supplierId,
             ],
         );
+
+    useEffect(
+        () => {
+            if (
+                bankAccountId &&
+                activeBankAccounts.some(
+                    (bankAccount) =>
+                        bankAccount.id ===
+                        bankAccountId,
+                )
+            ) {
+                return;
+            }
+
+            setBankAccountId(
+                activeBankAccounts[0]
+                    ?.id ??
+                "",
+            );
+        },
+        [
+            activeBankAccounts,
+            bankAccountId,
+        ],
+    );
 
     useEffect(
         () => {
@@ -332,6 +385,29 @@ export function CreateSupplierPaymentPage() {
             return;
         }
 
+        if (
+            !bankAccountId
+        ) {
+            setError(
+                "Select a bank account.",
+            );
+            return;
+        }
+
+        const selectedBankAccount =
+            activeBankAccounts.find(
+                (bankAccount) =>
+                    bankAccount.id ===
+                    bankAccountId,
+            );
+
+        if (!selectedBankAccount) {
+            setError(
+                "The selected bank account is not available.",
+            );
+            return;
+        }
+
         const draftAllocations =
             outstandingBills
                 .map(
@@ -407,8 +483,13 @@ export function CreateSupplierPaymentPage() {
                         supplierId,
                         paymentDate,
                         method,
+
+                        bankAccountId:
+                            selectedBankAccount.id,
+
                         reference,
                         notes,
+
                         allocations:
                             draftAllocations,
                     },
@@ -592,6 +673,65 @@ export function CreateSupplierPaymentPage() {
                                     <option value="OTHER">
                                         Other
                                     </option>
+                                </select>
+                            </Field>
+
+                            <Field
+                                label="Bank Account"
+                            >
+                                <select
+                                    value={
+                                        bankAccountId
+                                    }
+                                    onChange={(
+                                        event,
+                                    ) => {
+                                        setBankAccountId(
+                                            event
+                                                .target
+                                                .value,
+                                        );
+
+                                        setError(
+                                            null,
+                                        );
+                                    }}
+                                    disabled={
+                                        activeBankAccounts.length ===
+                                        0
+                                    }
+                                    className={inputClass}
+                                >
+                                    {activeBankAccounts.length ===
+                                        0 ? (
+                                        <option value="">
+                                            No active
+                                            bank accounts
+                                        </option>
+                                    ) : (
+                                        activeBankAccounts.map(
+                                            (
+                                                bankAccount,
+                                            ) => (
+                                                <option
+                                                    key={
+                                                        bankAccount.id
+                                                    }
+                                                    value={
+                                                        bankAccount.id
+                                                    }
+                                                >
+                                                    {
+                                                        bankAccount.name
+                                                    }
+                                                    {" · "}
+                                                    {
+                                                        bankAccount.accountNumber
+                                                    }
+                                                </option>
+                                            ),
+                                        )
+                                    )}
                                 </select>
                             </Field>
 

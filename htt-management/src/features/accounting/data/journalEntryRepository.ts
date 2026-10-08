@@ -189,6 +189,16 @@ function validateDraft(
         }
 
         if (
+            draft.sourceType ===
+            "MANUAL_JOURNAL" &&
+            !account.allowManualPosting
+        ) {
+            throw new Error(
+                `Manual posting is not allowed for account ${account.code} ${account.name}.`,
+            );
+        }
+
+        if (
             !Number.isFinite(
                 line.debit,
             ) ||

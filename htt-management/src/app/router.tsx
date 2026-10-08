@@ -34,10 +34,19 @@ import { ChartOfAccountsPage } from "../features/accounting/pages/ChartOfAccount
 import { AccountFormPage } from "../features/accounting/pages/AccountFormPage";
 import { JournalRegisterPage } from "../features/accounting/pages/JournalRegisterPage";
 import { JournalEntryDetailPage } from "../features/accounting/pages/JournalEntryDetailPage";
+import { CreateManualJournalPage } from "../features/accounting/pages/CreateManualJournalPage";
+import { TrialBalancePage } from "../features/accounting/pages/TrialBalancePage";
+import { GeneralLedgerReportPage } from "../features/accounting/pages/GeneralLedgerReportPage";
+import { ProfitAndLossPage } from "../features/accounting/pages/ProfitAndLossPage";
+import { BalanceSheetPage } from "../features/accounting/pages/BalanceSheetPage";
+import { FinanceControlsPage } from "../features/accounting/pages/FinanceControlsPage";
 import { AccountsReceivableGlReconciliationPage } from "../features/accounting/pages/AccountsReceivableGlReconciliationPage";
 import { AccountsPayableGlReconciliationPage } from "../features/accounting/pages/AccountsPayableGlReconciliationPage";
 import { BankingPage } from "../features/banking/pages/BankingPage";
 import { BankAccountDetailPage } from "../features/banking/pages/BankAccountDetailPage";
+import { CreateBankTransactionPage } from "../features/banking/pages/CreateBankTransactionPage";
+import { CreateBankTransferPage } from "../features/banking/pages/CreateBankTransferPage";
+import { BankReconciliationPage } from "../features/banking/pages/BankReconciliationPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
 export const router = createHashRouter([
@@ -176,6 +185,24 @@ export const router = createHashRouter([
                 ),
             },
             {
+                path: "banking/transactions/new",
+                element: (
+                    <CreateBankTransactionPage />
+                ),
+            },
+            {
+                path: "banking/transfers/new",
+                element: (
+                    <CreateBankTransferPage />
+                ),
+            },
+            {
+                path: "banking/accounts/:bankAccountId/reconcile",
+                element: (
+                    <BankReconciliationPage />
+                ),
+            },
+            {
                 path: "accounting",
                 element: (
                     <ChartOfAccountsPage />
@@ -200,9 +227,45 @@ export const router = createHashRouter([
                 ),
             },
             {
+                path: "accounting/journals/new",
+                element: (
+                    <CreateManualJournalPage />
+                ),
+            },
+            {
                 path: "accounting/journals/:journalEntryId",
                 element: (
                     <JournalEntryDetailPage />
+                ),
+            },
+            {
+                path: "accounting/trial-balance",
+                element: (
+                    <TrialBalancePage />
+                ),
+            },
+            {
+                path: "accounting/general-ledger",
+                element: (
+                    <GeneralLedgerReportPage />
+                ),
+            },
+            {
+                path: "accounting/profit-and-loss",
+                element: (
+                    <ProfitAndLossPage />
+                ),
+            },
+            {
+                path: "accounting/balance-sheet",
+                element: (
+                    <BalanceSheetPage />
+                ),
+            },
+            {
+                path: "accounting/finance-controls",
+                element: (
+                    <FinanceControlsPage />
                 ),
             },
             {

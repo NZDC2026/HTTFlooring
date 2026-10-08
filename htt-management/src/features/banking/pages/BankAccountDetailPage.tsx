@@ -5,6 +5,7 @@ import {
 import {
     ArrowLeft,
     Landmark,
+    Scale,
 } from "lucide-react";
 
 import {
@@ -135,27 +136,46 @@ export function BankAccountDetailPage() {
                     </p>
                 </div>
 
-                <label className="block w-full lg:w-48">
-                    <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-                        As at
-                    </span>
+                <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end lg:w-auto">
+                    <label className="block w-full sm:w-48">
+                        <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+                            As at
+                        </span>
 
-                    <Input
-                        type="date"
-                        value={
-                            asOfDate
-                        }
-                        onChange={(
-                            event,
-                        ) =>
-                            setAsOfDate(
-                                event
-                                    .target
-                                    .value,
+                        <Input
+                            type="date"
+                            value={
+                                asOfDate
+                            }
+                            onChange={(
+                                event,
+                            ) =>
+                                setAsOfDate(
+                                    event
+                                        .target
+                                        .value,
+                                )
+                            }
+                        />
+                    </label>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() =>
+                            navigate(
+                                `/banking/accounts/${bankAccount.id}/reconcile`,
                             )
                         }
-                    />
-                </label>
+                    >
+                        <Scale
+                            size={
+                                16
+                            }
+                        />
+
+                        Reconcile
+                    </Button>
+                </div>
             </div>
 
             <div className="mb-6 grid gap-4 md:grid-cols-4">
