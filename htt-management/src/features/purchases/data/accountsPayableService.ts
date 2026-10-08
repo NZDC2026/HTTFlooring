@@ -7,20 +7,41 @@ import type {
 } from "../types/supplierBill";
 
 import type {
+    SupplierPayment,
+} from "../types/supplierPayment";
+
+import type {
+    SupplierCredit,
+    SupplierCreditAllocation,
+} from "../types/supplierCredit";
+
+import type {
     AccountsPayableSummary,
     PayableAgingBuckets,
     SupplierAccountsPayable,
 } from "../types/accountsPayable";
 
+import {
+    calculateSupplierBillBalanceAsAt,
+} from "./supplierBillBalanceAsAtService";
+
+import {
+    calculateSupplierCreditBalanceAsAt,
+} from "./supplierCreditBalanceAsAtService";
+
 export function calculateSupplierAccountsPayable(
     supplier: Supplier,
     bills: SupplierBill[],
+    payments: SupplierPayment[] = [],
+    credits: SupplierCredit[] = [],
+    creditAllocations:
+        SupplierCreditAllocation[] = [],
     asOfDate = getToday(),
 ): SupplierAccountsPayable {
     const aging =
         createEmptyAging();
 
-    let totalOutstanding = 0;
+    let grossOutstanding = 0;
     let overdueAmount = 0;
     let outstandingBillCount = 0;
     let overdueBillCount = 0;
@@ -30,8 +51,6 @@ export function calculateSupplierAccountsPayable(
             (bill) =>
                 bill.supplierId ===
                 supplier.id &&
-                bill.status !==
-                "VOID" &&
                 bill.billDate <=
                 asOfDate,
         );
@@ -40,11 +59,16 @@ export function calculateSupplierAccountsPayable(
         const bill of
         supplierBills
     ) {
-        const amount =
-            roundCurrency(
-                bill.totals
-                    .amountDue,
+        const balance =
+            calculateSupplierBillBalanceAsAt(
+                bill,
+                payments,
+                creditAllocations,
+                asOfDate,
             );
+
+        const amount =
+            balance.amountDue;
 
         if (
             amount <= 0
@@ -52,7 +76,7 @@ export function calculateSupplierAccountsPayable(
             continue;
         }
 
-        totalOutstanding +=
+        grossOutstanding +=
             amount;
 
         outstandingBillCount +=
@@ -100,14 +124,58 @@ export function calculateSupplierAccountsPayable(
         }
     }
 
+    const unallocatedCredit =
+        roundCurrency(
+            credits.reduce(
+                (
+                    total,
+                    credit,
+                ) => {
+                    if (
+                        credit.supplierId !==
+                        supplier.id
+                    ) {
+                        return total;
+                    }
+
+                    const balance =
+                        calculateSupplierCreditBalanceAsAt(
+                            credit,
+                            creditAllocations,
+                            asOfDate,
+                        );
+
+                    return (
+                        total +
+                        balance.amountAvailable
+                    );
+                },
+                0,
+            ),
+        );
+
+    const normalizedGross =
+        roundCurrency(
+            grossOutstanding,
+        );
+
+    const netOutstanding =
+        roundCurrency(
+            normalizedGross -
+            unallocatedCredit,
+        );
+
     return {
         supplierId:
             supplier.id,
 
+        grossOutstanding:
+            normalizedGross,
+
+        unallocatedCredit,
+
         totalOutstanding:
-            roundCurrency(
-                totalOutstanding,
-            ),
+            netOutstanding,
 
         overdueAmount:
             roundCurrency(
@@ -128,11 +196,17 @@ export function calculateSupplierAccountsPayable(
 export function calculateAccountsPayableSummary(
     suppliers: Supplier[],
     bills: SupplierBill[],
+    payments: SupplierPayment[] = [],
+    credits: SupplierCredit[] = [],
+    creditAllocations:
+        SupplierCreditAllocation[] = [],
     asOfDate = getToday(),
 ): AccountsPayableSummary {
     const aging =
         createEmptyAging();
 
+    let grossOutstanding = 0;
+    let unallocatedCredit = 0;
     let totalOutstanding = 0;
     let overdueAmount = 0;
     let supplierCount = 0;
@@ -148,17 +222,28 @@ export function calculateAccountsPayableSummary(
             calculateSupplierAccountsPayable(
                 supplier,
                 bills,
+                payments,
+                credits,
+                creditAllocations,
                 asOfDate,
             );
 
         if (
-            payable.totalOutstanding <=
+            payable.grossOutstanding ===
+            0 &&
+            payable.unallocatedCredit ===
             0
         ) {
             continue;
         }
 
         supplierCount += 1;
+
+        grossOutstanding +=
+            payable.grossOutstanding;
+
+        unallocatedCredit +=
+            payable.unallocatedCredit;
 
         totalOutstanding +=
             payable.totalOutstanding;
@@ -197,6 +282,16 @@ export function calculateAccountsPayableSummary(
     }
 
     return {
+        grossOutstanding:
+            roundCurrency(
+                grossOutstanding,
+            ),
+
+        unallocatedCredit:
+            roundCurrency(
+                unallocatedCredit,
+            ),
+
         totalOutstanding:
             roundCurrency(
                 totalOutstanding,
@@ -257,8 +352,7 @@ function createEmptyAging():
 }
 
 function normalizeAging(
-    aging:
-        PayableAgingBuckets,
+    aging: PayableAgingBuckets,
 ): PayableAgingBuckets {
     return {
         current:
@@ -291,20 +385,20 @@ function normalizeAging(
 function parseDateKey(
     value: string,
 ) {
-    const [
-        year,
-        month,
-        day,
-    ] = value
-        .split("-")
-        .map(Number);
-
     return new Date(
-        Date.UTC(
-            year,
-            month - 1,
-            day,
-        ),
+        `${value}T00:00:00Z`,
+    );
+}
+
+function roundCurrency(
+    value: number,
+) {
+    return (
+        Math.round(
+            (value +
+                Number.EPSILON) *
+            100,
+        ) / 100
     );
 }
 
@@ -333,16 +427,4 @@ function getToday() {
         );
 
     return `${year}-${month}-${day}`;
-}
-
-function roundCurrency(
-    value: number,
-) {
-    return (
-        Math.round(
-            (value +
-                Number.EPSILON) *
-            100,
-        ) / 100
-    );
 }

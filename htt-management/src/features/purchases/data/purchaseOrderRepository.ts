@@ -980,6 +980,192 @@ export const purchaseOrderRepository =
         return updated;
     },
 
+    reverseSupplierBill(
+        purchaseOrderId: string,
+
+        billedLines:
+            Array<{
+                purchaseOrderLineId:
+                string;
+
+                billedQuantity:
+                number;
+            }>,
+    ) {
+        const existing =
+            purchaseOrderRepository.getById(
+                purchaseOrderId,
+            );
+
+        if (!existing) {
+            throw new Error(
+                "Purchase order was not found.",
+            );
+        }
+
+        if (
+            billedLines.length ===
+            0
+        ) {
+            throw new Error(
+                "At least one supplier bill line is required.",
+            );
+        }
+
+        const billedByLineId =
+            new Map<
+                string,
+                number
+            >();
+
+        for (
+            const billedLine of
+            billedLines
+        ) {
+            if (
+                !Number.isFinite(
+                    billedLine.billedQuantity,
+                ) ||
+                billedLine.billedQuantity <=
+                0
+            ) {
+                throw new Error(
+                    "Billed quantity must be greater than zero.",
+                );
+            }
+
+            if (
+                billedByLineId.has(
+                    billedLine.purchaseOrderLineId,
+                )
+            ) {
+                throw new Error(
+                    "Duplicate purchase order bill line.",
+                );
+            }
+
+            billedByLineId.set(
+                billedLine.purchaseOrderLineId,
+                billedLine.billedQuantity,
+            );
+        }
+
+        /*
+         * Validate every line before mutating
+         * the Purchase Order.
+         */
+        for (
+            const billedLine of
+            billedLines
+        ) {
+            const purchaseOrderLine =
+                existing.lines.find(
+                    (line) =>
+                        line.id ===
+                        billedLine.purchaseOrderLineId,
+                );
+
+            if (
+                !purchaseOrderLine
+            ) {
+                throw new Error(
+                    "Purchase order bill line was not found.",
+                );
+            }
+
+            if (
+                billedLine.billedQuantity >
+                purchaseOrderLine.billedQuantity
+            ) {
+                throw new Error(
+                    `${purchaseOrderLine.description} does not contain enough billed quantity to reverse this supplier bill.`,
+                );
+            }
+        }
+
+        const updatedLines =
+            existing.lines.map(
+                (line) => {
+                    const billedQuantity =
+                        billedByLineId.get(
+                            line.id,
+                        );
+
+                    if (
+                        billedQuantity ===
+                        undefined
+                    ) {
+                        return line;
+                    }
+
+                    return {
+                        ...line,
+
+                        billedQuantity:
+                            roundQuantity(
+                                Math.max(
+                                    0,
+                                    line.billedQuantity -
+                                    billedQuantity,
+                                ),
+                            ),
+                    };
+                },
+            );
+
+        const fullyReceived =
+            updatedLines.every(
+                (line) =>
+                    line.receivedQuantity >=
+                    line.orderedQuantity,
+            );
+
+        const fullyBilled =
+            updatedLines.every(
+                (line) =>
+                    line.billedQuantity >=
+                    line.orderedQuantity,
+            );
+
+        const nextStatus:
+            PurchaseOrder["status"] =
+            fullyReceived &&
+                fullyBilled
+                ? "BILLED"
+                : fullyReceived
+                    ? "RECEIVED"
+                    : "PARTIALLY_RECEIVED";
+
+        const updated:
+            PurchaseOrder = {
+            ...existing,
+
+            lines:
+                updatedLines,
+
+            status:
+                nextStatus,
+
+            updatedAt:
+                new Date().toISOString(),
+        };
+
+        purchaseOrders =
+            purchaseOrders.map(
+                (
+                    purchaseOrder,
+                ) =>
+                    purchaseOrder.id ===
+                        existing.id
+                        ? updated
+                        : purchaseOrder,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
     cancel(
         purchaseOrderId:
             string,

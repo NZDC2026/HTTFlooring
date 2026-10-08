@@ -11,6 +11,15 @@ import {
 } from "../../purchases/data/useSupplierBills";
 
 import {
+    useSupplierPayments,
+} from "../../purchases/data/useSupplierPayments";
+
+import {
+    useSupplierCredits,
+    useSupplierCreditAllocations,
+} from "../../purchases/data/useSupplierCredits";
+
+import {
     buildAgedPayablesReport,
 } from "./agedPayablesService";
 
@@ -23,18 +32,31 @@ export function useAgedPayables(
     const bills =
         useSupplierBills();
 
+    const payments =
+        useSupplierPayments();
+
+    const credits =
+        useSupplierCredits();
+
+    const creditAllocations =
+        useSupplierCreditAllocations();
+
     return useMemo(
         () =>
-            buildAgedPayablesReport(
-                {
-                    suppliers,
-                    bills,
-                    asOfDate,
-                },
-            ),
+            buildAgedPayablesReport({
+                suppliers,
+                bills,
+                payments,
+                credits,
+                creditAllocations,
+                asOfDate,
+            }),
         [
             suppliers,
             bills,
+            payments,
+            credits,
+            creditAllocations,
             asOfDate,
         ],
     );

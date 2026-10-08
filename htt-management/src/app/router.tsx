@@ -27,6 +27,8 @@ import { CreateSupplierPaymentPage } from "../features/purchases/pages/CreateSup
 import { SupplierPaymentDetailPage } from "../features/purchases/pages/SupplierPaymentDetailPage";
 import { SupplierStatementPage } from "../features/purchases/pages/SupplierStatementPage";
 import { AccountsPayableReconciliationPage } from "../features/purchases/pages/AccountsPayableReconciliationPage";
+import { CreateSupplierCreditPage } from "../features/purchases/pages/CreateSupplierCreditPage";
+import { SupplierCreditDetailPage } from "../features/purchases/pages/SupplierCreditDetailPage";
 import { InventoryPage } from "../features/inventory/pages/InventoryPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
@@ -81,6 +83,18 @@ export const router = createHashRouter([
                 path: "purchases/bills/:supplierBillId",
                 element: (
                     <SupplierBillDetailPage />
+                ),
+            },
+            {
+                path: "purchases/credits/new",
+                element: (
+                    <CreateSupplierCreditPage />
+                ),
+            },
+            {
+                path: "purchases/credits/:supplierCreditId",
+                element: (
+                    <SupplierCreditDetailPage />
                 ),
             },
             {

@@ -15,6 +15,11 @@ import {
 } from "./useSupplierPayments";
 
 import {
+    useSupplierCredits,
+    useSupplierCreditAllocations,
+} from "./useSupplierCredits";
+
+import {
     reconcileAccountsPayable,
 } from "./accountsPayableReconciliationService";
 
@@ -28,17 +33,27 @@ export function useAccountsPayableReconciliation() {
     const payments =
         useSupplierPayments();
 
+    const credits =
+        useSupplierCredits();
+
+    const creditAllocations =
+        useSupplierCreditAllocations();
+
     return useMemo(
         () =>
             reconcileAccountsPayable({
                 suppliers,
                 bills,
                 payments,
+                credits,
+                creditAllocations,
             }),
         [
             suppliers,
             bills,
             payments,
+            credits,
+            creditAllocations,
         ],
     );
 }

@@ -11,6 +11,10 @@ import type {
     SupplierStatementEntry,
 } from "../types/supplierStatement";
 
+import type {
+    SupplierCredit,
+} from "../types/supplierCredit";
+
 interface BuildSupplierStatementInput {
     supplierId: string;
 
@@ -18,6 +22,9 @@ interface BuildSupplierStatementInput {
 
     payments:
     SupplierPayment[];
+
+    credits:
+    SupplierCredit[];
 
     fromDate: string;
     toDate: string;
@@ -39,6 +46,7 @@ interface PendingStatementEntry {
 
     supplierBillId?: string;
     supplierPaymentId?: string;
+    supplierCreditId?: string;
 
     debit: number;
     credit: number;
@@ -48,6 +56,7 @@ export function buildSupplierStatement({
     supplierId,
     bills,
     payments,
+    credits,
     fromDate,
     toDate,
 }: BuildSupplierStatementInput): SupplierStatement {
@@ -87,13 +96,15 @@ export function buildSupplierStatement({
             bill.supplierId !==
             supplierId ||
             bill.billDate >
-            toDate ||
-            bill.status ===
-            "VOID"
+            toDate
         ) {
             continue;
         }
 
+        /*
+         * Original Supplier Bill remains in
+         * accounting history even after Void.
+         */
         allEntries.push({
             id:
                 `supplier-bill-${bill.id}`,
@@ -126,6 +137,65 @@ export function buildSupplierStatement({
                         .total,
                 ),
         });
+
+        /*
+         * Void reverses the Supplier Bill on the
+         * actual void date.
+         *
+         * Original Bill:
+         *     Credit / AP increases
+         *
+         * Bill Void:
+         *     Debit / AP decreases
+         */
+        if (
+            bill.status ===
+            "VOID" &&
+            bill.voidedAt
+        ) {
+            const voidDate =
+                toDateKey(
+                    bill.voidedAt,
+                );
+
+            if (
+                voidDate <=
+                toDate
+            ) {
+                allEntries.push({
+                    id:
+                        `supplier-bill-void-${bill.id}`,
+
+                    date:
+                        voidDate,
+
+                    sortDateTime:
+                        bill.voidedAt,
+
+                    type:
+                        "BILL_VOID",
+
+                    reference:
+                        `${bill.billNumber} VOID`,
+
+                    description:
+                        bill.voidReason
+                            ? `Supplier bill void — ${bill.voidReason}`
+                            : "Supplier bill void",
+
+                    supplierBillId:
+                        bill.id,
+
+                    debit:
+                        roundCurrency(
+                            bill.totals
+                                .total,
+                        ),
+
+                    credit: 0,
+                });
+            }
+        }
     }
 
     /*
@@ -237,6 +307,116 @@ export function buildSupplierStatement({
         }
     }
 
+    /*
+     * SUPPLIER CREDITS
+     *
+     * Issuing Supplier Credit immediately reduces
+     * the overall Accounts Payable balance.
+     *
+     * Debit = we owe the supplier less.
+     *
+     * Credit allocation is deliberately NOT added
+     * to the statement because allocation only
+     * assigns existing credit to a bill.
+     */
+    for (
+        const credit of
+        credits
+    ) {
+        if (
+            credit.supplierId !==
+            supplierId ||
+            credit.creditDate >
+            toDate
+        ) {
+            continue;
+        }
+
+        allEntries.push({
+            id:
+                `supplier-credit-${credit.id}`,
+
+            date:
+                credit.creditDate,
+
+            sortDateTime:
+                credit.issuedAt,
+
+            type:
+                "SUPPLIER_CREDIT",
+
+            reference:
+                credit.creditNumber,
+
+            description:
+                credit.reason
+                    ? `Supplier credit — ${credit.reason}`
+                    : "Supplier credit",
+
+            supplierCreditId:
+                credit.id,
+
+            debit:
+                roundCurrency(
+                    credit.totals.total,
+                ),
+
+            credit: 0,
+        });
+
+        /*
+         * VOID restores Accounts Payable on the
+         * actual void date.
+         */
+        if (
+            credit.status ===
+            "VOID" &&
+            credit.voidedAt
+        ) {
+            const voidDate =
+                toDateKey(
+                    credit.voidedAt,
+                );
+
+            if (
+                voidDate <=
+                toDate
+            ) {
+                allEntries.push({
+                    id:
+                        `supplier-credit-void-${credit.id}`,
+
+                    date:
+                        voidDate,
+
+                    sortDateTime:
+                        credit.voidedAt,
+
+                    type:
+                        "SUPPLIER_CREDIT_VOID",
+
+                    reference:
+                        `${credit.creditNumber} VOID`,
+
+                    description:
+                        credit.voidReason
+                            ? `Supplier credit void — ${credit.voidReason}`
+                            : "Supplier credit void",
+
+                    supplierCreditId:
+                        credit.id,
+
+                    debit: 0,
+
+                    credit:
+                        roundCurrency(
+                            credit.totals.total,
+                        ),
+                });
+            }
+        }
+    }
+
     allEntries.sort(
         compareEntries,
     );
@@ -315,6 +495,9 @@ export function buildSupplierStatement({
 
                     supplierPaymentId:
                         entry.supplierPaymentId,
+
+                    supplierCreditId:
+                        entry.supplierCreditId,
 
                     debit:
                         entry.debit,

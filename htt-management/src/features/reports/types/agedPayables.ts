@@ -10,6 +10,9 @@ export interface AgedPayablesRow {
     aging:
     PayableAgingBuckets;
 
+    grossOutstanding: number;
+    unallocatedCredit: number;
+
     totalOutstanding: number;
     overdueAmount: number;
 
@@ -22,6 +25,9 @@ export interface AgedPayablesReport {
 
     aging:
     PayableAgingBuckets;
+
+    grossOutstanding: number;
+    unallocatedCredit: number;
 
     totalOutstanding: number;
     totalOverdue: number;

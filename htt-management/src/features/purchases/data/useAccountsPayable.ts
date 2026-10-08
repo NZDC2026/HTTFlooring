@@ -11,6 +11,15 @@ import {
 } from "./useSupplierBills";
 
 import {
+    useSupplierPayments,
+} from "./useSupplierPayments";
+
+import {
+    useSupplierCredits,
+    useSupplierCreditAllocations,
+} from "./useSupplierCredits";
+
+import {
     calculateAccountsPayableSummary,
     calculateSupplierAccountsPayable,
 } from "./accountsPayableService";
@@ -24,16 +33,31 @@ export function useAccountsPayable(
     const bills =
         useSupplierBills();
 
+    const payments =
+        useSupplierPayments();
+
+    const credits =
+        useSupplierCredits();
+
+    const creditAllocations =
+        useSupplierCreditAllocations();
+
     return useMemo(
         () =>
             calculateAccountsPayableSummary(
                 suppliers,
                 bills,
+                payments,
+                credits,
+                creditAllocations,
                 asOfDate,
             ),
         [
             suppliers,
             bills,
+            payments,
+            credits,
+            creditAllocations,
             asOfDate,
         ],
     );
@@ -50,6 +74,15 @@ export function useSupplierAccountsPayable(
 
     const bills =
         useSupplierBills();
+
+    const payments =
+        useSupplierPayments();
+
+    const credits =
+        useSupplierCredits();
+
+    const creditAllocations =
+        useSupplierCreditAllocations();
 
     return useMemo(
         () => {
@@ -73,12 +106,18 @@ export function useSupplierAccountsPayable(
             return calculateSupplierAccountsPayable(
                 supplier,
                 bills,
+                payments,
+                credits,
+                creditAllocations,
                 asOfDate,
             );
         },
         [
             suppliers,
             bills,
+            payments,
+            credits,
+            creditAllocations,
             supplierId,
             asOfDate,
         ],

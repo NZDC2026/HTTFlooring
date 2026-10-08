@@ -9,7 +9,23 @@ export interface PayableAgingBuckets {
 export interface SupplierAccountsPayable {
     supplierId: string;
 
+    /**
+     * Outstanding Supplier Bill balances after
+     * payments and allocated supplier credits.
+     */
+    grossOutstanding: number;
+
+    /**
+     * Supplier Credit that has been issued but
+     * has not yet been allocated to a bill.
+     */
+    unallocatedCredit: number;
+
+    /**
+     * grossOutstanding - unallocatedCredit
+     */
     totalOutstanding: number;
+
     overdueAmount: number;
 
     aging: PayableAgingBuckets;
@@ -19,7 +35,12 @@ export interface SupplierAccountsPayable {
 }
 
 export interface AccountsPayableSummary {
+    grossOutstanding: number;
+
+    unallocatedCredit: number;
+
     totalOutstanding: number;
+
     overdueAmount: number;
 
     supplierCount: number;

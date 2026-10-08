@@ -11,6 +11,11 @@ import type {
 } from "../types/supplierPayment";
 
 import type {
+    SupplierCredit,
+    SupplierCreditAllocation,
+} from "../types/supplierCredit";
+
+import type {
     AccountsPayableReconciliation,
     SupplierPayableReconciliationRow,
 } from "../types/accountsPayableReconciliation";
@@ -32,6 +37,9 @@ interface ReconcileAccountsPayableInput {
     suppliers: Supplier[];
     bills: SupplierBill[];
     payments: SupplierPayment[];
+    credits: SupplierCredit[];
+    creditAllocations:
+    SupplierCreditAllocation[];
     asOfDate?: string;
 }
 
@@ -39,31 +47,42 @@ export function reconcileAccountsPayable({
     suppliers,
     bills,
     payments,
+    credits,
+    creditAllocations,
     asOfDate = getToday(),
 }: ReconcileAccountsPayableInput): AccountsPayableReconciliation {
     /*
      * CONTROL 1
      *
-     * Accounts Payable summary derived from
-     * outstanding Supplier Bill balances.
+     * Accounts Payable summary.
+     *
+     * Gross Outstanding Bills
+     * - Unallocated Supplier Credits
+     * = Net Accounts Payable
      */
     const apSummary =
         calculateAccountsPayableSummary(
             suppliers,
             bills,
+            payments,
+            credits,
+            creditAllocations,
             asOfDate,
         );
 
     /*
      * CONTROL 2
      *
-     * Aged Payables must reconcile to the
-     * same Supplier Bill balances.
+     * Aged Payables uses the same historical
+     * Supplier Bill and Supplier Credit balances.
      */
     const agedPayables =
         buildAgedPayablesReport({
             suppliers,
             bills,
+            payments,
+            credits,
+            creditAllocations,
             asOfDate,
         });
 
@@ -71,39 +90,67 @@ export function reconcileAccountsPayable({
         SupplierPayableReconciliationRow[] =
         suppliers
             .map(
-                (supplier) => {
+                (
+                    supplier,
+                ) => {
                     const supplierBills =
                         bills.filter(
-                            (bill) =>
+                            (
+                                bill,
+                            ) =>
                                 bill.supplierId ===
                                 supplier.id,
                         );
 
                     const supplierPayments =
                         payments.filter(
-                            (payment) =>
+                            (
+                                payment,
+                            ) =>
                                 payment.supplierId ===
                                 supplier.id,
                         );
 
+                    const supplierCredits =
+                        credits.filter(
+                            (
+                                credit,
+                            ) =>
+                                credit.supplierId ===
+                                supplier.id,
+                        );
+
                     /*
-                     * Supplier Account balance.
+                     * Supplier Account
                      *
-                     * This is the account-level AP
-                     * calculation used throughout
-                     * the Supplier detail screen.
+                     * This returns:
+                     *
+                     * grossOutstanding
+                     * unallocatedCredit
+                     * totalOutstanding
                      */
                     const account =
                         calculateSupplierAccountsPayable(
                             supplier,
                             bills,
+                            payments,
+                            credits,
+                            creditAllocations,
                             asOfDate,
                         );
 
                     /*
-                     * Supplier Statement from the
-                     * beginning of the accounting
-                     * timeline through today.
+                     * Supplier Statement
+                     *
+                     * Supplier Credit issuance
+                     * reduces AP.
+                     *
+                     * Supplier Credit Void
+                     * restores AP.
+                     *
+                     * Allocation and Allocation
+                     * Reversal do not create
+                     * statement entries.
                      */
                     const statement =
                         buildSupplierStatement({
@@ -116,6 +163,9 @@ export function reconcileAccountsPayable({
                             payments:
                                 supplierPayments,
 
+                            credits:
+                                supplierCredits,
+
                             fromDate:
                                 "1900-01-01",
 
@@ -124,40 +174,47 @@ export function reconcileAccountsPayable({
                         });
 
                     /*
-                     * Independent bill control.
-                     *
-                     * Current Supplier Bill
-                     * amountDue is the AP source
-                     * of truth.
+                     * Gross outstanding Supplier
+                     * Bill balance after payments
+                     * and allocated credits.
                      */
-                    const billBalance =
+                    const grossBillBalance =
                         roundCurrency(
-                            supplierBills
-                                .filter(
-                                    (bill) =>
-                                        bill.status !==
-                                        "VOID" &&
-                                        bill.billDate <=
-                                        asOfDate &&
-                                        bill.totals
-                                            .amountDue >
-                                        0,
-                                )
-                                .reduce(
-                                    (
-                                        total,
-                                        bill,
-                                    ) =>
-                                        total +
-                                        bill.totals
-                                            .amountDue,
-                                    0,
-                                ),
+                            account.grossOutstanding,
+                        );
+
+                    /*
+                     * Supplier Credit that exists
+                     * but has not yet been applied
+                     * to Supplier Bills.
+                     */
+                    const unallocatedCredit =
+                        roundCurrency(
+                            account.unallocatedCredit,
+                        );
+
+                    /*
+                     * Net AP control:
+                     *
+                     * Gross Bills
+                     * - Unallocated Credits
+                     */
+                    const netBillBalance =
+                        roundCurrency(
+                            grossBillBalance -
+                            unallocatedCredit,
+                        );
+
+                    const accountBalance =
+                        roundCurrency(
+                            account.totalOutstanding,
                         );
 
                     const agedRow =
                         agedPayables.rows.find(
-                            (row) =>
+                            (
+                                row,
+                            ) =>
                                 row.supplierId ===
                                 supplier.id,
                         );
@@ -168,11 +225,6 @@ export function reconcileAccountsPayable({
                             0,
                         );
 
-                    const accountBalance =
-                        roundCurrency(
-                            account.totalOutstanding,
-                        );
-
                     const statementBalance =
                         roundCurrency(
                             statement.closingBalance,
@@ -180,7 +232,7 @@ export function reconcileAccountsPayable({
 
                     const difference =
                         getMaximumDifference(
-                            billBalance,
+                            netBillBalance,
                             accountBalance,
                             agedPayablesBalance,
                             statementBalance,
@@ -196,7 +248,11 @@ export function reconcileAccountsPayable({
                         supplierName:
                             supplier.businessName,
 
-                        billBalance,
+                        grossBillBalance,
+
+                        unallocatedCredit,
+
+                        netBillBalance,
 
                         accountBalance,
 
@@ -214,8 +270,14 @@ export function reconcileAccountsPayable({
                 },
             )
             .filter(
-                (row) =>
-                    row.billBalance !==
+                (
+                    row,
+                ) =>
+                    row.grossBillBalance !==
+                    0 ||
+                    row.unallocatedCredit !==
+                    0 ||
+                    row.netBillBalance !==
                     0 ||
                     row.accountBalance !==
                     0 ||
@@ -225,7 +287,13 @@ export function reconcileAccountsPayable({
                     0,
             )
             .sort(
-                (a, b) => {
+                (
+                    a,
+                    b,
+                ) => {
+                    /*
+                     * Mismatches appear first.
+                     */
                     if (
                         a.balanced !==
                         b.balanced
@@ -235,10 +303,39 @@ export function reconcileAccountsPayable({
                             : -1;
                     }
 
-                    return b.billBalance -
-                        a.billBalance;
+                    /*
+                     * Then largest absolute AP
+                     * balances first.
+                     */
+                    return (
+                        Math.abs(
+                            b.netBillBalance,
+                        ) -
+                        Math.abs(
+                            a.netBillBalance,
+                        )
+                    );
                 },
             );
+
+    /*
+     * CONTROL TOTALS
+     */
+
+    const grossOutstandingSupplierBills =
+        roundCurrency(
+            apSummary.grossOutstanding,
+        );
+
+    const unallocatedSupplierCredits =
+        roundCurrency(
+            apSummary.unallocatedCredit,
+        );
+
+    const outstandingSupplierBills =
+        roundCurrency(
+            apSummary.totalOutstanding,
+        );
 
     const supplierAccountBalances =
         roundCurrency(
@@ -251,6 +348,11 @@ export function reconcileAccountsPayable({
                     row.accountBalance,
                 0,
             ),
+        );
+
+    const agedPayablesTotal =
+        roundCurrency(
+            agedPayables.totalOutstanding,
         );
 
     const supplierStatementBalances =
@@ -266,15 +368,9 @@ export function reconcileAccountsPayable({
             ),
         );
 
-    const outstandingSupplierBills =
-        roundCurrency(
-            apSummary.totalOutstanding,
-        );
-
-    const agedPayablesTotal =
-        roundCurrency(
-            agedPayables.totalOutstanding,
-        );
+    /*
+     * RECONCILIATION DIFFERENCES
+     */
 
     const accountDifference =
         roundCurrency(
@@ -296,7 +392,9 @@ export function reconcileAccountsPayable({
 
     const mismatchCount =
         rows.filter(
-            (row) =>
+            (
+                row,
+            ) =>
                 !row.balanced,
         ).length;
 
@@ -315,6 +413,10 @@ export function reconcileAccountsPayable({
 
     return {
         asOfDate,
+
+        grossOutstandingSupplierBills,
+
+        unallocatedSupplierCredits,
 
         outstandingSupplierBills,
 
@@ -382,8 +484,10 @@ function roundCurrency(
 ) {
     return (
         Math.round(
-            (value +
-                Number.EPSILON) *
+            (
+                value +
+                Number.EPSILON
+            ) *
             100,
         ) / 100
     );

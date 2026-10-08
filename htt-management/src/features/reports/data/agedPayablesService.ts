@@ -10,6 +10,15 @@ import type {
     PayableAgingBuckets,
 } from "../../purchases/types/accountsPayable";
 
+import type {
+    SupplierPayment,
+} from "../../purchases/types/supplierPayment";
+
+import type {
+    SupplierCredit,
+    SupplierCreditAllocation,
+} from "../../purchases/types/supplierCredit";
+
 import {
     calculateSupplierAccountsPayable,
 } from "../../purchases/data/accountsPayableService";
@@ -22,12 +31,18 @@ import type {
 interface BuildAgedPayablesReportInput {
     suppliers: Supplier[];
     bills: SupplierBill[];
+    payments: SupplierPayment[];
+    credits: SupplierCredit[];
+    creditAllocations: SupplierCreditAllocation[];
     asOfDate: string;
 }
 
 export function buildAgedPayablesReport({
     suppliers,
     bills,
+    payments,
+    credits,
+    creditAllocations,
     asOfDate,
 }: BuildAgedPayablesReportInput): AgedPayablesReport {
     const rows:
@@ -39,6 +54,9 @@ export function buildAgedPayablesReport({
                         calculateSupplierAccountsPayable(
                             supplier,
                             bills,
+                            payments,
+                            credits,
+                            creditAllocations,
                             asOfDate,
                         );
 
@@ -54,6 +72,12 @@ export function buildAgedPayablesReport({
 
                         aging:
                             ap.aging,
+
+                        grossOutstanding:
+                            ap.grossOutstanding,
+
+                        unallocatedCredit:
+                            ap.unallocatedCredit,
 
                         totalOutstanding:
                             ap.totalOutstanding,
@@ -71,7 +95,9 @@ export function buildAgedPayablesReport({
             )
             .filter(
                 (row) =>
-                    row.totalOutstanding >
+                    row.grossOutstanding !==
+                    0 ||
+                    row.unallocatedCredit !==
                     0,
             )
             .sort(
@@ -143,6 +169,32 @@ export function buildAgedPayablesReport({
             ),
     };
 
+    const grossOutstanding =
+        roundCurrency(
+            rows.reduce(
+                (
+                    total,
+                    row,
+                ) =>
+                    total +
+                    row.grossOutstanding,
+                0,
+            ),
+        );
+
+    const unallocatedCredit =
+        roundCurrency(
+            rows.reduce(
+                (
+                    total,
+                    row,
+                ) =>
+                    total +
+                    row.unallocatedCredit,
+                0,
+            ),
+        );
+
     const totalOutstanding =
         roundCurrency(
             rows.reduce(
@@ -174,6 +226,10 @@ export function buildAgedPayablesReport({
 
         aging:
             normalizedAging,
+
+        grossOutstanding,
+
+        unallocatedCredit,
 
         totalOutstanding,
 

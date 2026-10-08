@@ -201,7 +201,9 @@ export const supplierBillRepository =
                     0,
                     bill.totals
                         .total -
-                    amountPaid,
+                    amountPaid -
+                    bill.totals
+                        .amountCredited,
                 ),
             );
 
@@ -309,7 +311,9 @@ export const supplierBillRepository =
                     0,
                     bill.totals
                         .total -
-                    amountPaid,
+                    amountPaid -
+                    bill.totals
+                        .amountCredited,
                 ),
             );
 
@@ -348,6 +352,323 @@ export const supplierBillRepository =
         emitChange();
 
         return updated;
+    },
+
+    applyCredit(
+        supplierBillId: string,
+        amount: number,
+    ): SupplierBill {
+        const bill =
+            supplierBills.find(
+                (item) =>
+                    item.id ===
+                    supplierBillId,
+            );
+
+        if (!bill) {
+            throw new Error(
+                "Supplier bill was not found.",
+            );
+        }
+
+        if (
+            bill.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "A void supplier bill cannot receive a credit allocation.",
+            );
+        }
+
+        if (
+            !Number.isFinite(
+                amount,
+            ) ||
+            amount <= 0
+        ) {
+            throw new Error(
+                "Credit allocation must be greater than zero.",
+            );
+        }
+
+        const allocation =
+            roundCurrency(
+                amount,
+            );
+
+        if (
+            allocation >
+            bill.totals.amountDue
+        ) {
+            throw new Error(
+                `${bill.billNumber} cannot receive credit greater than its outstanding balance.`,
+            );
+        }
+
+        const amountCredited =
+            roundCurrency(
+                bill.totals
+                    .amountCredited +
+                allocation,
+            );
+
+        const amountDue =
+            roundCurrency(
+                Math.max(
+                    0,
+                    bill.totals
+                        .total -
+                    bill.totals
+                        .amountPaid -
+                    amountCredited,
+                ),
+            );
+
+        const updated:
+            SupplierBill = {
+            ...bill,
+
+            status:
+                amountDue <= 0
+                    ? "PAID"
+                    : bill.totals
+                        .amountPaid >
+                        0 ||
+                        amountCredited >
+                        0
+                        ? "PARTIALLY_PAID"
+                        : "OPEN",
+
+            totals: {
+                ...bill.totals,
+
+                amountCredited,
+
+                amountDue,
+            },
+
+            updatedAt:
+                new Date().toISOString(),
+        };
+
+        supplierBills =
+            supplierBills.map(
+                (item) =>
+                    item.id ===
+                        supplierBillId
+                        ? updated
+                        : item,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
+    reverseCredit(
+        supplierBillId: string,
+        amount: number,
+    ): SupplierBill {
+        const bill =
+            supplierBills.find(
+                (item) =>
+                    item.id ===
+                    supplierBillId,
+            );
+
+        if (!bill) {
+            throw new Error(
+                "Supplier bill was not found.",
+            );
+        }
+
+        if (
+            bill.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "A credit allocation cannot be reversed against a void supplier bill.",
+            );
+        }
+
+        if (
+            !Number.isFinite(
+                amount,
+            ) ||
+            amount <= 0
+        ) {
+            throw new Error(
+                "Credit reversal amount must be greater than zero.",
+            );
+        }
+
+        const reversal =
+            roundCurrency(
+                amount,
+            );
+
+        if (
+            reversal >
+            bill.totals
+                .amountCredited
+        ) {
+            throw new Error(
+                `${bill.billNumber} does not contain enough credited value to reverse this allocation.`,
+            );
+        }
+
+        const amountCredited =
+            roundCurrency(
+                Math.max(
+                    0,
+                    bill.totals
+                        .amountCredited -
+                    reversal,
+                ),
+            );
+
+        const amountDue =
+            roundCurrency(
+                Math.max(
+                    0,
+                    bill.totals
+                        .total -
+                    bill.totals
+                        .amountPaid -
+                    amountCredited,
+                ),
+            );
+
+        const updated:
+            SupplierBill = {
+            ...bill,
+
+            status:
+                amountDue <= 0
+                    ? "PAID"
+                    : bill.totals
+                        .amountPaid >
+                        0 ||
+                        amountCredited >
+                        0
+                        ? "PARTIALLY_PAID"
+                        : "OPEN",
+
+            totals: {
+                ...bill.totals,
+
+                amountCredited,
+
+                amountDue,
+            },
+
+            updatedAt:
+                new Date().toISOString(),
+        };
+
+        supplierBills =
+            supplierBills.map(
+                (item) =>
+                    item.id ===
+                        supplierBillId
+                        ? updated
+                        : item,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
+    markVoid(
+        supplierBillId: string,
+        reason: string,
+    ): SupplierBill {
+        const bill =
+            supplierBills.find(
+                (item) =>
+                    item.id ===
+                    supplierBillId,
+            );
+
+        if (!bill) {
+            throw new Error(
+                "Supplier bill was not found.",
+            );
+        }
+
+        if (
+            bill.status ===
+            "VOID"
+        ) {
+            throw new Error(
+                "This supplier bill has already been voided.",
+            );
+        }
+
+        const normalizedReason =
+            reason.trim();
+
+        if (
+            normalizedReason.length <
+            3
+        ) {
+            throw new Error(
+                "A void reason is required.",
+            );
+        }
+
+        const now =
+            new Date().toISOString();
+
+        /*
+         * Restore billed quantities on the
+         * Purchase Order so the received goods
+         * can be billed again.
+         */
+        purchaseOrderRepository.reverseSupplierBill(
+            bill.purchaseOrderId,
+
+            bill.lines.map(
+                (line) => ({
+                    purchaseOrderLineId:
+                        line.purchaseOrderLineId,
+
+                    billedQuantity:
+                        line.quantity,
+                }),
+            ),
+        );
+
+        const voided:
+            SupplierBill = {
+            ...bill,
+
+            status:
+                "VOID",
+
+            voidedAt:
+                now,
+
+            voidReason:
+                normalizedReason,
+
+            updatedAt:
+                now,
+        };
+
+        supplierBills =
+            supplierBills.map(
+                (item) =>
+                    item.id ===
+                        supplierBillId
+                        ? voided
+                        : item,
+            );
+
+        emitChange();
+
+        return voided;
     },
 
     getByPurchaseOrder(

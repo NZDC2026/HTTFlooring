@@ -11,6 +11,10 @@ import {
 } from "./useSupplierPayments";
 
 import {
+    useSupplierCreditsBySupplier,
+} from "./useSupplierCredits";
+
+import {
     buildSupplierStatement,
 } from "./supplierStatementService";
 
@@ -33,6 +37,11 @@ export function useSupplierStatement(
             supplierId,
         );
 
+    const credits =
+        useSupplierCreditsBySupplier(
+            supplierId,
+        );
+
     return useMemo(
         () => {
             if (
@@ -51,6 +60,8 @@ export function useSupplierStatement(
 
                     payments,
 
+                    credits,
+
                     fromDate,
 
                     toDate,
@@ -61,6 +72,7 @@ export function useSupplierStatement(
             supplierId,
             bills,
             payments,
+            credits,
             fromDate,
             toDate,
         ],

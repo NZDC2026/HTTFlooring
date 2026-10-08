@@ -92,6 +92,7 @@ export function calculateSupplierBillTotals(
         total,
 
         amountPaid: 0,
+        amountCredited: 0,
 
         amountDue:
             total,

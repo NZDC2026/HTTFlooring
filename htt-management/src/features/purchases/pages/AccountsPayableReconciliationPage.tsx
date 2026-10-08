@@ -144,7 +144,7 @@ export function AccountsPayableReconciliationPage() {
 
             <div className="mb-5 grid grid-cols-4 gap-4">
                 <ControlCard
-                    label="Outstanding Bills"
+                    label="Net AP Control"
                     value={
                         reconciliation.outstandingSupplierBills
                     }
@@ -217,7 +217,7 @@ export function AccountsPayableReconciliationPage() {
                                 </Header>
 
                                 <Header align="right">
-                                    Bills
+                                    Net Bills
                                 </Header>
 
                                 <Header align="right">
@@ -302,7 +302,7 @@ export function AccountsPayableReconciliationPage() {
 
                                             <MoneyCell
                                                 value={
-                                                    row.billBalance
+                                                    row.netBillBalance
                                                 }
                                             />
 

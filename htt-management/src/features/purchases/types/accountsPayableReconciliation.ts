@@ -3,7 +3,11 @@ export interface SupplierPayableReconciliationRow {
     supplierCode: string;
     supplierName: string;
 
-    billBalance: number;
+    grossBillBalance: number;
+    unallocatedCredit: number;
+
+    netBillBalance: number;
+
     accountBalance: number;
     agedPayablesBalance: number;
     statementBalance: number;
@@ -16,7 +20,12 @@ export interface SupplierPayableReconciliationRow {
 export interface AccountsPayableReconciliation {
     asOfDate: string;
 
+    grossOutstandingSupplierBills: number;
+
+    unallocatedSupplierCredits: number;
+
     outstandingSupplierBills: number;
+
     supplierAccountBalances: number;
     agedPayablesTotal: number;
     supplierStatementBalances: number;

@@ -1,7 +1,10 @@
 export type SupplierStatementEntryType =
     | "BILL"
+    | "BILL_VOID"
     | "PAYMENT"
-    | "PAYMENT_REVERSAL";
+    | "PAYMENT_REVERSAL"
+    | "SUPPLIER_CREDIT"
+    | "SUPPLIER_CREDIT_VOID";
 
 export interface SupplierStatementEntry {
     id: string;
@@ -17,6 +20,7 @@ export interface SupplierStatementEntry {
 
     supplierBillId?: string;
     supplierPaymentId?: string;
+    supplierCreditId?: string;
 
     debit: number;
     credit: number;

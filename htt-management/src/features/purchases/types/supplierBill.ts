@@ -31,6 +31,7 @@ export interface SupplierBillTotals {
     total: number;
 
     amountPaid: number;
+    amountCredited: number;
     amountDue: number;
 }
 
