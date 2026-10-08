@@ -6,6 +6,10 @@ import {
     supplierBillRepository,
 } from "./supplierBillRepository";
 
+import {
+    purchasesAccountingPostingService,
+} from "../../accounting/data/purchasesAccountingPostingService";
+
 import type {
     SupplierPayment,
     SupplierPaymentAllocation,
@@ -333,6 +337,11 @@ export const supplierPaymentRepository =
 
         emitChange();
 
+        purchasesAccountingPostingService
+            .postSupplierPayment(
+                payment,
+            );
+
         return payment;
     },
 
@@ -454,6 +463,11 @@ export const supplierPaymentRepository =
             );
 
         emitChange();
+
+        purchasesAccountingPostingService
+            .reverseSupplierPayment(
+                updated,
+            );
 
         return updated;
     },

@@ -2,6 +2,10 @@ import {
     supplierBillRepository,
 } from "./supplierBillRepository";
 
+import {
+    purchasesAccountingPostingService,
+} from "../../accounting/data/purchasesAccountingPostingService";
+
 import type {
     SupplierCredit,
     SupplierCreditAllocation,
@@ -553,6 +557,11 @@ export const supplierCreditRepository =
 
         emitChange();
 
+        purchasesAccountingPostingService
+            .postSupplierCredit(
+                credit,
+            );
+
         return credit;
     },
 
@@ -1092,6 +1101,11 @@ export const supplierCreditRepository =
             );
 
         emitChange();
+
+        purchasesAccountingPostingService
+            .reverseSupplierCredit(
+                voided,
+            );
 
         return voided;
     },

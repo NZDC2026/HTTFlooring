@@ -23,6 +23,8 @@ export interface Payment {
 
     method: PaymentMethod;
 
+    bankAccountId: string;
+
     reference?: string;
     notes?: string;
 

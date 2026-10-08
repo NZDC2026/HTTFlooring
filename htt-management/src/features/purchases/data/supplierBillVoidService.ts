@@ -10,6 +10,10 @@ import {
     supplierCreditRepository,
 } from "./supplierCreditRepository";
 
+import {
+    purchasesAccountingPostingService,
+} from "../../accounting/data/purchasesAccountingPostingService";
+
 import type {
     SupplierBill,
 } from "../types/supplierBill";
@@ -143,8 +147,16 @@ export function voidSupplierBill(
      * Repository performs the actual lifecycle
      * mutation and restores PO billed quantity.
      */
-    return supplierBillRepository.markVoid(
-        bill.id,
-        normalizedReason,
-    );
+    const voided =
+        supplierBillRepository.markVoid(
+            bill.id,
+            normalizedReason,
+        );
+
+    purchasesAccountingPostingService
+        .reverseSupplierBill(
+            voided,
+        );
+
+    return voided;
 }

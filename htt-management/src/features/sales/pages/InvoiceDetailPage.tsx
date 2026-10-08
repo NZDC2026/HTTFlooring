@@ -239,6 +239,9 @@ export function InvoiceDetailPage() {
                 method:
                     values.method,
 
+                bankAccountId:
+                    values.bankAccountId,
+
                 reference:
                     values.reference,
 

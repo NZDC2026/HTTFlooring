@@ -23,6 +23,9 @@ export const mockPayments: Payment[] =
             method:
                 "BANK_TRANSFER",
 
+            bankAccountId:
+                "bank_001",
+
             reference:
                 "BANK-051026-ABC",
 

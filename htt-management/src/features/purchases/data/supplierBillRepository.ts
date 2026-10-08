@@ -3,6 +3,10 @@ import {
 } from "./purchaseOrderRepository";
 
 import {
+    purchasesAccountingPostingService,
+} from "../../accounting/data/purchasesAccountingPostingService";
+
+import {
     calculateSupplierBillLine,
     calculateSupplierBillTotals,
 } from "../utils/supplierBillCalculations";
@@ -986,6 +990,11 @@ export const supplierBillRepository =
         ];
 
         emitChange();
+
+        purchasesAccountingPostingService
+            .postSupplierBill(
+                bill,
+            );
 
         return bill;
     },

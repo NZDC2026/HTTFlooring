@@ -5,6 +5,10 @@ import type {
     PaymentMethod,
 } from "../types/payment";
 
+import {
+    bankAccountRepository,
+} from "../../banking/data/bankAccountRepository";
+
 type Listener = () => void;
 
 const listeners =
@@ -81,6 +85,8 @@ export interface CreatePaymentInput {
     amount: number;
 
     method: PaymentMethod;
+
+    bankAccountId: string;
 
     reference?: string;
     notes?: string;
@@ -168,6 +174,33 @@ export const paymentRepository = {
         }
 
         if (
+            !input.bankAccountId
+        ) {
+            throw new Error(
+                "Bank account is required",
+            );
+        }
+
+        const bankAccount =
+            bankAccountRepository.getById(
+                input.bankAccountId,
+            );
+
+        if (!bankAccount) {
+            throw new Error(
+                "Bank account was not found",
+            );
+        }
+
+        if (
+            !bankAccount.active
+        ) {
+            throw new Error(
+                "The selected bank account is inactive",
+            );
+        }
+
+        if (
             !Number.isFinite(
                 input.amount,
             ) ||
@@ -204,6 +237,9 @@ export const paymentRepository = {
 
             method:
                 input.method,
+
+            bankAccountId:
+                bankAccount.id,
 
             reference:
                 normalizeOptional(

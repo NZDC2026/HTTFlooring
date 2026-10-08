@@ -45,6 +45,10 @@ import {
 
 import { paymentRepository } from "./paymentRepository";
 
+import {
+    salesAccountingPostingService,
+} from "../../accounting/data/salesAccountingPostingService";
+
 type Listener = () => void;
 
 const listeners =
@@ -843,6 +847,11 @@ export const salesRepository = {
 
         emitChange();
 
+        salesAccountingPostingService
+            .postInvoice(
+                invoice,
+            );
+
         return invoice;
     },
 
@@ -1031,6 +1040,11 @@ export const salesRepository = {
         creditNoteRepository.create(
             creditNote,
         );
+
+        salesAccountingPostingService
+            .postCreditNote(
+                creditNote,
+            );
 
         return creditNote;
     },
@@ -1537,6 +1551,11 @@ export const salesRepository = {
             voided,
         );
 
+        salesAccountingPostingService
+            .reverseCreditNote(
+                voided,
+            );
+
         return voided;
     },
 
@@ -1552,6 +1571,9 @@ export const salesRepository = {
 
             method:
             PaymentMethod;
+
+            bankAccountId:
+            string;
 
             reference?:
             string;
@@ -1651,6 +1673,9 @@ export const salesRepository = {
                 method:
                     input.method,
 
+                bankAccountId:
+                    input.bankAccountId,
+
                 reference:
                     input.reference,
 
@@ -1661,6 +1686,11 @@ export const salesRepository = {
         this.recalculateInvoiceBalance(
             currentInvoice.id,
         );
+
+        salesAccountingPostingService
+            .postPayment(
+                payment,
+            );
 
         return payment;
     },
@@ -1850,6 +1880,11 @@ export const salesRepository = {
             invoice.id,
         );
 
+        salesAccountingPostingService
+            .reversePayment(
+                reversedPayment,
+            );
+
         return reversedPayment;
     },
 
@@ -1972,6 +2007,11 @@ export const salesRepository = {
             );
 
         emitChange();
+
+        salesAccountingPostingService
+            .reverseInvoice(
+                updated,
+            );
 
         return updated;
     },

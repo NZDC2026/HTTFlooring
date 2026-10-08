@@ -30,6 +30,14 @@ import { AccountsPayableReconciliationPage } from "../features/purchases/pages/A
 import { CreateSupplierCreditPage } from "../features/purchases/pages/CreateSupplierCreditPage";
 import { SupplierCreditDetailPage } from "../features/purchases/pages/SupplierCreditDetailPage";
 import { InventoryPage } from "../features/inventory/pages/InventoryPage";
+import { ChartOfAccountsPage } from "../features/accounting/pages/ChartOfAccountsPage";
+import { AccountFormPage } from "../features/accounting/pages/AccountFormPage";
+import { JournalRegisterPage } from "../features/accounting/pages/JournalRegisterPage";
+import { JournalEntryDetailPage } from "../features/accounting/pages/JournalEntryDetailPage";
+import { AccountsReceivableGlReconciliationPage } from "../features/accounting/pages/AccountsReceivableGlReconciliationPage";
+import { AccountsPayableGlReconciliationPage } from "../features/accounting/pages/AccountsPayableGlReconciliationPage";
+import { BankingPage } from "../features/banking/pages/BankingPage";
+import { BankAccountDetailPage } from "../features/banking/pages/BankAccountDetailPage";
 import { PlaceholderPage } from "../layouts/PlaceholderPage";
 
 export const router = createHashRouter([
@@ -157,11 +165,57 @@ export const router = createHashRouter([
             },
             {
                 path: "banking",
-                element: <PlaceholderPage title="Banking" />,
+                element: (
+                    <BankingPage />
+                ),
+            },
+            {
+                path: "banking/accounts/:bankAccountId",
+                element: (
+                    <BankAccountDetailPage />
+                ),
             },
             {
                 path: "accounting",
-                element: <PlaceholderPage title="Accounting" />,
+                element: (
+                    <ChartOfAccountsPage />
+                ),
+            },
+            {
+                path: "accounting/accounts/new",
+                element: (
+                    <AccountFormPage mode="create" />
+                ),
+            },
+            {
+                path: "accounting/accounts/:accountId/edit",
+                element: (
+                    <AccountFormPage mode="edit" />
+                ),
+            },
+            {
+                path: "accounting/journals",
+                element: (
+                    <JournalRegisterPage />
+                ),
+            },
+            {
+                path: "accounting/journals/:journalEntryId",
+                element: (
+                    <JournalEntryDetailPage />
+                ),
+            },
+            {
+                path: "accounting/reconciliation/ar",
+                element: (
+                    <AccountsReceivableGlReconciliationPage />
+                ),
+            },
+            {
+                path: "accounting/reconciliation/ap",
+                element: (
+                    <AccountsPayableGlReconciliationPage />
+                ),
             },
             {
                 path: "payroll",

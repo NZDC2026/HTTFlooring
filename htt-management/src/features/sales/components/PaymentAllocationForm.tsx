@@ -16,12 +16,18 @@ import type {
     PaymentMethod,
 } from "../types/payment";
 
+import {
+    useBankAccounts,
+} from "../../banking/data/useBanking";
+
 export interface PaymentAllocationValues {
     paymentDate: string;
 
     amount: number;
 
     method: PaymentMethod;
+
+    bankAccountId: string;
 
     reference?: string;
     notes?: string;
@@ -46,6 +52,15 @@ export function PaymentAllocationForm({
     onCancel,
     onSubmit,
 }: PaymentAllocationFormProps) {
+    const bankAccounts =
+        useBankAccounts();
+
+    const activeBankAccounts =
+        bankAccounts.filter(
+            (bankAccount) =>
+                bankAccount.active,
+        );
+
     const [
         paymentDate,
         setPaymentDate,
@@ -65,6 +80,15 @@ export function PaymentAllocationForm({
         setMethod,
     ] = useState<PaymentMethod>(
         "BANK_TRANSFER",
+    );
+
+    const [
+        bankAccountId,
+        setBankAccountId,
+    ] = useState(
+        activeBankAccounts[0]
+            ?.id ??
+        "",
     );
 
     const [
@@ -127,6 +151,29 @@ export function PaymentAllocationForm({
             return;
         }
 
+        if (!bankAccountId) {
+            setError(
+                "Bank account is required.",
+            );
+
+            return;
+        }
+
+        const selectedBankAccount =
+            activeBankAccounts.find(
+                (bankAccount) =>
+                    bankAccount.id ===
+                    bankAccountId,
+            );
+
+        if (!selectedBankAccount) {
+            setError(
+                "The selected bank account is not available.",
+            );
+
+            return;
+        }
+
         onSubmit({
             paymentDate,
 
@@ -134,6 +181,9 @@ export function PaymentAllocationForm({
                 numericAmount,
 
             method,
+
+            bankAccountId:
+                selectedBankAccount.id,
 
             reference:
                 reference.trim() ||
@@ -249,46 +299,103 @@ export function PaymentAllocationForm({
                             </Field>
                         </div>
 
-                        <Field
-                            label="Payment Method"
-                            required
-                        >
-                            <select
-                                value={
-                                    method
-                                }
-                                onChange={(
-                                    event,
-                                ) =>
-                                    setMethod(
-                                        event
-                                            .target
-                                            .value as PaymentMethod,
-                                    )
-                                }
-                                className="h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm outline-none transition hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-soft)]"
+                        <div className="grid grid-cols-2 gap-4">
+                            <Field
+                                label="Payment Method"
+                                required
                             >
-                                <option value="BANK_TRANSFER">
-                                    Bank Transfer
-                                </option>
+                                <select
+                                    value={
+                                        method
+                                    }
+                                    onChange={(
+                                        event,
+                                    ) =>
+                                        setMethod(
+                                            event
+                                                .target
+                                                .value as PaymentMethod,
+                                        )
+                                    }
+                                    className="h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm outline-none transition hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-soft)]"
+                                >
+                                    <option value="BANK_TRANSFER">
+                                        Bank Transfer
+                                    </option>
 
-                                <option value="CARD">
-                                    Card
-                                </option>
+                                    <option value="CARD">
+                                        Card
+                                    </option>
 
-                                <option value="CASH">
-                                    Cash
-                                </option>
+                                    <option value="CASH">
+                                        Cash
+                                    </option>
 
-                                <option value="CHEQUE">
-                                    Cheque
-                                </option>
+                                    <option value="CHEQUE">
+                                        Cheque
+                                    </option>
 
-                                <option value="OTHER">
-                                    Other
-                                </option>
-                            </select>
-                        </Field>
+                                    <option value="OTHER">
+                                        Other
+                                    </option>
+                                </select>
+                            </Field>
+
+                            <Field
+                                label="Bank Account"
+                                required
+                            >
+                                <select
+                                    value={
+                                        bankAccountId
+                                    }
+                                    onChange={(
+                                        event,
+                                    ) =>
+                                        setBankAccountId(
+                                            event
+                                                .target
+                                                .value,
+                                        )
+                                    }
+                                    disabled={
+                                        activeBankAccounts.length ===
+                                        0
+                                    }
+                                    className="h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm outline-none transition disabled:cursor-not-allowed disabled:bg-[var(--color-surface-muted)] disabled:text-[var(--color-text-muted)] hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-soft)]"
+                                >
+                                    {activeBankAccounts.length ===
+                                        0 ? (
+                                        <option value="">
+                                            No active bank accounts
+                                        </option>
+                                    ) : (
+                                        activeBankAccounts.map(
+                                            (
+                                                bankAccount,
+                                            ) => (
+                                                <option
+                                                    key={
+                                                        bankAccount.id
+                                                    }
+                                                    value={
+                                                        bankAccount.id
+                                                    }
+                                                >
+                                                    {
+                                                        bankAccount.name
+                                                    }
+                                                    {" · "}
+                                                    {
+                                                        bankAccount.accountNumber
+                                                    }
+                                                </option>
+                                            ),
+                                        )
+                                    )}
+                                </select>
+                            </Field>
+                        </div>
 
                         <Field label="Reference">
                             <Input
