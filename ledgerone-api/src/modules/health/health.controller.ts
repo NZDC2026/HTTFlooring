@@ -1,13 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
-import {
-    HealthCheck,
-    HealthCheckService,
-} from '@nestjs/terminus';
-import {
-    ApiOperation,
-    ApiResponse,
-    ApiTags,
-} from '@nestjs/swagger';
+import { HealthCheck, HealthCheckService, } from '@nestjs/terminus';
+import { ApiOperation, ApiResponse, ApiTags, } from '@nestjs/swagger';
+import { DatabaseHealthIndicator } from '../../infrastructure/database/database-health.indicator.js';
 
 @ApiTags('Health')
 @Controller({
@@ -17,6 +11,7 @@ import {
 export class HealthController {
     constructor(
         private readonly health: HealthCheckService,
+        private readonly database: DatabaseHealthIndicator,
     ) { }
 
     @Get('live')
@@ -42,6 +37,6 @@ export class HealthController {
         description: 'API is ready to receive traffic',
     })
     ready() {
-        return this.health.check([]);
+        return this.health.check([() => this.database.isHealthy('database')]);
     }
 } 

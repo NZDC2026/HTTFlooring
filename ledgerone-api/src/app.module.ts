@@ -9,6 +9,7 @@ import { RequestContextService } from './common/context/request-context.service.
 import { LoggingModule } from './infrastructure/logging/logging.module.js';
 import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor.js';
 import { DatabaseModule } from './infrastructure/database/database.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 
 
 @Module({
@@ -24,6 +25,8 @@ import { DatabaseModule } from './infrastructure/database/database.module.js';
     HealthModule,
 
     DatabaseModule,
+
+    AuthModule,
   ],
 
   providers: [
