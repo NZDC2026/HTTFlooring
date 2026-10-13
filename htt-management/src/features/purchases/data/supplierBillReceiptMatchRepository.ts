@@ -1,9 +1,13 @@
 import type { SupplierBillReceiptMatch } from "../types/supplierBillReceiptMatch";
 
 let matches: SupplierBillReceiptMatch[] = [];
+const listeners = new Set<() => void>();
+const emitChange = () => listeners.forEach(listener => listener());
 
 export const supplierBillReceiptMatchRepository = {
     getAll(): SupplierBillReceiptMatch[] { return [...matches]; },
+    subscribe(listener: () => void): () => void { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    getSnapshot(): SupplierBillReceiptMatch[] { return matches; },
     getByBill(billId: string): SupplierBillReceiptMatch[] {
         return matches.filter((match) => match.supplierBillId === billId);
     },
@@ -16,6 +20,7 @@ export const supplierBillReceiptMatchRepository = {
             throw new Error("Invalid supplier bill receipt matches.");
         }
         matches = [...matches, ...allocations];
+        emitChange();
     },
     reverseForBill(billId: string, reason: string): void {
         const reversedAt = new Date().toISOString();
@@ -24,5 +29,6 @@ export const supplierBillReceiptMatchRepository = {
                 ? { ...match, status: "REVERSED" as const, reversedAt, reversalReason: reason }
                 : match,
         );
+        emitChange();
     },
 };

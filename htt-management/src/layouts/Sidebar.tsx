@@ -81,6 +81,11 @@ const sections = [
                 icon: BarChart3,
             },
             {
+                label: "Purchase Reconciliation",
+                path: "/reports/purchase-accounting-reconciliation",
+                icon: PackageCheck,
+            },
+            {
                 label: "GRNI Outstanding",
                 path: "/reports/grni-outstanding",
                 icon: PackageCheck,
@@ -168,6 +173,7 @@ export function Sidebar() {
                                         <NavLink
                                             key={item.path}
                                             to={item.path}
+                                            end={item.path === "/reports"}
                                             className={({ isActive }) =>
                                                 cn(
                                                     "group flex h-10 items-center gap-3 rounded-lg px-3",
