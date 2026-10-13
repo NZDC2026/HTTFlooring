@@ -47,6 +47,7 @@ export const purchasePostingOperationRepository = {
         }
         this.completeStep(key, step);
     },
+    hasRecoveryHandler(key: string): boolean { return recoveryHandlers.has(key); },
     recover(key: string): PurchasePostingOperation {
         const operation = operations.get(key);
         if (!operation) throw new Error(`Unknown posting operation: ${key}`);

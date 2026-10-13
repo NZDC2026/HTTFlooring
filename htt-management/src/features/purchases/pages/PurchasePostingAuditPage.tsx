@@ -2,6 +2,8 @@ import { useMemo, useSyncExternalStore, useState } from "react";
 import { Link } from "react-router-dom";
 import { purchasePostingOperationRepository } from "../data/purchasePostingOperationRepository";
 import { purchasePostingAuditService } from "../data/purchasePostingAuditService";
+import { purchasePostingManualRecoveryService } from "../data/purchasePostingManualRecoveryService";
+import { purchasePostingRecoveryAuthorization } from "../data/purchasePostingRecoveryAuthorization";
 
 const statuses = ["ALL", "PENDING", "POSTING", "POSTED", "FAILED", "RECOVERY_REQUIRED"] as const;
 const kindLabels = { GOODS_RECEIPT: "Goods Receipt", SUPPLIER_BILL: "Supplier Bill", SUPPLIER_BILL_VOID: "Supplier Bill Void" } as const;
@@ -15,6 +17,7 @@ export function PurchasePostingAuditPage() {
   const [status, setStatus] = useState<(typeof statuses)[number]>("ALL");
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [recoveryMessage, setRecoveryMessage] = useState("");
   const rows = purchasePostingAuditService.list();
   const filtered = useMemo(() => rows.filter(row =>
     (status === "ALL" || row.status === status) &&
@@ -30,7 +33,7 @@ export function PurchasePostingAuditPage() {
       {[["Operations", rows.length], ["Posted", rows.filter(r => r.status === "POSTED").length], ["Needs attention", attention], ["In progress", rows.filter(r => r.status === "PENDING" || r.status === "POSTING").length]].map(([label, count]) =>
         <div key={label} className="rounded-lg border bg-white p-4"><div className="text-sm text-gray-500">{label}</div><div className="text-2xl font-semibold">{count}</div></div>)}
     </div>
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Recovery is read-only in this version: the project does not yet expose an authenticated finance/admin permission service. Unsafe FAILED operations must be reconciled manually; do not replay them.</div>
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Manual recovery requires a trusted authenticated finance/admin session. FAILED operations cannot be replayed; reconcile them manually. Recovery handlers are lost on restart.</div>
     <div className="flex flex-wrap gap-3"><select aria-label="Filter status" className="rounded border bg-white px-3 py-2" value={status} onChange={event => setStatus(event.target.value as (typeof statuses)[number])}>{statuses.map(value => <option key={value} value={value}>{value}</option>)}</select>
       <input aria-label="Search operations" className="min-w-64 rounded border px-3 py-2" placeholder="Search key, source or error" value={query} onChange={event => setQuery(event.target.value)} />
       <button className="rounded border bg-white px-3 py-2" onClick={() => { setStatus("ALL"); setQuery(""); }}>Reset filters</button></div>
@@ -42,7 +45,12 @@ export function PurchasePostingAuditPage() {
       <h3 className="mt-4 font-semibold">Completed steps</h3><ol className="mt-2 list-inside list-decimal text-sm">{selected.completedSteps.map(step => <li key={step}>{step}</li>)}</ol>{selected.completedSteps.length === 0 && <p className="text-sm text-gray-500">No completed steps.</p>}
       {selected.error && <div className="mt-4 rounded bg-red-50 p-3 text-sm text-red-800" role="alert">{selected.error}</div>}
       <h3 className="mt-4 font-semibold">Related journals</h3>{selected.journals.length === 0 ? <p className="text-sm text-gray-500">No matching journal found.</p> : selected.journals.map(journal => <p key={journal.id} className="text-sm"><Link className="text-blue-700 underline" to={`/accounting/journals/${encodeURIComponent(journal.id)}`}>{journal.number}</Link> · {journal.date} · {journal.status}</p>)}
-      <button type="button" disabled title="Requires authenticated finance/admin authorization" className="mt-4 cursor-not-allowed rounded bg-gray-200 px-4 py-2 text-sm text-gray-500">Recover (authorization required)</button>
+      <button type="button" disabled={!purchasePostingManualRecoveryService.canRecover(selected.key)} title={!purchasePostingRecoveryAuthorization.canRecover() ? "Requires a trusted authenticated finance/admin session" : "Only recoverable operations with an active handler can be resumed"} className="mt-4 rounded bg-blue-700 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500" onClick={() => {
+        if (!window.confirm(`Resume operation ${selected.key}? Only verified incomplete steps will be attempted.`)) return;
+        try { purchasePostingManualRecoveryService.recover(selected.key); setRecoveryMessage("Recovery completed."); }
+        catch (error) { setRecoveryMessage(String(error)); }
+      }}>Recover operation</button>
+      {recoveryMessage && <p role="status" className="mt-2 text-sm">{recoveryMessage}</p>}
     </section>}
   </div>;
 }
