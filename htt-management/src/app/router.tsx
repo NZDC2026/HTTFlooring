@@ -2,6 +2,7 @@ import { createHashRouter, Navigate } from "react-router-dom";
 
 import { AppLayout } from "../layouts/AppLayout";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
+import { CustomerDemoPage } from "../features/demo/pages/CustomerDemoPage";
 import { SalesOverviewPage } from "../features/sales/pages/SalesOverviewPage";
 import { CustomersPage } from "../features/contacts/pages/CustomersPage";
 import { CustomerDetailPage } from "../features/contacts/pages/CustomerDetailPage";
@@ -69,6 +70,10 @@ export const router = createHashRouter([
             {
                 path: "dashboard",
                 element: <DashboardPage />,
+            },
+            {
+                path: "demo",
+                element: <CustomerDemoPage />,
             },
             {
                 path: "sales",

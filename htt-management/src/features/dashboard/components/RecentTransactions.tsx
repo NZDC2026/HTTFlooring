@@ -1,5 +1,7 @@
+import { useNavigate } from "react-router-dom";
+import { salesRepository } from "../../sales/data/salesRepository";
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -81,22 +83,22 @@ const columns: ColumnDef<
             header: "",
             cell: () => (
                 <div className="flex justify-end">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
-                    >
-                        <MoreHorizontal size={15} />
-                    </Button>
+                    <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center text-[var(--color-primary)]"><ArrowRight size={15} /></span>
                 </div>
             ),
         },
     ];
 
 export function RecentTransactions() {
+    const navigate = useNavigate();
+    const openTransaction = (transaction: DashboardTransaction) => {
+        const invoice = salesRepository.getAll().find((document) => document.type === "INVOICE" && document.documentNumber === transaction.reference);
+        if (invoice) {
+            navigate(`/sales/invoices/${invoice.id}`);
+        } else {
+            navigate(transaction.type === "Bill" || transaction.type === "Purchase" ? "/purchases" : transaction.type === "Payment" ? "/banking" : "/sales");
+        }
+    };
     return (
         <section>
             <div className="mb-3 flex items-end justify-between">
@@ -113,6 +115,7 @@ export function RecentTransactions() {
                 <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => navigate("/sales")}
                 >
                     View all transactions
                 </Button>
@@ -141,12 +144,7 @@ export function RecentTransactions() {
                 pagination={{
                     pageSize: 5,
                 }}
-                onRowClick={(transaction) => {
-                    console.log(
-                        "Transaction selected:",
-                        transaction,
-                    );
-                }}
+                onRowClick={openTransaction}
             />
         </section>
     );

@@ -1,4 +1,5 @@
-import { Plus } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Button } from "../../../components/ui/Button";
 
@@ -30,10 +31,11 @@ export function DashboardPage() {
                     </p>
                 </div>
 
-                <Button variant="accent">
-                    <Plus size={16} />
-                    New transaction
-                </Button>
+                <Link to="/demo">
+                    <Button variant="accent">
+                        Customer demo <ArrowRight size={16} />
+                    </Button>
+                </Link>
             </div>
 
             <div className="grid grid-cols-4 gap-4">

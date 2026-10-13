@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
     AlertTriangle,
     CircleDollarSign,
@@ -15,18 +16,21 @@ const tasks = [
         description: "$6,520 requires follow-up",
         icon: CircleDollarSign,
         type: "danger",
+        path: "/sales",
     },
     {
         title: "18 bank transactions",
         description: "Waiting for reconciliation",
         icon: AlertTriangle,
         type: "warning",
+        path: "/banking",
     },
     {
         title: "7 products low in stock",
         description: "Inventory requires attention",
         icon: PackageSearch,
         type: "neutral",
+        path: "/inventory",
     },
 ];
 
@@ -47,7 +51,8 @@ export function TasksCard() {
                         const Icon = task.icon;
 
                         return (
-                            <button
+                            <Link
+                                to={task.path}
                                 key={task.title}
                                 className="flex w-full items-center gap-3 py-3 text-left"
                             >
@@ -72,7 +77,7 @@ export function TasksCard() {
                                         {task.description}
                                     </div>
                                 </div>
-                            </button>
+                            </Link>
                         );
                     })}
                 </div>
