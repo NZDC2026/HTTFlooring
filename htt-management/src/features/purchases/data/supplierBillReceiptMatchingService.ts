@@ -33,7 +33,6 @@ import type {
  */
 
 const QUANTITY_TOLERANCE = 0.0001;
-const VALUE_TOLERANCE = 0.01;
 
 function roundMoney(
     value: number,
@@ -579,16 +578,6 @@ function calculateMatching(
                 "Supplier Bill quantity could not be fully matched.",
             );
         }
-
-        const requestReceiptValue =
-            roundMoney(
-                requestMatches.reduce(
-                    (total, match) =>
-                        total +
-                        match.matchedReceiptValue,
-                    0,
-                ),
-            );
 
         const requestBillValue =
             roundMoney(
