@@ -1,48 +1,53 @@
+import { useMemo, useState } from "react";
 import { useGoodsReceipts } from "../../purchases/data/useGoodsReceipts";
 import { useSupplierBills } from "../../purchases/data/useSupplierBills";
-import { ArrowRight, CheckCircle2, Compass, Info } from "lucide-react";
+import { ArrowRight, CheckCircle2, Compass, Info, RotateCcw, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "../../../components/ui/Badge";
 import { Card, CardContent } from "../../../components/ui/Card";
 import { mockQuotes, mockSalesOrders, mockInvoices } from "../../sales/data/mockSalesDocuments";
 import { mockPurchaseOrders } from "../../purchases/data/mockPurchaseOrders";
 
+type DemoStep = { title: string; detail: string; path: string; action: string; check: string };
+type DemoFlow = { title: string; subtitle: string; steps: DemoStep[] };
 const salesQuote = mockQuotes[0];
 const salesOrder = mockSalesOrders.find((order) => order.id === salesQuote?.convertedSalesOrderId) ?? mockSalesOrders[0];
 const salesInvoice = mockInvoices.find((invoice) => salesOrder?.invoiceIds.includes(invoice.id)) ?? mockInvoices[0];
 const purchaseOrder = mockPurchaseOrders[0];
 
-type DemoStep = { title: string; detail: string; path: string; action: string; note?: string };
-const flows: { title: string; subtitle: string; steps: DemoStep[] }[] = [
+const baseFlows: DemoFlow[] = [
     {
         title: "Sales · Quote to Invoice",
-        subtitle: "Show a connected customer sales journey using existing sample documents.",
+        subtitle: "Follow linked customer documents from quotation to invoice.",
         steps: [
-            { title: "Sales workspace", detail: "Search and filter quotes, orders and invoices.", path: "/sales", action: "Browse sales" },
-            ...(salesQuote ? [{ title: `Quote ${salesQuote.documentNumber}`, detail: "Review product pricing and the linked order.", path: `/sales/quotes/${salesQuote.id}`, action: "Open quote" }] : []),
-            ...(salesOrder ? [{ title: `Order ${salesOrder.documentNumber}`, detail: "Review fulfilment and the invoice relationship.", path: `/sales/orders/${salesOrder.id}`, action: "Open order" }] : []),
-            ...(salesInvoice ? [{ title: `Invoice ${salesInvoice.documentNumber}`, detail: "Show totals, GST and invoice status.", path: `/sales/invoices/${salesInvoice.id}`, action: "Open invoice" }] : []),
+            { title: "Sales workspace", detail: "Search and filter sales documents.", path: "/sales", action: "Browse sales", check: "Search, filters and detail links respond correctly." },
+            ...(salesQuote ? [{ title: `Quote ${salesQuote.documentNumber}`, detail: "Review the quotation and linked order.", path: `/sales/quotes/${salesQuote.id}`, action: "Open quote", check: "Quote details and order link match the sample document." }] : []),
+            ...(salesOrder ? [{ title: `Order ${salesOrder.documentNumber}`, detail: "Review fulfilment and invoice links.", path: `/sales/orders/${salesOrder.id}`, action: "Open order", check: "Order status and linked invoice are visible." }] : []),
+            ...(salesInvoice ? [{ title: `Invoice ${salesInvoice.documentNumber}`, detail: "Review GST, totals and payment status.", path: `/sales/invoices/${salesInvoice.id}`, action: "Open invoice", check: "Invoice totals and status display correctly." }] : []),
         ],
     },
     {
         title: "Purchasing · Order to Accounting",
-        subtitle: "Demonstrate procurement, stock receiving and finance controls.",
+        subtitle: "Walk through procurement, receiving, billing and audit.",
         steps: [
-            { title: "Purchase orders", detail: "Browse purchasing records and supplier details.", path: "/purchases", action: "Browse orders" },
-            ...(purchaseOrder ? [{ title: `Purchase order ${purchaseOrder.purchaseOrderNumber}`, detail: "Inspect ordered, received and billed quantities.", path: `/purchases/${purchaseOrder.id}`, action: "Open PO" }] : []),
-            { title: "Stock movements", detail: "Open Inventory and switch to Movements.", path: "/inventory?tab=movements", action: "Open movements" },
-            { title: "GRNI report", detail: "Review goods received but not yet invoiced.", path: "/reports/grni-outstanding", action: "Open GRNI" },
-            { title: "Posting audit", detail: "Review operation history; recovery actions remain restricted.", path: "/reports/purchase-posting-audit", action: "Open audit" },
+            { title: "Purchase orders", detail: "Browse supplier purchase orders.", path: "/purchases", action: "Browse orders", check: "Order filters and detail navigation work." },
+            ...(purchaseOrder ? [{ title: `Purchase order ${purchaseOrder.purchaseOrderNumber}`, detail: "Inspect quantities and receipt/bill relationships.", path: `/purchases/${purchaseOrder.id}`, action: "Open PO", check: "Ordered, received and billed quantities are shown." }] : []),
+            { title: "Stock movements", detail: "Inspect stock movements generated by receiving.", path: "/inventory?tab=movements", action: "Open movements", check: "The Movements tab opens directly." },
+            { title: "GRNI report", detail: "Review goods received but not invoiced.", path: "/reports/grni-outstanding", action: "Open GRNI", check: "Report and empty states render correctly." },
+            { title: "Posting audit", detail: "Inspect posting audit history without changing records.", path: "/reports/purchase-posting-audit", action: "Open audit", check: "Audit history is readable; restricted actions stay protected." },
         ],
     },
     {
         title: "Operations · Business Workspace",
-        subtitle: "Walk through representative screens without submitting real transactions.",
+        subtitle: "Check daily operations and supporting modules.",
         steps: [
-            { title: "Banking", detail: "Explore accounts and reconciliation.", path: "/banking", action: "Open banking" },
-            { title: "Payroll", detail: "Preview employee pay runs; no payroll is processed.", path: "/payroll", action: "Open payroll" },
-            { title: "Documents", detail: "Search sample document metadata and view details.", path: "/documents", action: "Open documents" },
-            { title: "Settings", detail: "Explore company, roles, preferences and integration status.", path: "/settings", action: "Open settings" },
+            { title: "Customers", detail: "Browse customer profiles and related records.", path: "/contacts", action: "Open customers", check: "Customer list and detail navigation work." },
+            { title: "Inventory", detail: "Review stock by site and inventory valuation.", path: "/inventory", action: "Open inventory", check: "Site filters and stock list respond correctly." },
+            { title: "Accounting", detail: "Review financial reports and journal records.", path: "/accounting", action: "Open accounting", check: "Financial navigation and report screens load." },
+            { title: "Banking", detail: "Explore bank accounts and reconciliation.", path: "/banking", action: "Open banking", check: "Account and reconciliation links work." },
+            { title: "Payroll", detail: "Preview sample pay runs; do not process payroll.", path: "/payroll", action: "Open payroll", check: "Demo-only actions are clearly identified." },
+            { title: "Documents", detail: "Search sample document metadata.", path: "/documents", action: "Open documents", check: "Search and preview feedback work." },
+            { title: "Settings", detail: "Review company and integration settings.", path: "/settings", action: "Open settings", check: "Unavailable integrations are marked as demo-only." },
         ],
     },
 ];
@@ -50,28 +55,48 @@ const flows: { title: string; subtitle: string; steps: DemoStep[] }[] = [
 export function CustomerDemoPage() {
     const receipts = useGoodsReceipts();
     const bills = useSupplierBills();
-    const linkedReceipt = receipts.find((receipt) => receipt.purchaseOrderId === purchaseOrder?.id);
-    const linkedBill = bills.find((bill) => bill.purchaseOrderId === purchaseOrder?.id);
-    const demoFlows = flows.map((flow, index) => index !== 1 ? flow : {
-        ...flow,
-        steps: [
-            ...flow.steps.slice(0, 2),
-            ...(linkedReceipt ? [{ title: `Goods receipt ${linkedReceipt.receiptNumber}`, detail: `Received at ${linkedReceipt.siteName} on ${linkedReceipt.receiptDate}.`, path: `/purchases/goods-receipts/${linkedReceipt.id}`, action: "Open receipt" }] : []),
-            ...(linkedBill ? [{ title: `Supplier bill ${linkedBill.billNumber}`, detail: `Invoice ${linkedBill.supplierInvoiceNumber} · ${linkedBill.status}.`, path: `/purchases/bills/${linkedBill.id}`, action: "Open bill" }] : []),
-            ...flow.steps.slice(2),
-        ],
-    });
+    const [completed, setCompleted] = useState<string[]>([]);
+    const [activeFlow, setActiveFlow] = useState(0);
+    const flows = useMemo(() => {
+        const linkedReceipt = receipts.find((receipt) => receipt.purchaseOrderId === purchaseOrder?.id);
+        const linkedBill = bills.find((bill) => bill.purchaseOrderId === purchaseOrder?.id);
+        return baseFlows.map((flow, index) => index !== 1 ? flow : {
+            ...flow,
+            steps: [
+                ...flow.steps.slice(0, 2),
+                ...(linkedReceipt ? [{ title: `Goods receipt ${linkedReceipt.receiptNumber}`, detail: `Received at ${linkedReceipt.siteName} on ${linkedReceipt.receiptDate}.`, path: `/purchases/goods-receipts/${linkedReceipt.id}`, action: "Open receipt", check: "Receipt lines and inventory movement information are visible." }] : []),
+                ...(linkedBill ? [{ title: `Supplier bill ${linkedBill.billNumber}`, detail: `Invoice ${linkedBill.supplierInvoiceNumber} · ${linkedBill.status}.`, path: `/purchases/bills/${linkedBill.id}`, action: "Open bill", check: "Bill status and accounting information are visible." }] : []),
+                ...flow.steps.slice(2),
+            ],
+        });
+    }, [receipts, bills]);
+    const total = flows.reduce((sum, flow) => sum + flow.steps.length, 0);
+    const validKeys = new Set(flows.flatMap((flow, flowIndex) => flow.steps.map((_, stepIndex) => `${flowIndex}:${stepIndex}`)));
+    const doneCount = completed.filter((key) => validKeys.has(key)).length;
+    const flow = flows[activeFlow];
+    const toggle = (key: string) => setCompleted((previous) => previous.includes(key) ? previous.filter((item) => item !== key) : [...previous, key]);
+
     return <div className="space-y-6 pb-10">
         <header className="flex flex-wrap items-start justify-between gap-4">
-            <div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]"><Compass size={15} /> Guided walkthrough</p><h1 className="mt-2 font-display text-3xl">Customer demo journey</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Follow a structured walkthrough of HTT Flooring's ERP screens.</p></div>
+            <div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]"><Compass size={15} /> Guided walkthrough</p><h1 className="mt-2 font-display text-3xl">Customer demo journey</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Open each screen, verify the interaction, then mark the checkpoint complete.</p></div>
             <Badge variant="info">DEMO · Mock data</Badge>
         </header>
-        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm"><Info size={18} className="mt-0.5 shrink-0" /><p>This is a presentation environment. Sample amounts and documents are illustrative. Payroll, file uploads, API connections and live payments are not enabled.</p></div>
-        <div className="grid gap-5 lg:grid-cols-3">{demoFlows.map((flow, flowIndex) => <Card key={flow.title}><CardContent>
-            <div className="flex items-center justify-between gap-2"><Badge variant="neutral">Flow {flowIndex + 1}</Badge><span className="text-xs text-[var(--color-text-muted)]">{flow.steps.length} stops</span></div>
-            <h2 className="mt-4 font-display text-xl">{flow.title}</h2><p className="mt-2 min-h-12 text-sm text-[var(--color-text-secondary)]">{flow.subtitle}</p>
-            <ol className="mt-5 space-y-3">{flow.steps.map((step, index) => <li key={`${flow.title}-${step.path}`} className="rounded-lg border border-[var(--color-border)] p-3"><div className="flex items-start gap-3"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-xs font-semibold text-[var(--color-primary)]">{index + 1}</div><div className="min-w-0 flex-1"><p className="font-semibold text-sm">{step.title}</p><p className="mt-1 text-xs text-[var(--color-text-secondary)]">{step.detail}</p><Link className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-primary)] hover:underline" to={`${step.path}${step.path.includes("?") ? "&" : "?"}demo=1`}>{step.action} <ArrowRight size={14} /></Link></div></div></li>)}</ol>
-        </CardContent></Card>)}</div>
-        <p className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]"><CheckCircle2 size={15} /> All walkthrough links use existing application routes. No background API calls are introduced by this page.</p>
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm"><Info size={18} className="mt-0.5 shrink-0" /><p>Presentation-only data. Checking a step does not submit a transaction. Payroll processing, uploads, live payments and API connections are not enabled. Progress is kept only on this page and resets on refresh.</p></div>
+        <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5" aria-label="Demo progress">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Walkthrough progress</h2><p className="text-sm text-[var(--color-text-secondary)]">{doneCount} of {total} checkpoints verified</p></div><button type="button" onClick={() => setCompleted([])} disabled={doneCount === 0} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"><RotateCcw size={15} /> Reset checks</button></div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-surface-muted)]" role="progressbar" aria-label="Walkthrough completion" aria-valuemin={0} aria-valuemax={total} aria-valuenow={doneCount}><div className="h-full rounded-full bg-[var(--color-primary)] transition-all" style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} /></div>
+        </section>
+        <div className="grid gap-3 md:grid-cols-3" role="group" aria-label="Choose demo flow">{flows.map((item, index) => {
+            const flowDone = item.steps.filter((_, stepIndex) => completed.includes(`${index}:${stepIndex}`)).length;
+            return <button key={item.title} type="button" onClick={() => setActiveFlow(index)} aria-pressed={activeFlow === index} className={`rounded-xl border p-4 text-left transition-colors ${activeFlow === index ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)]"}`}><div className="flex items-center justify-between gap-2"><Badge variant="neutral">Flow {index + 1}</Badge><span className="text-xs text-[var(--color-text-secondary)]">{flowDone}/{item.steps.length} checked</span></div><h2 className="mt-3 font-semibold">{item.title}</h2><p className="mt-1 text-xs text-[var(--color-text-secondary)]">{item.subtitle}</p></button>;
+        })}</div>
+        <Card><CardContent><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-display text-xl">{flow.title}</h2><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{flow.subtitle}</p></div><Badge variant="info">{flow.steps.length} stops</Badge></div>
+            <ol className="space-y-3">{flow.steps.map((step, index) => {
+                const key = `${activeFlow}:${index}`;
+                const checked = completed.includes(key);
+                return <li key={key} className="rounded-lg border border-[var(--color-border)] p-4"><div className="flex flex-wrap items-start gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-sm font-semibold text-[var(--color-primary)]">{index + 1}</span><div className="min-w-0 flex-1"><h3 className="font-semibold">{step.title}</h3><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{step.detail}</p><p className="mt-2 text-xs text-[var(--color-text-secondary)]"><strong>Check:</strong> {step.check}</p><div className="mt-3 flex flex-wrap items-center gap-3"><Link className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white hover:opacity-90" to={`${step.path}${step.path.includes("?") ? "&" : "?"}demo=1`}>{step.action} <ExternalLink size={14} /></Link><label className="inline-flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={checked} onChange={() => toggle(key)} className="h-4 w-4 accent-[var(--color-primary)]" /> Verified</label>{checked && <CheckCircle2 size={18} className="text-green-600" aria-label="Verified" />}</div></div></div></li>;
+            })}</ol>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><Link to="/dashboard" className="text-sm font-semibold text-[var(--color-primary)] hover:underline">Return to dashboard</Link>{activeFlow < flows.length - 1 ? <button type="button" onClick={() => setActiveFlow((value) => value + 1)} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold">Next flow <ArrowRight size={15} /></button> : <span className="text-xs text-[var(--color-text-secondary)]">End of walkthrough</span>}</div>
+        </CardContent></Card>
     </div>;
 }
