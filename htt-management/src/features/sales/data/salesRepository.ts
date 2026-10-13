@@ -715,6 +715,71 @@ export const salesRepository = {
         return order;
     },
 
+    setFulfilmentStatus(
+        orderId:
+            string,
+
+        status:
+            | "CONFIRMED"
+            | "PARTIALLY_FULFILLED"
+            | "FULFILLED",
+    ): SalesOrder {
+        const order =
+            salesOrders.find(
+                (
+                    item,
+                ) =>
+                    item.id ===
+                    orderId,
+            );
+
+        if (!order) {
+            throw new Error(
+                `Sales order ${orderId} was not found`,
+            );
+        }
+
+        if (
+            order.status !==
+            "CONFIRMED" &&
+            order.status !==
+            "PARTIALLY_FULFILLED" &&
+            order.status !==
+            "FULFILLED"
+        ) {
+            throw new Error(
+                "Sales order fulfilment status cannot be changed from its current state.",
+            );
+        }
+
+        const updated:
+            SalesOrder =
+        {
+            ...order,
+
+            status,
+
+            updatedAt:
+                new Date()
+                    .toISOString(),
+        };
+
+        salesOrders =
+            salesOrders.map(
+                (
+                    item,
+                ) =>
+                    item.id ===
+                        orderId
+                        ? updated
+                        : item,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
     createInvoiceFromOrder(
         orderId: string,
     ): Invoice {
@@ -733,10 +798,14 @@ export const salesRepository = {
 
         if (
             order.status !==
-            "CONFIRMED"
+            "CONFIRMED" &&
+            order.status !==
+            "PARTIALLY_FULFILLED" &&
+            order.status !==
+            "FULFILLED"
         ) {
             throw new Error(
-                "Only a confirmed sales order can be invoiced",
+                "Only a confirmed or fulfilled sales order can be invoiced",
             );
         }
 

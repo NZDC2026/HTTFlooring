@@ -9,6 +9,9 @@ export interface GoodsReceiptLine {
     productId: string;
     unitId: string;
 
+    /**
+     * Product / unit snapshots.
+     */
     sku: string;
     description: string;
     unitSymbol: string;
@@ -18,6 +21,18 @@ export interface GoodsReceiptLine {
     conversionToBase: number;
 
     receivedBaseQuantity: number;
+
+    /**
+     * Purchase cost snapshot.
+     *
+     * This is the cost of one transaction
+     * unit at the time the goods are received.
+     *
+     * Historical inventory costing must not
+     * depend on the purchase order being
+     * changed later.
+     */
+    unitCost: number;
 }
 
 export interface GoodsReceipt {

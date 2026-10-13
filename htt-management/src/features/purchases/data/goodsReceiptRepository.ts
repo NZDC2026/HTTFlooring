@@ -12,6 +12,10 @@ import {
 } from "../../inventory/data/inventoryMovementRepository";
 
 import {
+    receiveInventoryCost,
+} from "../../inventory/data/inventoryCostEngine";
+
+import {
     stockRepository,
 } from "../../inventory/data/stockRepository";
 
@@ -354,6 +358,9 @@ export const goodsReceiptRepository =
                             unit.conversionToBase,
 
                         receivedBaseQuantity,
+
+                        unitCost:
+                            purchaseOrderLine.unitCost,
                     };
                 },
             );
@@ -444,57 +451,96 @@ export const goodsReceiptRepository =
                 );
             }
 
-            inventoryMovementRepository.create(
-                {
-                    movementType:
-                        "GOODS_RECEIPT",
+            const inventoryMovement =
+                inventoryMovementRepository.create(
+                    {
+                        movementType:
+                            "GOODS_RECEIPT",
 
-                    siteId:
-                        site.id,
+                        siteId:
+                            site.id,
 
-                    productId:
-                        line.productId,
+                        productId:
+                            line.productId,
 
-                    baseUnitId:
-                        product.baseUnitId,
+                        baseUnitId:
+                            product.baseUnitId,
 
-                    quantityBase:
-                        line.receivedBaseQuantity,
+                        quantityBase:
+                            line.receivedBaseQuantity,
 
-                    transactionUnitId:
-                        line.unitId,
+                        transactionUnitId:
+                            line.unitId,
 
-                    transactionUnitSymbol:
-                        line.unitSymbol,
+                        transactionUnitSymbol:
+                            line.unitSymbol,
 
-                    transactionQuantity:
-                        line.receivedQuantity,
+                        transactionQuantity:
+                            line.receivedQuantity,
 
-                    conversionToBase:
-                        line.conversionToBase,
+                        conversionToBase:
+                            line.conversionToBase,
 
-                    referenceType:
-                        "GOODS_RECEIPT",
+                        referenceType:
+                            "GOODS_RECEIPT",
 
-                    referenceId:
-                        receipt.id,
+                        referenceId:
+                            receipt.id,
 
-                    referenceNumber:
-                        receipt.receiptNumber,
+                        referenceNumber:
+                            receipt.receiptNumber,
 
-                    purchaseOrderId:
-                        purchaseOrder.id,
+                        purchaseOrderId:
+                            purchaseOrder.id,
 
-                    purchaseOrderNumber:
-                        purchaseOrder.purchaseOrderNumber,
+                        purchaseOrderNumber:
+                            purchaseOrder.purchaseOrderNumber,
 
-                    occurredAt:
-                        draft.receiptDate,
+                        occurredAt:
+                            draft.receiptDate,
 
-                    notes:
-                        `Goods receipt ${receipt.receiptNumber}`,
-                },
-            );
+                        notes:
+                            `Goods receipt ${receipt.receiptNumber}`,
+                    },
+                );
+
+            receiveInventoryCost({
+                siteId:
+                    site.id,
+
+                productId:
+                    line.productId,
+
+                unitId:
+                    line.unitId,
+
+                quantity:
+                    line.receivedQuantity,
+
+                transactionUnitCost:
+                    line.unitCost,
+
+                movementType:
+                    "RECEIPT",
+
+                referenceType:
+                    "GOODS_RECEIPT",
+
+                referenceId:
+                    receipt.id,
+
+                referenceNumber:
+                    receipt.receiptNumber,
+
+                inventoryMovementId:
+                    inventoryMovement.id,
+
+                occurredAt:
+                    draft.receiptDate,
+
+                notes:
+                    `Goods receipt ${receipt.receiptNumber}`,
+            });
 
             stockRepository.receive(
                 {

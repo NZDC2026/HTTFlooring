@@ -130,6 +130,109 @@ export function calculateProfitAndLoss(
             ),
         );
 
+    const salesRevenueAccount =
+        accounts.find(
+            (
+                account,
+            ) =>
+                account.systemRole ===
+                "SALES_REVENUE",
+        );
+
+    if (!salesRevenueAccount) {
+        throw new Error(
+            "Sales Revenue system account was not found.",
+        );
+    }
+
+    if (
+        salesRevenueAccount.type !==
+        "REVENUE"
+    ) {
+        throw new Error(
+            "Sales Revenue system account must be a revenue account.",
+        );
+    }
+
+    const cogsAccount =
+        accounts.find(
+            (
+                account,
+            ) =>
+                account.systemRole ===
+                "COST_OF_GOODS_SOLD",
+        );
+
+    if (!cogsAccount) {
+        throw new Error(
+            "Cost of Goods Sold system account was not found.",
+        );
+    }
+
+    if (
+        cogsAccount.type !==
+        "EXPENSE"
+    ) {
+        throw new Error(
+            "Cost of Goods Sold system account must be an expense account.",
+        );
+    }
+
+    const salesRevenue =
+        roundCurrency(
+            revenue.find(
+                (
+                    row,
+                ) =>
+                    row.accountId ===
+                    salesRevenueAccount.id,
+            )
+                ?.amount ??
+            0,
+        );
+
+    const costOfGoodsSold =
+        roundCurrency(
+            expenses.find(
+                (
+                    row,
+                ) =>
+                    row.accountId ===
+                    cogsAccount.id,
+            )
+                ?.amount ??
+            0,
+        );
+
+    const grossProfit =
+        roundCurrency(
+            salesRevenue -
+            costOfGoodsSold,
+        );
+
+    const grossMarginPercent =
+        salesRevenue ===
+            0
+            ? null
+            : Math.round(
+                (
+                    (
+                        grossProfit /
+                        salesRevenue
+                    ) *
+                    100 +
+                    Number.EPSILON
+                ) *
+                100,
+            ) /
+            100;
+
+    const operatingExpenses =
+        roundCurrency(
+            totalExpenses -
+            costOfGoodsSold,
+        );
+
     return {
         fromDate,
         toDate,
@@ -138,6 +241,13 @@ export function calculateProfitAndLoss(
         expenses,
 
         totalRevenue,
+
+        salesRevenue,
+        costOfGoodsSold,
+        grossProfit,
+        grossMarginPercent,
+        operatingExpenses,
+
         totalExpenses,
 
         netProfit:

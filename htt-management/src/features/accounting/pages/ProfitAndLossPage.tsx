@@ -8,17 +8,11 @@ import type {
 
 import {
     ArrowLeft,
-    TrendingDown,
-    TrendingUp,
 } from "lucide-react";
 
 import {
     useNavigate,
 } from "react-router-dom";
-
-import {
-    Badge,
-} from "../../../components/ui/Badge";
 
 import {
     Button,
@@ -163,75 +157,104 @@ export function ProfitAndLossPage() {
                 </div>
             </div>
 
-            <div className="mb-6 grid gap-4 md:grid-cols-3">
+            <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <SummaryCard
-                    label="Total Revenue"
+                    label="Sales Revenue"
                     value={
                         formatMoney(
-                            report.totalRevenue,
+                            report.salesRevenue,
                         )
                     }
                 />
 
                 <SummaryCard
-                    label="Total Expenses"
+                    label="Cost of Goods Sold"
                     value={
                         formatMoney(
-                            report.totalExpenses,
+                            report.costOfGoodsSold,
                         )
                     }
                 />
 
-                <Card>
-                    <CardContent>
-                        <div className="flex items-start justify-between gap-3">
+                <SummaryCard
+                    label="Gross Profit"
+                    value={
+                        formatMoney(
+                            report.grossProfit,
+                        )
+                    }
+                />
+
+                <SummaryCard
+                    label="Gross Margin"
+                    value={
+                        report.grossMarginPercent ===
+                            null
+                            ? "—"
+                            : `${report.grossMarginPercent.toFixed(
+                                2,
+                            )}%`
+                    }
+                />
+            </div>
+
+            <Card className="mb-6">
+                <CardContent>
+                    <div className="grid gap-5 md:grid-cols-4">
+                        <ProfitMetric
+                            label="Sales Revenue"
+                            value={
+                                report.salesRevenue
+                            }
+                        />
+
+                        <ProfitMetric
+                            label="COGS"
+                            value={
+                                report.costOfGoodsSold
+                            }
+                        />
+
+                        <ProfitMetric
+                            label="Gross Profit"
+                            value={
+                                report.grossProfit
+                            }
+                        />
+
+                        <ProfitMetric
+                            label="Operating Expenses"
+                            value={
+                                report.operatingExpenses
+                            }
+                        />
+                    </div>
+
+                    <div className="mt-5 border-t border-[var(--color-border)] pt-5">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
+                                <p className="text-xs font-medium uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
                                     {resultLabel}
                                 </p>
 
-                                <p className="mt-2 font-display text-xl font-semibold text-[var(--color-primary)]">
-                                    {formatMoney(
-                                        Math.abs(
-                                            report.netProfit,
-                                        ),
-                                    )}
+                                <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                                    Gross profit
+                                    less operating
+                                    expenses and
+                                    other P&amp;L
+                                    accounts.
                                 </p>
                             </div>
 
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-primary)]">
-                                {report.netProfit >=
-                                    0 ? (
-                                    <TrendingUp
-                                        size={
-                                            19
-                                        }
-                                    />
-                                ) : (
-                                    <TrendingDown
-                                        size={
-                                            19
-                                        }
-                                    />
+                            <p className="font-display text-2xl font-semibold text-[var(--color-primary)]">
+                                {formatMoney(
+                                    report.netProfit,
                                 )}
-                            </div>
+                            </p>
                         </div>
-
-                        <div className="mt-2">
-                            <Badge
-                                variant={
-                                    report.netProfit >
-                                        0
-                                        ? "success"
-                                        : "neutral"
-                                }
-                            >
-                                {resultLabel}
-                            </Badge>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardContent>
@@ -453,6 +476,31 @@ function Field({
 
             {children}
         </label>
+    );
+}
+
+function ProfitMetric({
+    label,
+    value,
+}: {
+    label:
+    string;
+
+    value:
+    number;
+}) {
+    return (
+        <div>
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+                {label}
+            </p>
+
+            <p className="mt-2 font-display text-xl font-semibold">
+                {formatMoney(
+                    value,
+                )}
+            </p>
+        </div>
     );
 }
 

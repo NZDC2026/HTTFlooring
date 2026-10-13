@@ -37,6 +37,8 @@ export interface InventoryMovement {
 
     referenceType:
     | "GOODS_RECEIPT"
+    | "SALES_FULFILMENT"
+    | "SALES_FULFILMENT_VOID"
     | "MANUAL";
 
     referenceId?: string;
@@ -44,6 +46,9 @@ export interface InventoryMovement {
 
     purchaseOrderId?: string;
     purchaseOrderNumber?: string;
+
+    salesOrderId?: string;
+    salesOrderNumber?: string;
 
     occurredAt: string;
 

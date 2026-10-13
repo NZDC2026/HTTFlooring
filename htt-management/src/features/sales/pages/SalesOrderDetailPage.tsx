@@ -160,8 +160,12 @@ export function SalesOrderDetailPage() {
                     </p>
                 </div>
 
-                {order.status ===
-                    "CONFIRMED" &&
+                {(order.status ===
+                    "CONFIRMED" ||
+                    order.status ===
+                    "PARTIALLY_FULFILLED" ||
+                    order.status ===
+                    "FULFILLED") &&
                     order.invoiceIds
                         .length ===
                     0 && (

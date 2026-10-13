@@ -30,6 +30,8 @@ import { AccountsPayableReconciliationPage } from "../features/purchases/pages/A
 import { CreateSupplierCreditPage } from "../features/purchases/pages/CreateSupplierCreditPage";
 import { SupplierCreditDetailPage } from "../features/purchases/pages/SupplierCreditDetailPage";
 import { InventoryPage } from "../features/inventory/pages/InventoryPage";
+import { InventoryValuationPage } from "../features/inventory/pages/InventoryValuationPage";
+import { InventoryGlReconciliationPage } from "../features/inventory/pages/InventoryGlReconciliationPage";
 import { ChartOfAccountsPage } from "../features/accounting/pages/ChartOfAccountsPage";
 import { AccountFormPage } from "../features/accounting/pages/AccountFormPage";
 import { JournalRegisterPage } from "../features/accounting/pages/JournalRegisterPage";
@@ -171,6 +173,18 @@ export const router = createHashRouter([
             {
                 path: "inventory",
                 element: <InventoryPage />,
+            },
+            {
+                path: "inventory/valuation",
+                element: (
+                    <InventoryValuationPage />
+                ),
+            },
+            {
+                path: "inventory/reconciliation",
+                element: (
+                    <InventoryGlReconciliationPage />
+                ),
             },
             {
                 path: "banking",

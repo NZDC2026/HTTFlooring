@@ -87,6 +87,9 @@ export interface CreateInventoryMovementInput {
     purchaseOrderId?: string;
     purchaseOrderNumber?: string;
 
+    salesOrderId?: string;
+    salesOrderNumber?: string;
+
     occurredAt: string;
 
     notes?: string;
@@ -141,6 +144,17 @@ export const inventoryMovementRepository =
             (movement) =>
                 movement.purchaseOrderId ===
                 purchaseOrderId,
+        );
+    },
+
+    getBySalesOrder(
+        salesOrderId:
+            string,
+    ) {
+        return movements.filter(
+            (movement) =>
+                movement.salesOrderId ===
+                salesOrderId,
         );
     },
 

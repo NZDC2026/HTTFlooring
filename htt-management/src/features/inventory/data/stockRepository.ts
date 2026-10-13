@@ -165,6 +165,96 @@ export const stockRepository =
         return created;
     },
 
+    issue({
+        siteId,
+        productId,
+        baseUnitId,
+        quantityBase,
+    }: {
+        siteId: string;
+        productId: string;
+        baseUnitId: string;
+        quantityBase: number;
+    }) {
+        if (
+            !Number.isFinite(
+                quantityBase,
+            ) ||
+            quantityBase <=
+            0
+        ) {
+            throw new Error(
+                "Issued stock quantity must be greater than zero.",
+            );
+        }
+
+        const existing =
+            stockRepository.getBalance(
+                siteId,
+                productId,
+            );
+
+        if (!existing) {
+            throw new Error(
+                "Stock cannot be issued because no stock balance exists.",
+            );
+        }
+
+        if (
+            existing.baseUnitId !==
+            baseUnitId
+        ) {
+            throw new Error(
+                "Stock balance base unit does not match the product base unit.",
+            );
+        }
+
+        const quantityAfter =
+            roundQuantity(
+                existing.quantityOnHand -
+                quantityBase,
+            );
+
+        if (
+            quantityAfter <
+            0
+        ) {
+            throw new Error(
+                "Stock issue would create negative stock.",
+            );
+        }
+
+        const updated:
+            StockBalance =
+        {
+            ...existing,
+
+            quantityOnHand:
+                quantityAfter,
+
+            updatedAt:
+                new Date()
+                    .toISOString(),
+        };
+
+        balances =
+            balances.map(
+                (
+                    balance,
+                ) =>
+                    balance.siteId ===
+                        siteId &&
+                        balance.productId ===
+                        productId
+                        ? updated
+                        : balance,
+            );
+
+        emitChange();
+
+        return updated;
+    },
+
     rebuildFromMovements() {
         const nextBalances =
             new Map<

@@ -10,6 +10,7 @@ export type AccountingSourceType =
     | "CREDIT_NOTE"
     | "CREDIT_NOTE_VOID"
     | "INVOICE_VOID"
+    | "SALES_FULFILMENT"
     | "SUPPLIER_BILL"
     | "SUPPLIER_BILL_VOID"
     | "SUPPLIER_PAYMENT"
