@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Eye, X, CheckCircle2 } from "lucide-react";
 import {
     ArrowRight,
     Banknote,
@@ -184,6 +187,8 @@ const columns:
     ];
 
 export function PurchaseOrdersPage() {
+    const [preview, setPreview] = useState<PurchaseOrder | null>(null);
+    const [feedback, setFeedback] = useState("");
     const navigate =
         useNavigate();
 
@@ -513,9 +518,11 @@ export function PurchaseOrdersPage() {
                 data={
                     purchaseOrders
                 }
-                columns={
-                    columns
-                }
+                columns={[...columns, {
+                    id: "preview",
+                    header: "Quick view",
+                    cell: ({ row }) => <button type="button" aria-label={`Preview ${row.original.purchaseOrderNumber}`} title="Preview purchase order" className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-primary)] hover:bg-[var(--color-surface-muted)]" onClick={(event) => { event.stopPropagation(); setPreview(row.original); }}><Eye size={15} /> Preview</button>,
+                } as ColumnDef<PurchaseOrder, unknown>]}
                 search={{
                     placeholder:
                         "Search PO, supplier or reference...",
@@ -552,6 +559,16 @@ export function PurchaseOrdersPage() {
                     )
                 }
             />
+            {feedback && <div role="status" className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-white px-5 py-4 shadow-xl"><CheckCircle2 size={18} className="text-green-600" /><span className="text-sm">{feedback}</span><button type="button" aria-label="Dismiss notification" onClick={() => setFeedback("")}><X size={16} /></button></div>}
+            {preview && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreview(null); }}>
+                <section role="dialog" aria-modal="true" aria-label="Purchase order preview" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+                    <div className="flex items-start justify-between gap-3"><div><p className="text-xs uppercase text-[var(--color-text-muted)]">Purchase order · Demo preview</p><h2 className="mt-1 font-display text-2xl">{preview.purchaseOrderNumber}</h2></div><button type="button" aria-label="Close purchase preview" onClick={() => setPreview(null)}><X size={20} /></button></div>
+                    <dl className="mt-5 grid grid-cols-2 gap-4 text-sm"><div><dt className="text-[var(--color-text-muted)]">Supplier</dt><dd className="mt-1 font-semibold">{preview.supplierName}</dd></div><div><dt className="text-[var(--color-text-muted)]">Status</dt><dd className="mt-1">{preview.status.replaceAll("_", " ")}</dd></div><div><dt className="text-[var(--color-text-muted)]">Order date</dt><dd>{preview.orderDate}</dd></div><div><dt className="text-[var(--color-text-muted)]">Expected delivery</dt><dd>{preview.expectedDeliveryDate ?? "—"}</dd></div></dl>
+                    <div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-[var(--color-border)]"><th className="py-2">Product</th><th className="py-2 text-right">Ordered</th><th className="py-2 text-right">Received</th><th className="py-2 text-right">Billed</th></tr></thead><tbody>{preview.lines.map((line) => <tr key={line.id} className="border-b border-[var(--color-border)]"><td className="py-3"><div className="font-medium">{line.description}</div><div className="text-xs text-[var(--color-text-muted)]">{line.sku}</div></td><td className="text-right">{line.orderedQuantity} {line.unitSymbol}</td><td className="text-right">{line.receivedQuantity}</td><td className="text-right">{line.billedQuantity}</td></tr>)}</tbody></table></div>
+                    <div className="mt-4 text-right text-lg font-semibold">Total: {formatMoney(preview.totals.total)}</div>
+                    <div className="mt-5 flex flex-wrap justify-end gap-3"><button type="button" className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm" onClick={() => { setFeedback(`${preview.purchaseOrderNumber} reviewed (demo only; no data changed).`); setPreview(null); }}>Mark reviewed (demo)</button><Link to={`/purchases/${preview.id}`} onClick={() => setPreview(null)} className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white">Full details</Link><button type="button" className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm" onClick={() => setPreview(null)}>Close</button></div>
+                </section>
+            </div>}
         </div>
     );
 }

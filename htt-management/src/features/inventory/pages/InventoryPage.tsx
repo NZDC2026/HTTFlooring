@@ -2,6 +2,7 @@ import {
     useMemo,
     useState,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
     Boxes,
@@ -32,6 +33,7 @@ type InventoryTab =
     | "MOVEMENTS";
 
 export function InventoryPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const stockRows =
         useInventoryStockRows();
 
@@ -41,12 +43,16 @@ export function InventoryPage() {
     const sites =
         inventorySiteRepository.getActive();
 
-    const [
-        tab,
-        setTab,
-    ] = useState<InventoryTab>(
-        "STOCK",
+    const [tab, setTab] = useState<InventoryTab>(
+        searchParams.get("tab") === "movements" ? "MOVEMENTS" : "STOCK",
     );
+    const selectTab = (nextTab: InventoryTab) => {
+        setTab(nextTab);
+        const next = new URLSearchParams(searchParams);
+        if (nextTab === "MOVEMENTS") next.set("tab", "movements");
+        else next.delete("tab");
+        setSearchParams(next, { replace: true });
+    };
 
     const [
         selectedSiteId,
@@ -220,7 +226,7 @@ export function InventoryPage() {
                         "STOCK"
                     }
                     onClick={() =>
-                        setTab(
+                        selectTab(
                             "STOCK",
                         )
                     }
@@ -234,7 +240,7 @@ export function InventoryPage() {
                         "MOVEMENTS"
                     }
                     onClick={() =>
-                        setTab(
+                        selectTab(
                             "MOVEMENTS",
                         )
                     }
