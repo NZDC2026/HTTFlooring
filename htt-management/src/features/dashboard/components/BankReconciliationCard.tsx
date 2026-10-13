@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import {
     CheckCircle2,
     Landmark,
@@ -60,12 +61,7 @@ export function BankReconciliationCard() {
                     18 transactions need attention
                 </div>
 
-                <Button
-                    variant="secondary"
-                    className="mt-4 w-full"
-                >
-                    Review transactions
-                </Button>
+                <Link to="/banking" className="block mt-4"><Button variant="secondary" className="w-full">Review transactions</Button></Link>
             </CardContent>
         </Card>
     );

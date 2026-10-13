@@ -19,7 +19,7 @@ function formatMoney(value: number) {
     return `$${Math.round(value / 1000)}k`;
 }
 
-export function RevenueChart() {
+export function RevenueChart({ months = 6 }: { months?: 3 | 6 }) {
     return (
         <Card>
             <CardContent>
@@ -53,7 +53,7 @@ export function RevenueChart() {
                         height="100%"
                     >
                         <AreaChart
-                            data={financialChartData}
+                            data={financialChartData.slice(-months)}
                             margin={{
                                 top: 10,
                                 right: 10,

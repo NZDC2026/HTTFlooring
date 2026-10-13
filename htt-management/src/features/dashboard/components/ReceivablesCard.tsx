@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "../../../components/ui/Button";
@@ -44,13 +45,7 @@ export function ReceivablesCard() {
                         </p>
                     </div>
 
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                    >
-                        View all
-                        <ArrowRight size={14} />
-                    </Button>
+                    <Link to="/reports"><Button variant="ghost" size="sm">View all <ArrowRight size={14} /></Button></Link>
                 </div>
 
                 <div className="money mt-6 text-3xl font-semibold tracking-tight">
