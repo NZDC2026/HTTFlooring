@@ -14,6 +14,7 @@ import { InvoiceDetailPage } from "../features/sales/pages/InvoiceDetailPage";
 import { CustomerStatementPage } from "../features/sales/pages/CustomerStatementPage";
 import { CreditNoteDetailPage } from "../features/sales/pages/CreditNoteDetailPage";
 import { AgedReceivablesPage } from "../features/reports/pages/AgedReceivablesPage";
+import { GrniOutstandingReportPage } from "../features/purchases/pages/GrniOutstandingReportPage";
 import { AgedPayablesPage } from "../features/reports/pages/AgedPayablesPage";
 import { PurchaseOrdersPage } from "../features/purchases/pages/PurchaseOrdersPage";
 import { PurchaseOrderFormPage } from "../features/purchases/pages/PurchaseOrderFormPage";
@@ -301,6 +302,10 @@ export const router = createHashRouter([
             {
                 path: "reports",
                 element: <AgedReceivablesPage />,
+            },
+            {
+                path: "reports/grni-outstanding",
+                element: <GrniOutstandingReportPage />,
             },
             {
                 path: "reports/aged-payables",

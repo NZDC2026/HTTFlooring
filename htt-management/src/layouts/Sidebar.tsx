@@ -80,6 +80,11 @@ const sections = [
                 path: "/reports",
                 icon: BarChart3,
             },
+            {
+                label: "GRNI Outstanding",
+                path: "/reports/grni-outstanding",
+                icon: PackageCheck,
+            },
         ],
     },
 
