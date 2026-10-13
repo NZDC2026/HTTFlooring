@@ -1,3 +1,4 @@
+import { feedback } from "../../../components/ui/feedback";
 import {
     ArrowLeft,
 } from "lucide-react";
@@ -121,7 +122,7 @@ export function PurchaseOrderFormPage({
         } catch (
         error
         ) {
-            window.alert(
+            feedback.error(
                 error instanceof
                     Error
                     ? error.message

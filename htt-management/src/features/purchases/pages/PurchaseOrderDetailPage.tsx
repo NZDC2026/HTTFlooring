@@ -1,3 +1,4 @@
+import { feedback } from "../../../components/ui/feedback";
 import {
     ArrowLeft,
     Ban,
@@ -950,7 +951,7 @@ function formatMoney(
 function showError(
     error: unknown,
 ) {
-    window.alert(
+    feedback.error(
         error instanceof
             Error
             ? error.message

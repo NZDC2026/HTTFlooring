@@ -1,6 +1,8 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { ArrowLeft, Compass } from "lucide-react";
 
+import { FeedbackHost } from "../components/ui/FeedbackHost";
+
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -9,6 +11,7 @@ export function AppLayout() {
     const isDemoVisit = new URLSearchParams(location.search).get("demo") === "1";
     return (
         <div className="min-h-screen bg-[var(--color-background)]">
+            <FeedbackHost />
             <Sidebar />
             <Topbar />
 

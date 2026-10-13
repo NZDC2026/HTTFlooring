@@ -1,3 +1,4 @@
+import { feedback } from "../../../components/ui/feedback";
 import { useMemo, useSyncExternalStore, useState } from "react";
 import { Link } from "react-router-dom";
 import { purchasePostingOperationRepository } from "../data/purchasePostingOperationRepository";
@@ -17,7 +18,6 @@ export function PurchasePostingAuditPage() {
   const [status, setStatus] = useState<(typeof statuses)[number]>("ALL");
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [recoveryMessage, setRecoveryMessage] = useState("");
   const rows = purchasePostingAuditService.list();
   const filtered = useMemo(() => rows.filter(row =>
     (status === "ALL" || row.status === status) &&
@@ -45,12 +45,12 @@ export function PurchasePostingAuditPage() {
       <h3 className="mt-4 font-semibold">Completed steps</h3><ol className="mt-2 list-inside list-decimal text-sm">{selected.completedSteps.map(step => <li key={step}>{step}</li>)}</ol>{selected.completedSteps.length === 0 && <p className="text-sm text-gray-500">No completed steps.</p>}
       {selected.error && <div className="mt-4 rounded bg-red-50 p-3 text-sm text-red-800" role="alert">{selected.error}</div>}
       <h3 className="mt-4 font-semibold">Related journals</h3>{selected.journals.length === 0 ? <p className="text-sm text-gray-500">No matching journal found.</p> : selected.journals.map(journal => <p key={journal.id} className="text-sm"><Link className="text-blue-700 underline" to={`/accounting/journals/${encodeURIComponent(journal.id)}`}>{journal.number}</Link> · {journal.date} · {journal.status}</p>)}
-      <button type="button" disabled={!purchasePostingManualRecoveryService.canRecover(selected.key)} title={!purchasePostingRecoveryAuthorization.canRecover() ? "Requires a trusted authenticated finance/admin session" : "Only recoverable operations with an active handler can be resumed"} className="mt-4 rounded bg-blue-700 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500" onClick={() => {
-        if (!window.confirm(`Resume operation ${selected.key}? Only verified incomplete steps will be attempted.`)) return;
-        try { purchasePostingManualRecoveryService.recover(selected.key); setRecoveryMessage("Recovery completed."); }
-        catch (error) { setRecoveryMessage(String(error)); }
+      <button type="button" disabled={!purchasePostingManualRecoveryService.canRecover(selected.key)} title={!purchasePostingRecoveryAuthorization.canRecover() ? "Requires a trusted authenticated finance/admin session" : "Only recoverable operations with an active handler can be resumed"} className="mt-4 rounded bg-blue-700 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500" onClick={async () => {
+        const accepted = await feedback.confirm({ title: "Confirm posting recovery", message: `Resume operation ${selected.key}? Only verified incomplete steps will be attempted.`, confirmLabel: "Resume operation" });
+        if (!accepted) return;
+        try { purchasePostingManualRecoveryService.recover(selected.key); feedback.success("Recovery completed."); }
+        catch (error) { feedback.error(error instanceof Error ? error.message : String(error)); }
       }}>Recover operation</button>
-      {recoveryMessage && <p role="status" className="mt-2 text-sm">{recoveryMessage}</p>}
     </section>}
   </div>;
 }
