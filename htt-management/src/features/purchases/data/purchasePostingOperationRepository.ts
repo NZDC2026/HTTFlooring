@@ -10,13 +10,50 @@ export interface PurchasePostingOperation {
     updatedAt: string;
 }
 const operations = new Map<string, PurchasePostingOperation>();
+// Persist metadata only. Never replay a repository mutation from this snapshot.
+const STORAGE_KEY = "htt.purchasePosting.operations.v1";
+function storage(): Storage | null {
+    try { return typeof localStorage === "undefined" ? null : localStorage; } catch { return null; }
+}
+function persist(): void {
+    const target = storage();
+    if (!target) return;
+    try { target.setItem(STORAGE_KEY, JSON.stringify([...operations.values()])); }
+    catch { /* Storage may be unavailable; operations remain process-local. */ }
+}
+function hydrate(): void {
+    const target = storage();
+    if (!target) return;
+    try {
+        const value: unknown = JSON.parse(target.getItem(STORAGE_KEY) ?? "[]");
+        if (!Array.isArray(value)) return;
+        for (const item of value) {
+            if (!item || typeof item !== "object") continue;
+            const row = item as Partial<PurchasePostingOperation>;
+            if (typeof row.key !== "string" || typeof row.sourceId !== "string" ||
+                !["GOODS_RECEIPT", "SUPPLIER_BILL", "SUPPLIER_BILL_VOID"].includes(row.kind ?? "") ||
+                !["PENDING", "POSTING", "POSTED", "FAILED", "RECOVERY_REQUIRED"].includes(row.status ?? "") ||
+                !Array.isArray(row.completedSteps) || !row.completedSteps.every(step => typeof step === "string")) continue;
+            const interrupted = row.status === "POSTING" || row.status === "PENDING" || row.status === "RECOVERY_REQUIRED";
+            operations.set(row.key, {
+                key: row.key, kind: row.kind!, sourceId: row.sourceId,
+                status: interrupted ? "FAILED" : row.status!,
+                completedSteps: [...row.completedSteps],
+                error: interrupted ? "Restored after restart: business repositories and recovery handler must be reconciled before retry." : row.error,
+                updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : new Date().toISOString(),
+            });
+        }
+    } catch { /* Corrupt metadata must never trigger automatic replay. */ }
+}
+
+hydrate();
 const listeners = new Set<() => void>();
 // Process-local recovery callbacks. A database-backed outbox is required for restart recovery.
 const recoveryHandlers = new Map<string, () => void>();
 const injectedFailures = new Map<string, number>();
 let executingKey: string | undefined;
 
-function notify() { listeners.forEach(listener => listener()); }
+function notify() { persist(); listeners.forEach(listener => listener()); }
 export const purchasePostingOperationRepository = {
     // Test-only fault injection: throws before a step starts, never after mutation.
     injectFailureBeforeStep(key: string, step: string, times = 1): void {
