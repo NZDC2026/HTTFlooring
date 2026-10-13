@@ -2,6 +2,7 @@ import { createHashRouter, Navigate } from "react-router-dom";
 
 import { AppLayout } from "../layouts/AppLayout";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
+import { SalesOverviewPage } from "../features/sales/pages/SalesOverviewPage";
 import { CustomersPage } from "../features/contacts/pages/CustomersPage";
 import { CustomerDetailPage } from "../features/contacts/pages/CustomerDetailPage";
 import { CustomerFormPage } from "../features/contacts/pages/CustomerFormPage";
@@ -52,7 +53,9 @@ import { BankAccountDetailPage } from "../features/banking/pages/BankAccountDeta
 import { CreateBankTransactionPage } from "../features/banking/pages/CreateBankTransactionPage";
 import { CreateBankTransferPage } from "../features/banking/pages/CreateBankTransferPage";
 import { BankReconciliationPage } from "../features/banking/pages/BankReconciliationPage";
-import { PlaceholderPage } from "../layouts/PlaceholderPage";
+import { PayrollOverviewPage } from "../features/payroll/pages/PayrollOverviewPage";
+import { DocumentsOverviewPage } from "../features/documents/pages/DocumentsOverviewPage";
+import { SettingsOverviewPage } from "../features/settings/pages/SettingsOverviewPage";
 
 export const router = createHashRouter([
     {
@@ -69,7 +72,7 @@ export const router = createHashRouter([
             },
             {
                 path: "sales",
-                element: <PlaceholderPage title="Sales" />,
+                element: <SalesOverviewPage />,
             },
             {
                 path: "sales/quotes/:quoteId",
@@ -299,7 +302,7 @@ export const router = createHashRouter([
             },
             {
                 path: "payroll",
-                element: <PlaceholderPage title="Payroll" />,
+                element: <PayrollOverviewPage />,
             },
             {
                 path: "reports",
@@ -385,11 +388,11 @@ export const router = createHashRouter([
             },
             {
                 path: "documents",
-                element: <PlaceholderPage title="Documents" />,
+                element: <DocumentsOverviewPage />,
             },
             {
                 path: "settings",
-                element: <PlaceholderPage title="Settings" />,
+                element: <SettingsOverviewPage />,
             },
         ],
     },
