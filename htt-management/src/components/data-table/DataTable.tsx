@@ -19,6 +19,7 @@ import {
 
 import { cn } from "../../lib/cn";
 import { Input } from "../ui/Input";
+import { TableEmptyRow } from "../ui/DemoTable";
 import { DataTablePagination } from "./DataTablePagination";
 import type {
     DataTablePaginationConfig,
@@ -243,20 +244,7 @@ export function DataTable<TData>({
                                     </tr>
                                 ))
                         ) : (
-                            <tr>
-                                <td
-                                    colSpan={columns.length}
-                                    className="h-48 text-center"
-                                >
-                                    <div className="font-medium">
-                                        {emptyTitle}
-                                    </div>
-
-                                    <div className="mt-1 text-xs text-[var(--color-text-muted)]">
-                                        {emptyDescription}
-                                    </div>
-                                </td>
-                            </tr>
+                            <TableEmptyRow colSpan={columns.length} title={emptyTitle} description={emptyDescription} />
                         )}
                     </tbody>
                 </table>
