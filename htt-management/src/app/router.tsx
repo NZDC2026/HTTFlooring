@@ -15,6 +15,7 @@ import { CustomerStatementPage } from "../features/sales/pages/CustomerStatement
 import { CreditNoteDetailPage } from "../features/sales/pages/CreditNoteDetailPage";
 import { AgedReceivablesPage } from "../features/reports/pages/AgedReceivablesPage";
 import { PurchaseAccountingReconciliationPage } from "../features/purchases/pages/PurchaseAccountingReconciliationPage";
+import { PurchasePostingAuditPage } from "../features/purchases/pages/PurchasePostingAuditPage";
 import { GrniOutstandingReportPage } from "../features/purchases/pages/GrniOutstandingReportPage";
 import { AgedPayablesPage } from "../features/reports/pages/AgedPayablesPage";
 import { PurchaseOrdersPage } from "../features/purchases/pages/PurchaseOrdersPage";
@@ -307,6 +308,10 @@ export const router = createHashRouter([
             {
                 path: "reports/purchase-accounting-reconciliation",
                 element: <PurchaseAccountingReconciliationPage />,
+            },
+            {
+                path: "reports/purchase-posting-audit",
+                element: <PurchasePostingAuditPage />,
             },
             {
                 path: "reports/grni-outstanding",
