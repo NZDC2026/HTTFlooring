@@ -592,92 +592,45 @@ export const supplierBillRepository =
         supplierBillId: string,
         reason: string,
     ): SupplierBill {
-        const bill =
-            supplierBills.find(
-                (item) =>
-                    item.id ===
-                    supplierBillId,
-            );
+        const bill = supplierBills.find((item) => item.id === supplierBillId);
+        if (!bill) throw new Error("Supplier bill was not found.");
+        if (bill.status === "VOID") throw new Error("This supplier bill has already been voided.");
 
-        if (!bill) {
-            throw new Error(
-                "Supplier bill was not found.",
-            );
+        const normalizedReason = reason.trim();
+        if (normalizedReason.length < 3) throw new Error("A void reason is required.");
+        if (bill.status !== "OPEN" || bill.totals.amountPaid > 0 || bill.totals.amountCredited > 0) {
+            throw new Error("A paid or credited supplier bill cannot be voided directly.");
         }
 
-        if (
-            bill.status ===
-            "VOID"
-        ) {
-            throw new Error(
-                "This supplier bill has already been voided.",
-            );
+        const activeMatches = supplierBillReceiptMatchRepository.getByBill(bill.id)
+            .filter((match) => match.status === "ACTIVE");
+        if (activeMatches.length === 0) {
+            throw new Error("Supplier bill has no active receipt matches to reverse.");
         }
 
-        const normalizedReason =
-            reason.trim();
-
-        if (
-            normalizedReason.length <
-            3
-        ) {
-            throw new Error(
-                "A void reason is required.",
-            );
-        }
-
-        const now =
-            new Date().toISOString();
-
-        /*
-         * Restore billed quantities on the
-         * Purchase Order so the received goods
-         * can be billed again.
-         */
-        purchaseOrderRepository.reverseSupplierBill(
-            bill.purchaseOrderId,
-
-            bill.lines.map(
-                (line) => ({
-                    purchaseOrderLineId:
-                        line.purchaseOrderLineId,
-
-                    billedQuantity:
-                        line.quantity,
-                }),
-            ),
-        );
-
-        const voided:
-            SupplierBill = {
+        const now = new Date().toISOString();
+        const voided: SupplierBill = {
             ...bill,
-
-            status:
-                "VOID",
-
-            voidedAt:
-                now,
-
-            voidReason:
-                normalizedReason,
-
-            updatedAt:
-                now,
+            status: "VOID",
+            voidedAt: now,
+            voidReason: normalizedReason,
+            updatedAt: now,
         };
 
-        supplierBillReceiptMatchRepository.reverseForBill(supplierBillId, normalizedReason);
+        // Reverse the exact posted journal, including GRNI, PPV, GST and AP.
+        // Do this before releasing purchase-order and receipt allocations.
+        purchasesAccountingPostingService.reverseSupplierBill(voided);
 
-        supplierBills =
-            supplierBills.map(
-                (item) =>
-                    item.id ===
-                        supplierBillId
-                        ? voided
-                        : item,
-            );
-
+        purchaseOrderRepository.reverseSupplierBill(
+            bill.purchaseOrderId,
+            bill.lines.map((line) => ({
+                purchaseOrderLineId: line.purchaseOrderLineId,
+                billedQuantity: line.quantity,
+            })),
+        );
+        supplierBillReceiptMatchRepository.reverseForBill(bill.id, normalizedReason);
+        supplierBills = supplierBills.map((item) => item.id === bill.id ? voided : item);
         emitChange();
-
         return voided;
     },
 
