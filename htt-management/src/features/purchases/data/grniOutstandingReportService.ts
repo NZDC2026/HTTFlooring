@@ -36,7 +36,7 @@ export function calculateGrniOutstandingReport(input: GrniReportInput): GrniOuts
     if (filters.receiptDateFrom && receipt.receiptDate < filters.receiptDateFrom) continue;
     if (filters.receiptDateTo && receipt.receiptDate > filters.receiptDateTo) continue;
     for (const line of receipt.lines) {
-      const active = matches.filter(m => m.goodsReceiptId === receipt.id && m.goodsReceiptLineId === line.id && m.createdAt.slice(0, 10) <= filters.asOfDate && (!m.reversedAt || m.reversedAt.slice(0, 10) > filters.asOfDate) && (m.status === "ACTIVE" || Boolean(m.reversedAt)));
+      const active = matches.filter(m => m.goodsReceiptId === receipt.id && m.goodsReceiptLineId === line.id && (m.accountingDate ?? m.createdAt.slice(0, 10)) <= filters.asOfDate && (!(m.reversalAccountingDate ?? m.reversedAt?.slice(0, 10)) || (m.reversalAccountingDate ?? m.reversedAt!.slice(0, 10)) > filters.asOfDate) && (m.status === "ACTIVE" || Boolean(m.reversedAt)));
       const matchedQuantity = roundInventoryQuantity(active.reduce((sum, m) => sum + m.matchedQuantity, 0));
       const matchedValue = money(active.reduce((sum, m) => sum + m.matchedReceiptValue, 0));
       const receivedValue = calculateIncomingInventoryValue({ quantityBase: line.receivedBaseQuantity, unitCostBase: calculateBaseUnitCost({ transactionUnitCost: line.unitCost, conversionToBase: line.conversionToBase }) });

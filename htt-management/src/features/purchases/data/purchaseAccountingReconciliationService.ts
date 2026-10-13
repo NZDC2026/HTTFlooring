@@ -49,8 +49,8 @@ export function calculatePurchaseAccountingReconciliation(input: PurchaseAccount
   // The PPV subledger is derived independently from FIFO allocation records.
   // Journal GL balances include both original and reversal postings up to the as-of date.
   const ppvSubledger = money(matches.filter(m =>
-    m.createdAt.slice(0, 10) <= asOfDate &&
-    (!m.reversedAt || m.reversedAt.slice(0, 10) > asOfDate) &&
+    (m.accountingDate ?? m.createdAt.slice(0, 10)) <= asOfDate &&
+    (!(m.reversalAccountingDate ?? m.reversedAt?.slice(0, 10)) || (m.reversalAccountingDate ?? m.reversedAt!.slice(0, 10)) > asOfDate) &&
     (m.status === "ACTIVE" || Boolean(m.reversedAt))
   ).reduce((sum, m) => sum + m.priceVariance, 0));
   const ppvGl = money(journalEntries.filter(j => j.journalDate <= asOfDate)
@@ -67,6 +67,6 @@ export function calculatePurchaseAccountingReconciliation(input: PurchaseAccount
   const ppv = line(ppvAccount, ppvSubledger, ppvGl);
   return { asOfDate, inventory, grni, ppv,
     reconciled: [inventory, grni, ppv].every(row => row.status === "MATCHED"),
-    historicalMatchingWarning: "Historical FIFO matches use createdAt/reversedAt, while GL uses journalDate. Backdated bills or reversals may cause historical differences.",
+    historicalMatchingWarning: "Legacy FIFO matches without accounting dates use createdAt/reversedAt; historical reports may differ from GL for those records.",
   };
 }

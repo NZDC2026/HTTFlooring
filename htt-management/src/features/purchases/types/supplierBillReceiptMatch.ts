@@ -101,6 +101,12 @@ export interface SupplierBillReceiptMatch {
 
     status: SupplierBillReceiptMatchStatus;
 
+    /** Business-effective posting date; legacy matches fall back to createdAt. */
+    accountingDate?: string;
+
+    /** Business-effective reversal date; legacy matches fall back to reversedAt. */
+    reversalAccountingDate?: string;
+
     createdAt: string;
 
     reversedAt?: string;

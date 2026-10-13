@@ -22,11 +22,11 @@ export const supplierBillReceiptMatchRepository = {
         matches = [...matches, ...allocations];
         emitChange();
     },
-    reverseForBill(billId: string, reason: string): void {
+    reverseForBill(billId: string, reason: string, reversalAccountingDate = new Date().toISOString().slice(0, 10)): void {
         const reversedAt = new Date().toISOString();
         matches = matches.map((match) =>
             match.supplierBillId === billId && match.status === "ACTIVE"
-                ? { ...match, status: "REVERSED" as const, reversedAt, reversalReason: reason }
+                ? { ...match, status: "REVERSED" as const, reversedAt, reversalAccountingDate, reversalReason: reason }
                 : match,
         );
         emitChange();

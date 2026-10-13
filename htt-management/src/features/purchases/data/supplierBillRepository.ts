@@ -628,7 +628,7 @@ export const supplierBillRepository =
                 billedQuantity: line.quantity,
             })),
         );
-        supplierBillReceiptMatchRepository.reverseForBill(bill.id, normalizedReason);
+        supplierBillReceiptMatchRepository.reverseForBill(bill.id, normalizedReason, now.slice(0, 10));
         supplierBills = supplierBills.map((item) => item.id === bill.id ? voided : item);
         emitChange();
         return voided;
@@ -968,7 +968,10 @@ export const supplierBillRepository =
             ),
         );
 
-        supplierBillReceiptMatchRepository.saveForBill(bill.id, matching.matches);
+        supplierBillReceiptMatchRepository.saveForBill(bill.id, matching.matches.map(match => ({
+            ...match,
+            accountingDate: bill.billDate,
+        })));
 
         supplierBills = [
             bill,
