@@ -1,3 +1,4 @@
+import { purchasePostingOperationRepository as postingOps } from "./purchasePostingOperationRepository";
 import {
     getProductById,
     getProductUnit,
@@ -455,163 +456,79 @@ export const goodsReceiptRepository =
                 receipt,
             );
 
-        for (
-            const line of
-            receipt.lines
-        ) {
-            const product =
-                getProductById(
-                    line.productId,
-                );
-
-            if (!product) {
-                throw new Error(
-                    `Product ${line.sku} was not found.`,
-                );
+        const operation = postingOps.begin("GOODS_RECEIPT", receipt.id);
+        const key = operation.key;
+        const movementIds = new Map<string, string>();
+        postingOps.registerRecovery(key, () => {
+            for (const line of receipt.lines) {
+                const product = getProductById(line.productId);
+                if (!product) throw new Error(`Product ${line.sku} was not found.`);
+                postingOps.runStep(key, `MOVEMENT:${line.id}`, () => {
+                    const movement = inventoryMovementRepository.create({
+                        movementType: "GOODS_RECEIPT",
+                        siteId: site.id,
+                        productId: line.productId,
+                        baseUnitId: product.baseUnitId,
+                        quantityBase: line.receivedBaseQuantity,
+                        transactionUnitId: line.unitId,
+                        transactionUnitSymbol: line.unitSymbol,
+                        transactionQuantity: line.receivedQuantity,
+                        conversionToBase: line.conversionToBase,
+                        referenceType: "GOODS_RECEIPT",
+                        referenceId: receipt.id,
+                        referenceNumber: receipt.receiptNumber,
+                        purchaseOrderId: purchaseOrder.id,
+                        purchaseOrderNumber: purchaseOrder.purchaseOrderNumber,
+                        occurredAt: draft.receiptDate,
+                        notes: `Goods receipt ${receipt.receiptNumber}`,
+                    });
+                    movementIds.set(line.id, movement.id);
+                });
+                postingOps.runStep(key, `COST:${line.id}`, () => {
+                    const movementId = movementIds.get(line.id);
+                    if (!movementId) throw new Error(`Missing inventory movement for ${line.id}`);
+                    receiveInventoryCost({
+                        siteId: site.id,
+                        productId: line.productId,
+                        unitId: line.unitId,
+                        quantity: line.receivedQuantity,
+                        transactionUnitCost: line.unitCost,
+                        movementType: "RECEIPT",
+                        referenceType: "GOODS_RECEIPT",
+                        referenceId: receipt.id,
+                        referenceNumber: receipt.receiptNumber,
+                        inventoryMovementId: movementId,
+                        occurredAt: draft.receiptDate,
+                        notes: `Goods receipt ${receipt.receiptNumber}`,
+                    });
+                });
+                postingOps.runStep(key, `STOCK:${line.id}`, () => {
+                    stockRepository.receive({
+                        siteId: site.id,
+                        productId: line.productId,
+                        baseUnitId: product.baseUnitId,
+                        quantityBase: line.receivedBaseQuantity,
+                    });
+                });
             }
-
-            const inventoryMovement =
-                inventoryMovementRepository.create(
-                    {
-                        movementType:
-                            "GOODS_RECEIPT",
-
-                        siteId:
-                            site.id,
-
-                        productId:
-                            line.productId,
-
-                        baseUnitId:
-                            product.baseUnitId,
-
-                        quantityBase:
-                            line.receivedBaseQuantity,
-
-                        transactionUnitId:
-                            line.unitId,
-
-                        transactionUnitSymbol:
-                            line.unitSymbol,
-
-                        transactionQuantity:
-                            line.receivedQuantity,
-
-                        conversionToBase:
-                            line.conversionToBase,
-
-                        referenceType:
-                            "GOODS_RECEIPT",
-
-                        referenceId:
-                            receipt.id,
-
-                        referenceNumber:
-                            receipt.receiptNumber,
-
-                        purchaseOrderId:
-                            purchaseOrder.id,
-
-                        purchaseOrderNumber:
-                            purchaseOrder.purchaseOrderNumber,
-
-                        occurredAt:
-                            draft.receiptDate,
-
-                        notes:
-                            `Goods receipt ${receipt.receiptNumber}`,
-                    },
-                );
-
-            receiveInventoryCost({
-                siteId:
-                    site.id,
-
-                productId:
-                    line.productId,
-
-                unitId:
-                    line.unitId,
-
-                quantity:
-                    line.receivedQuantity,
-
-                transactionUnitCost:
-                    line.unitCost,
-
-                movementType:
-                    "RECEIPT",
-
-                referenceType:
-                    "GOODS_RECEIPT",
-
-                referenceId:
-                    receipt.id,
-
-                referenceNumber:
-                    receipt.receiptNumber,
-
-                inventoryMovementId:
-                    inventoryMovement.id,
-
-                occurredAt:
-                    draft.receiptDate,
-
-                notes:
-                    `Goods receipt ${receipt.receiptNumber}`,
+            postingOps.runStep(key, "JOURNAL", () => {
+                purchasesAccountingPostingService.postGoodsReceipt(receipt);
             });
-
-            stockRepository.receive(
-                {
-                    siteId:
-                        site.id,
-
-                    productId:
-                        line.productId,
-
-                    baseUnitId:
-                        product.baseUnitId,
-
-                    quantityBase:
-                        line.receivedBaseQuantity,
-                },
-            );
-        }
-
-        /**
-         * 6K-B:
-         *
-         * Post Inventory / GRNI accounting
-         * after successful inventory updates.
-         *
-         * Dr Inventory
-         * Cr GRNI
-         */
-        purchasesAccountingPostingService
-            .postGoodsReceipt(
-                receipt,
-            );
-
-        purchaseOrderRepository.recordGoodsReceipt(
-            purchaseOrder.id,
-            receipt.lines.map(
-                (line) => ({
-                    purchaseOrderLineId:
-                        line.purchaseOrderLineId,
-
-                    receivedQuantity:
-                        line.receivedQuantity,
-                }),
-            ),
-        );
-
-        goodsReceipts = [
-            receipt,
-            ...goodsReceipts,
-        ];
-
-        emitChange();
-
+            postingOps.runStep(key, "PURCHASE_ORDER", () => {
+                purchaseOrderRepository.recordGoodsReceipt(
+                    purchaseOrder.id,
+                    receipt.lines.map((line) => ({
+                        purchaseOrderLineId: line.purchaseOrderLineId,
+                        receivedQuantity: line.receivedQuantity,
+                    })),
+                );
+            });
+            postingOps.runStep(key, "RECEIPT", () => {
+                goodsReceipts = [receipt, ...goodsReceipts];
+                emitChange();
+            });
+        });
+        postingOps.recover(key);
         return receipt;
     },
 };

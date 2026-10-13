@@ -1,3 +1,4 @@
+import { purchasePostingOperationRepository as postingOps } from "./purchasePostingOperationRepository";
 import {
     purchaseOrderRepository,
 } from "./purchaseOrderRepository";
@@ -617,20 +618,31 @@ export const supplierBillRepository =
             updatedAt: now,
         };
 
-        // Reverse the exact posted journal, including GRNI, PPV, GST and AP.
-        // Do this before releasing purchase-order and receipt allocations.
-        purchasesAccountingPostingService.reverseSupplierBill(voided);
-
-        purchaseOrderRepository.reverseSupplierBill(
-            bill.purchaseOrderId,
-            bill.lines.map((line) => ({
-                purchaseOrderLineId: line.purchaseOrderLineId,
-                billedQuantity: line.quantity,
-            })),
-        );
-        supplierBillReceiptMatchRepository.reverseForBill(bill.id, normalizedReason, now.slice(0, 10));
-        supplierBills = supplierBills.map((item) => item.id === bill.id ? voided : item);
-        emitChange();
+        // Preserve the exact void date and reason across retries.
+        const operation = postingOps.begin("SUPPLIER_BILL_VOID", bill.id);
+        const key = operation.key;
+        postingOps.registerRecovery(key, () => {
+            postingOps.runStep(key, "REVERSAL_JOURNAL", () => {
+                purchasesAccountingPostingService.reverseSupplierBill(voided);
+            });
+            postingOps.runStep(key, "PURCHASE_ORDER", () => {
+                purchaseOrderRepository.reverseSupplierBill(
+                    bill.purchaseOrderId,
+                    bill.lines.map((line) => ({
+                        purchaseOrderLineId: line.purchaseOrderLineId,
+                        billedQuantity: line.quantity,
+                    })),
+                );
+            });
+            postingOps.runStep(key, "MATCHES", () => {
+                supplierBillReceiptMatchRepository.reverseForBill(bill.id, normalizedReason, now.slice(0, 10));
+            });
+            postingOps.runStep(key, "BILL", () => {
+                supplierBills = supplierBills.map((item) => item.id === bill.id ? voided : item);
+                emitChange();
+            });
+        });
+        postingOps.recover(key);
         return voided;
     },
 
@@ -949,37 +961,33 @@ export const supplierBillRepository =
          * All business and accounting validation
          * is complete before repository mutation.
          */
-        purchasesAccountingPostingService.postSupplierBill(
-            bill,
-            matching.totalMatchedReceiptValue,
-        );
-
-        purchaseOrderRepository.recordSupplierBill(
-            purchaseOrder.id,
-
-            lines.map(
-                (line) => ({
-                    purchaseOrderLineId:
-                        line.purchaseOrderLineId,
-
-                    billedQuantity:
-                        line.quantity,
-                }),
-            ),
-        );
-
-        supplierBillReceiptMatchRepository.saveForBill(bill.id, matching.matches.map(match => ({
-            ...match,
-            accountingDate: bill.billDate,
-        })));
-
-        supplierBills = [
-            bill,
-            ...supplierBills,
-        ];
-
-        emitChange();
-
+        const operation = postingOps.begin("SUPPLIER_BILL", bill.id);
+        const key = operation.key;
+        postingOps.registerRecovery(key, () => {
+            postingOps.runStep(key, "JOURNAL", () => {
+                purchasesAccountingPostingService.postSupplierBill(bill, matching.totalMatchedReceiptValue);
+            });
+            postingOps.runStep(key, "PURCHASE_ORDER", () => {
+                purchaseOrderRepository.recordSupplierBill(
+                    purchaseOrder.id,
+                    lines.map((line) => ({
+                        purchaseOrderLineId: line.purchaseOrderLineId,
+                        billedQuantity: line.quantity,
+                    })),
+                );
+            });
+            postingOps.runStep(key, "MATCHES", () => {
+                supplierBillReceiptMatchRepository.saveForBill(bill.id, matching.matches.map(match => ({
+                    ...match,
+                    accountingDate: bill.billDate,
+                })));
+            });
+            postingOps.runStep(key, "BILL", () => {
+                supplierBills = [bill, ...supplierBills];
+                emitChange();
+            });
+        });
+        postingOps.recover(key);
         return bill;
     },
 };
