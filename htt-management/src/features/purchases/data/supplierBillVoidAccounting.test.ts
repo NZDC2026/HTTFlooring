@@ -6,7 +6,6 @@ let bills: typeof import("./supplierBillRepository")["supplierBillRepository"];
 let matches: typeof import("./supplierBillReceiptMatchRepository")["supplierBillReceiptMatchRepository"];
 let journals: typeof import("../../accounting/data/journalEntryRepository")["journalEntryRepository"];
 let accounts: typeof import("../../accounting/data/accountRepository")["accountRepository"];
-let posting: typeof import("../../accounting/data/purchasesAccountingPostingService")["purchasesAccountingPostingService"];
 let productId: string;
 let unitId: string;
 let siteId: string;
@@ -15,7 +14,7 @@ let serial = 0;
 
 beforeEach(async () => {
   vi.resetModules();
-  const [p, r, b, m, j, a, s, products, sites, suppliers] = await Promise.all([
+  const [p, r, b, m, j, a, , products, sites, suppliers] = await Promise.all([
     import("./purchaseOrderRepository"),
     import("./goodsReceiptRepository"),
     import("./supplierBillRepository"),
@@ -33,7 +32,6 @@ beforeEach(async () => {
   matches = m.supplierBillReceiptMatchRepository;
   journals = j.journalEntryRepository;
   accounts = a.accountRepository;
-  posting = s.purchasesAccountingPostingService;
   const product = products.mockProducts.find((item) => item.id === "prod_001");
   const site = sites.inventorySiteRepository.getActive()[0];
   const supplier = suppliers.supplierRepository.getAll().find((item) => item.status === "ACTIVE");
@@ -61,13 +59,6 @@ function receive(orderId: string, lineId: string, quantity: number, date = "2026
 function bill(orderId: string, lineId: string, quantity: number, unitCost = 20) {
   serial += 1;
   return bills.create({ purchaseOrderId: orderId, supplierInvoiceNumber: `D6-${serial}`, billDate: "2026-10-09", dueDate: "2026-11-09", lines: [{ purchaseOrderLineId: lineId, quantity, unitCost }] });
-}
-
-function roleAmount(sourceType: "GOODS_RECEIPT" | "SUPPLIER_BILL", sourceId: string, role: Parameters<typeof accounts.requireBySystemRole>[0]) {
-  const accountId = accounts.requireBySystemRole(role).id;
-  const entries = journals.getBySource(sourceType, sourceId);
-  expect(entries).toHaveLength(1);
-  return Math.round(entries[0].lines.filter((line) => line.accountId === accountId).reduce((sum, line) => sum + line.debit - line.credit, 0) * 100) / 100;
 }
 
 function active(billId: string) {
