@@ -196,6 +196,18 @@ let accounts:
             updatedAt: now,
         },
         {
+            id: "acc_5150",
+            code: "5150",
+            name: "Purchase Price Variance",
+            type: "EXPENSE",
+            systemRole: "PURCHASE_PRICE_VARIANCE",
+            description: "Difference between supplier invoice cost and goods receipt inventory cost.",
+            active: true,
+            allowManualPosting: false,
+            createdAt: now,
+            updatedAt: now,
+        },
+        {
             id: "acc_5200",
             code: "5200",
             name: "Freight",

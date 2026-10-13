@@ -131,12 +131,15 @@ describe("6K-D6 Partial Receipt / Partial Bill / FIFO GRNI", () => {
     expect(matches.getAll().filter((m) => m.status === "ACTIVE").reduce((sum, m) => sum + m.matchedQuantity, 0)).toBe(25);
   });
 
-  it("D606 rejects purchase price variance before posting", () => {
+  it("D606 records PPV while preserving FIFO receipt cost", () => {
     const o = order();
     receive(o.id, o.lineId, 40);
-    expect(() => bill(o.id, o.lineId, 25, 22)).toThrow(/price|variance/i);
-    expect(po.getById(o.id)?.lines[0].billedQuantity).toBe(0);
-    expect(matches.getAll()).toHaveLength(0);
+    const b = bill(o.id, o.lineId, 25, 22);
+    expect(roleAmount("SUPPLIER_BILL", b.id, "GRNI")).toBe(500);
+    expect(roleAmount("SUPPLIER_BILL", b.id, "PURCHASE_PRICE_VARIANCE")).toBe(50);
+    expect(roleAmount("SUPPLIER_BILL", b.id, "GST_RECEIVABLE")).toBe(55);
+    expect(roleAmount("SUPPLIER_BILL", b.id, "ACCOUNTS_PAYABLE")).toBe(-605);
+    expect(active(b.id)[0].priceVariance).toBe(50);
   });
 
   it("D607 prevents duplicate invoice numbers for the same supplier", () => {

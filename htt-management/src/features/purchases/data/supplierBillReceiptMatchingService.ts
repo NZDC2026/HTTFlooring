@@ -641,17 +641,6 @@ function calculateMatching(
                 );
         }
 
-        if (
-            Math.abs(
-                requestBillValue -
-                requestReceiptValue,
-            ) > VALUE_TOLERANCE
-        ) {
-            throw new Error(
-                "Supplier Bill price differs from matched receipt cost. Purchase price variance will be supported in 6K-E.",
-            );
-        }
-
         matches.push(
             ...requestMatches,
         );

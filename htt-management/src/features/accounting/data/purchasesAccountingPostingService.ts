@@ -393,6 +393,7 @@ export const purchasesAccountingPostingService =
      */
     validateSupplierBillPosting(
         bill: SupplierBill,
+        matchedReceiptValue: number = bill.totals.subtotal,
     ) {
         const grniAccount =
             accountRepository
@@ -439,15 +440,20 @@ export const purchasesAccountingPostingService =
             );
         }
 
-        const matching = {
-            matchedReceiptValue: bill.totals.subtotal,
-        };
+        if (!Number.isFinite(matchedReceiptValue) || matchedReceiptValue < 0) {
+            throw new Error("Matched receipt value must be a non-negative finite number.");
+        }
+
+        const variance = roundAccountingAmount(bill.totals.subtotal - matchedReceiptValue);
+        if (variance !== 0) {
+            const ppvAccount = accountRepository.requireBySystemRole("PURCHASE_PRICE_VARIANCE");
+            if (!ppvAccount.active || ppvAccount.type !== "EXPENSE") {
+                throw new Error("Purchase Price Variance must be an active expense account.");
+            }
+        }
 
         const expectedTotal =
-            roundAccountingAmount(
-                matching.matchedReceiptValue +
-                bill.totals.taxAmount,
-            );
+            roundAccountingAmount(bill.totals.subtotal + bill.totals.taxAmount);
 
         if (
             !Number.isFinite(
@@ -466,7 +472,7 @@ export const purchasesAccountingPostingService =
             );
         }
 
-        return matching;
+        return { matchedReceiptValue, variance };
     },
 
     /**
@@ -494,11 +500,8 @@ export const purchasesAccountingPostingService =
             return existing;
         }
 
-        this.validateSupplierBillPosting(bill);
         const receiptValue = matchedReceiptValue ?? bill.totals.subtotal;
-        if (Math.abs(receiptValue - bill.totals.subtotal) > 0.01) {
-            throw new Error("Purchase price variance is not supported until 6K-E.");
-        }
+        const { variance } = this.validateSupplierBillPosting(bill, receiptValue);
 
         return journalEntryRepository.post({
             journalDate:
@@ -549,6 +552,12 @@ export const purchasesAccountingPostingService =
                         0,
                 },
 
+                ...(variance !== 0 ? [{
+                    accountId: getAccountId("PURCHASE_PRICE_VARIANCE"),
+                    description: `Purchase price variance - ${bill.billNumber}`,
+                    debit: variance > 0 ? variance : 0,
+                    credit: variance < 0 ? -variance : 0,
+                }] : []),
                 {
                     accountId:
                         getAccountId(

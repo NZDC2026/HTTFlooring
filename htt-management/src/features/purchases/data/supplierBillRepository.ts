@@ -987,11 +987,10 @@ export const supplierBillRepository =
             receipts: goodsReceiptRepository.getByPurchaseOrder(bill.purchaseOrderId),
             existingMatches: supplierBillReceiptMatchRepository.getAll(),
         });
-        if (Math.abs(matching.totalMatchedBillValue - bill.totals.subtotal) > 0.01 ||
-            Math.abs(matching.totalMatchedReceiptValue - bill.totals.subtotal) > 0.01) {
+        if (Math.abs(matching.totalMatchedBillValue - bill.totals.subtotal) > 0.01) {
             throw new Error("Supplier bill matching amount does not equal the bill subtotal.");
         }
-        purchasesAccountingPostingService.validateSupplierBillPosting(bill);
+        purchasesAccountingPostingService.validateSupplierBillPosting(bill, matching.totalMatchedReceiptValue);
 
         /**
          * All business and accounting validation

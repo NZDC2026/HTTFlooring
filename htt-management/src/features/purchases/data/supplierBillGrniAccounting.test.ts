@@ -140,18 +140,24 @@ describe("6K-C Supplier Bill GRNI Accounting", () => {
         expect(journalRepo.getBySource("SUPPLIER_BILL", bill.id)).toHaveLength(1);
     });
 
-    it("C07 rejects an invoice price higher than receipt cost without changing billed quantity", () => {
+    it("C07 posts positive purchase price variance", () => {
         const { po, line } = createReceivedOrder();
-        expect(() => createBill(po.id, line.id, 100, 22)).toThrow(/price differs|variance/i);
-        expect(poRepo.getById(po.id)?.lines[0].billedQuantity).toBe(0);
-        expect(billRepo.getByPurchaseOrder(po.id)).toHaveLength(0);
+        const bill = createBill(po.id, line.id, 100, 22);
+        const journal = sourceJournal("SUPPLIER_BILL", bill.id);
+        expect(amountForRole(journal, "GRNI")).toBe(2000);
+        expect(amountForRole(journal, "PURCHASE_PRICE_VARIANCE")).toBe(200);
+        expect(amountForRole(journal, "GST_RECEIVABLE")).toBe(220);
+        expect(amountForRole(journal, "ACCOUNTS_PAYABLE")).toBe(-2420);
     });
 
-    it("C08 rejects an invoice price lower than receipt cost without changing billed quantity", () => {
+    it("C08 posts negative purchase price variance", () => {
         const { po, line } = createReceivedOrder();
-        expect(() => createBill(po.id, line.id, 100, 18)).toThrow(/price differs|variance/i);
-        expect(poRepo.getById(po.id)?.lines[0].billedQuantity).toBe(0);
-        expect(billRepo.getByPurchaseOrder(po.id)).toHaveLength(0);
+        const bill = createBill(po.id, line.id, 100, 18);
+        const journal = sourceJournal("SUPPLIER_BILL", bill.id);
+        expect(amountForRole(journal, "GRNI")).toBe(2000);
+        expect(amountForRole(journal, "PURCHASE_PRICE_VARIANCE")).toBe(-200);
+        expect(amountForRole(journal, "GST_RECEIVABLE")).toBe(180);
+        expect(amountForRole(journal, "ACCOUNTS_PAYABLE")).toBe(-1980);
     });
 
     it("C09 supports partial billing and multiple bills in 6K-D", () => {
