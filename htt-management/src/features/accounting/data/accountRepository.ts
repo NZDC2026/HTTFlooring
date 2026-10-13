@@ -111,6 +111,19 @@ let accounts:
             updatedAt: now,
         },
         {
+            id: "acc_2050",
+            code: "2050",
+            name: "Goods Received Not Invoiced",
+            type: "LIABILITY",
+            systemRole: "GRNI",
+            description:
+                "Accrued liability for inventory received but not yet invoiced by suppliers.",
+            active: true,
+            allowManualPosting: false,
+            createdAt: now,
+            updatedAt: now,
+        },
+        {
             id: "acc_2100",
             code: "2100",
             name: "GST Payable",

@@ -4,6 +4,7 @@ export type JournalEntryStatus =
 
 export type AccountingSourceType =
     | "MANUAL_JOURNAL"
+    | "GOODS_RECEIPT"
     | "CUSTOMER_INVOICE"
     | "CUSTOMER_PAYMENT"
     | "CUSTOMER_PAYMENT_REVERSAL"

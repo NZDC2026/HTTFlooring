@@ -6,6 +6,10 @@ import {
     purchasesAccountingPostingService,
 } from "../../accounting/data/purchasesAccountingPostingService";
 
+import { goodsReceiptRepository } from "./goodsReceiptRepository";
+import { supplierBillReceiptMatchingService } from "./supplierBillReceiptMatchingService";
+import { supplierBillReceiptMatchRepository } from "./supplierBillReceiptMatchRepository";
+
 import {
     calculateSupplierBillLine,
     calculateSupplierBillTotals,
@@ -661,6 +665,8 @@ export const supplierBillRepository =
                 now,
         };
 
+        supplierBillReceiptMatchRepository.reverseForBill(supplierBillId, normalizedReason);
+
         supplierBills =
             supplierBills.map(
                 (item) =>
@@ -966,10 +972,36 @@ export const supplierBillRepository =
                 now,
         };
 
+        const matching = supplierBillReceiptMatchingService.calculate({
+            supplierBillId: bill.id,
+            purchaseOrderId: bill.purchaseOrderId,
+            requests: bill.lines.map((line) => ({
+                supplierBillId: bill.id,
+                supplierBillLineId: line.id,
+                purchaseOrderId: bill.purchaseOrderId,
+                purchaseOrderLineId: line.purchaseOrderLineId,
+                productId: line.productId,
+                quantity: line.quantity,
+                billUnitCost: line.unitCost,
+            })),
+            receipts: goodsReceiptRepository.getByPurchaseOrder(bill.purchaseOrderId),
+            existingMatches: supplierBillReceiptMatchRepository.getAll(),
+        });
+        if (Math.abs(matching.totalMatchedBillValue - bill.totals.subtotal) > 0.01 ||
+            Math.abs(matching.totalMatchedReceiptValue - bill.totals.subtotal) > 0.01) {
+            throw new Error("Supplier bill matching amount does not equal the bill subtotal.");
+        }
+        purchasesAccountingPostingService.validateSupplierBillPosting(bill);
+
         /**
-         * All validation is complete before
-         * either repository is mutated.
+         * All business and accounting validation
+         * is complete before repository mutation.
          */
+        purchasesAccountingPostingService.postSupplierBill(
+            bill,
+            matching.totalMatchedReceiptValue,
+        );
+
         purchaseOrderRepository.recordSupplierBill(
             purchaseOrder.id,
 
@@ -984,17 +1016,14 @@ export const supplierBillRepository =
             ),
         );
 
+        supplierBillReceiptMatchRepository.saveForBill(bill.id, matching.matches);
+
         supplierBills = [
             bill,
             ...supplierBills,
         ];
 
         emitChange();
-
-        purchasesAccountingPostingService
-            .postSupplierBill(
-                bill,
-            );
 
         return bill;
     },

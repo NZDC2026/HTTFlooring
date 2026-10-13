@@ -9,6 +9,7 @@ export type AccountSystemRole =
     | "BANK"
     | "ACCOUNTS_RECEIVABLE"
     | "INVENTORY"
+    | "GRNI"
     | "GST_RECEIVABLE"
     | "ACCOUNTS_PAYABLE"
     | "GST_PAYABLE"

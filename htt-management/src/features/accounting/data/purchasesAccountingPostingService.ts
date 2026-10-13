@@ -11,6 +11,17 @@ import {
 } from "../../banking/data/bankAccountRepository";
 
 import type {
+    GoodsReceipt,
+} from "../../purchases/types/goodsReceipt";
+
+
+import {
+    calculateBaseUnitCost,
+    calculateIncomingInventoryValue,
+    roundInventoryValue,
+} from "../../inventory/data/inventoryCostCalculations";
+
+import type {
     SupplierBill,
 } from "../../purchases/types/supplierBill";
 
@@ -26,6 +37,51 @@ type PurchaseAccountingSourceType =
     | "SUPPLIER_BILL"
     | "SUPPLIER_PAYMENT"
     | "SUPPLIER_CREDIT";
+
+/**
+ * Calculate the same incoming inventory value
+ * used by Inventory Cost Engine.
+ *
+ * Each receipt line is rounded independently,
+ * matching the cost movement calculation.
+ */
+function calculateGoodsReceiptValue(
+    receipt: GoodsReceipt,
+): number {
+    return roundInventoryValue(
+        receipt.lines.reduce(
+            (total, line) => {
+                const unitCostBase =
+                    calculateBaseUnitCost({
+                        transactionUnitCost:
+                            line.unitCost,
+
+                        conversionToBase:
+                            line.conversionToBase,
+                    });
+
+                const lineValue =
+                    calculateIncomingInventoryValue({
+                        quantityBase:
+                            line.receivedBaseQuantity,
+
+                        unitCostBase,
+                    });
+
+                return total + lineValue;
+            },
+            0,
+        ),
+    );
+}
+
+function roundAccountingAmount(
+    value: number,
+): number {
+    return Math.round(
+        (value + Number.EPSILON) * 100,
+    ) / 100;
+}
 
 function getAccountId(
     systemRole:
@@ -168,9 +224,265 @@ function requireOriginalJournal(
 
 export const purchasesAccountingPostingService =
 {
+    /**
+     * Validate accounting configuration before
+     * Goods Receipt changes inventory state.
+     */
+    validateGoodsReceiptPosting(
+        receipt: GoodsReceipt,
+    ) {
+        const inventoryAccount =
+            accountRepository.requireBySystemRole(
+                "INVENTORY",
+            );
+
+        const grniAccount =
+            accountRepository.requireBySystemRole(
+                "GRNI",
+            );
+
+        if (
+            !inventoryAccount.active ||
+            inventoryAccount.type !== "ASSET"
+        ) {
+            throw new Error(
+                "Inventory GL account must be an active asset account.",
+            );
+        }
+
+        if (
+            !grniAccount.active ||
+            grniAccount.type !== "LIABILITY"
+        ) {
+            throw new Error(
+                "GRNI GL account must be an active liability account.",
+            );
+        }
+
+        const receiptValue =
+            calculateGoodsReceiptValue(
+                receipt,
+            );
+
+        if (
+            !Number.isFinite(receiptValue) ||
+            receiptValue <= 0
+        ) {
+            throw new Error(
+                "Goods receipt accounting value must be greater than zero.",
+            );
+        }
+
+        const parsedDate =
+            new Date(
+                `${receipt.receiptDate}T00:00:00Z`,
+            );
+
+        if (
+            !/^\d{4}-\d{2}-\d{2}$/.test(
+                receipt.receiptDate,
+            ) ||
+            Number.isNaN(
+                parsedDate.getTime(),
+            ) ||
+            parsedDate.toISOString().slice(0, 10) !==
+            receipt.receiptDate
+        ) {
+            throw new Error(
+                "Goods receipt accounting date is invalid.",
+            );
+        }
+
+        return {
+            inventoryAccountId:
+                inventoryAccount.id,
+
+            grniAccountId:
+                grniAccount.id,
+
+            receiptValue,
+        };
+    },
+
+    /**
+     * Post:
+     *
+     * Dr Inventory
+     * Cr GRNI
+     *
+     * One journal per Goods Receipt.
+     */
+    postGoodsReceipt(
+        receipt: GoodsReceipt,
+    ) {
+        const existing =
+            journalEntryRepository
+                .getBySource(
+                    "GOODS_RECEIPT",
+                    receipt.id,
+                )
+                .find(
+                    (entry) =>
+                        !entry.reversedJournalEntryId,
+                );
+
+        if (existing) {
+            return existing;
+        }
+
+        const {
+            inventoryAccountId,
+            grniAccountId,
+            receiptValue,
+        } =
+            this.validateGoodsReceiptPosting(
+                receipt,
+            );
+
+        return journalEntryRepository.post({
+            journalDate:
+                receipt.receiptDate,
+
+            description:
+                `Goods receipt ${receipt.receiptNumber}`,
+
+            reference:
+                receipt.receiptNumber,
+
+            sourceType:
+                "GOODS_RECEIPT",
+
+            sourceId:
+                receipt.id,
+
+            lines: [
+                {
+                    accountId:
+                        inventoryAccountId,
+
+                    description:
+                        `Inventory received - ${receipt.receiptNumber}`,
+
+                    debit:
+                        receiptValue,
+
+                    credit:
+                        0,
+                },
+
+                {
+                    accountId:
+                        grniAccountId,
+
+                    description:
+                        `Goods received not invoiced - ${receipt.receiptNumber}`,
+
+                    debit:
+                        0,
+
+                    credit:
+                        receiptValue,
+                },
+            ],
+        });
+    },
+
+    /**
+     * Validate Supplier Bill accounting before
+     * purchase order quantities are mutated.
+     */
+    validateSupplierBillPosting(
+        bill: SupplierBill,
+    ) {
+        const grniAccount =
+            accountRepository
+                .requireBySystemRole(
+                    "GRNI",
+                );
+
+        const gstAccount =
+            accountRepository
+                .requireBySystemRole(
+                    "GST_RECEIVABLE",
+                );
+
+        const payableAccount =
+            accountRepository
+                .requireBySystemRole(
+                    "ACCOUNTS_PAYABLE",
+                );
+
+        if (
+            !grniAccount.active ||
+            grniAccount.type !== "LIABILITY"
+        ) {
+            throw new Error(
+                "GRNI account must be an active liability account.",
+            );
+        }
+
+        if (
+            !gstAccount.active ||
+            gstAccount.type !== "ASSET"
+        ) {
+            throw new Error(
+                "GST Receivable must be an active asset account.",
+            );
+        }
+
+        if (
+            !payableAccount.active ||
+            payableAccount.type !== "LIABILITY"
+        ) {
+            throw new Error(
+                "Accounts Payable must be an active liability account.",
+            );
+        }
+
+        const matching = {
+            matchedReceiptValue: bill.totals.subtotal,
+        };
+
+        const expectedTotal =
+            roundAccountingAmount(
+                matching.matchedReceiptValue +
+                bill.totals.taxAmount,
+            );
+
+        if (
+            !Number.isFinite(
+                expectedTotal,
+            ) ||
+            !Number.isFinite(
+                bill.totals.total,
+            ) ||
+            Math.abs(
+                expectedTotal -
+                bill.totals.total,
+            ) > 0.01
+        ) {
+            throw new Error(
+                "Supplier Bill accounting totals are not balanced.",
+            );
+        }
+
+        return matching;
+    },
+
+    /**
+     * 6K-C:
+     *
+     * Supplier Bill accounting:
+     *
+     * Dr GRNI
+     * Dr GST Receivable
+     * Cr Accounts Payable
+     *
+     * Inventory must not be debited again.
+     */
     postSupplierBill(
-        bill:
-            SupplierBill,
+        bill: SupplierBill,
+        matchedReceiptValue?: number,
     ) {
         const existing =
             findOriginalJournal(
@@ -182,74 +494,78 @@ export const purchasesAccountingPostingService =
             return existing;
         }
 
-        return journalEntryRepository.post(
-            {
-                journalDate:
-                    bill.billDate,
+        this.validateSupplierBillPosting(bill);
+        const receiptValue = matchedReceiptValue ?? bill.totals.subtotal;
+        if (Math.abs(receiptValue - bill.totals.subtotal) > 0.01) {
+            throw new Error("Purchase price variance is not supported until 6K-E.");
+        }
 
-                description:
-                    `Supplier bill ${bill.billNumber}`,
+        return journalEntryRepository.post({
+            journalDate:
+                bill.billDate,
 
-                reference:
-                    bill.supplierInvoiceNumber,
+            description:
+                `Supplier bill ${bill.billNumber}`,
 
-                sourceType:
-                    "SUPPLIER_BILL",
+            reference:
+                bill.supplierInvoiceNumber,
 
-                sourceId:
-                    bill.id,
+            sourceType:
+                "SUPPLIER_BILL",
 
-                lines: [
-                    {
-                        accountId:
-                            getAccountId(
-                                "INVENTORY",
-                            ),
+            sourceId:
+                bill.id,
 
-                        description:
-                            bill.billNumber,
+            lines: [
+                {
+                    accountId:
+                        getAccountId(
+                            "GRNI",
+                        ),
 
-                        debit:
-                            bill.totals.subtotal,
+                    description:
+                        `GRNI cleared - ${bill.billNumber}`,
 
-                        credit:
-                            0,
-                    },
+                    debit:
+                        receiptValue,
 
-                    {
-                        accountId:
-                            getAccountId(
-                                "GST_RECEIVABLE",
-                            ),
+                    credit:
+                        0,
+                },
 
-                        description:
-                            bill.billNumber,
+                {
+                    accountId:
+                        getAccountId(
+                            "GST_RECEIVABLE",
+                        ),
 
-                        debit:
-                            bill.totals.taxAmount,
+                    description:
+                        `GST - ${bill.billNumber}`,
 
-                        credit:
-                            0,
-                    },
+                    debit:
+                        bill.totals.taxAmount,
 
-                    {
-                        accountId:
-                            getAccountId(
-                                "ACCOUNTS_PAYABLE",
-                            ),
+                    credit:
+                        0,
+                },
 
-                        description:
-                            bill.billNumber,
+                {
+                    accountId:
+                        getAccountId(
+                            "ACCOUNTS_PAYABLE",
+                        ),
 
-                        debit:
-                            0,
+                    description:
+                        `Supplier payable - ${bill.billNumber}`,
 
-                        credit:
-                            bill.totals.total,
-                    },
-                ],
-            },
-        );
+                    debit:
+                        0,
+
+                    credit:
+                        bill.totals.total,
+                },
+            ],
+        });
     },
 
     reverseSupplierBill(

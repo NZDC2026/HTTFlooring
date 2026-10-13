@@ -23,6 +23,10 @@ import {
     purchaseOrderRepository,
 } from "./purchaseOrderRepository";
 
+import {
+    purchasesAccountingPostingService,
+} from "../../accounting/data/purchasesAccountingPostingService";
+
 import type {
     GoodsReceipt,
     GoodsReceiptDraft,
@@ -436,6 +440,21 @@ export const goodsReceiptRepository =
          * repository mutation occurs.
          */
 
+        /**
+         * 6K-B:
+         *
+         * Validate accounting configuration
+         * before creating inventory movements.
+         *
+         * This prevents missing or invalid
+         * accounting accounts from causing
+         * inventory-only receipts.
+         */
+        purchasesAccountingPostingService
+            .validateGoodsReceiptPosting(
+                receipt,
+            );
+
         for (
             const line of
             receipt.lines
@@ -558,6 +577,20 @@ export const goodsReceiptRepository =
                 },
             );
         }
+
+        /**
+         * 6K-B:
+         *
+         * Post Inventory / GRNI accounting
+         * after successful inventory updates.
+         *
+         * Dr Inventory
+         * Cr GRNI
+         */
+        purchasesAccountingPostingService
+            .postGoodsReceipt(
+                receipt,
+            );
 
         purchaseOrderRepository.recordGoodsReceipt(
             purchaseOrder.id,
