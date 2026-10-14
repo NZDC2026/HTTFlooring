@@ -1,86 +1,102 @@
-import { BrowserWindow as e, app as t, dialog as n, ipcMain as r, nativeImage as i } from "electron";
-import a from "node:path";
-import { writeFile as o } from "node:fs/promises";
-import { fileURLToPath as s } from "node:url";
+import { BrowserWindow, app, dialog, ipcMain, nativeImage } from "electron";
+import path from "node:path";
+import { writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 //#region electron/main/index.ts
-var c = s(import.meta.url), l = a.dirname(c), u = "HTT Flooring Management System", d = null;
-function f(...e) {
-	return a.join(l, "..", ...e);
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = path.dirname(__filename);
+var APP_NAME = "HTT Flooring Management System";
+var mainWindow = null;
+function getProjectPath(...paths) {
+	return path.join(__dirname, "..", ...paths);
 }
-function p() {
+function setMacDockIcon() {
 	if (process.platform !== "darwin") return;
-	let e = f("build", "icon.png"), n = i.createFromPath(e);
-	n.isEmpty() || t.dock?.setIcon(n);
+	const iconPath = getProjectPath("build", "icon.png");
+	const icon = nativeImage.createFromPath(iconPath);
+	if (!icon.isEmpty()) app.dock?.setIcon(icon);
 }
-function m() {
-	r.handle("statement:export-pdf", async (t, r) => {
+function registerIpcHandlers() {
+	ipcMain.handle("statement:export-pdf", async (event, options) => {
 		try {
-			let i = e.fromWebContents(t.sender);
-			if (!i) return {
-				success: !1,
+			const senderWindow = BrowserWindow.fromWebContents(event.sender);
+			if (!senderWindow) return {
+				success: false,
 				error: "Unable to resolve the current application window."
 			};
-			let a = h(r.defaultFileName), s = await n.showSaveDialog(i, {
+			const safeFileName = sanitizePdfFileName(options.defaultFileName);
+			const result = await dialog.showSaveDialog(senderWindow, {
 				title: "Export Customer Statement",
-				defaultPath: a,
+				defaultPath: safeFileName,
 				filters: [{
 					name: "PDF Document",
 					extensions: ["pdf"]
 				}],
 				properties: ["createDirectory", "showOverwriteConfirmation"]
 			});
-			if (s.canceled || !s.filePath) return {
-				success: !1,
-				canceled: !0
+			if (result.canceled || !result.filePath) return {
+				success: false,
+				canceled: true
 			};
-			let c = await t.sender.printToPDF({
+			const pdfData = await event.sender.printToPDF({
 				pageSize: "A4",
-				printBackground: !0,
-				preferCSSPageSize: !0
+				printBackground: true,
+				preferCSSPageSize: true
 			});
-			return await o(s.filePath, c), {
-				success: !0,
-				filePath: s.filePath
+			await writeFile(result.filePath, pdfData);
+			return {
+				success: true,
+				filePath: result.filePath
 			};
-		} catch (e) {
-			return console.error("Failed to export customer statement PDF:", e), {
-				success: !1,
-				error: e instanceof Error ? e.message : "Unable to export PDF."
+		} catch (error) {
+			console.error("Failed to export customer statement PDF:", error);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Unable to export PDF."
 			};
 		}
 	});
 }
-function h(e) {
-	let t = e.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-").replace(/\s+/g, " ").trim() || "Customer Statement";
-	return t.toLowerCase().endsWith(".pdf") ? t : `${t}.pdf`;
+function sanitizePdfFileName(value) {
+	const fileName = value.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-").replace(/\s+/g, " ").trim() || "Customer Statement";
+	return fileName.toLowerCase().endsWith(".pdf") ? fileName : `${fileName}.pdf`;
 }
-function g() {
-	d = new e({
-		title: u,
+function createMainWindow() {
+	mainWindow = new BrowserWindow({
+		title: APP_NAME,
 		width: 1440,
 		height: 900,
 		minWidth: 1100,
 		minHeight: 700,
-		show: !1,
+		show: false,
 		backgroundColor: "#f4f1eb",
 		webPreferences: {
-			preload: a.join(l, "index.mjs"),
-			contextIsolation: !0,
-			nodeIntegration: !1,
-			sandbox: !0
+			preload: path.join(__dirname, "index.mjs"),
+			contextIsolation: true,
+			nodeIntegration: false,
+			sandbox: true
 		}
-	}), d.once("ready-to-show", () => {
-		d?.show();
-	}), process.env.VITE_DEV_SERVER_URL ? d.loadURL(process.env.VITE_DEV_SERVER_URL) : d.loadFile(a.join(l, "../dist/index.html")), d.on("closed", () => {
-		d = null;
+	});
+	mainWindow.once("ready-to-show", () => {
+		mainWindow?.show();
+	});
+	if (process.env.VITE_DEV_SERVER_URL) mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+	else mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+	mainWindow.on("closed", () => {
+		mainWindow = null;
 	});
 }
-t.setName(u), t.whenReady().then(() => {
-	p(), m(), g(), t.on("activate", () => {
-		e.getAllWindows().length === 0 && g();
+app.setName(APP_NAME);
+app.whenReady().then(() => {
+	setMacDockIcon();
+	registerIpcHandlers();
+	createMainWindow();
+	app.on("activate", () => {
+		if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
 	});
-}), t.on("window-all-closed", () => {
-	process.platform !== "darwin" && t.quit();
+});
+app.on("window-all-closed", () => {
+	if (process.platform !== "darwin") app.quit();
 });
 //#endregion
 export {};
