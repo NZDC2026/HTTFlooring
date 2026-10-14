@@ -4,6 +4,7 @@ import { useSupplierBills } from "../../purchases/data/useSupplierBills";
 import { ArrowRight, CheckCircle2, Compass, Info, RotateCcw, ExternalLink, Download, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "../../../components/ui/Badge";
+import { feedback } from "../../../components/ui/feedback";
 import { Card, CardContent } from "../../../components/ui/Card";
 import { mockQuotes, mockSalesOrders, mockInvoices } from "../../sales/data/mockSalesDocuments";
 import { mockPurchaseOrders } from "../../purchases/data/mockPurchaseOrders";
@@ -104,6 +105,21 @@ export function CustomerDemoPage() {
         anchor.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
+    const resetPresentation = async () => {
+        const accepted = await feedback.confirm({
+            title: "Restart demo presentation?",
+            message: "This clears the current walkthrough checks and issue notes and reloads sample screens. It does NOT delete saved purchase posting operations, accounting audit history, or any other browser data. Export your acceptance report first if needed.",
+            confirmLabel: "Restart presentation",
+        });
+        if (!accepted) return;
+        setCompleted([]);
+        setIssues({});
+        setActiveFlow(0);
+        setShowOnlyPending(false);
+        // Reload only: module-scoped sample state is recreated. Never clear localStorage,
+        // sessionStorage or IndexedDB because accounting/audit records may live there.
+        window.location.reload();
+    };
     const toggle = (key: string) => setCompleted((previous) => previous.includes(key) ? previous.filter((item) => item !== key) : [...previous, key]);
 
     return <div className="space-y-6 pb-10">
@@ -112,6 +128,12 @@ export function CustomerDemoPage() {
             <Badge variant="info">DEMO · Mock data</Badge>
         </header>
         <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm"><Info size={18} className="mt-0.5 shrink-0" /><p>Presentation-only data. Checking a step does not submit a transaction. Payroll processing, uploads, live payments and API connections are not enabled. Checks and issue notes are kept only on this page and reset on refresh. Export the checklist before leaving or refreshing.</p></div>
+        <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5" aria-label="Presentation controls">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                <div><h2 className="font-semibold">Demo V1.0 · Presentation reset</h2><p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">Restart the guided walkthrough and reload in-memory sample screens. Saved accounting, posting and audit data are protected and are not reset.</p></div>
+                <button type="button" onClick={resetPresentation} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold hover:bg-[var(--color-surface-muted)]"><RotateCcw size={16} /> Restart presentation</button>
+            </div>
+        </section>
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5" aria-label="Demo progress">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Walkthrough progress</h2><p className="text-sm text-[var(--color-text-secondary)]">{doneCount} of {total} checkpoints verified</p></div><button type="button" onClick={() => setCompleted([])} disabled={doneCount === 0} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"><RotateCcw size={15} /> Reset checks</button></div>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm"><span className="text-green-700">{doneCount} verified</span><span className="text-amber-700">{issueCount} issues noted</span><span className="text-[var(--color-text-secondary)]">{total - doneCount} pending</span><button type="button" onClick={exportReport} className="ml-auto inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 font-medium"><Download size={15} /> Export acceptance report</button></div>
