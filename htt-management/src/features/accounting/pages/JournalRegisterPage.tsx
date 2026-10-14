@@ -235,7 +235,7 @@ export function JournalRegisterPage() {
                     }
                 />
 
-                Chart of Accounts
+                Back to Accounting
             </Button>
 
             <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

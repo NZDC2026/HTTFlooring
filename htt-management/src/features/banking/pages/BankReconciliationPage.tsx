@@ -32,6 +32,7 @@ import {
 import {
     Input,
 } from "../../../components/ui/Input";
+import { feedback } from "../../../components/ui/feedback";
 
 import {
     useBankAccount,
@@ -330,18 +331,17 @@ export function BankReconciliationPage() {
                 new Set(),
             );
 
-            setSuccess(
-                `${result.reconciliationNumber} completed successfully.`,
-            );
+            const message = `${result.reconciliationNumber} completed successfully.`;
+            setSuccess(message);
+            feedback.success(message);
         } catch (
         caughtError
         ) {
-            setError(
-                caughtError instanceof
-                    Error
-                    ? caughtError.message
-                    : "Unable to complete bank reconciliation.",
-            );
+            const message = caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to complete bank reconciliation.";
+            setError(message);
+            feedback.error(message);
         }
     }
 

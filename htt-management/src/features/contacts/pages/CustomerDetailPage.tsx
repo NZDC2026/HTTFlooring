@@ -19,6 +19,7 @@ import {
 } from "react-router-dom";
 
 import { Button } from "../../../components/ui/Button";
+import { feedback } from "../../../components/ui/feedback";
 
 import {
     Card,
@@ -131,70 +132,49 @@ export function CustomerDetailPage() {
         );
     }
 
-    function handleLocationSubmit(
-        values: LocationFormValues,
-    ) {
-        if (
-            editor?.type === "location" &&
-            editor.item
-        ) {
-            customerRepository.updateLocation(
-                resolvedCustomerId,
-                editor.item.id,
-                values,
-            );
-        } else {
-            customerRepository.addLocation(
-                resolvedCustomerId,
-                values,
-            );
+    function handleLocationSubmit(values: LocationFormValues) {
+        const editing = editor?.type === "location" && !!editor.item;
+        try {
+            if (editor?.type === "location" && editor.item) {
+                customerRepository.updateLocation(resolvedCustomerId, editor.item.id, values);
+            } else {
+                customerRepository.addLocation(resolvedCustomerId, values);
+            }
+            setEditor(null);
+            feedback.success(editing ? "Location updated." : "Location added.");
+        } catch (error) {
+            feedback.error(error instanceof Error ? error.message : "Unable to save location.");
         }
-
-        setEditor(null);
     }
 
-    function handleContactSubmit(
-        values: ContactFormValues,
-    ) {
-        if (
-            editor?.type === "contact" &&
-            editor.item
-        ) {
-            customerRepository.updateContact(
-                resolvedCustomerId,
-                editor.item.id,
-                values,
-            );
-        } else {
-            customerRepository.addContact(
-                resolvedCustomerId,
-                values,
-            );
+    function handleContactSubmit(values: ContactFormValues) {
+        const editing = editor?.type === "contact" && !!editor.item;
+        try {
+            if (editor?.type === "contact" && editor.item) {
+                customerRepository.updateContact(resolvedCustomerId, editor.item.id, values);
+            } else {
+                customerRepository.addContact(resolvedCustomerId, values);
+            }
+            setEditor(null);
+            feedback.success(editing ? "Contact updated." : "Contact added.");
+        } catch (error) {
+            feedback.error(error instanceof Error ? error.message : "Unable to save contact.");
         }
-
-        setEditor(null);
     }
 
-    async function handleCustomerPriceSubmit(
-        values: CustomerPriceFormValues,
-    ) {
-        if (
-            editor?.type ===
-            "customerPrice" &&
-            editor.item
-        ) {
-            customerPricingRepository.update(
-                editor.item.id,
-                values,
-            );
-        } else {
-            customerPricingRepository.create(
-                resolvedCustomerId,
-                values,
-            );
+    async function handleCustomerPriceSubmit(values: CustomerPriceFormValues) {
+        const editing = editor?.type === "customerPrice" && !!editor.item;
+        try {
+            if (editor?.type === "customerPrice" && editor.item) {
+                await customerPricingRepository.update(editor.item.id, values);
+            } else {
+                await customerPricingRepository.create(resolvedCustomerId, values);
+            }
+            setEditor(null);
+            feedback.success(editing ? "Customer pricing updated." : "Customer pricing added.");
+        } catch (error) {
+            feedback.error(error instanceof Error ? error.message : "Unable to save customer pricing.");
         }
-
-        setEditor(null);
     }
 
     return (
