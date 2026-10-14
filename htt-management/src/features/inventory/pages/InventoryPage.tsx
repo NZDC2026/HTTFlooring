@@ -57,7 +57,7 @@ export function InventoryPage() {
     const [
         selectedSiteId,
         setSelectedSiteId,
-    ] = useState("ALL");
+    ] = useState(() => searchParams.get("site") ?? "ALL");
 
     const filteredStock =
         useMemo(
@@ -140,11 +140,14 @@ export function InventoryPage() {
                         onChange={(
                             event,
                         ) =>
-                            setSelectedSiteId(
-                                event
-                                    .target
-                                    .value,
-                            )
+                            (() => {
+                                const value = event.target.value;
+                                setSelectedSiteId(value);
+                                const next = new URLSearchParams(searchParams);
+                                if (value === "ALL") next.delete("site");
+                                else next.set("site", value);
+                                setSearchParams(next, { replace: true });
+                            })()
                         }
                         className="h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
                     >

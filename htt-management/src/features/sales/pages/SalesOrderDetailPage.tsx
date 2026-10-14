@@ -19,6 +19,7 @@ import {
 
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { feedback } from "../../../components/ui/feedback";
 
 import { customerRepository } from "../../contacts/data/customerRepository";
 
@@ -103,7 +104,9 @@ export function SalesOrderDetailPage() {
             salesRepository.createInvoiceFromOrder(
                 resolvedOrderId,
             );
+            feedback.success("Invoice created from sales order.");
         } catch (error) {
+            feedback.error(error instanceof Error ? error.message : "Unable to create invoice.");
             setActionError(
                 error instanceof
                     Error

@@ -23,6 +23,7 @@ import {
 
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { feedback } from "../../../components/ui/feedback";
 
 import { customerRepository } from "../../contacts/data/customerRepository";
 
@@ -104,7 +105,9 @@ export function QuoteDetailPage() {
 
         try {
             action();
+            feedback.success("Quote updated successfully.");
         } catch (error) {
+            feedback.error(error instanceof Error ? error.message : "Unable to update quote.");
             setActionError(
                 error instanceof
                     Error
