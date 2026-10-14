@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useGoodsReceipts } from "../../purchases/data/useGoodsReceipts";
 import { useSupplierBills } from "../../purchases/data/useSupplierBills";
-import { ArrowRight, CheckCircle2, Compass, Info, RotateCcw, ExternalLink } from "lucide-react";
+import { ArrowRight, CheckCircle2, Compass, Info, RotateCcw, ExternalLink, Download, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "../../../components/ui/Badge";
 import { Card, CardContent } from "../../../components/ui/Card";
@@ -57,6 +57,8 @@ export function CustomerDemoPage() {
     const bills = useSupplierBills();
     const [completed, setCompleted] = useState<string[]>([]);
     const [activeFlow, setActiveFlow] = useState(0);
+    const [issues, setIssues] = useState<Record<string, string>>({});
+    const [showOnlyPending, setShowOnlyPending] = useState(false);
     const flows = useMemo(() => {
         const linkedReceipt = receipts.find((receipt) => receipt.purchaseOrderId === purchaseOrder?.id);
         const linkedBill = bills.find((bill) => bill.purchaseOrderId === purchaseOrder?.id);
@@ -73,7 +75,35 @@ export function CustomerDemoPage() {
     const total = flows.reduce((sum, flow) => sum + flow.steps.length, 0);
     const validKeys = new Set(flows.flatMap((flow, flowIndex) => flow.steps.map((_, stepIndex) => `${flowIndex}:${stepIndex}`)));
     const doneCount = completed.filter((key) => validKeys.has(key)).length;
+    const issueCount = Object.values(issues).filter((value) => value.trim()).length;
     const flow = flows[activeFlow];
+    const exportReport = () => {
+        const lines = [
+            "HTT Flooring · Customer demo acceptance checklist",
+            `Date: ${new Date().toLocaleString()}`,
+            "Environment: Mock Data · no live API",
+            `Verified: ${doneCount}/${total}; Issues: ${issueCount}`,
+            "",
+            ...flows.flatMap((item, flowIndex) => [
+                `## ${item.title}`,
+                ...item.steps.flatMap((step, stepIndex) => {
+                    const key = `${flowIndex}:${stepIndex}`;
+                    return [`[${completed.includes(key) ? "PASS" : issues[key]?.trim() ? "ISSUE" : "PENDING"}] ${step.title}`,
+                        `Route: ${step.path}`, `Check: ${step.check}`,
+                        ...(issues[key]?.trim() ? [`Issue: ${issues[key].trim()}`] : [])];
+                }), "",
+            ]),
+            "Sign-off: ____________________",
+        ];
+        const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }));
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `htt-demo-acceptance-${new Date().toISOString().slice(0, 10)}.txt`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
     const toggle = (key: string) => setCompleted((previous) => previous.includes(key) ? previous.filter((item) => item !== key) : [...previous, key]);
 
     return <div className="space-y-6 pb-10">
@@ -81,20 +111,22 @@ export function CustomerDemoPage() {
             <div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]"><Compass size={15} /> Guided walkthrough</p><h1 className="mt-2 font-display text-3xl">Customer demo journey</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Open each screen, verify the interaction, then mark the checkpoint complete.</p></div>
             <Badge variant="info">DEMO · Mock data</Badge>
         </header>
-        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm"><Info size={18} className="mt-0.5 shrink-0" /><p>Presentation-only data. Checking a step does not submit a transaction. Payroll processing, uploads, live payments and API connections are not enabled. Progress is kept only on this page and resets on refresh.</p></div>
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm"><Info size={18} className="mt-0.5 shrink-0" /><p>Presentation-only data. Checking a step does not submit a transaction. Payroll processing, uploads, live payments and API connections are not enabled. Checks and issue notes are kept only on this page and reset on refresh. Export the checklist before leaving or refreshing.</p></div>
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5" aria-label="Demo progress">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Walkthrough progress</h2><p className="text-sm text-[var(--color-text-secondary)]">{doneCount} of {total} checkpoints verified</p></div><button type="button" onClick={() => setCompleted([])} disabled={doneCount === 0} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"><RotateCcw size={15} /> Reset checks</button></div>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm"><span className="text-green-700">{doneCount} verified</span><span className="text-amber-700">{issueCount} issues noted</span><span className="text-[var(--color-text-secondary)]">{total - doneCount} pending</span><button type="button" onClick={exportReport} className="ml-auto inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 font-medium"><Download size={15} /> Export acceptance report</button></div>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-surface-muted)]" role="progressbar" aria-label="Walkthrough completion" aria-valuemin={0} aria-valuemax={total} aria-valuenow={doneCount}><div className="h-full rounded-full bg-[var(--color-primary)] transition-all" style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} /></div>
         </section>
         <div className="grid gap-3 md:grid-cols-3" role="group" aria-label="Choose demo flow">{flows.map((item, index) => {
             const flowDone = item.steps.filter((_, stepIndex) => completed.includes(`${index}:${stepIndex}`)).length;
             return <button key={item.title} type="button" onClick={() => setActiveFlow(index)} aria-pressed={activeFlow === index} className={`rounded-xl border p-4 text-left transition-colors ${activeFlow === index ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)]"}`}><div className="flex items-center justify-between gap-2"><Badge variant="neutral">Flow {index + 1}</Badge><span className="text-xs text-[var(--color-text-secondary)]">{flowDone}/{item.steps.length} checked</span></div><h2 className="mt-3 font-semibold">{item.title}</h2><p className="mt-1 text-xs text-[var(--color-text-secondary)]">{item.subtitle}</p></button>;
         })}</div>
-        <Card><CardContent><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-display text-xl">{flow.title}</h2><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{flow.subtitle}</p></div><Badge variant="info">{flow.steps.length} stops</Badge></div>
+        <Card><CardContent><div className="mb-3 flex items-center gap-2"><label className="inline-flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={showOnlyPending} onChange={(event) => setShowOnlyPending(event.target.checked)} /> Show pending / issues only</label></div><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-display text-xl">{flow.title}</h2><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{flow.subtitle}</p></div><Badge variant="info">{flow.steps.length} stops</Badge></div>
             <ol className="space-y-3">{flow.steps.map((step, index) => {
                 const key = `${activeFlow}:${index}`;
                 const checked = completed.includes(key);
-                return <li key={key} className="rounded-lg border border-[var(--color-border)] p-4"><div className="flex flex-wrap items-start gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-sm font-semibold text-[var(--color-primary)]">{index + 1}</span><div className="min-w-0 flex-1"><h3 className="font-semibold">{step.title}</h3><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{step.detail}</p><p className="mt-2 text-xs text-[var(--color-text-secondary)]"><strong>Check:</strong> {step.check}</p><div className="mt-3 flex flex-wrap items-center gap-3"><Link className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white hover:opacity-90" to={`${step.path}${step.path.includes("?") ? "&" : "?"}demo=1`}>{step.action} <ExternalLink size={14} /></Link><label className="inline-flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={checked} onChange={() => toggle(key)} className="h-4 w-4 accent-[var(--color-primary)]" /> Verified</label>{checked && <CheckCircle2 size={18} className="text-green-600" aria-label="Verified" />}</div></div></div></li>;
+                if (showOnlyPending && checked && !issues[key]?.trim()) return null;
+                return <li key={key} className="rounded-lg border border-[var(--color-border)] p-4"><div className="flex flex-wrap items-start gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-sm font-semibold text-[var(--color-primary)]">{index + 1}</span><div className="min-w-0 flex-1"><h3 className="font-semibold">{step.title}</h3><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{step.detail}</p><p className="mt-2 text-xs text-[var(--color-text-secondary)]"><strong>Check:</strong> {step.check}</p><div className="mt-3 flex flex-wrap items-center gap-3"><Link className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-2 text-sm font-semibold text-white hover:opacity-90" to={`${step.path}${step.path.includes("?") ? "&" : "?"}demo=1`}>{step.action} <ExternalLink size={14} /></Link><label className="inline-flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={checked} onChange={() => toggle(key)} className="h-4 w-4 accent-[var(--color-primary)]" /> Verified</label>{checked && <CheckCircle2 size={18} className="text-green-600" aria-label="Verified" />}</div><label className="mt-3 block text-xs font-semibold text-[var(--color-text-secondary)]" htmlFor={`issue-${key}`}>Issue / observation (optional)</label><textarea id={`issue-${key}`} value={issues[key] ?? ""} onChange={(event) => setIssues((previous) => ({ ...previous, [key]: event.target.value }))} rows={2} placeholder="Record a broken link, incorrect value or missing feedback…" className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm" />{issues[key]?.trim() && <p className="mt-1 flex items-center gap-1 text-xs text-amber-700"><AlertTriangle size={13} /> Issue recorded — review before sign-off</p>}</div></div></li>;
             })}</ol>
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><Link to="/dashboard" className="text-sm font-semibold text-[var(--color-primary)] hover:underline">Return to dashboard</Link>{activeFlow < flows.length - 1 ? <button type="button" onClick={() => setActiveFlow((value) => value + 1)} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold">Next flow <ArrowRight size={15} /></button> : <span className="text-xs text-[var(--color-text-secondary)]">End of walkthrough</span>}</div>
         </CardContent></Card>
