@@ -1,3 +1,4 @@
+import { SecurityAdministrationPage } from "../features/security/pages/SecurityAdministrationPage";
 import { createHashRouter, Navigate } from "react-router-dom";
 
 import { AppLayout } from "../layouts/AppLayout";
@@ -47,6 +48,7 @@ import { GeneralLedgerReportPage } from "../features/accounting/pages/GeneralLed
 import { ProfitAndLossPage } from "../features/accounting/pages/ProfitAndLossPage";
 import { BalanceSheetPage } from "../features/accounting/pages/BalanceSheetPage";
 import { FinanceControlsPage } from "../features/accounting/pages/FinanceControlsPage";
+import { FinancialRecoveryReviewPage } from "../features/accounting/pages/FinancialRecoveryReviewPage";
 import { AccountsReceivableGlReconciliationPage } from "../features/accounting/pages/AccountsReceivableGlReconciliationPage";
 import { AccountsPayableGlReconciliationPage } from "../features/accounting/pages/AccountsPayableGlReconciliationPage";
 import { BankingPage } from "../features/banking/pages/BankingPage";
@@ -63,6 +65,7 @@ export const router = createHashRouter([
         path: "/",
         element: <AppLayout />,
         children: [
+            { path: "settings/security", element: <SecurityAdministrationPage /> },
             {
                 index: true,
                 element: <Navigate to="/dashboard" replace />,
@@ -287,6 +290,7 @@ export const router = createHashRouter([
                     <BalanceSheetPage />
                 ),
             },
+            { path: "accounting/financial-recovery", element: <FinancialRecoveryReviewPage /> },
             {
                 path: "accounting/finance-controls",
                 element: (

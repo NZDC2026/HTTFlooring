@@ -1,3 +1,4 @@
+import { installQuoteTestStorage } from "./testQuoteLocalStorage";
 import {
     beforeEach,
     describe,
@@ -57,6 +58,7 @@ const fulfilmentDate = "2026-10-03";
 const voidDate = "2026-10-04";
 
 beforeEach(async () => {
+    installQuoteTestStorage();
     vi.resetModules();
 
     const [

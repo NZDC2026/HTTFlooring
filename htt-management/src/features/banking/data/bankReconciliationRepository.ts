@@ -1,3 +1,7 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
+import { requireDateKey } from "../../../lib/businessDate";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import type {
     BankReconciliation,
     CompleteBankReconciliationInput,
@@ -26,13 +30,13 @@ const listeners =
     new Set<Listener>();
 
 let reconciliations:
-    BankReconciliation[] = [];
+    BankReconciliation[] = financialStateStorage.read().reconciliations;
+
+financialStateStorage.onRollback(() => { reconciliations = financialStateStorage.read().reconciliations; });
 
 function emitChange() {
-    listeners.forEach(
-        (listener) =>
-            listener(),
-    );
+    financialStateStorage.update("reconciliations", reconciliations);
+    listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
 function roundCurrency(
@@ -194,9 +198,8 @@ export const bankReconciliationRepository =
         input:
             CompleteBankReconciliationInput,
     ): BankReconciliation {
-        validateDate(
-            input.statementDate,
-        );
+        validateDate(input.statementDate);
+        requireDateKey(input.statementDate, "Statement date");
 
         if (
             !Number.isFinite(
@@ -214,6 +217,8 @@ export const bankReconciliationRepository =
                     input.bankAccountId,
                 );
 
+        if (!bankAccount.active) throw new Error("The selected bank account is inactive.");
+        if (input.statementDate < bankAccount.openingBalanceDate) throw new Error("Statement date cannot precede the bank opening balance date.");
         const latest =
             this.getLatestByBankAccount(
                 bankAccount.id,
@@ -366,3 +371,16 @@ export const bankReconciliationRepository =
         return reconciliation;
     },
 };
+const completeUnit = bankReconciliationRepository.complete;
+bankReconciliationRepository.complete = function (input) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => completeUnit.call(bankReconciliationRepository, input));
+};
+
+registerRepository("bankReconciliations", {
+    repository: bankReconciliationRepository, read: "banking.read",
+    commands: {"if": null, "for": null, "complete": "banking.reconcile", "assertCurrentCrossModuleWriteSafe": null},
+    snapshot: () => ({ reconciliations }),
+    restore: value => { reconciliations = value.reconciliations;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

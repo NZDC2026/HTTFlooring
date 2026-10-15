@@ -1,3 +1,7 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { businessDateKey } from "../../../lib/businessDate";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
+import { assertCurrentCrossModuleWriteSafe } from '../../integration/crossModuleWriteGate';
 import { purchasePostingOperationRepository as postingOps } from "./purchasePostingOperationRepository";
 import {
     purchaseOrderRepository,
@@ -28,14 +32,14 @@ const listeners =
     new Set<Listener>();
 
 let supplierBills:
-    SupplierBill[] =
-    [];
+    SupplierBill[] = financialStateStorage.read().supplierBills;
+
+financialStateStorage.onRollback(() => { supplierBills = financialStateStorage.read().supplierBills; });
 
 function emitChange() {
-    listeners.forEach(
-        (listener) =>
-            listener(),
-    );
+    try { financialStateStorage.update("supplierBills", supplierBills); }
+    catch (error) { supplierBills = financialStateStorage.read().supplierBills; throw error; }
+    listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
 function normalizeOptional(
@@ -223,7 +227,7 @@ export const supplierBillRepository =
             status:
                 amountDue <= 0
                     ? "PAID"
-                    : amountPaid > 0
+                    : amountPaid > 0 || bill.totals.amountCredited > 0
                         ? "PARTIALLY_PAID"
                         : "OPEN",
 
@@ -333,7 +337,7 @@ export const supplierBillRepository =
             status:
                 amountDue <= 0
                     ? "PAID"
-                    : amountPaid > 0
+                    : amountPaid > 0 || bill.totals.amountCredited > 0
                         ? "PARTIALLY_PAID"
                         : "OPEN",
 
@@ -619,6 +623,7 @@ export const supplierBillRepository =
         };
 
         // Preserve the exact void date and reason across retries.
+        assertCurrentCrossModuleWriteSafe();
         const operation = postingOps.begin("SUPPLIER_BILL_VOID", bill.id);
         const key = operation.key;
         postingOps.registerRecovery(key, () => {
@@ -635,7 +640,7 @@ export const supplierBillRepository =
                 );
             });
             postingOps.runStep(key, "MATCHES", () => {
-                supplierBillReceiptMatchRepository.reverseForBill(bill.id, normalizedReason, now.slice(0, 10));
+                supplierBillReceiptMatchRepository.reverseForBill(bill.id, normalizedReason, businessDateKey(now));
             });
             postingOps.runStep(key, "BILL", () => {
                 supplierBills = supplierBills.map((item) => item.id === bill.id ? voided : item);
@@ -961,6 +966,7 @@ export const supplierBillRepository =
          * All business and accounting validation
          * is complete before repository mutation.
          */
+        assertCurrentCrossModuleWriteSafe();
         const operation = postingOps.begin("SUPPLIER_BILL", bill.id);
         const key = operation.key;
         postingOps.registerRecovery(key, () => {
@@ -1015,3 +1021,10 @@ function roundCurrency(
         ) / 100
     );
 }
+registerRepository("supplierBills", {
+    repository: supplierBillRepository, read: "purchases.read",
+    commands: {"catch": null, "applyPayment": null, "reversePayment": null, "applyCredit": null, "reverseCredit": null, "markVoid": "purchases.void", "create": "purchases.bill", "return": null},
+    snapshot: () => ({ supplierBills }),
+    restore: value => { supplierBills = value.supplierBills;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

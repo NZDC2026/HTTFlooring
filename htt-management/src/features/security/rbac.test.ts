@@ -1,0 +1,22 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { hasPermission, requirePermission, permissionsForRole } from './rbac';
+import { trustedAuthorization } from './trustedAuthorization';
+import { auditTrail } from './auditTrail';
+import { authorizedWrite } from './authorizedWrite';
+const admin = { userId: 'admin-1', authenticated: true as const, roles: ['ADMIN'] };
+const sales = { userId: 'sales-1', authenticated: true as const, roles: ['SALES'] };
+afterEach(() => { trustedAuthorization.disconnect(); auditTrail.disconnect(); });
+describe('8B authorization and audit boundary', () => {
+  it('denies unauthenticated users', () => { expect(hasPermission(null,'sales.read')).toBe(false); expect(() => requirePermission(null,'sales.write')).toThrow(); });
+  it('denies unknown and forged roles', () => { expect(hasPermission({ ...admin, roles:['SUPERUSER'] },'users.manage')).toBe(false); });
+  it('enforces least privilege', () => { expect(hasPermission(sales,'sales.write')).toBe(true); expect(hasPermission(sales,'accounting.post')).toBe(false); });
+  it('grants finance recovery only to authorized roles', () => { expect(hasPermission(sales,'accounting.recover')).toBe(false); expect(hasPermission({ ...admin,roles:['FINANCE_ADMIN'] },'accounting.recover')).toBe(true); });
+  it('covers every role with explicit permissions', () => { expect(permissionsForRole('AUDITOR')).toContain('audit.read'); expect(permissionsForRole('AUDITOR')).not.toContain('users.manage'); });
+  it('fails closed without a trusted session', () => { auditTrail.connect(()=>{}); expect(() => authorizedWrite('sales.write','create','q1',()=>1)).toThrow('Permission denied'); });
+  it('fails closed without an audit sink', () => { trustedAuthorization.connect(()=>admin); expect(() => authorizedWrite('sales.write','create','q1',()=>1)).toThrow('Audit sink unavailable'); });
+  it('does not execute unauthorized writes', () => { const fn=vi.fn(); trustedAuthorization.connect(()=>sales); auditTrail.connect(()=>{}); expect(()=>authorizedWrite('accounting.post','post','j1',fn)).toThrow(); expect(fn).not.toHaveBeenCalled(); });
+  it('records authorized and denied attempts', () => { const events: string[]=[]; auditTrail.connect(e=>events.push(e.outcome)); trustedAuthorization.connect(()=>sales); expect(authorizedWrite('sales.write','create','q1',()=>42)).toBe(42); expect(()=>authorizedWrite('accounting.post','post','j1',()=>0)).toThrow(); expect(events).toEqual(['ALLOWED','DENIED']); });
+  it('blocks when audit storage throws', () => { trustedAuthorization.connect(()=>admin); auditTrail.connect(()=>{throw new Error('storage down')}); const fn=vi.fn(); expect(()=>authorizedWrite('users.manage','edit','u1',fn)).toThrow('storage down'); expect(fn).not.toHaveBeenCalled(); });
+  it('records failures in business writes', () => { trustedAuthorization.connect(()=>admin); const events:string[]=[]; auditTrail.connect(e=>events.push(e.outcome)); expect(()=>authorizedWrite('sales.write','create','q1',()=>{throw new Error('business failure')})).toThrow('business failure'); expect(events).toEqual(['ALLOWED','FAILED']); });
+  it('disconnects only the original session resolver', () => { const first=trustedAuthorization.connect(()=>sales); trustedAuthorization.connect(()=>admin); first(); expect(trustedAuthorization.current()?.userId).toBe('admin-1'); });
+});

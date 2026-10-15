@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 import {
     mockProducts,
 } from "./mockProducts";
@@ -149,3 +150,10 @@ export const productCostingRepository =
         return updated;
     },
 };
+registerRepository("costingPolicies", {
+    repository: productCostingRepository, read: "inventory.read",
+    commands: {"setActive": "inventory.adjust"},
+    snapshot: () => ({ policies }),
+    restore: value => { policies = value.policies;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

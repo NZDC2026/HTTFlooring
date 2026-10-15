@@ -1,3 +1,4 @@
+import { registerSecurityIpc } from "../security/registerSecurityIpc";
 import {
     app,
     BrowserWindow,
@@ -29,6 +30,7 @@ const __dirname =
 const APP_NAME =
     "HTT Flooring Management System";
 
+let lockSecurity = () => {};
 let mainWindow:
     | BrowserWindow
     | null = null;
@@ -271,14 +273,28 @@ function createMainWindow() {
         );
     }
 
+    mainWindow.webContents.on("did-start-navigation", (_event, _url, inPlace, isMainFrame) => { if (isMainFrame && !inPlace) lockSecurity(); });
+    mainWindow.webContents.on("render-process-gone", () => lockSecurity());
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    mainWindow.webContents.on("will-navigate", (event, url) => {
+        const target = new URL(url);
+        const current = new URL(mainWindow!.webContents.getURL());
+        if (target.protocol !== current.protocol || target.host !== current.host || target.pathname !== current.pathname) event.preventDefault();
+    });
     mainWindow.on(
         "closed",
         () => {
+            lockSecurity();
             mainWindow =
                 null;
         },
     );
 }
+
+const customUserData = app.commandLine.getSwitchValue("user-data-dir");
+if (customUserData) app.setPath("userData", path.resolve(customUserData));
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on("second-instance", () => { mainWindow?.show(); mainWindow?.focus(); });
 
 app.setName(
     APP_NAME,
@@ -289,6 +305,7 @@ app.whenReady().then(
         setMacDockIcon();
 
         registerIpcHandlers();
+        lockSecurity = registerSecurityIpc(path.join(app.getPath("userData"), "local-security"), () => mainWindow).lock;
 
         createMainWindow();
 

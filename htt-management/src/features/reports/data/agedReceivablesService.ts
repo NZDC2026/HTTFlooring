@@ -47,11 +47,6 @@ export function buildAgedReceivablesReport({
 }: BuildAgedReceivablesReportInput): AgedReceivablesReport {
     const rows: AgedReceivablesRow[] =
         customers
-            .filter(
-                (customer) =>
-                    customer.status !==
-                    "INACTIVE",
-            )
             .map(
                 (customer) => {
                     const ar =

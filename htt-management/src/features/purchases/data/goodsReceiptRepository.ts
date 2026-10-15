@@ -1,3 +1,6 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
+import { assertCurrentCrossModuleWriteSafe } from '../../integration/crossModuleWriteGate';
 import { purchasePostingOperationRepository as postingOps } from "./purchasePostingOperationRepository";
 import {
     getProductById,
@@ -40,14 +43,13 @@ const listeners =
     new Set<Listener>();
 
 let goodsReceipts:
-    GoodsReceipt[] =
-    [];
+    GoodsReceipt[] = financialStateStorage.read().goodsReceipts;
 
+financialStateStorage.onRollback(() => { goodsReceipts = financialStateStorage.read().goodsReceipts; });
 function emitChange() {
-    listeners.forEach(
-        (listener) =>
-            listener(),
-    );
+    try { financialStateStorage.update("goodsReceipts", goodsReceipts); }
+    catch (error) { goodsReceipts = financialStateStorage.read().goodsReceipts; throw error; }
+    listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
 function roundQuantity(
@@ -456,6 +458,7 @@ export const goodsReceiptRepository =
                 receipt,
             );
 
+        assertCurrentCrossModuleWriteSafe();
         const operation = postingOps.begin("GOODS_RECEIPT", receipt.id);
         const key = operation.key;
         const movementIds = new Map<string, string>();
@@ -532,3 +535,10 @@ export const goodsReceiptRepository =
         return receipt;
     },
 };
+registerRepository("goodsReceipts", {
+    repository: goodsReceiptRepository, read: "purchases.read",
+    commands: {"catch": null, "return": null, "create": "purchases.receive"},
+    snapshot: () => ({ goodsReceipts }),
+    restore: value => { goodsReceipts = value.goodsReceipts;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

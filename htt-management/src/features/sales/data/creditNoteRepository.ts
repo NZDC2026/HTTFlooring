@@ -1,3 +1,5 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { loadCreditNoteState, persistCreditNoteState } from "./creditNoteStorage";
 import type {
     CreditAllocation,
     CreditNote,
@@ -8,17 +10,14 @@ type Listener = () => void;
 const listeners =
     new Set<Listener>();
 
-let creditNotes:
-    CreditNote[] = [];
+const initialCreditState = loadCreditNoteState();
+let creditNotes: CreditNote[] = initialCreditState.status === "ok" ? structuredClone(initialCreditState.data.creditNotes) : [];
 
-let allocations:
-    CreditAllocation[] = [];
+let allocations: CreditAllocation[] = initialCreditState.status === "ok" ? structuredClone(initialCreditState.data.allocations) : [];
 
-let creditNoteSnapshot:
-    CreditNote[] = [];
+let creditNoteSnapshot: CreditNote[] = [...creditNotes];
 
-let allocationSnapshot:
-    CreditAllocation[] = [];
+let allocationSnapshot: CreditAllocation[] = [...allocations];
 
 function emitChange() {
     creditNoteSnapshot = [
@@ -33,6 +32,13 @@ function emitChange() {
         (listener) =>
             listener(),
     );
+}
+
+function commitState(nextNotes: CreditNote[], nextAllocations: CreditAllocation[]): void {
+    persistCreditNoteState({ creditNotes: nextNotes, allocations: nextAllocations });
+    creditNotes = nextNotes;
+    allocations = nextAllocations;
+    emitChange();
 }
 
 export const creditNoteRepository = {
@@ -135,12 +141,7 @@ export const creditNoteRepository = {
             );
         }
 
-        creditNotes = [
-            creditNote,
-            ...creditNotes,
-        ];
-
-        emitChange();
+        commitState([creditNote, ...creditNotes], allocations);
 
         return creditNote;
     },
@@ -162,16 +163,7 @@ export const creditNoteRepository = {
             );
         }
 
-        creditNotes =
-            creditNotes.map(
-                (item) =>
-                    item.id ===
-                        updated.id
-                        ? updated
-                        : item,
-            );
-
-        emitChange();
+        commitState(creditNotes.map(item => item.id === updated.id ? updated : item), allocations);
 
         return updated;
     },
@@ -192,12 +184,7 @@ export const creditNoteRepository = {
             );
         }
 
-        allocations = [
-            allocation,
-            ...allocations,
-        ];
-
-        emitChange();
+        commitState(creditNotes, [allocation, ...allocations]);
 
         return allocation;
     },
@@ -219,18 +206,19 @@ export const creditNoteRepository = {
             );
         }
 
-        allocations =
-            allocations.map(
-                (item) =>
-                    item.id ===
-                        updated.id
-                        ? updated
-                        : item,
-            );
-
-        emitChange();
+        commitState(creditNotes, allocations.map(item => item.id === updated.id ? updated : item));
 
         return updated;
+    },
+
+    /** Persist allocation and updated credit summary in one localStorage write. */
+    commitAllocationAndCredit(allocation: CreditAllocation, updated: CreditNote): void {
+        if (!creditNotes.some(n => n.id === updated.id) || allocation.creditNoteId !== updated.id)
+            throw new Error("Credit note/allocation relationship is invalid");
+        const nextAllocations = allocations.some(a => a.id === allocation.id)
+            ? allocations.map(a => a.id === allocation.id ? allocation : a)
+            : [allocation, ...allocations];
+        commitState(creditNotes.map(n => n.id === updated.id ? updated : n), nextAllocations);
     },
 
     getAllocationById(
@@ -243,3 +231,10 @@ export const creditNoteRepository = {
         );
     },
 };
+registerRepository("customerCredits", {
+    repository: creditNoteRepository, read: "sales.read",
+    commands: {"persistCreditNoteState": null, "emitChange": null, "create": null, "update": null, "createAllocation": null, "updateAllocation": null, "commitAllocationAndCredit": null},
+    snapshot: () => ({ creditNotes, allocations }),
+    restore: value => { creditNotes = value.creditNotes; allocations = value.allocations; creditNoteSnapshot = [...creditNotes]; allocationSnapshot = [...allocations]; },
+    publish: () => listeners.forEach(listener => listener()),
+});

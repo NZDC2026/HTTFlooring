@@ -1,3 +1,4 @@
+import { installPurchaseTestStorage } from './purchaseTestStorage';
 import {
     beforeEach,
     describe,
@@ -133,6 +134,7 @@ const receiptDate =
  * share the same fresh module instances.
  */
 beforeEach(async () => {
+    installPurchaseTestStorage();
     vi.resetModules();
 
     const [

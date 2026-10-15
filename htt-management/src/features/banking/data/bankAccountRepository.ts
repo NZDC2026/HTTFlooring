@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 import type {
     BankAccount,
 } from "../types/bankAccount";
@@ -5,6 +6,22 @@ import type {
 import {
     accountRepository,
 } from "../../accounting/data/accountRepository";
+
+import { readMockRepository, writeMockRepository, canWriteMockRepository } from "../../../lib/persistence/mockRepositoryStorage";
+
+const BANK_ACCOUNT_STORAGE_KEY = "htt.mock.banking.accounts.v1";
+function isBankAccountArray(value: unknown): value is BankAccount[] {
+    return Array.isArray(value) && value.every((item) =>
+        item !== null && typeof item === "object" &&
+        typeof item.id === "string" && typeof item.name === "string" &&
+        typeof item.bankName === "string" && typeof item.accountNumber === "string" &&
+        ["TRANSACTION", "SAVINGS", "CREDIT_CARD", "OTHER"].includes(item.accountType) &&
+        typeof item.currency === "string" && typeof item.glAccountId === "string" &&
+        typeof item.openingBalance === "number" && Number.isFinite(item.openingBalance) &&
+        typeof item.openingBalanceDate === "string" && typeof item.active === "boolean" &&
+        typeof item.createdAt === "string" && typeof item.updatedAt === "string"
+    ) && new Set(value.map((item) => item.id)).size === value.length;
+}
 
 type Listener =
     () => void;
@@ -92,6 +109,17 @@ let bankAccounts:
                 now,
         },
     ];
+
+// Restore only independently editable bank-account metadata. Never persist
+// transactions, reconciliations, balances, ledger or posting state here.
+const storedBankAccounts = readMockRepository(BANK_ACCOUNT_STORAGE_KEY, isBankAccountArray);
+if (storedBankAccounts.status === "ok") {
+    // Do not load broken GL references from disk.
+    if (storedBankAccounts.data.every((account) => {
+        const gl = accountRepository.getById(account.glAccountId);
+        return gl?.type === "ASSET" && gl.active;
+    })) bankAccounts = storedBankAccounts.data;
+}
 
 function emitChange() {
     listeners.forEach(
@@ -250,8 +278,18 @@ export const bankAccountRepository =
                         : bankAccount,
             );
 
+        if (canWriteMockRepository(BANK_ACCOUNT_STORAGE_KEY)) {
+            writeMockRepository(BANK_ACCOUNT_STORAGE_KEY, bankAccounts);
+        }
         emitChange();
 
         return updated;
     },
 };
+registerRepository("bankAccounts", {
+    repository: bankAccountRepository, read: "banking.read",
+    commands: {"if": null, "validateBankAccount": null, "setActive": "banking.write"},
+    snapshot: () => ({ bankAccounts }),
+    restore: value => { bankAccounts = value.bankAccounts;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

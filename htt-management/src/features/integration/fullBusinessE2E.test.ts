@@ -1,3 +1,4 @@
+import { installQuoteTestStorage } from "../sales/data/testQuoteLocalStorage";
 import {
     beforeEach,
     describe,
@@ -93,6 +94,7 @@ const dates = {
 };
 
 beforeEach(async () => {
+    installQuoteTestStorage();
     vi.resetModules();
 
     const [

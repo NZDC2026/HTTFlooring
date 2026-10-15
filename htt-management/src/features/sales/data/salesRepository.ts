@@ -1,3 +1,12 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { requireDateKey } from "../../../lib/businessDate";
+import { assertCurrentCrossModuleWriteSafe } from '../../integration/crossModuleWriteGate';
+import { loadSalesDocuments, persistSalesDocuments } from "./invoiceStorage";
+import { loadQuotes, persistQuotes } from "./quoteStorage";
+import { loadQuoteOrders, persistQuoteOrders } from "./salesOrderStorage";
+import { journalEntryRepository } from "../../accounting/data/journalEntryRepository";
+import { financialOperationJournal } from "../../../lib/persistence/financialOperationJournal";
+import { assertCurrentSalesWriteSafety } from "./salesWriteSafetyGate";
 import {
     mockInvoices,
     mockQuotes,
@@ -54,14 +63,55 @@ type Listener = () => void;
 const listeners =
     new Set<Listener>();
 
-let quotes: Quote[] =
-    structuredClone(mockQuotes);
+const initialDocumentRead = loadSalesDocuments();
+const initialQuoteOrderRead = loadQuoteOrders();
+const initialQuoteRead = loadQuotes();
+let quotes: Quote[] = initialDocumentRead.status === "ok"
+    ? structuredClone(initialDocumentRead.data.quotes)
+    : initialQuoteOrderRead.status === "ok"
+    ? structuredClone(initialQuoteOrderRead.data.quotes)
+    : initialQuoteRead.status === "ok"
+        ? structuredClone(initialQuoteRead.data)
+        : structuredClone(mockQuotes);
 
-let salesOrders: SalesOrder[] =
-    structuredClone(mockSalesOrders);
+function commitQuotes(next: Quote[]): void {
+    if (initialDocumentRead.status === "ok" || loadSalesDocuments().status !== "empty") {
+        persistSalesDocuments({ quotes: next, salesOrders, invoices });
+    } else if (initialQuoteOrderRead.status === "ok" || loadQuoteOrders().status !== "empty") {
+        persistQuoteOrders({ quotes: next, salesOrders });
+    } else {
+        persistQuotes(next);
+    }
+    quotes = next;
+    emitChange();
+}
 
-let invoices: Invoice[] =
-    structuredClone(mockInvoices);
+let salesOrders: SalesOrder[] = initialDocumentRead.status === "ok"
+    ? structuredClone(initialDocumentRead.data.salesOrders)
+    : initialQuoteOrderRead.status === "ok"
+    ? structuredClone(initialQuoteOrderRead.data.salesOrders)
+    : structuredClone(mockSalesOrders);
+
+let invoices: Invoice[] = initialDocumentRead.status === "ok"
+    ? structuredClone(initialDocumentRead.data.invoices)
+    : structuredClone(mockInvoices);
+
+function commitInvoices(next: Invoice[]): void {
+    persistSalesDocuments({ quotes, salesOrders, invoices: next });
+    invoices = next;
+    emitChange();
+}
+
+function commitOrderDocuments(nextOrders: SalesOrder[], nextQuotes: Quote[] = quotes): void {
+    if (initialDocumentRead.status === "ok" || loadSalesDocuments().status !== "empty") {
+        persistSalesDocuments({ quotes: nextQuotes, salesOrders: nextOrders, invoices });
+    } else {
+        persistQuoteOrders({ quotes: nextQuotes, salesOrders: nextOrders });
+    }
+    salesOrders = nextOrders;
+    quotes = nextQuotes;
+    emitChange();
+}
 
 let snapshot: SalesDocument[] =
     buildSnapshot();
@@ -242,12 +292,7 @@ export const salesRepository = {
             updatedAt: now,
         };
 
-        quotes = [
-            quote,
-            ...quotes,
-        ];
-
-        emitChange();
+        commitQuotes([quote, ...quotes]);
 
         return quote;
     },
@@ -427,16 +472,13 @@ export const salesRepository = {
                 new Date().toISOString(),
         };
 
-        quotes =
-            quotes.map(
+        commitQuotes(quotes.map(
                 (quote) =>
                     quote.id ===
                         quoteId
                         ? updated
                         : quote,
-            );
-
-        emitChange();
+            ));
 
         return updated;
     },
@@ -485,16 +527,13 @@ export const salesRepository = {
             updatedAt: now,
         };
 
-        quotes =
-            quotes.map(
+        commitQuotes(quotes.map(
                 (item) =>
                     item.id ===
                         quoteId
                         ? updated
                         : item,
-            );
-
-        emitChange();
+            ));
 
         return updated;
     },
@@ -535,16 +574,13 @@ export const salesRepository = {
             updatedAt: now,
         };
 
-        quotes =
-            quotes.map(
+        commitQuotes(quotes.map(
                 (item) =>
                     item.id ===
                         quoteId
                         ? updated
                         : item,
-            );
-
-        emitChange();
+            ));
 
         return updated;
     },
@@ -585,16 +621,13 @@ export const salesRepository = {
             updatedAt: now,
         };
 
-        quotes =
-            quotes.map(
+        commitQuotes(quotes.map(
                 (item) =>
                     item.id ===
                         quoteId
                         ? updated
                         : item,
-            );
-
-        emitChange();
+            ));
 
         return updated;
     },
@@ -685,32 +718,13 @@ export const salesRepository = {
             updatedAt: now,
         };
 
-        salesOrders = [
-            order,
-            ...salesOrders,
-        ];
-
-        quotes =
-            quotes.map(
-                (item) =>
-                    item.id ===
-                        quote.id
-                        ? {
-                            ...item,
-
-                            status:
-                                "CONVERTED",
-
-                            convertedSalesOrderId:
-                                order.id,
-
-                            updatedAt:
-                                now,
-                        }
-                        : item,
-            );
-
-        emitChange();
+        const nextOrders = [order, ...salesOrders];
+        const nextQuotes: Quote[] = quotes.map(item => item.id === quote.id
+            ? { ...item, status: "CONVERTED", convertedSalesOrderId: order.id, updatedAt: now }
+            : item);
+        // One durable write contains both sides of the conversion.
+        // Do not mutate memory or emit notifications until it succeeds.
+        commitOrderDocuments(nextOrders, nextQuotes);
 
         return order;
     },
@@ -764,18 +778,8 @@ export const salesRepository = {
                     .toISOString(),
         };
 
-        salesOrders =
-            salesOrders.map(
-                (
-                    item,
-                ) =>
-                    item.id ===
-                        orderId
-                        ? updated
-                        : item,
-            );
-
-        emitChange();
+        const nextOrders = salesOrders.map(item => item.id === orderId ? updated : item);
+        commitOrderDocuments(nextOrders);
 
         return updated;
     },
@@ -887,33 +891,15 @@ export const salesRepository = {
             updatedAt: now,
         };
 
-        invoices = [
-            invoice,
-            ...invoices,
-        ];
-
-        salesOrders =
-            salesOrders.map(
-                (item) =>
-                    item.id ===
-                        order.id
-                        ? {
-                            ...item,
-
-                            status:
-                                "INVOICED",
-
-                            invoiceIds: [
-                                ...item.invoiceIds,
-                                invoice.id,
-                            ],
-
-                            updatedAt:
-                                now,
-                        }
-                        : item,
-            );
-
+        const nextInvoices = [invoice, ...invoices];
+        const nextOrders: SalesOrder[] = salesOrders.map(item => item.id === order.id
+            ? { ...item, status: "INVOICED", invoiceIds: [...item.invoiceIds, invoice.id], updatedAt: now }
+            : item);
+        // Save both sides of the business relationship before publishing in-memory state.
+        // GL posting below is a separate boundary; a crash between these steps requires review.
+        persistSalesDocuments({ quotes, salesOrders: nextOrders, invoices: nextInvoices });
+        invoices = nextInvoices;
+        salesOrders = nextOrders;
         emitChange();
 
         salesAccountingPostingService
@@ -1127,8 +1113,11 @@ export const salesRepository = {
             allocationDate: string;
 
             amount: number;
+            operationId?: string;
         },
     ): CreditAllocation {
+        assertCurrentCrossModuleWriteSafe();
+        assertCurrentSalesWriteSafety();
         const creditNote =
             creditNoteRepository.getById(
                 input.creditNoteId,
@@ -1302,11 +1291,6 @@ export const salesRepository = {
                 now,
         };
 
-        creditNoteRepository
-            .createAllocation(
-                allocation,
-            );
-
         const amountApplied =
             roundCurrency(
                 currentCredit.amountApplied +
@@ -1322,7 +1306,14 @@ export const salesRepository = {
                 ),
             );
 
-        creditNoteRepository.update({
+        const allocationOperationId = input.operationId ?? `sales-credit-apply:${crypto.randomUUID()}`;
+        const attempt = financialOperationJournal.begin(allocationOperationId, "SALES_CREDIT_APPLY",
+            JSON.stringify({ creditNoteId: input.creditNoteId, invoiceId: input.invoiceId,
+                allocationDate: input.allocationDate, amount }));
+        if (attempt.status !== "started") throw new Error("Credit allocation was previously attempted; manual review required.");
+        try {
+            financialOperationJournal.bindResult(allocationOperationId, allocation.id);
+            creditNoteRepository.commitAllocationAndCredit(allocation, {
             ...currentCredit,
 
             amountApplied,
@@ -1339,10 +1330,13 @@ export const salesRepository = {
                 now,
         });
 
-        this.recalculateInvoiceBalance(
-            invoice.id,
-        );
-
+            this.recalculateInvoiceBalance(invoice.id);
+            financialOperationJournal.complete(allocationOperationId, allocation.id);
+        } catch (error) {
+            try { financialOperationJournal.flagForReview(allocationOperationId, "Credit allocation/balance uncertain; manual review required."); }
+            catch { /* preserve original error */ }
+            throw error;
+        }
         return allocation;
     },
 
@@ -1352,6 +1346,8 @@ export const salesRepository = {
             reason: string;
         },
     ): CreditAllocation {
+        assertCurrentCrossModuleWriteSafe();
+        assertCurrentSalesWriteSafety();
         const allocation =
             creditNoteRepository
                 .getAllocationById(
@@ -1446,11 +1442,6 @@ export const salesRepository = {
                 now,
         };
 
-        creditNoteRepository
-            .updateAllocation(
-                reversedAllocation,
-            );
-
         /*
          * Recalculate the Credit Note from active
          * allocations instead of subtracting the
@@ -1466,8 +1457,7 @@ export const salesRepository = {
                 )
                 .filter(
                     (item) =>
-                        item.status ===
-                        "APPLIED",
+                        item.status === "APPLIED" && item.id !== reversedAllocation.id,
                 );
 
         const amountApplied =
@@ -1492,7 +1482,12 @@ export const salesRepository = {
                 ),
             );
 
-        creditNoteRepository.update({
+        const reversalOperationId = `sales-credit-reversal:${allocation.id}`;
+        const attempt = financialOperationJournal.begin(reversalOperationId, "SALES_CREDIT_REVERSAL", allocation.id);
+        if (attempt.status !== "started") throw new Error("Credit allocation reversal previously attempted; manual review required.");
+        try {
+            financialOperationJournal.bindResult(reversalOperationId, allocation.id);
+            creditNoteRepository.commitAllocationAndCredit(reversedAllocation, {
             ...creditNote,
 
             amountApplied,
@@ -1512,10 +1507,13 @@ export const salesRepository = {
          * Reversed allocation no longer reduces
          * this invoice.
          */
-        this.recalculateInvoiceBalance(
-            invoice.id,
-        );
-
+            this.recalculateInvoiceBalance(invoice.id);
+            financialOperationJournal.complete(reversalOperationId, allocation.id);
+        } catch (error) {
+            try { financialOperationJournal.flagForReview(reversalOperationId, "Credit reversal/balance uncertain; manual review required."); }
+            catch { /* preserve original error */ }
+            throw error;
+        }
         return reversedAllocation;
     },
 
@@ -1649,8 +1647,22 @@ export const salesRepository = {
 
             notes?:
             string;
+            operationId?: string;
         },
     ): Payment {
+        assertCurrentCrossModuleWriteSafe();
+        assertCurrentSalesWriteSafety();
+        // A completed operation must never create another payment or GL entry.
+        if (input.operationId) {
+            const previous = financialOperationJournal.list().find(item => item.operationId === input.operationId);
+            if (previous) {
+                if (previous.kind !== "CUSTOMER_PAYMENT") throw new Error("Operation ID belongs to another business action.");
+                throw new Error(previous.state === "COMPLETED"
+                    ? "Payment already recorded; refresh the invoice before submitting again."
+                    : "Payment operation is unresolved; manual review is required before retry.");
+            }
+        }
+
         const invoice =
             invoices.find(
                 (item) =>
@@ -1726,8 +1738,13 @@ export const salesRepository = {
             );
         }
 
+        requireDateKey(input.paymentDate, "Payment date");
+        if (input.paymentDate < currentInvoice.documentDate) throw new Error("Payment date cannot precede the invoice date.");
+        const paymentOperationId = input.operationId ?? `sales-payment:${crypto.randomUUID()}`;
         const payment =
             paymentRepository.create({
+                operationId: paymentOperationId,
+                deferOperationCompletion: true,
                 customerId:
                     currentInvoice.customerId,
 
@@ -1756,10 +1773,17 @@ export const salesRepository = {
             currentInvoice.id,
         );
 
-        salesAccountingPostingService
-            .postPayment(
-                payment,
-            );
+        try {
+            salesAccountingPostingService.postPayment(payment);
+            const linked = journalEntryRepository.getBySource("CUSTOMER_PAYMENT", payment.id)
+                .filter(entry => !entry.reversedJournalEntryId);
+            if (linked.length !== 1 || linked[0].status !== "POSTED") throw new Error("Payment GL posting could not be verified uniquely.");
+            financialOperationJournal.complete(paymentOperationId, payment.id);
+        } catch (error) {
+            try { financialOperationJournal.flagForReview(paymentOperationId, "Payment or GL posting uncertain; manual review required."); }
+            catch { /* preserve original failure */ }
+            throw error;
+        }
 
         return payment;
     },
@@ -1768,6 +1792,8 @@ export const salesRepository = {
         invoiceId: string,
         reason: string,
     ): Invoice {
+        assertCurrentCrossModuleWriteSafe();
+        assertCurrentSalesWriteSafety();
         const invoice =
             invoices.find(
                 (item) =>
@@ -1879,17 +1905,31 @@ export const salesRepository = {
                 now,
         };
 
-        invoices =
-            invoices.map(
-                (item) =>
-                    item.id ===
-                        invoiceId
-                        ? updated
-                        : item,
-            );
-
-        emitChange();
-
+        const operationId = `sales-invoice-void:${invoiceId}`;
+        const attempt = financialOperationJournal.begin(operationId, "SALES_INVOICE_VOID", invoiceId);
+        if (attempt.status !== "started") {
+            throw new Error("Invoice void was previously attempted; inspect GL and operation journal before retrying.");
+        }
+        try {
+            const originals = journalEntryRepository.getBySource("CUSTOMER_INVOICE", invoiceId)
+                .filter(entry => !entry.reversedJournalEntryId);
+            if (originals.length !== 1 || originals[0].status !== "POSTED") {
+                throw new Error("Invoice original GL must be uniquely posted before voiding.");
+            }
+            financialOperationJournal.bindResult(operationId, invoiceId);
+            salesAccountingPostingService.reverseInvoice(updated);
+            const reversed = journalEntryRepository.getBySource("CUSTOMER_INVOICE", invoiceId)
+                .filter(entry => !entry.reversedJournalEntryId);
+            if (reversed.length !== 1 || reversed[0].status !== "REVERSED") {
+                throw new Error("Invoice GL reversal could not be verified.");
+            }
+            commitInvoices(invoices.map(item => item.id === invoiceId ? updated : item));
+            financialOperationJournal.complete(operationId, invoiceId);
+        } catch (error) {
+            try { financialOperationJournal.flagForReview(operationId, "Invoice void/GL state uncertain; manual review required."); }
+            catch { /* preserve original error */ }
+            throw error;
+        }
         return updated;
     },
 
@@ -1897,6 +1937,8 @@ export const salesRepository = {
         paymentId: string,
         reason: string,
     ): Payment {
+        assertCurrentCrossModuleWriteSafe();
+        assertCurrentSalesWriteSafety();
         const payment =
             paymentRepository.getById(
                 paymentId,
@@ -1939,22 +1981,26 @@ export const salesRepository = {
             );
         }
 
-        const reversedPayment =
-            paymentRepository.reverse(
-                paymentId,
-                reason,
-            );
-
-        this.recalculateInvoiceBalance(
-            invoice.id,
-        );
-
-        salesAccountingPostingService
-            .reversePayment(
-                reversedPayment,
-            );
-
-        return reversedPayment;
+        const reversalOperationId = `sales-payment-reversal:${paymentId}`;
+        const attempt = financialOperationJournal.begin(reversalOperationId, "SALES_PAYMENT_REVERSAL", paymentId);
+        if (attempt.status !== "started") throw new Error("Payment reversal previously attempted; manual review required.");
+        try {
+            financialOperationJournal.bindResult(reversalOperationId, paymentId);
+            const reversedPayment = paymentRepository.reverse(paymentId, reason);
+            salesAccountingPostingService.reversePayment(reversedPayment);
+            const originals = journalEntryRepository.getBySource("CUSTOMER_PAYMENT", paymentId)
+                .filter(entry => !entry.reversedJournalEntryId);
+            if (originals.length !== 1 || originals[0].status !== "REVERSED") {
+                throw new Error("Payment GL reversal could not be verified.");
+            }
+            this.recalculateInvoiceBalance(invoice.id);
+            financialOperationJournal.complete(reversalOperationId, paymentId);
+            return reversedPayment;
+        } catch (error) {
+            try { financialOperationJournal.flagForReview(reversalOperationId, "Payment reversal/GL state uncertain; manual review required."); }
+            catch { /* preserve original error */ }
+            throw error;
+        }
     },
 
     recalculateInvoiceBalance(
@@ -2066,22 +2112,10 @@ export const salesRepository = {
                 new Date().toISOString(),
         };
 
-        invoices =
-            invoices.map(
-                (item) =>
-                    item.id ===
-                        invoiceId
-                        ? updated
-                        : item,
-            );
+        commitInvoices(invoices.map(item => item.id === invoiceId ? updated : item));
 
-        emitChange();
-
-        salesAccountingPostingService
-            .reverseInvoice(
-                updated,
-            );
-
+        // Balance recalculation must never reverse the original invoice GL.
+        // GL reversal belongs to an explicit, audited invoice-void workflow.
         return updated;
     },
 };
@@ -2316,3 +2350,10 @@ function getLocalDateKey(
 
     return `${year}-${month}-${day}`;
 }
+registerRepository("sales", {
+    repository: salesRepository, read: "sales.read",
+    commands: {"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.write", "declineQuote": "sales.write", "convertQuoteToOrder": "sales.write", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.write", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
+    snapshot: () => ({ quotes, salesOrders, invoices }),
+    restore: value => { quotes = value.quotes; salesOrders = value.salesOrders; invoices = value.invoices; snapshot = buildSnapshot(); },
+    publish: () => listeners.forEach(listener => listener()),
+});

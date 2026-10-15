@@ -21,3 +21,6 @@ contextBridge.exposeInMainWorld(
             ),
     },
 );
+contextBridge.exposeInMainWorld("securityBridge", {
+    request: (action: string, input?: unknown) => ipcRenderer.sendSync("security:request", action, input),
+});

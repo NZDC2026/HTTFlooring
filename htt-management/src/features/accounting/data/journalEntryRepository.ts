@@ -1,3 +1,5 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import {
     accountRepository,
 } from "./accountRepository";
@@ -15,13 +17,12 @@ const listeners =
     new Set<Listener>();
 
 let journalEntries:
-    JournalEntry[] = [];
+    JournalEntry[] = financialStateStorage.read().journals;
+
+financialStateStorage.onRollback(() => { journalEntries = financialStateStorage.read().journals; });
 
 function emitChange() {
-    listeners.forEach(
-        (listener) =>
-            listener(),
-    );
+    listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
 function roundCurrency(
@@ -494,10 +495,9 @@ export const journalEntryRepository =
                 now,
         };
 
-        journalEntries = [
-            entry,
-            ...journalEntries,
-        ];
+        const nextJournals = [entry, ...journalEntries];
+        financialStateStorage.update("journals", nextJournals);
+        journalEntries = nextJournals;
 
         emitChange();
 
@@ -680,7 +680,7 @@ export const journalEntryRepository =
                 now,
         };
 
-        journalEntries = [
+        const nextJournals = [
             reversal,
 
             ...journalEntries.map(
@@ -692,8 +692,17 @@ export const journalEntryRepository =
             ),
         ];
 
+        financialStateStorage.update("journals", nextJournals);
+        journalEntries = nextJournals;
         emitChange();
 
         return reversal;
     },
 };
+registerRepository("journals", {
+    repository: journalEntryRepository, read: "accounting.read",
+    commands: {"if": null, "validateDate": null, "for": null, "post": "accounting.post", "reverse": "accounting.post"},
+    snapshot: () => ({ journalEntries }),
+    restore: value => { journalEntries = value.journalEntries;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

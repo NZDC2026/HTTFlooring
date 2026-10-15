@@ -8,6 +8,7 @@ import {
     useEffect,
     useMemo,
     useState,
+    useRef,
 } from "react";
 
 import {
@@ -39,6 +40,7 @@ type AllocationMap =
     Record<string, string>;
 
 export function CreateSupplierPaymentPage() {
+    const operationIdRef = useRef(crypto.randomUUID());
     const navigate =
         useNavigate();
 
@@ -480,6 +482,7 @@ export function CreateSupplierPaymentPage() {
             const payment =
                 supplierPaymentRepository.create(
                     {
+                        operationId: operationIdRef.current,
                         supplierId,
                         paymentDate,
                         method,

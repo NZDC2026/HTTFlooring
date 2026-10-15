@@ -1,3 +1,4 @@
+import { RouteAccess } from "../features/security/SecurityGate";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { ArrowLeft, Compass } from "lucide-react";
 
@@ -39,7 +40,7 @@ export function AppLayout() {
                         <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 font-semibold text-sky-900">Customer Demo V1.0</span>
                         <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-medium text-amber-900">Mock Data · No live API</span>
                     </div>
-                    <Outlet />
+                    <RouteAccess><Outlet /></RouteAccess>
                 </div>
             </main>
         </div>

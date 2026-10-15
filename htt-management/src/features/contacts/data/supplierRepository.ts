@@ -1,3 +1,5 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { readMockRepository, writeMockRepository, canWriteMockRepository } from "../../../lib/persistence/mockRepositoryStorage";
 import {
     mockSuppliers,
 } from "./mockSuppliers";
@@ -10,17 +12,29 @@ import type {
     SupplierFormValues,
 } from "../schemas/supplierSchemas";
 
+const STORAGE_KEY = "htt.mock.contacts.suppliers.v1";
+function isSavedSupplierList(value: unknown): value is Supplier[] {
+    return Array.isArray(value) && value.every(item =>
+        item !== null && typeof item === "object" &&
+        typeof item.id === "string" && typeof item.code === "string" &&
+        typeof item.businessName === "string" &&
+        typeof item.status === "string"
+    );
+}
+const savedSuppliers = readMockRepository(STORAGE_KEY, isSavedSupplierList);
+// Unsupported/corrupt data is preserved rather than silently reset.
+const canPersistSuppliers = savedSuppliers.status !== "invalid" && canWriteMockRepository(STORAGE_KEY);
+
 type Listener = () => void;
 
 const listeners =
     new Set<Listener>();
 
 let suppliers: Supplier[] =
-    structuredClone(
-        mockSuppliers,
-    );
+    savedSuppliers.status === "ok" ? savedSuppliers.data : structuredClone(mockSuppliers);
 
 function emitChange() {
+    if (canPersistSuppliers) writeMockRepository(STORAGE_KEY, suppliers);
     listeners.forEach(
         (listener) => {
             listener();
@@ -291,3 +305,10 @@ export const supplierRepository = {
         return updated;
     },
 };
+registerRepository("suppliers", {
+    repository: supplierRepository, read: "purchases.read",
+    commands: {"if": null, "create": "contacts.write", "update": "contacts.write"},
+    snapshot: () => ({ suppliers }),
+    restore: value => { suppliers = value.suppliers;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

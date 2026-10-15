@@ -1,1 +1,1 @@
-let e=require("electron");e.contextBridge.exposeInMainWorld(`desktop`,{platform:process.platform,exportStatementPdf:t=>e.ipcRenderer.invoke(`statement:export-pdf`,t)});
+let e=require("electron");e.contextBridge.exposeInMainWorld(`desktop`,{platform:process.platform,exportStatementPdf:t=>e.ipcRenderer.invoke(`statement:export-pdf`,t)}),e.contextBridge.exposeInMainWorld(`securityBridge`,{request:(t,n)=>e.ipcRenderer.sendSync(`security:request`,t,n)});

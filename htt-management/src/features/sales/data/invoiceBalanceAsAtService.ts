@@ -1,3 +1,4 @@
+import { businessDateKey } from "../../../lib/businessDate";
 import type {
     Invoice,
 } from "../types/salesDocument";
@@ -33,6 +34,9 @@ export function calculateInvoiceBalanceAsAt(
         CreditAllocation[],
     asOfDate: string,
 ): InvoiceBalanceAsAt {
+    if (invoice.status === "DRAFT" || invoice.status === "VOID" && !invoice.voidedAt) {
+        return { invoiceId: invoice.id, asOfDate, invoiceTotal: roundCurrency(invoice.totals.total), amountPaid: 0, amountCredited: 0, amountDue: 0, appliedPaymentCount: 0, appliedCreditCount: 0 };
+    }
     /*
      * The invoice did not exist yet.
      */
@@ -304,10 +308,7 @@ export function isCreditAllocationEffectiveAsAt(
 function toDateKey(
     value: string,
 ) {
-    return value.slice(
-        0,
-        10,
-    );
+    return businessDateKey(value);
 }
 
 function roundCurrency(

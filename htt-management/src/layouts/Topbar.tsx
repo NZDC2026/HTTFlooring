@@ -1,3 +1,5 @@
+import { useSecurity, logout } from "../features/security/securityClient";
+import { Link } from "react-router-dom";
 import {
     Bell,
     CircleHelp,
@@ -20,6 +22,7 @@ const pageNames: Record<string, string> = {
 };
 
 export function Topbar() {
+    const { session } = useSecurity();
     const location = useLocation();
 
     let pageTitle =
@@ -102,27 +105,8 @@ export function Topbar() {
 
                 <div className="ml-2 h-7 w-px bg-[var(--color-border)]" />
 
-                <button className="ml-1 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--color-surface-hover)]">
-                    <div
-                        className="
-              flex h-8 w-8 items-center justify-center
-              rounded-full bg-[var(--color-primary)]
-              text-[11px] font-semibold text-white
-            "
-                    >
-                        JS
-                    </div>
-
-                    <div className="text-left">
-                        <div className="text-xs font-medium">
-                            John Smith
-                        </div>
-
-                        <div className="text-[10px] text-[var(--color-text-muted)]">
-                            Administrator
-                        </div>
-                    </div>
-                </button>
+                <Link to="/settings/security" className="ml-1 rounded px-2 py-1.5 text-sm">{session?.user.displayName ?? "Signed out"}<span className="ml-2 text-xs text-slate-500">{session?.user.roles.join(", ")}</span></Link>
+                <button className="rounded border px-3 py-1.5 text-xs" onClick={logout}>Sign out</button>
             </div>
         </header>
     );

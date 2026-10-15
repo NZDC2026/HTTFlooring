@@ -1,6 +1,7 @@
 import {
     useMemo,
     useState,
+    useRef,
 } from "react";
 
 import {
@@ -146,11 +147,17 @@ export function CreateBankTransactionPage() {
             null,
         );
 
+    const operationIdRef = useRef<string | null>(null);
+    const submittingRef = useRef(false);
+
     function handleSubmit(
         event:
             React.FormEvent,
     ) {
         event.preventDefault();
+        if (submittingRef.current) return;
+        submittingRef.current = true;
+        operationIdRef.current ??= crypto.randomUUID();
 
         setError(
             null,
@@ -174,6 +181,7 @@ export function CreateBankTransactionPage() {
                             description,
                             reference,
                         },
+                        operationIdRef.current,
                     );
 
             navigate(
@@ -188,6 +196,8 @@ export function CreateBankTransactionPage() {
                     ? caughtError.message
                     : "Unable to create bank transaction.",
             );
+        } finally {
+            submittingRef.current = false;
         }
     }
 

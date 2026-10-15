@@ -1,3 +1,8 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
+import { requireDateKey } from "../../../lib/businessDate";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
+import { financialOperationJournal } from "../../../lib/persistence/financialOperationJournal";
 import type {
     BankTransaction,
     BankTransfer,
@@ -24,16 +29,18 @@ const listeners =
     new Set<Listener>();
 
 let bankTransactions:
-    BankTransaction[] = [];
+    BankTransaction[] = financialStateStorage.read().transactions;
 
 let bankTransfers:
-    BankTransfer[] = [];
+    BankTransfer[] = financialStateStorage.read().transfers;
 
+financialStateStorage.onRollback(() => {
+    const state = financialStateStorage.read();
+    bankTransactions = state.transactions;
+    bankTransfers = state.transfers;
+});
 function emitChange() {
-    listeners.forEach(
-        (listener) =>
-            listener(),
-    );
+    listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
 function normalizeRequired(
@@ -169,10 +176,11 @@ export const bankTransactionRepository =
     createTransaction(
         input:
             CreateBankTransactionInput,
+        operationId?: string,
     ): BankTransaction {
-        validateDate(
-            input.transactionDate,
-        );
+        validateDate(input.transactionDate);
+        requireDateKey(input.transactionDate, "Transaction date");
+        if (!["MONEY_IN", "MONEY_OUT"].includes(input.direction)) throw new Error("Invalid bank transaction direction.");
 
         const amount =
             roundCurrency(
@@ -211,6 +219,7 @@ export const bankTransactionRepository =
             );
         }
 
+        if (input.transactionDate < bankAccount.openingBalanceDate) throw new Error("Transaction date cannot precede the bank opening balance date.");
         const bankGlAccount =
             accountRepository
                 .requireById(
@@ -281,6 +290,21 @@ export const bankTransactionRepository =
                 1,
             );
 
+        const stableOperationId = operationId?.trim();
+        if (operationId !== undefined && !stableOperationId) throw new Error("Operation ID cannot be empty");
+        if (stableOperationId) {
+            const attempt = financialOperationJournal.begin(stableOperationId, "BANK_TRANSACTION", JSON.stringify(input));
+            if (attempt.status === "already_completed") {
+                const existing = bankTransactions.find(item => item.id === attempt.operation.resultId);
+                if (existing) return existing;
+                throw new Error("Completed bank operation is not available in memory; manual review required.");
+            }
+            if (attempt.status === "needs_review") throw new Error("Bank operation requires manual review before retry.");
+        }
+
+        try {
+        // Durable result identity precedes GL posting, so a GL-only crash is diagnosable.
+        if (stableOperationId) financialOperationJournal.bindResult(stableOperationId, transactionId);
         const journal =
             journalEntryRepository.post(
                 {
@@ -394,23 +418,33 @@ export const bankTransactionRepository =
                     .toISOString(),
         };
 
-        bankTransactions = [
-            transaction,
-            ...bankTransactions,
-        ];
+        const nextTransactions = [transaction, ...bankTransactions];
+        financialStateStorage.update("transactions", nextTransactions);
+        bankTransactions = nextTransactions;
 
         emitChange();
 
+        if (stableOperationId) {
+            const linked = journalEntryRepository.getBySource("BANK_TRANSACTION", transactionId);
+            if (linked.length !== 1 || linked[0].id !== journal.id) throw new Error("Bank GL posting could not be verified uniquely.");
+
+        }
         return transaction;
+        } catch (error) {
+            if (stableOperationId) {
+                try { financialOperationJournal.flagForReview(stableOperationId, "Bank operation outcome uncertain; inspect GL and bank records"); } catch { /* preserve original error */ }
+            }
+            throw error;
+        }
     },
 
     createTransfer(
         input:
             CreateBankTransferInput,
+        operationId?: string,
     ): BankTransfer {
-        validateDate(
-            input.transferDate,
-        );
+        validateDate(input.transferDate);
+        requireDateKey(input.transferDate, "Transfer date");
 
         const amount =
             roundCurrency(
@@ -474,6 +508,7 @@ export const bankTransactionRepository =
             );
         }
 
+        if (input.transferDate < fromBankAccount.openingBalanceDate || input.transferDate < toBankAccount.openingBalanceDate) throw new Error("Transfer date cannot precede either bank opening balance date.");
         const fromGlAccount =
             accountRepository
                 .requireById(
@@ -517,6 +552,20 @@ export const bankTransactionRepository =
                 1,
             );
 
+        const stableOperationId = operationId?.trim();
+        if (operationId !== undefined && !stableOperationId) throw new Error("Operation ID cannot be empty");
+        if (stableOperationId) {
+            const attempt = financialOperationJournal.begin(stableOperationId, "BANK_TRANSFER", JSON.stringify(input));
+            if (attempt.status === "already_completed") {
+                const existing = bankTransfers.find(item => item.id === attempt.operation.resultId);
+                if (existing) return existing;
+                throw new Error("Completed bank operation is not available in memory; manual review required.");
+            }
+            if (attempt.status === "needs_review") throw new Error("Bank operation requires manual review before retry.");
+        }
+
+        try {
+        if (stableOperationId) financialOperationJournal.bindResult(stableOperationId, transferId);
         const journal =
             journalEntryRepository.post(
                 {
@@ -598,13 +647,68 @@ export const bankTransactionRepository =
                     .toISOString(),
         };
 
-        bankTransfers = [
-            transfer,
-            ...bankTransfers,
-        ];
+        const nextTransfers = [transfer, ...bankTransfers];
+        financialStateStorage.update("transfers", nextTransfers);
+        bankTransfers = nextTransfers;
 
         emitChange();
 
+        if (stableOperationId) {
+            const linked = journalEntryRepository.getBySource("BANK_TRANSFER", transferId);
+            if (linked.length !== 1 || linked[0].id !== journal.id) throw new Error("Transfer GL posting could not be verified uniquely.");
+
+        }
         return transfer;
+        } catch (error) {
+            if (stableOperationId) {
+                try { financialOperationJournal.flagForReview(stableOperationId, "Bank operation outcome uncertain; inspect GL and bank records"); } catch { /* preserve original error */ }
+            }
+            throw error;
+        }
     },
 };
+const createTransactionUnit = bankTransactionRepository.createTransaction;
+bankTransactionRepository.createTransaction = function (input, operationId) {
+    assertCurrentCrossModuleWriteSafe();
+    let result: ReturnType<typeof createTransactionUnit>;
+    try {
+        result = financialStateStorage.transaction(() => createTransactionUnit.call(bankTransactionRepository, input, operationId));
+        if (operationId) financialOperationJournal.complete(operationId.trim(), result.id);
+        return result;
+    } catch (error) {
+        if (operationId) {
+            const operation = financialOperationJournal.list().find(op => op.operationId === operationId.trim());
+            if (operation && operation.state !== "COMPLETED") {
+                try { financialOperationJournal.flagForReview(operation.operationId, "Bank commit could not be confirmed; inspect snapshot and GL before retry."); } catch { /* Preserve original failure. */ }
+            }
+        }
+        throw error;
+    }
+};
+
+const createTransferUnit = bankTransactionRepository.createTransfer;
+bankTransactionRepository.createTransfer = function (input, operationId) {
+    assertCurrentCrossModuleWriteSafe();
+    let result: ReturnType<typeof createTransferUnit>;
+    try {
+        result = financialStateStorage.transaction(() => createTransferUnit.call(bankTransactionRepository, input, operationId));
+        if (operationId) financialOperationJournal.complete(operationId.trim(), result.id);
+        return result;
+    } catch (error) {
+        if (operationId) {
+            const operation = financialOperationJournal.list().find(op => op.operationId === operationId.trim());
+            if (operation && operation.state !== "COMPLETED") {
+                try { financialOperationJournal.flagForReview(operation.operationId, "Bank commit could not be confirmed; inspect snapshot and GL before retry."); } catch { /* Preserve original failure. */ }
+            }
+        }
+        throw error;
+    }
+};
+
+registerRepository("bankTransactions", {
+    repository: bankTransactionRepository, read: "banking.read",
+    commands: {"if": null, "createTransaction": "banking.write", "createTransfer": "banking.write", "assertCurrentCrossModuleWriteSafe": null},
+    snapshot: () => ({ bankTransactions, bankTransfers }),
+    restore: value => { bankTransactions = value.bankTransactions; bankTransfers = value.bankTransfers;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

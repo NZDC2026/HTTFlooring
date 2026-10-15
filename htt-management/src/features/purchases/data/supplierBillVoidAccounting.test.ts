@@ -1,3 +1,4 @@
+import { installPurchaseTestStorage } from './purchaseTestStorage';
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let po: typeof import("./purchaseOrderRepository")["purchaseOrderRepository"];
@@ -13,6 +14,7 @@ let supplierId: string;
 let serial = 0;
 
 beforeEach(async () => {
+    installPurchaseTestStorage();
   vi.resetModules();
   const [p, r, b, m, j, a, , products, sites, suppliers] = await Promise.all([
     import("./purchaseOrderRepository"),

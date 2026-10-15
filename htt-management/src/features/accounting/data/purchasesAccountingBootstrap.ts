@@ -1,99 +1,11 @@
-import {
-    supplierBillRepository,
-} from "../../purchases/data/supplierBillRepository";
+import { runFinancialConsistencyAudit } from "../../../lib/persistence/runFinancialConsistencyAudit";
 
-import {
-    supplierPaymentRepository,
-} from "../../purchases/data/supplierPaymentRepository";
-
-import {
-    supplierCreditRepository,
-} from "../../purchases/data/supplierCreditRepository";
-
-import {
-    purchasesAccountingPostingService,
-} from "./purchasesAccountingPostingService";
-
-let initialized =
-    false;
-
+/** AP repositories now hydrate alongside their GL in the durable local snapshot.
+ * Startup is diagnostic only. Missing journals must be reviewed, never reposted
+ * using today's configuration or an inferred receipt cost.
+ */
 export function initializePurchasesAccounting() {
-    if (initialized) {
-        return;
-    }
-
-    initialized =
-        true;
-
-    const bills =
-        supplierBillRepository
-            .getAll();
-
-    for (
-        const bill
-        of bills
-    ) {
-        purchasesAccountingPostingService
-            .postSupplierBill(
-                bill,
-            );
-
-        if (
-            bill.status ===
-            "VOID"
-        ) {
-            purchasesAccountingPostingService
-                .reverseSupplierBill(
-                    bill,
-                );
-        }
-    }
-
-    const payments =
-        supplierPaymentRepository
-            .getAll();
-
-    for (
-        const payment
-        of payments
-    ) {
-        purchasesAccountingPostingService
-            .postSupplierPayment(
-                payment,
-            );
-
-        if (
-            payment.status ===
-            "REVERSED"
-        ) {
-            purchasesAccountingPostingService
-                .reverseSupplierPayment(
-                    payment,
-                );
-        }
-    }
-
-    const credits =
-        supplierCreditRepository
-            .getAll();
-
-    for (
-        const credit
-        of credits
-    ) {
-        purchasesAccountingPostingService
-            .postSupplierCredit(
-                credit,
-            );
-
-        if (
-            credit.status ===
-            "VOID"
-        ) {
-            purchasesAccountingPostingService
-                .reverseSupplierCredit(
-                    credit,
-                );
-        }
-    }
+    const issues = runFinancialConsistencyAudit().filter(issue =>
+        issue.message.includes("SUPPLIER_") || issue.message.includes("Supplier payment"));
+    if (issues.length) console.error("Restored AP posting issues require review", issues);
 }

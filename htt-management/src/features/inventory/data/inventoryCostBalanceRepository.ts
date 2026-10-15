@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 import type {
     InventoryCostBalance,
 } from "../types/inventoryCost";
@@ -144,3 +145,10 @@ export const inventoryCostBalanceRepository =
         emitChange();
     },
 };
+registerRepository("costBalances", {
+    repository: inventoryCostBalanceRepository, read: "inventory.read",
+    commands: {"save": null, "replaceAll": null, "clear": null},
+    snapshot: () => ({ balances }),
+    restore: value => { balances = value.balances;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

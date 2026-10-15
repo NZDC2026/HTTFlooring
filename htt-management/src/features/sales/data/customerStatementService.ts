@@ -1,3 +1,4 @@
+import { businessDateKey } from "../../../lib/businessDate";
 import type {
     Invoice,
     SalesDocument,
@@ -619,10 +620,7 @@ function compareEntries(
 function toDateKey(
     value: string,
 ) {
-    return value.slice(
-        0,
-        10,
-    );
+    return businessDateKey(value);
 }
 
 function roundCurrency(

@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 import { purchasePostingOperationRepository } from "./purchasePostingOperationRepository";
 import { purchasePostingRecoveryAuthorization } from "./purchasePostingRecoveryAuthorization";
 
@@ -46,3 +47,5 @@ export const purchasePostingManualRecoveryService = {
     }
   },
 };
+
+registerRepository("purchaseRecovery", { repository: purchasePostingManualRecoveryService, read: "audit.read", commands: { recover: "accounting.recover" }, snapshot: () => events, restore: value => { events.splice(0, events.length, ...value); }, publish: () => {} });

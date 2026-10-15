@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 import type {
     Account,
     AccountSystemRole,
@@ -691,3 +692,10 @@ export const accountRepository =
         return updated;
     },
 };
+registerRepository("accounts", {
+    repository: accountRepository, read: "accounting.read",
+    commands: {"if": null, "create": "accounting.post", "update": "accounting.post", "setActive": "accounting.post"},
+    snapshot: () => ({ accounts }),
+    restore: value => { accounts = value.accounts;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

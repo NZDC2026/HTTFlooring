@@ -1,3 +1,5 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { readMockRepository, writeMockRepository, canWriteMockRepository } from "../../../lib/persistence/mockRepositoryStorage";
 import { mockCustomers } from "./mockCustomers";
 
 import type {
@@ -12,14 +14,28 @@ import type {
     LocationFormValues,
 } from "../schemas/customerSchemas";
 
+const STORAGE_KEY = "htt.mock.contacts.customers.v1";
+function isSavedCustomerList(value: unknown): value is Customer[] {
+    return Array.isArray(value) && value.every(item =>
+        item !== null && typeof item === "object" &&
+        typeof item.id === "string" && typeof item.code === "string" &&
+        typeof item.businessName === "string" &&
+        typeof item.status === "string"
+    );
+}
+const savedCustomers = readMockRepository(STORAGE_KEY, isSavedCustomerList);
+// Unsupported/corrupt data is preserved rather than silently reset.
+const canPersistCustomers = savedCustomers.status !== "invalid" && canWriteMockRepository(STORAGE_KEY);
+
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
 
 let customers: Customer[] =
-    structuredClone(mockCustomers);
+    savedCustomers.status === "ok" ? savedCustomers.data : structuredClone(mockCustomers);
 
 function emitChange() {
+    if (canPersistCustomers) writeMockRepository(STORAGE_KEY, customers);
     listeners.forEach((listener) => {
         listener();
     });
@@ -638,3 +654,10 @@ export const customerRepository = {
         return updatedContact;
     },
 };
+registerRepository("customers", {
+    repository: customerRepository, read: "sales.read",
+    commands: {"if": null, "emitChange": null, "create": "contacts.write", "update": "contacts.write", "addLocation": "contacts.write", "updateLocation": "contacts.write", "addContact": "contacts.write", "updateContact": "contacts.write"},
+    snapshot: () => ({ customers }),
+    restore: value => { customers = value.customers;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

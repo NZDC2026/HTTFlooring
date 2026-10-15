@@ -1,3 +1,4 @@
+import { requireDateKey } from "../../../lib/businessDate";
 import type {
     Account,
 } from "../types/account";
@@ -60,15 +61,7 @@ function validateDate(
     value:
         string,
 ) {
-    if (
-        !/^\d{4}-\d{2}-\d{2}$/.test(
-            value,
-        )
-    ) {
-        throw new Error(
-            "As of date must use YYYY-MM-DD format.",
-        );
-    }
+    requireDateKey(value);
 }
 
 function buildControl({

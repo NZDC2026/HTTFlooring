@@ -1,8 +1,15 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import type { SupplierBillReceiptMatch } from "../types/supplierBillReceiptMatch";
 
-let matches: SupplierBillReceiptMatch[] = [];
+let matches: SupplierBillReceiptMatch[] = financialStateStorage.read().receiptMatches;
+financialStateStorage.onRollback(() => { matches = financialStateStorage.read().receiptMatches; });
 const listeners = new Set<() => void>();
-const emitChange = () => listeners.forEach(listener => listener());
+const emitChange = () => {
+    try { financialStateStorage.update("receiptMatches", matches); }
+    catch (error) { matches = financialStateStorage.read().receiptMatches; throw error; }
+    listeners.forEach(listener => financialStateStorage.notify(listener));
+};
 
 export const supplierBillReceiptMatchRepository = {
     getAll(): SupplierBillReceiptMatch[] { return [...matches]; },
@@ -32,3 +39,11 @@ export const supplierBillReceiptMatchRepository = {
         emitChange();
     },
 };
+
+registerRepository("receiptMatches", {
+    repository: supplierBillReceiptMatchRepository, read: "purchases.read",
+    commands: {"catch": null, "saveForBill": null, "reverseForBill": null},
+    snapshot: () => ({ matches }),
+    restore: value => { matches = value.matches;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

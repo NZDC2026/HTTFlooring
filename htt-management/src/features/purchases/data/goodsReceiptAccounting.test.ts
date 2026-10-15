@@ -1,3 +1,4 @@
+import { installPurchaseTestStorage } from './purchaseTestStorage';
 import {
     beforeEach,
     describe,
@@ -68,6 +69,7 @@ let siteId: string;
 let supplierId: string;
 
 beforeEach(async () => {
+    installPurchaseTestStorage();
     vi.resetModules();
 
     const [

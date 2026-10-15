@@ -1,68 +1,9 @@
 import { Link } from "react-router-dom";
-import {
-    CheckCircle2,
-    Landmark,
-} from "lucide-react";
-
-import { Button } from "../../../components/ui/Button";
-import {
-    Card,
-    CardContent,
-} from "../../../components/ui/Card";
-
+import { Card, CardContent } from "../../../components/ui/Card";
+import { useFinanceOverview } from "../data/useFinanceOverview";
+const fmt = (n: number) => new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(n);
 export function BankReconciliationCard() {
-    return (
-        <Card>
-            <CardContent>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="font-display text-xl">
-                            Bank Reconciliation
-                        </h2>
-
-                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            Business Account •••• 4821
-                        </p>
-                    </div>
-
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
-                        <Landmark size={17} />
-                    </div>
-                </div>
-
-                <div className="mt-6 flex items-end justify-between">
-                    <div>
-                        <div className="money text-2xl font-semibold">
-                            $128,420.40
-                        </div>
-
-                        <div className="mt-1 text-[11px] text-[var(--color-text-muted)]">
-                            Statement balance
-                        </div>
-                    </div>
-
-                    <div className="text-right">
-                        <div className="money text-sm font-semibold text-[var(--color-danger)]">
-                            $300.00
-                        </div>
-
-                        <div className="mt-1 text-[11px] text-[var(--color-text-muted)]">
-                            Difference
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-5 flex items-center gap-2 rounded-lg bg-[var(--color-warning-soft)] p-3 text-xs">
-                    <CheckCircle2
-                        size={15}
-                        className="text-[var(--color-warning)]"
-                    />
-
-                    18 transactions need attention
-                </div>
-
-                <Link to="/banking" className="block mt-4"><Button variant="secondary" className="w-full">Review transactions</Button></Link>
-            </CardContent>
-        </Card>
-    );
+ const today = new Date().toLocaleDateString("en-CA", {timeZone:"Pacific/Auckland"});
+ const data = useFinanceOverview(today);
+ return <Card><CardContent><h2 className="font-display text-xl">Bank Reconciliation</h2><p className="mt-1 text-xs text-[var(--color-text-muted)]">{data.bankStatus.length} active bank accounts</p><div className="mt-5 space-y-3">{data.bankStatus.length === 0 ? <p className="text-sm">No active bank accounts configured.</p> : data.bankStatus.map(bank => <div key={bank.id} className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] pb-2"><div><p className="text-sm font-medium">{bank.name}</p><p className="text-xs text-[var(--color-text-muted)]">{bank.outstanding} uncleared · Last reconciliation: {bank.lastReconciled ?? "Never"}</p></div><span className="money text-sm font-semibold">{fmt(bank.balance)}</span></div>)}</div><p className="mt-3 text-sm">{data.unreconciledCount} transactions require reconciliation</p><Link to="/banking" className="mt-4 inline-block text-sm text-[var(--color-primary)]">Review bank accounts →</Link></CardContent></Card>;
 }

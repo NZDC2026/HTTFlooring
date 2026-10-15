@@ -1,5 +1,6 @@
 import {
     useState,
+    useRef,
 } from "react";
 
 import {
@@ -219,14 +220,21 @@ export function InvoiceDetailPage() {
         invoice.status !==
         "DRAFT";
 
+    const paymentOperationIdRef = useRef<string | null>(null);
+    const paymentSubmittingRef = useRef(false);
+
     function handlePayment(
         values:
             PaymentAllocationValues,
     ) {
+        if (paymentSubmittingRef.current) return;
+        paymentSubmittingRef.current = true;
+        paymentOperationIdRef.current ??= crypto.randomUUID();
         setActionError(null);
 
         try {
             salesRepository.recordInvoicePayment({
+                operationId: paymentOperationIdRef.current,
                 invoiceId:
                     resolvedInvoiceId,
 
@@ -259,6 +267,8 @@ export function InvoiceDetailPage() {
                     ? error.message
                     : "Unable to allocate payment.",
             );
+        } finally {
+            paymentSubmittingRef.current = false;
         }
     }
 

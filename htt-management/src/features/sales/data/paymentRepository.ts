@@ -1,4 +1,7 @@
-import { mockPayments } from "./mockPayments";
+import { registerRepository } from "../../security/repositoryHost";
+import { requireDateKey } from "../../../lib/businessDate";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
+import { financialOperationJournal } from "../../../lib/persistence/financialOperationJournal";
 
 import type {
     Payment,
@@ -15,9 +18,7 @@ const listeners =
     new Set<Listener>();
 
 let payments: Payment[] =
-    structuredClone(
-        mockPayments,
-    );
+    financialStateStorage.read().payments;
 
 function emitChange() {
     listeners.forEach(
@@ -76,6 +77,10 @@ function getNextPaymentNumber() {
 }
 
 export interface CreatePaymentInput {
+    /** Stable ID supplied by the caller for retry protection. */
+    operationId?: string;
+    /** Caller posts GL before marking this operation completed. */
+    deferOperationCompletion?: boolean;
     customerId: string;
 
     invoiceId: string;
@@ -211,6 +216,25 @@ export const paymentRepository = {
             );
         }
 
+        requireDateKey(input.paymentDate, "Payment date");
+        if (input.paymentDate < bankAccount.openingBalanceDate) throw new Error("Payment date cannot precede the bank opening balance date.");
+        if (roundCurrency(input.amount) <= 0) throw new Error("Payment amount rounds to zero.");
+        const operationId = input.operationId?.trim();
+        if (input.operationId !== undefined && !operationId) throw new Error("Operation ID cannot be empty");
+        if (operationId) {
+            const attempt = financialOperationJournal.begin(operationId, "CUSTOMER_PAYMENT", JSON.stringify({
+                customerId: input.customerId, invoiceId: input.invoiceId, paymentDate: input.paymentDate,
+                amount: roundCurrency(input.amount), method: input.method, bankAccountId: input.bankAccountId,
+                reference: normalizeOptional(input.reference), notes: normalizeOptional(input.notes),
+            }));
+            if (attempt.status === "already_completed") {
+                const existing = payments.find(p => p.id === attempt.operation.resultId);
+                if (existing) return existing;
+                throw new Error("Completed payment is not available in memory; manual review required.");
+            }
+            if (attempt.status === "needs_review") throw new Error("Payment operation requires manual review before retry.");
+        }
+
         const now =
             new Date().toISOString();
 
@@ -258,11 +282,20 @@ export const paymentRepository = {
             updatedAt: now,
         };
 
-        payments = [
-            payment,
-            ...payments,
-        ];
+        // Bind the identity durably before writing the payment snapshot.
+        if (operationId) financialOperationJournal.bindResult(operationId, payment.id);
 
+        const nextPayments = [payment, ...payments];
+        financialStateStorage.update("payments", nextPayments);
+        payments = nextPayments;
+
+        if (operationId && !input.deferOperationCompletion) {
+            try { financialOperationJournal.complete(operationId, payment.id); }
+            catch (error) {
+                try { financialOperationJournal.flagForReview(operationId, "Payment created but completion could not be confirmed"); } catch { /* preserve original error */ }
+                throw error;
+            }
+        }
         emitChange();
 
         return payment;
@@ -326,14 +359,9 @@ export const paymentRepository = {
                 now,
         };
 
-        payments =
-            payments.map(
-                (item) =>
-                    item.id ===
-                        paymentId
-                        ? updated
-                        : item,
-            );
+        const nextPayments = payments.map(item => item.id === paymentId ? updated : item);
+        financialStateStorage.update("payments", nextPayments);
+        payments = nextPayments;
 
         emitChange();
 
@@ -375,3 +403,10 @@ function roundCurrency(
         100,
     ) / 100;
 }
+registerRepository("customerPayments", {
+    repository: paymentRepository, read: "sales.read",
+    commands: {"create": null, "reverse": null},
+    snapshot: () => ({ payments }),
+    restore: value => { payments = value.payments;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

@@ -1,3 +1,6 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import {
     supplierBillRepository,
 } from "./supplierBillRepository";
@@ -19,22 +22,26 @@ const listeners =
     new Set<Listener>();
 
 let supplierCredits:
-    SupplierCredit[] =
-    [];
+    SupplierCredit[] = financialStateStorage.read().supplierCredits;
 
 let allocations:
-    SupplierCreditAllocation[] =
-    [];
+    SupplierCreditAllocation[] = financialStateStorage.read().supplierCreditAllocations;
 
 let supplierCreditSnapshot:
-    SupplierCredit[] =
-    [];
+    SupplierCredit[] = financialStateStorage.read().supplierCredits;
 
 let allocationSnapshot:
-    SupplierCreditAllocation[] =
-    [];
+    SupplierCreditAllocation[] = financialStateStorage.read().supplierCreditAllocations;
 
+financialStateStorage.onRollback(() => {
+    supplierCredits = financialStateStorage.read().supplierCredits;
+    allocations = financialStateStorage.read().supplierCreditAllocations;
+    supplierCreditSnapshot = supplierCredits;
+    allocationSnapshot = allocations;
+});
 function emitChange() {
+    financialStateStorage.update("supplierCredits", supplierCredits);
+    financialStateStorage.update("supplierCreditAllocations", allocations);
     supplierCreditSnapshot = [
         ...supplierCredits,
     ];
@@ -43,10 +50,7 @@ function emitChange() {
         ...allocations,
     ];
 
-    listeners.forEach(
-        (listener) =>
-            listener(),
-    );
+    listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
 export const supplierCreditRepository =
@@ -1310,3 +1314,46 @@ function roundQuantity(
         ) / 10000
     );
 }
+const createUnit = supplierCreditRepository.create;
+supplierCreditRepository.create = function (...args: Parameters<typeof createUnit>) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => createUnit.apply(supplierCreditRepository, args));
+};
+
+const applyToBillUnit = supplierCreditRepository.applyToBill;
+supplierCreditRepository.applyToBill = function (...args: Parameters<typeof applyToBillUnit>) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => applyToBillUnit.apply(supplierCreditRepository, args));
+};
+
+const reverseAllocationUnit = supplierCreditRepository.reverseAllocation;
+supplierCreditRepository.reverseAllocation = function (...args: Parameters<typeof reverseAllocationUnit>) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => reverseAllocationUnit.apply(supplierCreditRepository, args));
+};
+
+const voidCreditUnit = supplierCreditRepository.voidCredit;
+supplierCreditRepository.voidCredit = function (...args: Parameters<typeof voidCreditUnit>) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => voidCreditUnit.apply(supplierCreditRepository, args));
+};
+
+const updateUnit = supplierCreditRepository.update;
+supplierCreditRepository.update = function (...args: Parameters<typeof updateUnit>) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => updateUnit.apply(supplierCreditRepository, args));
+};
+
+const updateAllocationUnit = supplierCreditRepository.updateAllocation;
+supplierCreditRepository.updateAllocation = function (...args: Parameters<typeof updateAllocationUnit>) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => updateAllocationUnit.apply(supplierCreditRepository, args));
+};
+
+registerRepository("supplierCredits", {
+    repository: supplierCreditRepository, read: "purchases.read",
+    commands: {"create": "purchases.bill", "applyToBill": "purchases.bill", "reverseAllocation": "purchases.void", "voidCredit": "purchases.void", "updateAllocation": null, "update": null, "return": null, "assertCurrentCrossModuleWriteSafe": null},
+    snapshot: () => ({ supplierCredits, allocations }),
+    restore: value => { supplierCredits = value.supplierCredits; allocations = value.allocations; supplierCreditSnapshot = [...supplierCredits]; allocationSnapshot = [...allocations]; },
+    publish: () => listeners.forEach(listener => listener()),
+});

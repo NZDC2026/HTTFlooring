@@ -21,6 +21,8 @@ export interface SupplierPaymentAllocation {
 }
 
 export interface SupplierPayment {
+    operationId?: string;
+    requestFingerprint?: string;
     id: string;
 
     paymentNumber: string;
@@ -57,6 +59,7 @@ export interface SupplierPaymentAllocationDraft {
 }
 
 export interface SupplierPaymentDraft {
+    operationId?: string;
     supplierId: string;
 
     paymentDate: string;

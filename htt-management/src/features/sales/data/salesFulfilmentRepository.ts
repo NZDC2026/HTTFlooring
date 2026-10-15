@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 import {
     salesRepository,
 } from "./salesRepository";
@@ -1200,3 +1201,10 @@ export const salesFulfilmentRepository =
         return updated;
     },
 };
+registerRepository("fulfilments", {
+    repository: salesFulfilmentRepository, read: "inventory.read",
+    commands: {"if": null, "create": "inventory.adjust", "void": "inventory.adjust"},
+    snapshot: () => ({ fulfilments }),
+    restore: value => { fulfilments = value.fulfilments; snapshot = fulfilments; },
+    publish: () => listeners.forEach(listener => listener()),
+});

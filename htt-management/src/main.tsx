@@ -1,25 +1,15 @@
 import {
-  StrictMode,
+  StrictMode, Suspense, lazy,
 } from "react";
 
 import {
   createRoot,
 } from "react-dom/client";
 
-import App from "./App";
+const App = lazy(() => import("./App"));
 
-import {
-  initializeSalesAccounting,
-} from "./features/accounting/data/salesAccountingBootstrap";
-
-import {
-  initializePurchasesAccounting,
-} from "./features/accounting/data/purchasesAccountingBootstrap";
-
+import { SecurityGate } from "./features/security/SecurityGate";
 import "./styles/globals.css";
-
-initializeSalesAccounting();
-initializePurchasesAccounting();
 
 createRoot(
   document.getElementById(
@@ -27,6 +17,6 @@ createRoot(
   )!,
 ).render(
   <StrictMode>
-    <App />
+    <SecurityGate><Suspense fallback={<p className="p-6">Loading workspace…</p>}><App /></Suspense></SecurityGate>
   </StrictMode>,
 );

@@ -13,13 +13,13 @@ import {
     CardContent,
 } from "../../../components/ui/Card";
 
-import { financialChartData } from "../data/mockDashboard";
+import type { MonthlyFinancialData } from "../data/mockDashboard";
 
 function formatMoney(value: number) {
     return `$${Math.round(value / 1000)}k`;
 }
 
-export function RevenueChart({ months = 6 }: { months?: 3 | 6 }) {
+export function RevenueChart({ months = 6, data }: { months?: 3 | 6; data: MonthlyFinancialData[] }) {
     return (
         <Card>
             <CardContent>
@@ -53,7 +53,7 @@ export function RevenueChart({ months = 6 }: { months?: 3 | 6 }) {
                         height="100%"
                     >
                         <AreaChart
-                            data={financialChartData.slice(-months)}
+                            data={data.slice(-months)}
                             margin={{
                                 top: 10,
                                 right: 10,

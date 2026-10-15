@@ -1,3 +1,4 @@
+import { runFinancialConsistencyAudit } from "../../../lib/persistence/runFinancialConsistencyAudit";
 import {
     useState,
 } from "react";
@@ -59,8 +60,17 @@ export function FinanceControlsPage() {
             asOfDate,
         );
 
+    let auditIssues: ReturnType<typeof runFinancialConsistencyAudit> = [];
+    let auditError: string | undefined;
+    try { auditIssues = runFinancialConsistencyAudit(); }
+    catch (error) { auditError = error instanceof Error ? error.message : String(error); }
     return (
         <div className="pb-8">
+            <section className="mb-5 rounded-lg border p-4" aria-label="Current posting integrity">
+                <h2 className="font-semibold">Current posting integrity</h2>
+                <p className="text-sm">{auditError ?? (auditIssues.length ? `${auditIssues.length} posting issue(s) require review.` : "Business records and GL source links checked.")}</p>
+                {auditIssues.map((issue, index) => <p key={`${issue.code}:${issue.entityId}:${index}`} className="mt-2 text-sm">{issue.code} · {issue.entityId} · {issue.message}</p>)}
+            </section>
             <Button
                 variant="ghost"
                 size="sm"

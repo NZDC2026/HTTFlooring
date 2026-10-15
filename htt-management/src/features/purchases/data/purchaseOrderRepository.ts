@@ -1,3 +1,5 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import {
     mockProducts,
 } from "../../inventory/data/mockProducts";
@@ -11,9 +13,6 @@ import {
     calculatePurchaseOrderTotals,
 } from "./purchaseOrderCalculations";
 
-import {
-    mockPurchaseOrders,
-} from "./mockPurchaseOrders";
 
 import type {
     PurchaseOrder,
@@ -27,16 +26,13 @@ const listeners =
     new Set<Listener>();
 
 let purchaseOrders:
-    PurchaseOrder[] =
-    structuredClone(
-        mockPurchaseOrders,
-    );
+    PurchaseOrder[] = financialStateStorage.read().purchaseOrders;
 
+financialStateStorage.onRollback(() => { purchaseOrders = financialStateStorage.read().purchaseOrders; });
 function emitChange() {
-    listeners.forEach(
-        (listener) =>
-            listener(),
-    );
+    try { financialStateStorage.update("purchaseOrders", purchaseOrders); }
+    catch (error) { purchaseOrders = financialStateStorage.read().purchaseOrders; throw error; }
+    listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
 function createId(
@@ -1266,3 +1262,10 @@ function roundQuantity(
         ) / 10000
     );
 }
+registerRepository("purchaseOrders", {
+    repository: purchaseOrderRepository, read: "purchases.read",
+    commands: {"catch": null, "if": null, "create": "purchases.write", "updateDraft": "purchases.write", "approve": "purchases.write", "send": "purchases.write", "recordGoodsReceipt": null, "recordSupplierBill": null, "reverseSupplierBill": null, "emitChange": null, "return": null, "cancel": "purchases.write"},
+    snapshot: () => ({ purchaseOrders }),
+    restore: value => { purchaseOrders = value.purchaseOrders;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

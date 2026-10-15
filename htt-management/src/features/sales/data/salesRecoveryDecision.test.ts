@@ -1,0 +1,21 @@
+import { describe, expect, it } from 'vitest';
+import { assessSalesRecovery, assertSalesFinancialWritesSafe, type RecoveryEvidence } from './salesRecoveryDecision';
+import type { SalesAuditInput } from './salesConsistencyAudit';
+import type { FinancialOperation } from '../../../lib/persistence/financialOperationJournal';
+const empty: SalesAuditInput = { quotes: [], salesOrders: [], invoices: [], payments: [], creditNotes: [], allocations: [], journals: [] };
+const pending: FinancialOperation = { operationId: 'void-1', kind: 'SALES_INVOICE_VOID', fingerprint: 'invoice-1', state: 'PENDING', createdAt: '2026-01-01', updatedAt: '2026-01-01', resultId: 'invoice-1' };
+const evidence: RecoveryEvidence = { operationId: 'void-1', businessRecordChecked: true, originalGlChecked: true, reversalGlChecked: true, balancesChecked: true, operatorReference: 'CASE-123' };
+describe('Sales recovery decision gate', () => {
+    it('allows clean restart without any unresolved operations', () => expect(() => assertSalesFinancialWritesSafe(empty, [])).not.toThrow());
+    it('blocks pending invoice void', () => expect(() => assertSalesFinancialWritesSafe(empty, [pending])).toThrow(/blocked/));
+    it('blocks manual-review payment reversal', () => expect(() => assertSalesFinancialWritesSafe(empty, [{ ...pending, kind: 'SALES_PAYMENT_REVERSAL', state: 'MANUAL_REVIEW' }])).toThrow());
+    it('blocks unresolved credit allocation', () => expect(() => assertSalesFinancialWritesSafe(empty, [{ ...pending, kind: 'SALES_CREDIT_APPLY' }])).toThrow());
+    it('does not mutate source operations', () => { const before = JSON.stringify(pending); assessSalesRecovery(empty, [pending], evidence); expect(JSON.stringify(pending)).toBe(before); });
+    it('cannot close unresolved operation even when all evidence is ticked', () => expect(assessSalesRecovery(empty, [pending], evidence).canCloseReview).toBe(false));
+    it('reports missing evidence', () => expect(assessSalesRecovery(empty, [pending], { ...evidence, originalGlChecked: false }).reasons).toContain('Original GL has not been verified.'));
+    it('rejects missing operation', () => expect(assessSalesRecovery(empty, [], evidence).reasons).toContain('Operation not found in durable journal.'));
+    it('rejects duplicate operation IDs', () => expect(assessSalesRecovery(empty, [pending, pending], evidence).reasons).toContain('Operation ID is missing or duplicated.'));
+    it('rejects completed operation for recovery', () => expect(assessSalesRecovery(empty, [{ ...pending, state: 'COMPLETED' }], evidence).canCloseReview).toBe(false));
+    it('requires operator reference', () => expect(assessSalesRecovery(empty, [pending], { ...evidence, operatorReference: ' ' }).reasons).toContain('Operator evidence reference is required.'));
+    it('never allows automatic repair', () => expect(assessSalesRecovery(empty, [pending], evidence).automaticRepairAllowed).toBe(false));
+});

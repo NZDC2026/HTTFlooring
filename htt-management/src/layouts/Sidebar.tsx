@@ -1,3 +1,5 @@
+import { useSecurity } from "../features/security/securityClient";
+import { hasPermission, type Permission } from "../features/security/rbac";
 import {
     BarChart3,
     Boxes,
@@ -133,6 +135,17 @@ const sections = [
 ];
 
 export function Sidebar() {
+    const { session } = useSecurity();
+    const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
+    const permissionForPath = (path: string): Permission | undefined => {
+        if (path.startsWith('/reports/purchase') || path.startsWith('/reports/grni') || path.startsWith('/purchases')) return 'purchases.read';
+        if (path === '/dashboard' || path === '/accounting' || path === '/payroll') return 'accounting.read';
+        if (path === '/banking') return 'banking.read';
+        if (path === '/sales' || path === '/demo' || path === '/reports') return 'sales.read';
+        if (path === '/inventory') return 'inventory.read';
+        if (path === '/contacts') return 'contacts.write';
+    };
+    const visibleSections = sections.map(section => ({ ...section, items: section.items.filter(item => !permissionForPath(item.path) || hasPermission(principal, permissionForPath(item.path)!)) })).filter(section => section.items.length);
     return (
         <aside
             className="
@@ -170,7 +183,7 @@ export function Sidebar() {
 
             <nav className="flex-1 overflow-y-auto px-3 py-5">
                 <div className="space-y-6">
-                    {sections.map((section) => (
+                    {visibleSections.map((section) => (
                         <div key={section.label}>
                             <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
                                 {section.label}

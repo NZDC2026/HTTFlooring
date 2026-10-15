@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 import type {
     InventoryMovement,
 } from "../types/inventoryMovement";
@@ -199,3 +200,10 @@ export const inventoryMovementRepository =
         return movement;
     },
 };
+registerRepository("inventoryMovements", {
+    repository: inventoryMovementRepository, read: "inventory.read",
+    commands: {"create": null},
+    snapshot: () => ({ movements }),
+    restore: value => { movements = value.movements;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

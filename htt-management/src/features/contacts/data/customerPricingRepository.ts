@@ -1,3 +1,5 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { loadCustomerPrices, persistCustomerPrices } from "./customerPricingStorage";
 import { mockCustomerPrices } from "./mockCustomerPrices";
 
 import {
@@ -16,8 +18,9 @@ type Listener = () => void;
 
 const listeners = new Set<Listener>();
 
+const storedCustomerPrices = loadCustomerPrices();
 let customerPrices: CustomerPrice[] =
-    structuredClone(mockCustomerPrices);
+    storedCustomerPrices.status === "ok" ? storedCustomerPrices.data : structuredClone(mockCustomerPrices);
 
 /**
  * Represents the final price that Sales should use.
@@ -363,10 +366,12 @@ export const customerPricingRepository = {
             updatedAt: now,
         };
 
-        customerPrices = [
+        const nextPrices = [
             customerPrice,
             ...customerPrices,
         ];
+        persistCustomerPrices(nextPrices);
+        customerPrices = nextPrices;
 
         emitChange();
 
@@ -449,13 +454,11 @@ export const customerPricingRepository = {
                 new Date().toISOString(),
         };
 
-        customerPrices =
-            customerPrices.map(
-                (price) =>
-                    price.id === priceId
-                        ? updatedPrice
-                        : price,
-            );
+        const nextPrices = customerPrices.map(
+            (price) => price.id === priceId ? updatedPrice : price,
+        );
+        persistCustomerPrices(nextPrices);
+        customerPrices = nextPrices;
 
         emitChange();
 
@@ -606,3 +609,10 @@ function formatDateRange(
         ? `${effectiveFrom} to ${effectiveTo}`
         : `${effectiveFrom} onwards`;
 }
+registerRepository("customerPrices", {
+    repository: customerPricingRepository, read: "sales.read",
+    commands: {"if": null, "return": null, "create": "contacts.write", "update": "contacts.write"},
+    snapshot: () => ({ customerPrices }),
+    restore: value => { customerPrices = value.customerPrices;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

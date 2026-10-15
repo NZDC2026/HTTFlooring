@@ -1,3 +1,4 @@
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import {
     salesRepository,
 } from "../../sales/data/salesRepository";
@@ -25,6 +26,8 @@ export function initializeSalesAccounting() {
     initialized =
         true;
 
+    // Restored records are never replay commands. Existing GL is retained for review.
+    if (financialStateStorage.wasRestoredOnLoad()) return;
     const invoices =
         salesRepository
             .getAll()

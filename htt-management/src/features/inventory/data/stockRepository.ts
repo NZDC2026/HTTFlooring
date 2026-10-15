@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 import {
     inventoryMovementRepository,
 } from "./inventoryMovementRepository";
@@ -306,3 +307,10 @@ export const stockRepository =
         emitChange();
     },
 };
+registerRepository("stock", {
+    repository: stockRepository, read: "inventory.read",
+    commands: {"return": null, "receive": null, "issue": null, "rebuildFromMovements": null},
+    snapshot: () => ({ balances }),
+    restore: value => { balances = value.balances;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

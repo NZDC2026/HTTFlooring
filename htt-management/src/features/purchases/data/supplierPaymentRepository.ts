@@ -1,3 +1,7 @@
+import { registerRepository } from "../../security/repositoryHost";
+import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
+import { requireDateKey } from "../../../lib/businessDate";
+import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import {
     supplierRepository,
 } from "../../contacts/data/supplierRepository";
@@ -26,13 +30,13 @@ const listeners =
     new Set<Listener>();
 
 let supplierPayments:
-    SupplierPayment[] = [];
+    SupplierPayment[] = financialStateStorage.read().supplierPayments;
+
+financialStateStorage.onRollback(() => { supplierPayments = financialStateStorage.read().supplierPayments; });
 
 function emitChange() {
-    listeners.forEach(
-        (listener) =>
-            listener(),
-    );
+    financialStateStorage.update("supplierPayments", supplierPayments);
+    listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
 export const supplierPaymentRepository =
@@ -101,6 +105,22 @@ export const supplierPaymentRepository =
         draft:
             SupplierPaymentDraft,
     ): SupplierPayment {
+        const operationId = draft.operationId?.trim();
+        if (draft.operationId !== undefined && !operationId) throw new Error("Operation ID cannot be empty.");
+        const requestFingerprint = JSON.stringify({
+            supplierId: draft.supplierId, paymentDate: draft.paymentDate, method: draft.method,
+            bankAccountId: draft.bankAccountId, reference: normalizeOptional(draft.reference), notes: normalizeOptional(draft.notes),
+            allocations: draft.allocations.filter(a => a.amount !== 0).map(a => ({ supplierBillId: a.supplierBillId, amount: roundCurrency(a.amount) })).sort((a, b) => a.supplierBillId.localeCompare(b.supplierBillId)),
+        });
+        if (operationId) {
+            const existing = supplierPayments.find(payment => payment.operationId === operationId);
+            if (existing) {
+                if (existing.requestFingerprint !== requestFingerprint) throw new Error("Operation ID reused with different business data.");
+                return existing;
+            }
+        }
+        requireDateKey(draft.paymentDate, "Payment date");
+        if (draft.allocations.some(a => !Number.isFinite(a.amount) || a.amount < 0)) throw new Error("Payment allocations must be finite non-negative amounts.");
         const supplier =
             supplierRepository.getById(
                 draft.supplierId,
@@ -238,10 +258,10 @@ export const supplierPaymentRepository =
                         );
                     }
 
-                    const amount =
-                        roundCurrency(
-                            draftAllocation.amount,
-                        );
+                    if (draft.paymentDate < bill.billDate) throw new Error("Payment date cannot precede the supplier bill date.");
+                    if (draft.paymentDate < bankAccount.openingBalanceDate) throw new Error("Payment date cannot precede the bank opening balance date.");
+                    const amount = roundCurrency(draftAllocation.amount);
+                    if (amount <= 0) throw new Error("Payment allocation rounds to zero.");
 
                     if (
                         amount >
@@ -314,8 +334,9 @@ export const supplierPaymentRepository =
 
         const payment:
             SupplierPayment = {
-            id:
-                `supplier_payment_${crypto.randomUUID()}`,
+            id: `supplier_payment_${crypto.randomUUID()}`,
+            operationId,
+            requestFingerprint: operationId ? requestFingerprint : undefined,
 
             paymentNumber:
                 createPaymentNumber(
@@ -593,3 +614,22 @@ function formatMoney(
         },
     ).format(value);
 }
+const createUnit = supplierPaymentRepository.create;
+supplierPaymentRepository.create = function (...args: Parameters<typeof createUnit>) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => createUnit.apply(supplierPaymentRepository, args));
+};
+
+const reverseUnit = supplierPaymentRepository.reverse;
+supplierPaymentRepository.reverse = function (...args: Parameters<typeof reverseUnit>) {
+    assertCurrentCrossModuleWriteSafe();
+    return financialStateStorage.transaction(() => reverseUnit.apply(supplierPaymentRepository, args));
+};
+
+registerRepository("supplierPayments", {
+    repository: supplierPaymentRepository, read: "purchases.read",
+    commands: {"create": "purchases.payment", "reverse": "purchases.payment", "return": null, "assertCurrentCrossModuleWriteSafe": null},
+    snapshot: () => ({ supplierPayments }),
+    restore: value => { supplierPayments = value.supplierPayments;  },
+    publish: () => listeners.forEach(listener => listener()),
+});

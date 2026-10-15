@@ -1,3 +1,4 @@
+import { installQuoteTestStorage } from "./testQuoteLocalStorage";
 import {
     beforeEach,
     describe,
@@ -66,6 +67,7 @@ let referenceCounter = 0;
  * before every test.
  */
 beforeEach(async () => {
+    installQuoteTestStorage();
     vi.resetModules();
 
     const [

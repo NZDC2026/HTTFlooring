@@ -1,3 +1,4 @@
+import { registerRepository } from "../../security/repositoryHost";
 export type PurchasePostingStatus = "PENDING" | "POSTING" | "POSTED" | "FAILED" | "RECOVERY_REQUIRED";
 export type PurchasePostingKind = "GOODS_RECEIPT" | "SUPPLIER_BILL" | "SUPPLIER_BILL_VOID";
 export interface PurchasePostingOperation {
@@ -134,3 +135,11 @@ export const purchasePostingOperationRepository = {
         operations.set(key, { ...item, completedSteps: [...item.completedSteps, step], updatedAt: new Date().toISOString() }); notify();
     },
 };
+
+registerRepository("purchaseOperations", {
+    repository: purchasePostingOperationRepository, read: "purchases.read",
+    commands: { injectFailureBeforeStep: null, clearInjectedFailures: null, registerRecovery: null, runStep: null, recover: null, begin: null, setStatus: null, completeStep: null },
+    snapshot: () => purchasePostingOperationRepository.getAll(),
+    restore: value => { operations.clear(); recoveryHandlers.clear(); for (const row of value) operations.set(row.key, row); },
+    publish: () => listeners.forEach(listener => listener()),
+});
