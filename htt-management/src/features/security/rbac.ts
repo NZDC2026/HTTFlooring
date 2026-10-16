@@ -2,7 +2,7 @@
 export const permissions = [
   'sales.read','sales.write','sales.payment','purchases.read','purchases.receive',
   'purchases.bill','purchases.void','inventory.read','inventory.adjust',
-  'accounting.read','accounting.post','accounting.recover','audit.read','users.manage','contacts.write','purchases.write','purchases.payment','banking.read','banking.write','banking.reconcile',
+  'accounting.read','accounting.post','accounting.periods','accounting.reopen','accounting.recover','audit.read','users.manage','contacts.write','purchases.write','purchases.payment','banking.read','banking.write','banking.reconcile',
 ] as const;
 export type Permission = typeof permissions[number];
 export const roles = ['ADMIN','FINANCE_ADMIN','ACCOUNTANT','SALES','WAREHOUSE','PURCHASING','AUDITOR'] as const;
@@ -10,7 +10,7 @@ export type Role = typeof roles[number];
 export type VerifiedPrincipal = { readonly userId: string; readonly roles: readonly string[]; readonly authenticated: true };
 const policy: Record<Role, readonly Permission[]> = {
   ADMIN: permissions,
-  FINANCE_ADMIN: ['sales.read','sales.payment','purchases.read','purchases.bill','purchases.void','inventory.read','accounting.read','accounting.post','accounting.recover','audit.read','banking.read','banking.write','banking.reconcile','purchases.payment','purchases.write','contacts.write'],
+  FINANCE_ADMIN: ['accounting.periods','accounting.reopen','sales.read','sales.payment','purchases.read','purchases.bill','purchases.void','inventory.read','accounting.read','accounting.post','accounting.recover','audit.read','banking.read','banking.write','banking.reconcile','purchases.payment','purchases.write','contacts.write'],
   ACCOUNTANT: ['banking.read','banking.reconcile','sales.read','purchases.read','inventory.read','accounting.read','accounting.post','audit.read'],
   SALES: ['contacts.write','sales.read','sales.write','inventory.read'],
   WAREHOUSE: ['inventory.read','inventory.adjust','purchases.read','purchases.receive'],

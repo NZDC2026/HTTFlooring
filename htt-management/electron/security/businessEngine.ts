@@ -1,3 +1,6 @@
+export { assertPostingPeriod } from '../../src/features/accounting/data/accountingPeriodRepository';
+import { configurePeriodControls } from '../../src/features/accounting/data/accountingPeriodRepository';
+import { periodCloseChecks } from './periodCloseChecks';
 // Imported dynamically only after the main-owned storage adapter is installed.
 import '../../src/features/sales/data/salesRepository';
 import '../../src/features/sales/data/salesFulfilmentRepository';
@@ -22,6 +25,7 @@ registerRepository('salesRecovery', {
     snapshot: () => [], restore: () => {}, publish: () => {},
 });
 export function initialize(principal: Parameters<typeof trustedAuthorization.connect>[0]) {
+    configurePeriodControls(periodCloseChecks, () => principal()?.userId ?? '');
     trustedAuthorization.connect(principal);
     purchasePostingRecoveryAuthorization.configureTrustedSession(principal);
     initializeSalesAccounting();

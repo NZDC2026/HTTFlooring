@@ -1,3 +1,4 @@
+import { assertPostingPeriod } from './accountingPeriodRepository';
 import { registerRepository } from "../../security/repositoryHost";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import {
@@ -412,6 +413,7 @@ export const journalEntryRepository =
         draft:
             JournalEntryDraft,
     ): JournalEntry {
+        assertPostingPeriod(draft.journalDate);
         const validation =
             validateDraft(
                 draft,
@@ -508,6 +510,7 @@ export const journalEntryRepository =
         input:
             ReverseJournalEntryInput,
     ): JournalEntry {
+        assertPostingPeriod(input.reversalDate);
         const original =
             journalEntries.find(
                 (entry) =>

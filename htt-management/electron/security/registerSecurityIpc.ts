@@ -1,5 +1,7 @@
-import { ipcMain, type BrowserWindow } from 'electron';
-import { join } from 'node:path';
+import { ipcMain, dialog, type BrowserWindow } from 'electron';
+import { readFileSync, statSync, realpathSync } from 'node:fs';
+import { atomicJson } from './localSecurity';
+import { join, relative, isAbsolute, dirname, basename, sep } from 'node:path';
 import { LocalSecurity } from './localSecurity';
 import { BusinessHost } from './businessHost';
 import type { Role } from '../../src/features/security/rbac';
@@ -27,6 +29,27 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
                 case 'password.change': value = security.changePassword(input as { currentPassword: string; password: string }); break;
                 case 'audit.list': value = security.listAudit(input); break;
                 case 'business.bootstrap': await business.initialize(input.legacyStorage); value = business.view(); break;
+                case 'business.backup.save': {
+                    security.require('users.manage');
+                    const choice = await dialog.showSaveDialog(owner, { title: 'Save business backup', defaultPath: `HTT-Business-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: 'HTT business backup', extensions: ['json'] }] });
+                    if (choice.canceled || !choice.filePath) { value = { saved: false }; break; }
+                    const target = relative(realpathSync(directory), join(realpathSync(dirname(choice.filePath)), basename(choice.filePath)));
+                    if (!target || (!target.startsWith('..' + sep) && target !== '..' && !isAbsolute(target))) throw new Error('Choose a backup location outside the active local data directory.');
+                    const snapshot = business.exportBackup();
+                    security.audit('business.backup', 'business-data-only', 'INTENT', 'users.manage');
+                    try { atomicJson(choice.filePath, snapshot); }
+                    catch (error) { security.audit('business.backup', 'business-data-only', 'FAILED', 'users.manage'); throw error; }
+                    security.audit('business.backup', 'business-data-only', 'SUCCESS', 'users.manage');
+                    value = { saved: true }; break;
+                }
+                case 'business.restore.preview': {
+                    security.require('users.manage');
+                    const choice = await dialog.showOpenDialog(owner, { title: 'Select business backup', properties: ['openFile'], filters: [{ name: 'HTT business backup', extensions: ['json'] }] });
+                    if (choice.canceled || !choice.filePaths[0]) { value = null; break; }
+                    if (statSync(choice.filePaths[0]).size > 250_000_000) throw new Error('Backup exceeds 250 MB.');
+                    value = business.prepareRestore(readFileSync(choice.filePaths[0], 'utf8')); break;
+                }
+                case 'business.restore.commit': await business.restoreBackup(input.token); value = { restartRequired: true }; break;
                 case 'business.command': value = business.command(input as { repository: string; method: string; args: unknown[] }); break;
                 default: throw new Error('Unknown desktop security action.');
             }

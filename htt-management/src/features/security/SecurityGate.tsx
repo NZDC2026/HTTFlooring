@@ -1,3 +1,4 @@
+import { BusinessRecoveryPanel } from './BusinessRecoveryPanel';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { nativeRequest } from './repositoryHost';
@@ -8,7 +9,8 @@ export function SecurityGate({ children }: { children: ReactNode }) {
     const status = useSecurity();
     const [loaded, setLoaded] = useState(false), [ready, setReady] = useState(false), [error, setError] = useState('');
     const [username, setUsername] = useState(''), [displayName, setDisplayName] = useState(''), [password, setPassword] = useState(''), [confirmation, setConfirmation] = useState('');
-    const [busy, setBusy] = useState(false);
+    const [busy, setBusy] = useState(false), [restartRequired, setRestartRequired] = useState(false);
+    useEffect(() => { const stop = () => setRestartRequired(true); window.addEventListener('htt-restart-required', stop); return () => window.removeEventListener('htt-restart-required', stop); }, []);
     useEffect(() => {
         try { const current = refreshSecurity(); if (current.session) { enterBusiness(); setReady(true); } } catch (e) { setError(String(e instanceof Error ? e.message : e)); }
         setLoaded(true);
@@ -25,12 +27,14 @@ export function SecurityGate({ children }: { children: ReactNode }) {
         } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
         finally { setBusy(false); }
     }
+    if (restartRequired) return <main className="p-10"><h1 className="text-2xl font-semibold">Business data restored</h1><p className="mt-4">Quit and reopen the desktop application before continuing. Your local accounts and security audit history are preserved.</p></main>;
     if (ready && status.session) return children;
     return <main className="flex min-h-screen items-center justify-center bg-[var(--color-background)] p-6"><section className="w-full max-w-md rounded-xl border bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold text-[var(--color-primary)]">HTT Management · Local desktop</p>
         <h1 className="mt-3 text-2xl font-semibold">{!loaded ? 'Checking local session…' : status.initialized ? 'Sign in' : 'Create the first administrator'}</h1>
         <p className="mt-3 text-sm text-slate-600">Accounts and audit records are stored on this computer. A new application session requires sign-in.</p>
         {error && <p role="alert" className="my-4 rounded border border-red-300 p-3 text-sm text-red-700">{error}</p>}
+        {error && status.session?.user.roles.includes('ADMIN') && <BusinessRecoveryPanel recoveryOnly />}
         {loaded && window.securityBridge && <form onSubmit={submit} className="mt-5 grid gap-4">
             <label className="grid gap-1 text-sm">Username<input className="rounded border p-2" autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required /></label>
             {!status.initialized && <label className="grid gap-1 text-sm">Display name<input className="rounded border p-2" value={displayName} onChange={e => setDisplayName(e.target.value)} required /></label>}

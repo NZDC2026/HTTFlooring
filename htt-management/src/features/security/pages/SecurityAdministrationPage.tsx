@@ -1,3 +1,4 @@
+import { BusinessRecoveryPanel } from '../BusinessRecoveryPanel';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { roles, hasPermission, type Role } from '../rbac';
@@ -35,6 +36,7 @@ export function SecurityAdministrationPage() {
     return <main className="space-y-6 pb-8"><Link className="underline" to="/settings">← Settings</Link><h1 className="text-3xl font-semibold">Local access & audit</h1>
         <p className="text-sm">Signed in as {session?.user.displayName} · {session?.user.roles.join(', ')}</p>
         {error && <p role="alert" className="rounded border border-red-400 p-3 text-red-700">{error}</p>}{notice && <p role="status">{notice}</p>}
+        {manage && <BusinessRecoveryPanel />}
         {manage && <section className="space-y-4 rounded border bg-white p-5"><h2 className="text-xl font-semibold">Users & roles</h2>
             <form onSubmit={create} className="flex flex-wrap items-end gap-3"><label className="grid text-sm">Username<input className={inputStyle} value={username} onChange={e => setUsername(e.target.value)} required autoComplete="off" /></label><label className="grid text-sm">Display name<input className={inputStyle} value={displayName} onChange={e => setDisplayName(e.target.value)} required /></label><label className="grid text-sm">Initial password<input type="password" className={inputStyle} value={password} onChange={e => setPassword(e.target.value)} minLength={12} required autoComplete="new-password" /></label><label className="grid text-sm">Role<select className={inputStyle} value={role} onChange={e => setRole(e.target.value as Role)}>{roles.map(value => <option key={value}>{value}</option>)}</select></label><button className="rounded border p-2">Create user</button></form>
             {users.map(user => <UserRow key={user.id} user={user} save={saveUser} />)}

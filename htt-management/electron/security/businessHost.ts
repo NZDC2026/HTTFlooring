@@ -1,26 +1,30 @@
 import { dirname, join } from "node:path";
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, openSync, closeSync, fsyncSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { hasPermission } from '../../src/features/security/rbac';
 import { resolveCommand, restoreRepositories, snapshotForPrincipal, snapshotRepositories } from '../../src/features/security/repositoryHost';
 import type { BusinessView } from '../../src/features/security/securityContract';
 import { LocalSecurity, atomicJson } from './localSecurity';
-type Database = { schemaVersion: 1; storage: Record<string, string>; repositories: Record<string, unknown>; lastCommandId?: string };
+import { parseDatabase, sealDatabase, migratePeriodSnapshot, validateRepositories, type Database, type LegacyDatabase } from './businessSnapshot';
 export class BusinessHost {
     private values: Record<string, string> = {};
     private initialized = false;
     private blocked = false;
     private lastCommandId?: string;
+    private assertPeriod: (date: string) => void = () => { throw new Error('Period controls not initialized.'); };
+    private prepared?: { token: string; actor: string; database: Database | LegacyDatabase; revision: string | undefined; expires: number };
     private path: string;
     private security: LocalSecurity;
     constructor(path: string, security: LocalSecurity) { this.path = path; this.security = security; }
     async initialize(legacy: Record<string, string> = {}): Promise<void> {
+        if (this.blocked) throw new Error('Restart the desktop application before reopening business data.');
         if (this.initialized) return;
         if (!this.security.principal()) throw new Error('Login required.');
-        let saved: Database | undefined;
+        let migrationSource: unknown;
+        let saved: Database | LegacyDatabase | undefined;
         if (existsSync(this.path)) {
-            saved = JSON.parse(readFileSync(this.path, 'utf8')) as Database;
-            if (saved?.schemaVersion !== 1 || !saved.storage || !saved.repositories || typeof saved.storage !== 'object' || Array.isArray(saved.storage) || !Object.values(saved.storage).every(value => typeof value === 'string')) throw new Error('Invalid business database; writes blocked.');
+            saved = parseDatabase(readFileSync(this.path, 'utf8'));
+            if (saved.schemaVersion !== 3) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');
@@ -47,17 +51,17 @@ export class BusinessHost {
         Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: store } });
         const engine = await import('./businessEngine');
         if (saved) {
-            const shape = snapshotRepositories();
-            const keys = Object.keys(shape).sort();
-            if (JSON.stringify(Object.keys(saved.repositories).sort()) !== JSON.stringify(keys)) throw new Error('Business repository schema mismatch; migration required.');
-            for (const key of keys) {
-                const expected = shape[key], actual = saved.repositories[key];
-                if (Array.isArray(expected) ? !Array.isArray(actual) : !actual || typeof actual !== 'object' || Object.keys(expected as object).some(field => !Array.isArray((actual as Record<string, unknown>)[field]))) throw new Error(`Invalid ${key} snapshot; writes blocked.`);
-            }
+            validateRepositories(saved.repositories, snapshotRepositories());
             restoreRepositories(saved.repositories);
             this.lastCommandId = saved.lastCommandId;
         }
         engine.initialize(() => this.security.principal());
+        this.assertPeriod = engine.assertPostingPeriod;
+        if (migrationSource) {
+            atomicJson(join(dirname(this.path), `pre-migration-v${saved!.schemaVersion}-${randomUUID()}.json`), migrationSource);
+            this.persist();
+            this.security.audit('business.migrate.v3', 'local-desktop-profile', 'SUCCESS', 'users.manage');
+        }
         if (!saved) {
             this.persist();
             this.security.audit('business.import', 'local-desktop-profile', 'SUCCESS', 'users.manage');
@@ -68,8 +72,68 @@ export class BusinessHost {
         this.initialized = true;
     }
     private persist(commandId = this.lastCommandId): void {
-        atomicJson(this.path, { schemaVersion: 1, storage: this.values, repositories: snapshotRepositories(), lastCommandId: commandId } satisfies Database);
+        atomicJson(this.path, sealDatabase({ storage: this.values, repositories: snapshotRepositories(), lastCommandId: commandId }));
         this.lastCommandId = commandId;
+    }
+    exportBackup(): Database {
+        this.security.require('users.manage');
+        if (!this.initialized || this.blocked) throw new Error('Backup requires healthy initialized business data.');
+        const database = parseDatabase(readFileSync(this.path, 'utf8'));
+        validateRepositories(database.repositories, snapshotRepositories());
+        return sealDatabase({ storage: database.storage, repositories: database.repositories, lastCommandId: database.lastCommandId });
+    }
+    prepareRestore(text: string) {
+        const actor = this.security.require('users.manage');
+        this.prepared = undefined;
+        const database = parseDatabase(text);
+        migratePeriodSnapshot(database);
+        // A failed bootstrap may not have loaded repository modules yet. Validation
+        // against their complete contract happens again before the atomic restore.
+        if (this.initialized) validateRepositories(database.repositories, snapshotRepositories());
+        const token = randomUUID();
+        this.prepared = { token, actor: actor.userId, database, revision: this.lastCommandId, expires: Date.now() + 300_000 };
+        const counts = Object.fromEntries(Object.entries(database.repositories).map(([name, value]) => [name, Array.isArray(value) ? value.length : Object.values(value as object).reduce<number>((n, rows) => n + (Array.isArray(rows) ? rows.length : 0), 0)]));
+        return { token, schemaVersion: database.schemaVersion, savedAt: database.schemaVersion !== 1 ? database.savedAt : 'Legacy v1', counts };
+    }
+    async restoreBackup(token: string): Promise<void> {
+        const actor = this.security.require('users.manage'), prepared = this.prepared;
+        this.prepared = undefined;
+        if (!prepared || prepared.token !== token || prepared.actor !== actor.userId || prepared.revision !== this.lastCommandId || prepared.expires < Date.now()) throw new Error('Restore preview expired; select the backup again.');
+        // Load contracts for recovery even when the existing file is corrupt. No
+        // accounting initialization or writes are performed during this inspection.
+        Object.defineProperty(globalThis, '__HTT_MAIN_HOST__', { configurable: true, value: true });
+        if (!this.initialized) {
+            const scratch = new Map<string, string>();
+            const store = { getItem: (key: string) => scratch.get(key) ?? null, setItem: (key: string, value: string) => scratch.set(key, String(value)), removeItem: (key: string) => scratch.delete(key), clear: () => scratch.clear() };
+            Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: store });
+            Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: store } });
+        }
+        await import('./businessEngine');
+        validateRepositories(prepared.database.repositories, snapshotRepositories());
+        if (this.security.require('users.manage').userId !== actor.userId) throw new Error('Restore session changed.');
+        const pending = this.security.pendingBusinessCommands();
+        if (pending.length) {
+            // Resolve interrupted writes against the current file before a restore
+            // replaces its last-command evidence. A corrupt file cannot prove this.
+            const current = parseDatabase(readFileSync(this.path, 'utf8'));
+            for (const row of pending) this.security.audit(`recovery.${row.action}`, row.resourceId, row.commandId === current.lastCommandId ? 'SUCCESS' : 'FAILED', row.permission, row.commandId);
+        }
+        const commandId = randomUUID();
+        this.security.audit('business.restore', 'business-data-only', 'INTENT', 'users.manage', commandId);
+        // Preserve the exact previous bytes, including a corrupt file, for diagnosis.
+        if (existsSync(this.path)) {
+            const folder = join(dirname(this.path), 'recovery-backups'); mkdirSync(folder, { recursive: true, mode: 0o700 });
+            const fd = openSync(join(folder, `before-restore-${commandId}.json`), 'wx', 0o600);
+            try { writeFileSync(fd, readFileSync(this.path)); fsyncSync(fd); } finally { closeSync(fd); }
+            const dir = openSync(folder, 'r'); try { fsyncSync(dir); } finally { closeSync(dir); }
+        }
+        const database = sealDatabase({ storage: prepared.database.storage, repositories: prepared.database.repositories, lastCommandId: commandId });
+        this.blocked = true;
+        try { atomicJson(this.path, database); }
+        catch { throw new Error('Restore commit could not be confirmed. Restart and inspect before retry.'); }
+        this.security.audit('business.restore', 'business-data-only', 'SUCCESS', 'users.manage', commandId);
+        // Restart is mandatory: repository closures, subscriptions and cached
+        // initialization flags must all be reconstructed from the restored file.
     }
     view(): BusinessView {
         const principal = this.security.principal(); if (!principal || !this.initialized) throw new Error('Login and desktop data initialization required.');
@@ -84,6 +148,13 @@ export class BusinessHost {
         catch (error) { this.security.audit('command.denied', `${input.repository}.${input.method}`.slice(0, 200), 'DENIED'); throw error; }
         const actor = this.security.require(command.permission);
         const args = structuredClone(input.args);
+        if (['sales', 'fulfilments', 'goodsReceipts', 'supplierBills', 'supplierPayments', 'supplierCredits', 'bankTransactions', 'bankReconciliations'].includes(input.repository) && args[0] && typeof args[0] === 'object') {
+            // These are actual ledger/settlement dates, not quotation/order dates or due dates.
+            const dates = ['paymentDate', 'creditDate', 'allocationDate', 'voidDate', 'reversalDate', 'receiptDate', 'billDate', 'fulfilmentDate', 'transactionDate', 'transferDate', 'statementDate'];
+            const request = args[0] as Record<string, unknown>;
+            try { for (const key of dates) if (request[key] !== undefined) { if (typeof request[key] !== 'string') throw new Error('Invalid posting date.'); this.assertPeriod(request[key] as string); } }
+            catch (error) { this.security.audit('period.denied', `${input.repository}.${input.method}`, 'DENIED', command.permission); throw error; }
+        }
         // System GL sources can only be posted/reversed by their owning business services.
         if (input.repository === 'journals') {
             const first = args[0] as Record<string, unknown>;
@@ -106,6 +177,7 @@ export class BusinessHost {
         let result: unknown;
         try {
             result = command.execute(args);
+            if (input.repository === 'sales' && input.method === 'createInvoiceFromOrder') this.assertPeriod((result as { documentDate: string }).documentDate);
             if (result instanceof Promise) throw new Error('Business commands must be synchronous.');
         } catch (error) {
             this.values = storedBefore; restoreRepositories(before);

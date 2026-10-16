@@ -73,6 +73,11 @@ const sections = [
                 icon: CircleDollarSign,
             },
             {
+                label: "Accounting periods",
+                path: "/accounting/periods",
+                icon: CircleDollarSign,
+            },
+            {
                 label: "Payroll",
                 path: "/payroll",
                 icon: UsersRound,

@@ -1,3 +1,4 @@
+import { AccountingPeriodsPage } from '../features/accounting/pages/AccountingPeriodsPage';
 import { SecurityAdministrationPage } from "../features/security/pages/SecurityAdministrationPage";
 import { createHashRouter, Navigate } from "react-router-dom";
 
@@ -229,6 +230,10 @@ export const router = createHashRouter([
                 element: (
                     <BankReconciliationPage />
                 ),
+            },
+            {
+                path: "accounting/periods",
+                element: <AccountingPeriodsPage />,
             },
             {
                 path: "accounting",
