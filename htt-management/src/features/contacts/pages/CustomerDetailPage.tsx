@@ -1,3 +1,4 @@
+import { CustomerActivityTab } from '../components/CustomerActivityTab';
 import { useState } from "react";
 
 import {
@@ -372,10 +373,7 @@ export function CustomerDetailPage() {
                 )}
 
                 {activeTab === "activity" && (
-                    <ComingSoon
-                        title="Notes & Activity"
-                        description="Customer notes and account activity will be added in Step 5C."
-                    />
+                    <CustomerActivityTab customerId={customer.id} />
                 )}
             </div>
 
@@ -618,12 +616,13 @@ function OverviewTab({
                 <Card>
                     <CardContent>
                         <h2 className="font-display text-xl">
-                            Account
+                            Account profile
                         </h2>
+                        <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Stored profile figures. Open Sales for the current invoice and credit balance.</p>
 
                         <div className="mt-6">
                             <div className="text-xs text-[var(--color-text-muted)]">
-                                Current balance
+                                Profile balance
                             </div>
 
                             <div className="money mt-1 text-3xl font-semibold">
@@ -639,7 +638,7 @@ function OverviewTab({
 
                         <div className="mt-6 grid grid-cols-2 gap-3">
                             <AccountValue
-                                label="Overdue"
+                                label="Profile overdue"
                                 value={`$${customer.overdueBalance.toLocaleString(
                                     "en-AU",
                                 )}`}
@@ -650,7 +649,7 @@ function OverviewTab({
                             />
 
                             <AccountValue
-                                label="Credit available"
+                                label="Profile credit available"
                                 value={`$${Math.max(
                                     customer.creditLimit -
                                     customer.currentBalance,
@@ -919,26 +918,6 @@ function ContactDetail({
                     {value}
                 </div>
             </div>
-        </div>
-    );
-}
-
-function ComingSoon({
-    title,
-    description,
-}: {
-    title: string;
-    description: string;
-}) {
-    return (
-        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border-strong)] bg-white px-6 py-14 text-center">
-            <h2 className="font-display text-xl">
-                {title}
-            </h2>
-
-            <p className="mx-auto mt-2 max-w-[440px] text-xs leading-5 text-[var(--color-text-muted)]">
-                {description}
-            </p>
         </div>
     );
 }

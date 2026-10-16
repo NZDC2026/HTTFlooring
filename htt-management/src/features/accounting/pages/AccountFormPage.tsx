@@ -566,7 +566,7 @@ function AccountForm({
 
                             <ToggleCard
                                 title="Allow Manual Posting"
-                                description="Allow this account to be selected when manual journals are introduced."
+                                description="Allow this account to be selected in manual journal entries."
                                 checked={
                                     allowManualPosting
                                 }

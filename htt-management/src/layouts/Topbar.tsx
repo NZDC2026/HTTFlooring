@@ -1,5 +1,6 @@
 import { useSecurity, logout } from "../features/security/securityClient";
-import { Link } from "react-router-dom";
+import { useEffect } from 'react';
+import { Link, useNavigate } from "react-router-dom";
 import {
     Bell,
     CircleHelp,
@@ -8,6 +9,11 @@ import {
 import { useLocation } from "react-router-dom";
 
 const pageNames: Record<string, string> = {
+    "/search": "Workspace search",
+    "/help": "Help",
+    "/notifications": "Notifications",
+    "/reports/library": "Report library",
+    "/demo": "Customer demo journey",
     "/dashboard": "Dashboard",
     "/sales": "Sales",
     "/purchases": "Purchases",
@@ -23,11 +29,12 @@ const pageNames: Record<string, string> = {
 
 export function Topbar() {
     const { session } = useSecurity();
-    const location = useLocation();
+    const location = useLocation(), navigate = useNavigate();
+    useEffect(() => { const shortcut = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); navigate('/search'); } }; window.addEventListener('keydown', shortcut); return () => window.removeEventListener('keydown', shortcut); }, [navigate]);
 
     let pageTitle =
         pageNames[location.pathname] ??
-        "HTT Management";
+        Object.entries(pageNames).find(([path]) => location.pathname.startsWith(path + "/"))?.[1] ?? "HTT Management";
 
     if (
         location.pathname ===
@@ -67,6 +74,7 @@ export function Topbar() {
 
             <div className="ml-auto flex items-center gap-2">
                 <button
+                    onClick={() => navigate('/search')}
                     className="
             mr-2 flex h-9 w-[280px] items-center gap-2
             rounded-lg border border-[var(--color-border)]
@@ -95,13 +103,8 @@ export function Topbar() {
                     </kbd>
                 </button>
 
-                <TopbarButton>
-                    <CircleHelp size={17} />
-                </TopbarButton>
-
-                <TopbarButton>
-                    <Bell size={17} />
-                </TopbarButton>
+                <Link to="/help" aria-label="Help" className="rounded-lg p-2 hover:bg-slate-100"><CircleHelp size={17} /></Link>
+                <Link to="/notifications" aria-label="Notifications" className="rounded-lg p-2 hover:bg-slate-100"><Bell size={17} /></Link>
 
                 <div className="ml-2 h-7 w-px bg-[var(--color-border)]" />
 
@@ -109,25 +112,5 @@ export function Topbar() {
                 <button className="rounded border px-3 py-1.5 text-xs" onClick={logout}>Sign out</button>
             </div>
         </header>
-    );
-}
-
-function TopbarButton({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    return (
-        <button
-            className="
-        flex h-9 w-9 items-center justify-center
-        rounded-lg text-[var(--color-text-secondary)]
-        transition
-        hover:bg-[var(--color-surface-hover)]
-        hover:text-[var(--color-text-primary)]
-      "
-        >
-            {children}
-        </button>
     );
 }

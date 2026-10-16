@@ -445,7 +445,7 @@ export function CustomerStatementPage() {
 
                             <div className="mt-3">
                                 <StatementSummaryRow
-                                    label="Payments"
+                                    label="Payments & credits"
                                     value={formatMoney(
                                         statement.totalCredits,
                                     )}

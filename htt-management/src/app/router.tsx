@@ -1,3 +1,8 @@
+import { WorkspaceSearchPage, HelpPage, NotificationsPage } from '../layouts/WorkspaceUtilityPages';
+import { EmployeesPage, EmployeeDetailPage, EmployeeFormPage, PayRunsPage, PayRunFormPage, PayRunDetailPage, PayslipPage, TimesheetsPage, LeavePage } from '../features/payroll/pages/PayrollWorkspacePages';
+import { DocumentUploadPage, DocumentDetailPage } from '../features/documents/pages/DocumentWorkspacePages';
+import { ReportsLibraryPage } from '../features/reports/pages/ReportsLibraryPage';
+import { NotFoundPage } from '../layouts/NotFoundPage';
 import { AccountingPeriodsPage } from '../features/accounting/pages/AccountingPeriodsPage';
 import { SecurityAdministrationPage } from "../features/security/pages/SecurityAdministrationPage";
 import { createHashRouter, Navigate } from "react-router-dom";
@@ -66,6 +71,27 @@ export const router = createHashRouter([
         path: "/",
         element: <AppLayout />,
         children: [
+            { path: 'search', element: <WorkspaceSearchPage /> },
+            { path: 'help', element: <HelpPage /> },
+            { path: 'notifications', element: <NotificationsPage /> },
+            { path: 'payroll/employees', element: <EmployeesPage /> },
+            { path: 'payroll/employees/new', element: <EmployeeFormPage /> },
+            { path: 'payroll/employees/:employeeId', element: <EmployeeDetailPage /> },
+            { path: 'payroll/employees/:employeeId/edit', element: <EmployeeFormPage /> },
+            { path: 'payroll/pay-runs', element: <PayRunsPage /> },
+            { path: 'payroll/pay-runs/new', element: <PayRunFormPage /> },
+            { path: 'payroll/pay-runs/:runId', element: <PayRunDetailPage /> },
+            { path: 'payroll/pay-runs/:runId/payslips/:employeeId', element: <PayslipPage /> },
+            { path: 'payroll/timesheets', element: <TimesheetsPage /> },
+            { path: 'payroll/leave', element: <LeavePage /> },
+            { path: 'documents/upload', element: <DocumentUploadPage /> },
+            { path: 'documents/:documentId', element: <DocumentDetailPage /> },
+            { path: 'settings/preferences', element: <SettingsOverviewPage key="preferences" /> },
+            { path: 'settings/roles', element: <SettingsOverviewPage key="roles" /> },
+            { path: 'settings/integrations', element: <SettingsOverviewPage key="integrations" /> },
+            { path: 'settings/integrations/:integrationId', element: <SettingsOverviewPage key="integration-detail" /> },
+            { path: 'reports/library', element: <ReportsLibraryPage /> },
+            { path: '*', element: <NotFoundPage /> },
             { path: "settings/security", element: <SecurityAdministrationPage /> },
             {
                 index: true,

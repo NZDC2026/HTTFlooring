@@ -28,7 +28,7 @@ export function PurchasePostingAuditPage() {
 
   return <div className="space-y-6 p-6">
     <div><h1 className="text-2xl font-semibold">Purchase Accounting Audit & Recovery</h1>
-      <p className="mt-1 text-sm text-gray-500">Process-local posting history. Records and recovery handlers are lost when the application restarts.</p></div>
+      <p className="mt-1 text-sm text-gray-500">Posting metadata is saved in the local desktop profile. Recovery handlers are available only in the current app session.</p></div>
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {[["Operations", rows.length], ["Posted", rows.filter(r => r.status === "POSTED").length], ["Needs attention", attention], ["In progress", rows.filter(r => r.status === "PENDING" || r.status === "POSTING").length]].map(([label, count]) =>
         <div key={label} className="rounded-lg border bg-white p-4"><div className="text-sm text-gray-500">{label}</div><div className="text-2xl font-semibold">{count}</div></div>)}

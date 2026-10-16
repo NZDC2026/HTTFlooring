@@ -122,7 +122,7 @@ const columns: ColumnDef<
 
         {
             accessorKey: "currentBalance",
-            header: "Balance",
+            header: "Profile balance",
 
             cell: ({ row }) => (
                 <div className="money text-right font-medium">
@@ -139,7 +139,7 @@ const columns: ColumnDef<
 
         {
             accessorKey: "overdueBalance",
-            header: "Overdue",
+            header: "Profile overdue",
 
             cell: ({ row }) => (
                 <div
@@ -256,14 +256,14 @@ export function CustomersPage() {
                 />
 
                 <Summary
-                    label="Outstanding"
+                    label="Profile balances"
                     value={`$${outstanding.toLocaleString(
                         "en-AU",
                     )}`}
                 />
 
                 <Summary
-                    label="Overdue"
+                    label="Profile overdue"
                     value={`$${overdue.toLocaleString(
                         "en-AU",
                     )}`}

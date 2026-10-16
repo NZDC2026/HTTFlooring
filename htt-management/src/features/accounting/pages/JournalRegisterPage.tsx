@@ -81,6 +81,10 @@ const columns:
 
             header:
                 "Description",
+
+            cell: ({ row }) => (
+                <span className="block max-w-[260px] whitespace-normal break-words py-2 pr-4">{row.original.description}</span>
+            ),
         },
         {
             id:

@@ -235,7 +235,7 @@ export function AccountsPayablePage() {
                     icon={
                         CircleDollarSign
                     }
-                    label="Total Payable"
+                    label="Net Payable"
                     value={formatMoney(
                         summary.totalOutstanding,
                     )}
@@ -272,12 +272,12 @@ export function AccountsPayablePage() {
                     icon={
                         FileText
                     }
-                    label="Current"
+                    label="Current Bills"
                     value={formatMoney(
                         summary.aging
                             .current,
                     )}
-                    detail="Not yet overdue"
+                    detail="Before unapplied supplier credits"
                 />
             </div>
 
@@ -313,7 +313,7 @@ export function AccountsPayablePage() {
 
                     <div className="grid grid-cols-5 overflow-hidden rounded-lg border border-[var(--color-border)]">
                         <AgingCell
-                            label="Current"
+                            label="Current Bills"
                             value={
                                 summary.aging
                                     .current

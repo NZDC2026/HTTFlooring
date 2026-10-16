@@ -166,11 +166,11 @@ export function AgedReceivablesPage() {
                     icon={
                         CircleDollarSign
                     }
-                    label="Total Receivables"
+                    label="Gross Open Invoices"
                     value={formatMoney(
                         report.totalOutstanding,
                     )}
-                    detail={`${report.customerCount} customers with outstanding balances`}
+                    detail="Before unapplied customer credits"
                 />
 
                 <MetricCard

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { RouteAccess } from "../features/security/SecurityGate";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { ArrowLeft, Compass } from "lucide-react";
@@ -9,6 +10,7 @@ import { Topbar } from "./Topbar";
 
 export function AppLayout() {
     const location = useLocation();
+    useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); }, [location.pathname]);
     const isDemoVisit = new URLSearchParams(location.search).get("demo") === "1";
     return (
         <div className="min-h-screen bg-[var(--color-background)]">

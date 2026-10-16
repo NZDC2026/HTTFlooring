@@ -17,7 +17,7 @@ import {
     ShoppingCart,
     UsersRound,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 
 import { cn } from "../lib/cn";
 
@@ -88,6 +88,11 @@ const sections = [
     {
         label: "Insights",
         items: [
+            {
+                label: "Report library",
+                path: "/reports/library",
+                icon: BarChart3,
+            },
             {
                 label: "Reports",
                 path: "/reports",
@@ -238,7 +243,7 @@ export function Sidebar() {
             </nav>
 
             <div className="border-t border-white/10 p-3">
-                <button
+                <Link to="/settings"
                     className="
             flex w-full items-center gap-3 rounded-lg
             p-3 text-left transition
@@ -264,7 +269,7 @@ export function Sidebar() {
                         size={14}
                         className="text-white/40"
                     />
-                </button>
+                </Link>
             </div>
         </aside>
     );

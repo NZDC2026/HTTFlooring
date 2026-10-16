@@ -537,23 +537,20 @@ function EntryBadge({
     type:
     SupplierStatementEntry["type"];
 }) {
-    const label =
-        type ===
-            "BILL"
-            ? "Bill"
-            : type ===
-                "PAYMENT"
-                ? "Payment"
-                : "Reversal";
-
-    const className =
-        type ===
-            "BILL"
-            ? "bg-amber-50 text-amber-700"
-            : type ===
-                "PAYMENT"
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-red-50 text-red-700";
+    const labels: Record<SupplierStatementEntry["type"], string> = {
+        BILL: "Bill",
+        BILL_VOID: "Bill void",
+        PAYMENT: "Payment",
+        PAYMENT_REVERSAL: "Payment reversal",
+        SUPPLIER_CREDIT: "Supplier credit",
+        SUPPLIER_CREDIT_VOID: "Credit void",
+    };
+    const label = labels[type];
+    const className = type === "BILL"
+        ? "bg-amber-50 text-amber-700"
+        : type === "PAYMENT" || type === "SUPPLIER_CREDIT"
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-red-50 text-red-700";
 
     return (
         <span
