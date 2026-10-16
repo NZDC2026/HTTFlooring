@@ -8,6 +8,8 @@ export type PurchaseOrderStatus =
     | "BILLED";
 
 export interface PurchaseOrderLine {
+    taxCode?: string;
+    taxRate?: number;
     id: string;
 
     productId: string;

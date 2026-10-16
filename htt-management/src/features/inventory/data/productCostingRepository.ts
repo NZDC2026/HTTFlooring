@@ -52,6 +52,14 @@ function emitChange() {
 
 export const productCostingRepository =
 {
+    ensureProductPolicy(productId: string, baseUnitId: string, active: boolean) {
+        const existing = policies.find(p => p.productId === productId);
+        const now = new Date().toISOString();
+        const policy: ProductCostingPolicy = { productId, baseUnitId, active: existing?.active ?? active, costingMethod: "MOVING_WEIGHTED_AVERAGE", createdAt: existing?.createdAt ?? now, updatedAt: now };
+        policies = [...policies.filter(p => p.productId !== productId), policy];
+        emitChange();
+        return policy;
+    },
     subscribe(
         listener:
             Listener,
@@ -152,7 +160,7 @@ export const productCostingRepository =
 };
 registerRepository("costingPolicies", {
     repository: productCostingRepository, read: "inventory.read",
-    commands: {"setActive": "inventory.adjust"},
+    commands: {"ensureProductPolicy": null, "setActive": "inventory.adjust"},
     snapshot: () => ({ policies }),
     restore: value => { policies = value.policies;  },
     publish: () => listeners.forEach(listener => listener()),

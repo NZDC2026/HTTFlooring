@@ -1,3 +1,5 @@
+import { assertProductQuantity } from '../../business-workspace/productRules';
+import { activeTaxRate } from '../../business-workspace/configurationState';
 import {
     getProductById,
     getProductUnit,
@@ -74,14 +76,18 @@ export function buildSalesLine({
             ? draft.unitPrice!
             : resolvedPrice.effectivePrice;
 
-    if (unitPrice < 0) {
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
         throw new Error(
             "Unit price cannot be negative",
         );
     }
 
+    assertProductQuantity(draft.productId,draft.unitId,draft.quantity,'sell');
+    if (product.sellEnabled === false) throw new Error("Product is not available for selling.");
+    const taxCode = product.taxCode ?? "GST", taxRate = activeTaxRate(taxCode);
     const calculations =
         calculateSalesLine({
+            taxRate,
             quantity:
                 draft.quantity,
 
@@ -93,6 +99,7 @@ export function buildSalesLine({
 
     return {
         id: createId("line"),
+        taxCode, taxRate, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,
 
         productId:
             product.id,

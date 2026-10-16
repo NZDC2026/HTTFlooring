@@ -1,3 +1,4 @@
+import { linkedAccountId, isLinkedAccount } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
 import type {
     Account,
@@ -323,8 +324,7 @@ function validateUniqueSystemRole(
             (account) =>
                 account.id !==
                 excludeAccountId &&
-                account.systemRole ===
-                systemRole,
+                (linkedAccountId(systemRole) ? account.id === linkedAccountId(systemRole) : account.systemRole === systemRole),
         );
 
     if (duplicate) {
@@ -395,8 +395,7 @@ export const accountRepository =
     ) {
         return accounts.find(
             (account) =>
-                account.systemRole ===
-                systemRole,
+                (linkedAccountId(systemRole) ? account.id === linkedAccountId(systemRole) : account.systemRole === systemRole),
         );
     },
 
@@ -426,8 +425,7 @@ export const accountRepository =
         const account =
             accounts.find(
                 (item) =>
-                    item.systemRole ===
-                    systemRole,
+                    (linkedAccountId(systemRole) ? item.id === linkedAccountId(systemRole) : item.systemRole === systemRole),
             );
 
         if (!account) {
@@ -565,7 +563,7 @@ export const accountRepository =
         );
 
         if (
-            existing.systemRole &&
+            (existing.systemRole || isLinkedAccount(existing.id)) &&
             input.type !==
             existing.type
         ) {
@@ -590,12 +588,12 @@ export const accountRepository =
                 ),
 
             active:
-                existing.systemRole
+                (existing.systemRole || isLinkedAccount(existing.id))
                     ? true
                     : input.active,
 
             allowManualPosting:
-                existing.systemRole
+                (existing.systemRole || isLinkedAccount(existing.id))
                     ? existing
                         .allowManualPosting
                     : input
@@ -652,7 +650,7 @@ export const accountRepository =
         }
 
         if (
-            account.systemRole &&
+            (account.systemRole || isLinkedAccount(account.id)) &&
             !active
         ) {
             throw new Error(

@@ -1,3 +1,5 @@
+import { assertProductQuantity } from '../../business-workspace/productRules';
+import { activeTaxRate } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import {
@@ -198,9 +200,13 @@ function buildLines(
                 );
             }
 
+            assertProductQuantity(draftLine.productId,draftLine.unitId,draftLine.orderedQuantity,'buy');
+        if (product.buyEnabled === false) throw new Error("Product is not available for purchasing.");
+            const taxCode = product.taxCode ?? "GST", taxRate = activeTaxRate(taxCode);
             const calculated =
                 calculatePurchaseOrderLine(
                     {
+                        taxRate,
                         orderedQuantity:
                             draftLine.orderedQuantity,
 
@@ -214,6 +220,7 @@ function buildLines(
                     createId(
                         "pol",
                     ),
+                taxCode, taxRate,
 
                 productId:
                     product.id,

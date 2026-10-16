@@ -5,6 +5,8 @@ export type SupplierBillStatus =
     | "VOID";
 
 export interface SupplierBillLine {
+    taxCode?: string;
+    taxRate?: number;
     id: string;
 
     purchaseOrderLineId: string;

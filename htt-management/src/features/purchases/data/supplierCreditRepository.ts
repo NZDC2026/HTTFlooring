@@ -361,7 +361,7 @@ export const supplierCreditRepository =
                     const taxAmount =
                         roundCurrency(
                             lineSubtotal *
-                            0.1,
+                            (sourceLine.taxRate ?? (sourceLine.lineSubtotal ? sourceLine.taxAmount / sourceLine.lineSubtotal : 0.1)),
                         );
 
                     const lineTotal =

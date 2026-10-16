@@ -21,9 +21,11 @@ export function roundBillMoney(
 export function calculateSupplierBillLine({
     quantity,
     unitCost,
+    taxRate = 0.1,
 }: {
     quantity: number;
     unitCost: number;
+    taxRate?: number;
 }) {
     const lineSubtotal =
         roundBillMoney(
@@ -34,7 +36,7 @@ export function calculateSupplierBillLine({
     const taxAmount =
         roundBillMoney(
             lineSubtotal *
-            SUPPLIER_BILL_GST_RATE,
+            taxRate,
         );
 
     const lineTotal =

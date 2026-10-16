@@ -151,6 +151,7 @@ export function CreateSupplierBillPage() {
                     calculateSupplierBillLine(
                         {
                             quantity,
+                            taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
                             unitCost,
                         },
                     );
@@ -729,6 +730,7 @@ export function CreateSupplierBillPage() {
                                             ? calculateSupplierBillLine(
                                                 {
                                                     quantity,
+                                                    taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
                                                     unitCost,
                                                 },
                                             )

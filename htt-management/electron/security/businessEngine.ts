@@ -1,3 +1,5 @@
+import '../../src/features/business-workspace/productRepository';
+import '../../src/features/business-workspace/workspaceRepository';
 export { assertPostingPeriod } from '../../src/features/accounting/data/accountingPeriodRepository';
 import { configurePeriodControls } from '../../src/features/accounting/data/accountingPeriodRepository';
 import { periodCloseChecks } from './periodCloseChecks';
@@ -18,12 +20,14 @@ import { trustedAuthorization } from '../../src/features/security/trustedAuthori
 import { purchasePostingRecoveryAuthorization } from '../../src/features/purchases/data/purchasePostingRecoveryAuthorization';
 import { recordSalesManualReview } from '../../src/features/sales/data/salesManualReviewService';
 import { closeVerifiedSalesReview } from '../../src/features/sales/data/salesVerifiedRecoveryClosure';
+import { snapshotRepositories } from '../../src/features/security/repositoryHost';
 import { registerRepository } from '../../src/features/security/repositoryHost';
 registerRepository('salesRecovery', {
     repository: { recordSalesManualReview, closeVerifiedSalesReview }, read: 'audit.read',
     commands: { recordSalesManualReview: 'accounting.recover', closeVerifiedSalesReview: 'accounting.recover' },
     snapshot: () => [], restore: () => {}, publish: () => {},
 });
+export const workspaceDefaults = snapshotRepositories();
 export function initialize(principal: Parameters<typeof trustedAuthorization.connect>[0]) {
     configurePeriodControls(periodCloseChecks, () => principal()?.userId ?? '');
     trustedAuthorization.connect(principal);

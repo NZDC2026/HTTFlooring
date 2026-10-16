@@ -2,13 +2,14 @@ import { dirname, join } from "node:path";
 import { existsSync, readFileSync, mkdirSync, openSync, closeSync, fsyncSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { hasPermission } from '../../src/features/security/rbac';
-import { resolveCommand, restoreRepositories, snapshotForPrincipal, snapshotRepositories } from '../../src/features/security/repositoryHost';
+import { resolveCommand, validateRegisteredSnapshots, restoreRepositories, snapshotForPrincipal, snapshotRepositories } from '../../src/features/security/repositoryHost';
 import type { BusinessView } from '../../src/features/security/securityContract';
 import { LocalSecurity, atomicJson } from './localSecurity';
-import { parseDatabase, sealDatabase, migratePeriodSnapshot, validateRepositories, type Database, type LegacyDatabase } from './businessSnapshot';
+import { parseDatabase, sealDatabase, migratePeriodSnapshot, migrateWorkspaceSnapshot, validateRepositories, type Database, type LegacyDatabase } from './businessSnapshot';
 export class BusinessHost {
     private values: Record<string, string> = {};
     private initialized = false;
+    private workspaceDefaults: Record<string, unknown> = {};
     private blocked = false;
     private lastCommandId?: string;
     private assertPeriod: (date: string) => void = () => { throw new Error('Period controls not initialized.'); };
@@ -24,7 +25,7 @@ export class BusinessHost {
         let saved: Database | LegacyDatabase | undefined;
         if (existsSync(this.path)) {
             saved = parseDatabase(readFileSync(this.path, 'utf8'));
-            if (saved.schemaVersion !== 3) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
+            if (saved.schemaVersion !== 4) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');
@@ -50,8 +51,11 @@ export class BusinessHost {
         Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: store });
         Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: store } });
         const engine = await import('./businessEngine');
+        this.workspaceDefaults = engine.workspaceDefaults;
         if (saved) {
+            migrateWorkspaceSnapshot(saved, this.workspaceDefaults);
             validateRepositories(saved.repositories, snapshotRepositories());
+            validateRegisteredSnapshots(saved.repositories);
             restoreRepositories(saved.repositories);
             this.lastCommandId = saved.lastCommandId;
         }
@@ -60,7 +64,7 @@ export class BusinessHost {
         if (migrationSource) {
             atomicJson(join(dirname(this.path), `pre-migration-v${saved!.schemaVersion}-${randomUUID()}.json`), migrationSource);
             this.persist();
-            this.security.audit('business.migrate.v3', 'local-desktop-profile', 'SUCCESS', 'users.manage');
+            this.security.audit('business.migrate.v4', 'local-desktop-profile', 'SUCCESS', 'users.manage');
         }
         if (!saved) {
             this.persist();
@@ -79,7 +83,7 @@ export class BusinessHost {
         this.security.require('users.manage');
         if (!this.initialized || this.blocked) throw new Error('Backup requires healthy initialized business data.');
         const database = parseDatabase(readFileSync(this.path, 'utf8'));
-        validateRepositories(database.repositories, snapshotRepositories());
+        validateRepositories(database.repositories, snapshotRepositories()); validateRegisteredSnapshots(database.repositories);
         return sealDatabase({ storage: database.storage, repositories: database.repositories, lastCommandId: database.lastCommandId });
     }
     prepareRestore(text: string) {
@@ -89,7 +93,7 @@ export class BusinessHost {
         migratePeriodSnapshot(database);
         // A failed bootstrap may not have loaded repository modules yet. Validation
         // against their complete contract happens again before the atomic restore.
-        if (this.initialized) validateRepositories(database.repositories, snapshotRepositories());
+        if (this.initialized) { migrateWorkspaceSnapshot(database, this.workspaceDefaults); validateRepositories(database.repositories, snapshotRepositories()); validateRegisteredSnapshots(database.repositories); }
         const token = randomUUID();
         this.prepared = { token, actor: actor.userId, database, revision: this.lastCommandId, expires: Date.now() + 300_000 };
         const counts = Object.fromEntries(Object.entries(database.repositories).map(([name, value]) => [name, Array.isArray(value) ? value.length : Object.values(value as object).reduce<number>((n, rows) => n + (Array.isArray(rows) ? rows.length : 0), 0)]));
@@ -108,8 +112,10 @@ export class BusinessHost {
             Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: store });
             Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: store } });
         }
-        await import('./businessEngine');
+        const engine = await import('./businessEngine');
+        migrateWorkspaceSnapshot(prepared.database, engine.workspaceDefaults);
         validateRepositories(prepared.database.repositories, snapshotRepositories());
+        validateRegisteredSnapshots(prepared.database.repositories);
         if (this.security.require('users.manage').userId !== actor.userId) throw new Error('Restore session changed.');
         const pending = this.security.pendingBusinessCommands();
         if (pending.length) {

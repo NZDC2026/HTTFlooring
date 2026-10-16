@@ -1,3 +1,4 @@
+import { activeTaxRate } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -1225,7 +1226,7 @@ function buildPreviewLine(
         }
 
         const calculation =
-            calculateSalesLine({
+            calculateSalesLine({ taxRate: activeTaxRate(product?.taxCode??'GST'),
                 quantity,
 
                 standardUnitPrice:

@@ -40,7 +40,8 @@ export type SalesDocumentStatus =
 export type SalesPriceSource =
     | "STANDARD_PRICE"
     | "CUSTOMER_PRICE"
-    | "MANUAL";
+    | "MANUAL"
+    | "PROMOTIONAL_PRICE";
 
 export interface SalesDocumentLine {
     id: string;
@@ -78,6 +79,9 @@ export interface SalesDocumentLine {
      * produced the price, when applicable.
      */
     customerPriceId?: string;
+    promotionId?: string;
+    taxCode?: string;
+    taxRate?: number;
 
     discountAmount: number;
     discountPercent: number;
@@ -204,6 +208,9 @@ export interface QuoteLineUpdateDraft {
 
     priceSource: SalesPriceSource;
     customerPriceId?: string;
+    promotionId?: string;
+    taxCode?: string;
+    taxRate?: number;
 }
 
 export interface QuoteUpdateDraft {

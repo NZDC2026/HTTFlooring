@@ -1,3 +1,4 @@
+import { promotionalPrice } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
 import { loadCustomerPrices, persistCustomerPrices } from "./customerPricingStorage";
 import { mockCustomerPrices } from "./mockCustomerPrices";
@@ -37,7 +38,8 @@ export interface ResolvedSellingPrice {
 
     source:
     | "CUSTOMER_PRICE"
-    | "STANDARD_PRICE";
+    | "STANDARD_PRICE"
+    | "PROMOTIONAL_PRICE";
 
     basePrice: number;
     effectivePrice: number;
@@ -46,6 +48,7 @@ export interface ResolvedSellingPrice {
     discountPercent: number;
 
     customerPrice?: CustomerPrice;
+    promotionId?: string;
 }
 
 function emitChange() {
@@ -495,7 +498,14 @@ export const customerPricingRepository = {
      * 4. If no customer rule exists, return the
      *    product unit's standard/base price.
      */
-    resolvePrice(
+    resolvePrice(customerId: string, productId: string, unitId: string, date: string): ResolvedSellingPrice {
+        const base = customerPricingRepository.resolveBasePrice(customerId, productId, unitId, date.slice(0,10));
+        const offer = promotionalPrice({customerId,productId,unitId,at:date,customerPrice:base.effectivePrice,basePrice:base.basePrice,hasCustomerPrice:base.source==='CUSTOMER_PRICE'});
+        if (!offer.promotionId) return base;
+        const discountAmount = Number((base.basePrice - offer.price).toFixed(2));
+        return {...base,date,effectivePrice:offer.price,source:'PROMOTIONAL_PRICE',promotionId:offer.promotionId,discountAmount,discountPercent:base.basePrice ? Number((discountAmount/base.basePrice*100).toFixed(2)) : 0};
+    },
+    resolveBasePrice(
         customerId: string,
         productId: string,
         unitId: string,

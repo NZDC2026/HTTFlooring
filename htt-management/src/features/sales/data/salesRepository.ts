@@ -1,3 +1,5 @@
+import { assertProductQuantity } from '../../business-workspace/productRules';
+import { activeTaxRate } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
 import { requireDateKey } from "../../../lib/businessDate";
 import { assertCurrentCrossModuleWriteSafe } from '../../integration/crossModuleWriteGate';
@@ -360,7 +362,7 @@ export const salesRepository = {
                     }
 
                     if (
-                        line.standardUnitPrice <
+                        !Number.isFinite(line.standardUnitPrice) || !Number.isFinite(line.unitPrice) || line.standardUnitPrice <
                         0 ||
                         line.unitPrice < 0
                     ) {
@@ -369,8 +371,11 @@ export const salesRepository = {
                         );
                     }
 
+                    assertProductQuantity(line.productId,line.unitId,line.quantity,'sell');
+                    const taxCode = getProductById(line.productId)?.taxCode ?? 'GST';
+                    const taxRate = activeTaxRate(taxCode);
                     const calculated =
-                        calculateSalesLine({
+                        calculateSalesLine({ taxRate,
                             quantity:
                                 line.quantity,
 
@@ -437,6 +442,7 @@ export const salesRepository = {
                         customerPriceId:
                             line.customerPriceId,
 
+                        taxCode, taxRate,
                         ...calculated,
                     };
                 },
@@ -982,10 +988,17 @@ export const salesRepository = {
             );
         }
 
-        const lines =
-            structuredClone(
-                input.lines,
-            );
+        const seen = new Set<string>();
+        const lines = input.lines.map(request => {
+            const source = invoice.lines.find(line => line.id === request.id);
+            if (!source || seen.has(source.id)) throw new Error('Select each original invoice line only once.');
+            seen.add(source.id);
+            if (!Number.isFinite(request.quantity) || request.quantity <= 0) throw new Error('Credit quantity must be finite and greater than zero.');
+            const credited = creditNoteRepository.getByInvoice(invoice.id).filter(c => c.status !== 'VOID').flatMap(c => c.lines).filter(l => l.id === source.id).reduce((sum,l) => sum+l.quantity,0);
+            if (request.quantity + credited > source.quantity + 1e-8) throw new Error('Credit quantity cannot exceed the original invoice quantity.');
+            const taxRate = source.taxRate ?? (source.lineSubtotal ? source.taxAmount/source.lineSubtotal : 0.1);
+            return {...source,quantity:request.quantity,taxRate,...calculateSalesLine({quantity:request.quantity,unitPrice:source.unitPrice,standardUnitPrice:source.standardUnitPrice,taxRate})};
+        });
 
         const totals =
             calculateDocumentTotals(

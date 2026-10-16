@@ -1,3 +1,4 @@
+import { activeTaxRate } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -211,6 +212,7 @@ export function PurchaseOrderForm({
                             valid
                                 ? calculatePurchaseOrderLine(
                                     {
+                                        taxRate: activeTaxRate(product?.taxCode??'GST'),
                                         orderedQuantity:
                                             quantity,
 

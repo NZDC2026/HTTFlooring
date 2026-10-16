@@ -16,7 +16,8 @@ export type UnitCode =
     | "LM"
     | "BOX"
     | "PIECE"
-    | "ROLL";
+    | "ROLL"
+    | "BUCKET";
 
 export interface ProductUnit {
     id: string;
@@ -53,6 +54,15 @@ export interface Product {
     description?: string;
 
     status: ProductStatus;
+
+    revision?: number;
+    itemType?: "STOCK" | "NON_STOCK" | "SERVICE";
+    buyEnabled?: boolean;
+    sellEnabled?: boolean;
+    reorderPoint?: number;
+    targetStock?: number;
+    wholePacks?: boolean;
+    taxCode?: string;
 
     baseUnitId: string;
 

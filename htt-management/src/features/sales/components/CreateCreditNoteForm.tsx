@@ -106,6 +106,7 @@ export function CreateCreditNoteForm({
 
                             const calculation =
                                 calculateSalesLine({
+                                    taxRate: item.line.taxRate ?? (item.line.lineSubtotal ? item.line.taxAmount / item.line.lineSubtotal : 0.1),
                                     quantity,
 
                                     standardUnitPrice:
@@ -390,6 +391,7 @@ export function CreateCreditNoteForm({
 
                                     const calculated =
                                         calculateSalesLine({
+                                            taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
                                             quantity:
                                                 item.selected
                                                     ? item.quantity

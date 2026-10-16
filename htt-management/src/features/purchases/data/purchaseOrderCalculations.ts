@@ -1,3 +1,4 @@
+import { activeTaxRate } from '../../business-workspace/configurationState';
 import type {
     PurchaseOrderLine,
     PurchaseOrderTotals,
@@ -20,9 +21,11 @@ export function roundPurchaseMoney(
 export function calculatePurchaseOrderLine({
     orderedQuantity,
     unitCost,
+    taxRate = activeTaxRate(),
 }: {
     orderedQuantity: number;
     unitCost: number;
+    taxRate?: number;
 }) {
     const lineSubtotal =
         roundPurchaseMoney(
@@ -33,7 +36,7 @@ export function calculatePurchaseOrderLine({
     const taxAmount =
         roundPurchaseMoney(
             lineSubtotal *
-            PURCHASE_GST_RATE,
+            taxRate,
         );
 
     const lineTotal =

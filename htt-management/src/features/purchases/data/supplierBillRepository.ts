@@ -837,9 +837,11 @@ export const supplierBillRepository =
                         );
                     }
 
+                    const taxRate = purchaseOrderLine.taxRate ?? (purchaseOrderLine.lineSubtotal ? purchaseOrderLine.taxAmount / purchaseOrderLine.lineSubtotal : 0.1);
                     const calculations =
                         calculateSupplierBillLine(
                             {
+                                taxRate,
                                 quantity:
                                     draftLine.quantity,
 
@@ -851,6 +853,7 @@ export const supplierBillRepository =
                     return {
                         id:
                             `bill_line_${crypto.randomUUID()}`,
+                        taxRate, taxCode: purchaseOrderLine.taxCode,
 
                         purchaseOrderLineId:
                             purchaseOrderLine.id,

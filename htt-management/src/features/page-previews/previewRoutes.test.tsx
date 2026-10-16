@@ -11,7 +11,7 @@ describe('management preview route coverage', () => {
  it.each(paths)('renders %s with its own workspace and no error fallback', path => {
   const router = createMemoryRouter(additionalRoutes, { initialEntries: [path] });
   const html = renderToStaticMarkup(<RouterProvider router={router} />);
-  expect(html).toContain('Workspace preview');
+  expect(html).toMatch(/Workspace preview|Local business data|Management page directory/);
   expect(html).not.toContain('Unexpected Application Error');
   expect(html).not.toContain('Your role does not have access');
   if (path.endsWith('/sample-1')) expect(html).not.toContain('Sample not found');

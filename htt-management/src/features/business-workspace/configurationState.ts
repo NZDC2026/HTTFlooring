@@ -1,0 +1,39 @@
+import type { AccountSystemRole } from '../accounting/types/account';
+export type ConfigRow = {
+    id: string;
+    name: string;
+    status: string;
+    revision: string;
+    createdAt: string;
+    updatedAt: string;
+    [key: string]: string;
+};
+export const configurationRows: Record<string, ConfigRow[]> = {};
+export const linkedAccountId = (role: AccountSystemRole) => configurationRows['linked-accounts']?.find(r => r.status === 'Active' && r.role === role)?.accountId;
+export function activeTaxRate(code = 'GST') {
+    const row = configurationRows['tax-codes']?.find(r => r.status === 'Active' && r.code === code);
+    if (!row) {
+        if (!configurationRows['tax-codes'] && code === 'GST')
+            return 0.1;
+        throw new Error(`Active tax code ${code} was not found.`);
+    }
+    return Number(row.rate) / 100;
+}
+export function promotionalPrice(input: {
+    customerId: string;
+    productId: string;
+    unitId: string;
+    at: string;
+    customerPrice: number;
+    basePrice: number;
+    hasCustomerPrice?: boolean;
+}) {
+    const at = Date.parse(input.at.length === 10 ? input.at + 'T00:00:00Z' : input.at);
+    const candidates = (configurationRows.promotions ?? []).filter(r => r.status === 'Active' && r.productId === input.productId && r.unitId === input.unitId && (!r.customerId || r.customerId === input.customerId) && Date.parse(r.starts) <= at && at < Date.parse(r.ends));
+    if (!candidates.length)
+        return { price: input.customerPrice, promotionId: undefined };
+    const row = candidates.sort((a, b) => Number(b.priority) - Number(a.priority) || a.id.localeCompare(b.id))[0];
+    const price = row.policy === 'Customer price first' && input.hasCustomerPrice ? input.customerPrice : row.policy === 'Lowest eligible price' ? Math.min(input.customerPrice, Number(row.price)) : Number(row.price);
+    return { price, promotionId: price === Number(row.price) ? row.id : undefined };
+}
+export function isLinkedAccount(id: string) { return (configurationRows['linked-accounts'] ?? []).some(r => r.status === 'Active' && r.accountId === id); }

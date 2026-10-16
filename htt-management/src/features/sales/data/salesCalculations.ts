@@ -1,3 +1,4 @@
+import { activeTaxRate } from '../../business-workspace/configurationState';
 import type {
     SalesDocumentLine,
     SalesDocumentTotals,
@@ -17,10 +18,12 @@ export function calculateSalesLine({
     quantity,
     standardUnitPrice,
     unitPrice,
+    taxRate = activeTaxRate(),
 }: {
     quantity: number;
     standardUnitPrice: number;
     unitPrice: number;
+    taxRate?: number;
 }) {
     const lineSubtotal =
         roundMoney(
@@ -29,7 +32,7 @@ export function calculateSalesLine({
 
     const taxAmount =
         roundMoney(
-            lineSubtotal * GST_RATE,
+            lineSubtotal * taxRate,
         );
 
     const lineTotal =

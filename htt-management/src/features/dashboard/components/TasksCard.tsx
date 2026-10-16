@@ -1,3 +1,4 @@
+import { useWorkspaceRecords } from '../../business-workspace/workspaceRepository';
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "../../../components/ui/Card";
 import { useFinanceOverview } from "../data/useFinanceOverview";
@@ -5,7 +6,9 @@ const fmt = (n: number) => new Intl.NumberFormat("en-NZ", { style: "currency", c
 export function TasksCard() {
  const today = new Date().toLocaleDateString("en-CA", {timeZone:"Pacific/Auckland"});
  const data = useFinanceOverview(today);
+ const followups=useWorkspaceRecords('tasks').filter(t=>!['Completed','Inactive'].includes(t.status)&&t.due<=today);
  const tasks = [
+ ...followups.map(t=>({title:t.name,description:`${t.due<today?'Overdue':'Due today'} · ${t.due} · ${t.priority}`,path:`/tasks/${t.id}`,active:true})),
   {title:`${data.overdueInvoiceCount} overdue invoices`, description:`${fmt(data.overdueReceivables)} requires follow-up`, path:"/sales", active:data.overdueInvoiceCount>0},
   {title:`${data.unreconciledCount} uncleared bank transactions`, description:"Review outstanding bank activity", path:"/banking", active:data.unreconciledCount>0},
   {title:"Overdue supplier payments", description:`${fmt(data.overduePayables)} overdue`, path:"/purchases", active:data.overduePayables>0},
