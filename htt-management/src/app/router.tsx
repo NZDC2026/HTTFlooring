@@ -1,3 +1,4 @@
+import { additionalRoutes } from '../features/page-previews/previewRoutes';
 import { WorkspaceSearchPage, HelpPage, NotificationsPage } from '../layouts/WorkspaceUtilityPages';
 import { EmployeesPage, EmployeeDetailPage, EmployeeFormPage, PayRunsPage, PayRunFormPage, PayRunDetailPage, PayslipPage, TimesheetsPage, LeavePage } from '../features/payroll/pages/PayrollWorkspacePages';
 import { DocumentUploadPage, DocumentDetailPage } from '../features/documents/pages/DocumentWorkspacePages';
@@ -71,6 +72,7 @@ export const router = createHashRouter([
         path: "/",
         element: <AppLayout />,
         children: [
+            ...additionalRoutes,
             { path: 'search', element: <WorkspaceSearchPage /> },
             { path: 'help', element: <HelpPage /> },
             { path: 'notifications', element: <NotificationsPage /> },

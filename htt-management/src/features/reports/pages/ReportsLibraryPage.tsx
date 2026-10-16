@@ -2,6 +2,13 @@ import { Link } from 'react-router-dom';
 import { useSecurity } from '../../security/securityClient';
 import { hasPermission, type Permission } from '../../security/rbac';
 const reports: { name: string; group: string; description: string; path: string; permission: Permission }[] = [
+ { name: 'Cash flow · Sample', group: 'Additional previews', description: 'Cash flow layout with illustrative figures.', path: '/reports/cash-flow', permission: 'accounting.read' },
+ { name: 'Sales analysis · Sample', group: 'Additional previews', description: 'Customer sales analysis layout.', path: '/reports/sales-analysis', permission: 'sales.read' },
+ { name: 'Purchase analysis · Sample', group: 'Additional previews', description: 'Supplier purchase analysis layout.', path: '/reports/purchase-analysis', permission: 'purchases.read' },
+ { name: 'Payroll summary · Sample', group: 'Additional previews', description: 'Gross, deductions and net pay layout.', path: '/reports/payroll-summary', permission: 'accounting.read' },
+ { name: 'Banking summary · Sample', group: 'Additional previews', description: 'Account movements layout.', path: '/reports/banking-summary', permission: 'banking.read' },
+ { name: 'Saved & favourite reports · Sample', group: 'Additional previews', description: 'Dataset, column and filter configuration.', path: '/reports/saved', permission: 'accounting.read' },
+ { name: 'Report packs · Sample', group: 'Additional previews', description: 'Cover, contents and combined report layouts.', path: '/reports/packs', permission: 'accounting.read' },
  { name: 'Aged receivables', group: 'Receivables', description: 'Customer balances and overdue ageing.', path: '/reports', permission: 'sales.read' },
  { name: 'Aged payables', group: 'Payables', description: 'Supplier balances and payment ageing.', path: '/reports/aged-payables', permission: 'purchases.read' },
  { name: 'Trial balance', group: 'General ledger', description: 'Opening, period movements and closing balances.', path: '/accounting/trial-balance', permission: 'accounting.read' },

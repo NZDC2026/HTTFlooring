@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from 'react';
-export type Employee = { id: string; name: string; role: string; type: string; gross: number; status: string; email: string; startDate: string };
+export type Employee = { id: string; name: string; role: string; type: string; gross: number; status: string; email: string; startDate: string; bankAccount?: string; taxIdentifier?: string; retirementRate?: string; leaveHours?: string; payCycle?: string };
 export type DemoDocument = { id: string; name: string; category: string; owner: string; date: string; status: string; description: string; fileName?: string; size?: number };
 export type PayRun = { id: string; start: string; end: string; payDate: string; status: string; employeeIds: string[] };
 export type Leave = { id: string; employeeId: string; type: string; start: string; end: string; status: string; note: string };
-export type Timesheet = { id: string; employeeId: string; week: string; hours: number; status: string };
+export type Timesheet = { id: string; employeeId: string; week: string; hours: number; status: string; job?: string; payItem?: string };
 const seed = {
  employees: [
   { id: 'EMP-001', name: 'Olivia Chen', role: 'Operations Manager', type: 'Salary', gross: 3461.54, status: 'Active', email: 'olivia@example.test', startDate: '2024-03-04' },

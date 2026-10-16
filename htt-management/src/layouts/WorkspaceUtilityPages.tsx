@@ -4,6 +4,9 @@ import { useSecurity } from '../features/security/securityClient';
 import { hasPermission, type Permission } from '../features/security/rbac';
 import { Panel, fieldClass, buttonClass } from '../features/prototype/PrototypeUI';
 const destinations: { name: string; description: string; path: string; permission?: Permission }[] = [
+ { name: 'Page directory', description: 'Products, tax codes, refunds, bank rules, templates and additional previews', path: '/workspace' },
+ { name: 'Business record search', description: 'Cross-entity sample numbers, names and references', path: '/search/records', permission: 'sales.read' },
+ { name: 'Tasks & action centre', description: 'Follow-ups, owners, due dates and status history samples', path: '/tasks', permission: 'sales.read' },
  { name: 'Dashboard', description: 'Financial overview and recent activity', path: '/dashboard', permission: 'accounting.read' },
  { name: 'Sales', description: 'Quotes, orders, invoices and customer credits', path: '/sales', permission: 'sales.read' },
  { name: 'Purchases', description: 'Purchase orders, receipts and supplier bills', path: '/purchases', permission: 'purchases.read' },

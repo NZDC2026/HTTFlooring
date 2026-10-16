@@ -25,6 +25,7 @@ const sections = [
     {
         label: "Overview",
         items: [
+            { label: "Page directory", path: "/workspace", icon: LayoutDashboard },
             {
                 label: "Dashboard",
                 path: "/dashboard",
