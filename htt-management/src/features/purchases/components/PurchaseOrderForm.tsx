@@ -1,4 +1,6 @@
-import { activeTaxRate } from '../../business-workspace/configurationState';
+import {businessDateKey} from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
+import { activeTaxRate, exclusivePrice } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -213,10 +215,11 @@ export function PurchaseOrderForm({
                                 ? calculatePurchaseOrderLine(
                                     {
                                         taxRate: activeTaxRate(product?.taxCode??'GST'),
+                                        inclusiveLineTotal:!purchaseOrder&&businessSettings().basis==='Inclusive'?Math.round(quantity*unitCost*100)/100:undefined,
                                         orderedQuantity:
                                             quantity,
 
-                                        unitCost,
+                                        unitCost: purchaseOrder ? unitCost : exclusivePrice(unitCost,activeTaxRate(product?.taxCode??'GST')),
                                     },
                                 )
                                 : {
@@ -487,13 +490,14 @@ export function PurchaseOrderForm({
 
                         unitCost:
                             line.unitCost,
+                        priceBasis: purchaseOrder ? "Exclusive" : businessSettings().basis as "Exclusive"|"Inclusive",
                     }),
                 ),
         });
     }
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-5"><p className="text-sm text-slate-600">New unit costs: {businessSettings().basis} tax. Existing orders retain net cost snapshots.</p>
             {error && (
                 <div className="flex items-start gap-3 rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
                     <AlertCircle
@@ -1183,36 +1187,13 @@ function formatMoney(
                 "currency",
 
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     );
 }
 
 function getToday() {
-    const now =
-        new Date();
-
-    const year =
-        now.getFullYear();
-
-    const month =
-        String(
-            now.getMonth() +
-            1,
-        ).padStart(
-            2,
-            "0",
-        );
-
-    const day =
-        String(
-            now.getDate(),
-        ).padStart(
-            2,
-            "0",
-        );
-
-    return `${year}-${month}-${day}`;
+    return businessDateKey(new Date().toISOString());
 }
 
 const selectClassName =

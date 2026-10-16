@@ -1,3 +1,5 @@
+import {businessDateKey} from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -131,6 +133,7 @@ export function CreateSupplierCreditPage() {
 
                 let subtotal =
                     0;
+                let taxTotal=0;
 
                 for (
                     const state of lines
@@ -166,9 +169,9 @@ export function CreateSupplierCreditPage() {
                         continue;
                     }
 
-                    subtotal +=
-                        quantity *
-                        unitCost;
+                    subtotal += roundCurrency(quantity*unitCost);
+                    const source=bill.lines.find(l=>l.id===state.supplierBillLineId);
+                    if(source?.unitCost)taxTotal+=roundCurrency(source.taxAmount*quantity/source.quantity*unitCost/source.unitCost);
                 }
 
                 subtotal =
@@ -178,8 +181,7 @@ export function CreateSupplierCreditPage() {
 
                 const taxAmount =
                     roundCurrency(
-                        subtotal *
-                        0.1,
+                        taxTotal,
                     );
 
                 return {
@@ -955,7 +957,7 @@ function formatMoney(
             style:
                 "currency",
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     ).format(value);
 }
@@ -985,28 +987,5 @@ function roundCurrency(
 }
 
 function getToday() {
-    const now =
-        new Date();
-
-    const year =
-        now.getFullYear();
-
-    const month =
-        String(
-            now.getMonth() +
-            1,
-        ).padStart(
-            2,
-            "0",
-        );
-
-    const day =
-        String(
-            now.getDate(),
-        ).padStart(
-            2,
-            "0",
-        );
-
-    return `${year}-${month}-${day}`;
+    return businessDateKey(new Date().toISOString());
 }

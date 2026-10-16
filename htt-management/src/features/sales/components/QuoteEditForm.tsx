@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { activeTaxRate } from '../../business-workspace/configurationState';
 import {
     useMemo,
@@ -1123,7 +1124,7 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
             minimumFractionDigits: 2,
         },
     );

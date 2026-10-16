@@ -1,3 +1,4 @@
+import {businessSettings} from '../business-workspace/configurationState';
 import { parseCsv } from '../page-previews/previewModel';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -12,7 +13,7 @@ import { supplierRefundRepository } from './settlementRepository';
 import { configurationRows } from '../business-workspace/configurationState';
 import { usePermission } from '../security/usePermission';
 import type { BankRegisterTransaction } from '../banking/types/bankRegister';
-const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' });
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: businessSettings().timezone });
 export function BankAccountSetupPage({ mode, id }: {
     mode: 'list' | 'new' | 'edit' | 'detail';
     id?: string;

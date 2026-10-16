@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
 import { readMockRepository, writeMockRepository, canWriteMockRepository } from "../../../lib/persistence/mockRepositoryStorage";
 import {
@@ -249,7 +250,7 @@ export const supplierRepository = {
                 values,
             ),
 
-            currency: "AUD",
+            currency: businessSettings().currency,
 
             createdAt: now,
             updatedAt: now,

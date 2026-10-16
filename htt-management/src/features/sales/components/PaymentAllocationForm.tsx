@@ -1,3 +1,5 @@
+import {businessDateKey} from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useState,
     type FormEvent,
@@ -505,29 +507,7 @@ function Field({
 }
 
 function getToday() {
-    const now =
-        new Date();
-
-    const year =
-        now.getFullYear();
-
-    const month =
-        String(
-            now.getMonth() + 1,
-        ).padStart(
-            2,
-            "0",
-        );
-
-    const day =
-        String(
-            now.getDate(),
-        ).padStart(
-            2,
-            "0",
-        );
-
-    return `${year}-${month}-${day}`;
+    return businessDateKey(new Date().toISOString());
 }
 
 function formatMoney(
@@ -537,7 +517,7 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
             minimumFractionDigits: 2,
         },
     );

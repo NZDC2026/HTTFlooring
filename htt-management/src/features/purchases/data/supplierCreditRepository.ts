@@ -1,3 +1,4 @@
+import { configuredNumber } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
 import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
@@ -327,10 +328,7 @@ export const supplierCreditRepository =
                         );
                     }
 
-                    const unitCost =
-                        roundCurrency(
-                            draftLine.unitCost,
-                        );
+                    const unitCost = draftLine.unitCost;
 
                     if (
                         !Number.isFinite(
@@ -345,7 +343,7 @@ export const supplierCreditRepository =
 
                     if (
                         unitCost >
-                        sourceLine.unitCost
+                        sourceLine.unitCost + 1e-8
                     ) {
                         throw new Error(
                             `${sourceLine.description} credit unit cost cannot exceed the source bill unit cost.`,
@@ -360,8 +358,7 @@ export const supplierCreditRepository =
 
                     const taxAmount =
                         roundCurrency(
-                            lineSubtotal *
-                            (sourceLine.taxRate ?? (sourceLine.lineSubtotal ? sourceLine.taxAmount / sourceLine.lineSubtotal : 0.1)),
+                            sourceLine.unitCost ? sourceLine.taxAmount * quantity/sourceLine.quantity * unitCost/sourceLine.unitCost : 0,
                         );
 
                     const lineTotal =
@@ -376,6 +373,7 @@ export const supplierCreditRepository =
                                 `supplier-credit-line-${index + 1}`,
                             ),
 
+                        taxCode:sourceLine.taxCode,taxRate:sourceLine.taxRate,taxCollectedAccountId:sourceLine.taxCollectedAccountId,taxPaidAccountId:sourceLine.taxPaidAccountId,taxReport:sourceLine.taxReport,
                         purchaseOrderLineId:
                             sourceLine
                                 .purchaseOrderLineId,
@@ -1232,48 +1230,7 @@ function createAllocationNumber(
 function createCreditNumber(
     creditDate: string,
 ) {
-    const year =
-        creditDate.slice(
-            0,
-            4,
-        );
-
-    const prefix =
-        `SC-${year}-`;
-
-    const numbers =
-        supplierCredits
-            .filter(
-                (credit) =>
-                    credit.creditNumber.startsWith(
-                        prefix,
-                    ),
-            )
-            .map(
-                (credit) =>
-                    Number.parseInt(
-                        credit.creditNumber.slice(
-                            prefix.length,
-                        ),
-                        10,
-                    ),
-            )
-            .filter(
-                Number.isFinite,
-            );
-
-    const next =
-        Math.max(
-            0,
-            ...numbers,
-        ) + 1;
-
-    return `${prefix}${String(
-        next,
-    ).padStart(
-        4,
-        "0",
-    )}`;
+ return configuredNumber('SC',supplierCredits.map(r=>r.creditNumber),creditDate.slice(0,4));
 }
 
 function createId(

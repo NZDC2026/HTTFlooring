@@ -23,9 +23,9 @@ export type OperationalRow = {
 export function filterOperationalRows(rows: OperationalRow[], from: string, to: string, query: string) { return rows.filter(r => (!from || r.date >= from) && (!to || r.date <= to) && `${r.number} ${r.contact} ${r.status}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.date.localeCompare(a.date) || a.number.localeCompare(b.number)); }
 export function operationalRows(kind: string): OperationalRow[] {
     if (kind === 'sales-report')
-        return salesRepository.getAll().filter(d => d.type === 'INVOICE' && !['VOID', 'DRAFT'].includes(d.status)).map(d => ({ id: d.id, date: d.documentDate, number: d.documentNumber, contact: customerRepository.getById(d.customerId)?.businessName ?? d.customerId, status: d.status, net: d.totals.subtotal, tax: d.totals.taxAmount, total: d.totals.total, path: `/sales/invoices/${d.id}` }));
+        return salesRepository.getAll().filter(d => d.type === 'INVOICE' && !d.openingBalanceImportId && !['VOID', 'DRAFT'].includes(d.status)).map(d => ({ id: d.id, date: d.documentDate, number: d.documentNumber, contact: customerRepository.getById(d.customerId)?.businessName ?? d.customerId, status: d.status, net: d.totals.subtotal, tax: d.totals.taxAmount, total: d.totals.total, path: `/sales/invoices/${d.id}` }));
     if (kind === 'purchases-report')
-        return supplierBillRepository.getAll().filter(d => d.status !== 'VOID').map(d => ({ id: d.id, date: d.billDate, number: d.billNumber, contact: d.supplierName, status: d.status, net: d.totals.subtotal, tax: d.totals.taxAmount, total: d.totals.total, path: `/purchases/bills/${d.id}` }));
+        return supplierBillRepository.getAll().filter(d=>!d.openingBalanceImportId).filter(d => d.status !== 'VOID').map(d => ({ id: d.id, date: d.billDate, number: d.billNumber, contact: d.supplierName, status: d.status, net: d.totals.subtotal, tax: d.totals.taxAmount, total: d.totals.total, path: `/purchases/bills/${d.id}` }));
     return bankTransactionRepository.getTransactions().map(d => ({ id: d.id, date: d.transactionDate, number: d.transactionNumber, contact: d.description, status: d.direction, net: d.direction === 'MONEY_IN' ? d.amount : -d.amount, tax: 0, total: d.direction === 'MONEY_IN' ? d.amount : -d.amount, path: `/banking/accounts/${d.bankAccountId}` }));
 }
 export function ConnectedOperationalReport({ kind }: {

@@ -8,6 +8,10 @@ export type PurchaseOrderStatus =
     | "BILLED";
 
 export interface PurchaseOrderLine {
+    grossUnitCost?: number;
+    taxCollectedAccountId?: string;
+    taxPaidAccountId?: string;
+    taxReport?: string;
     taxCode?: string;
     taxRate?: number;
     id: string;
@@ -76,6 +80,7 @@ export interface PurchaseOrder {
 }
 
 export interface PurchaseOrderLineDraft {
+    priceBasis?: "Inclusive" | "Exclusive";
     productId: string;
     unitId: string;
 

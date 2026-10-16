@@ -1,8 +1,8 @@
 import { assertSourceNotReconciled } from '../../banking/data/reconciliationLock';
 import { assertProductQuantity } from '../../business-workspace/productRules';
-import { activeTaxRate } from '../../business-workspace/configurationState';
+import { activeTaxRate, businessSettings, configuredNumber, taxSnapshot } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
-import { requireDateKey } from "../../../lib/businessDate";
+import { requireDateKey, businessDateKey } from "../../../lib/businessDate";
 import { assertCurrentCrossModuleWriteSafe } from '../../integration/crossModuleWriteGate';
 import { loadSalesDocuments, persistSalesDocuments } from "./invoiceStorage";
 import { loadQuotes, persistQuotes } from "./quoteStorage";
@@ -373,7 +373,7 @@ export const salesRepository = {
                     }
 
                     assertProductQuantity(line.productId,line.unitId,line.quantity,'sell');
-                    const taxCode = getProductById(line.productId)?.taxCode ?? 'GST';
+                    const taxCode = getProductById(line.productId)?.taxCode ?? businessSettings().gstCode;
                     const taxRate = activeTaxRate(taxCode);
                     const calculated =
                         calculateSalesLine({ taxRate,
@@ -443,7 +443,7 @@ export const salesRepository = {
                         customerPriceId:
                             line.customerPriceId,
 
-                        taxCode, taxRate,
+                        ...taxSnapshot(taxCode),
                         ...calculated,
                     };
                 },
@@ -861,7 +861,7 @@ export const salesRepository = {
             dueDate:
                 addDays(
                     documentDate,
-                    30,
+                    Number(businessSettings().terms),
                 ),
 
             status:
@@ -998,7 +998,11 @@ export const salesRepository = {
             const credited = creditNoteRepository.getByInvoice(invoice.id).filter(c => c.status !== 'VOID').flatMap(c => c.lines).filter(l => l.id === source.id).reduce((sum,l) => sum+l.quantity,0);
             if (request.quantity + credited > source.quantity + 1e-8) throw new Error('Credit quantity cannot exceed the original invoice quantity.');
             const taxRate = source.taxRate ?? (source.lineSubtotal ? source.taxAmount/source.lineSubtotal : 0.1);
-            return {...source,quantity:request.quantity,taxRate,...calculateSalesLine({quantity:request.quantity,unitPrice:source.unitPrice,standardUnitPrice:source.standardUnitPrice,taxRate})};
+            const priorLines=creditNoteRepository.getByInvoice(invoice.id).filter(c=>c.status!=='VOID').flatMap(c=>c.lines).filter(l=>l.id===source.id);
+            const final=request.quantity+credited>=source.quantity-1e-8;
+            const lineSubtotal=roundCurrency(final?source.lineSubtotal-priorLines.reduce((n,l)=>n+l.lineSubtotal,0):source.lineSubtotal*request.quantity/source.quantity);
+            const taxAmount=roundCurrency(final?source.taxAmount-priorLines.reduce((n,l)=>n+l.taxAmount,0):source.taxAmount*request.quantity/source.quantity);
+            return {...source,quantity:request.quantity,taxRate,lineSubtotal,taxAmount,lineTotal:roundCurrency(lineSubtotal+taxAmount)};
         });
 
         const totals =
@@ -2186,58 +2190,11 @@ function getNextDocumentNumber(
     prefix: string,
     existingNumbers: string[],
 ) {
-    const year =
-        new Date().getFullYear();
-
-    const sequence =
-        existingNumbers.reduce(
-            (
-                highest,
-                documentNumber,
-            ) => {
-                const match =
-                    documentNumber.match(
-                        /-(\d+)$/,
-                    );
-
-                if (!match) {
-                    return highest;
-                }
-
-                const value =
-                    Number(match[1]);
-
-                return Math.max(
-                    highest,
-                    value,
-                );
-            },
-            0,
-        ) + 1;
-
-    return `${prefix}-${year}-${String(
-        sequence,
-    ).padStart(4, "0")}`;
+    return configuredNumber(prefix, existingNumbers, businessDateKey(new Date().toISOString()).slice(0,4));
 }
 
 function getToday() {
-    const date =
-        new Date();
-
-    const year =
-        date.getFullYear();
-
-    const month =
-        String(
-            date.getMonth() + 1,
-        ).padStart(2, "0");
-
-    const day =
-        String(
-            date.getDate(),
-        ).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+    return businessDateKey(new Date().toISOString());
 }
 
 function addDays(

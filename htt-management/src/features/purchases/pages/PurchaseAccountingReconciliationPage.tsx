@@ -1,7 +1,8 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { useState } from "react";
 import { usePurchaseAccountingReconciliation } from "../data/usePurchaseAccountingReconciliation";
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-const aud = (n: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(n);
+const aud = (n: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: businessSettings().currency }).format(n);
 export function PurchaseAccountingReconciliationPage() {
   const [asOfDate, setAsOfDate] = useState(today);
   const result = usePurchaseAccountingReconciliation(asOfDate);

@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     ArrowLeft,
 } from "lucide-react";
@@ -416,7 +417,7 @@ function formatMoney(
             style:
                 "currency",
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     ).format(
         value,

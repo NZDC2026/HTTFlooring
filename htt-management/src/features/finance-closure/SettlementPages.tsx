@@ -1,3 +1,4 @@
+import {businessSettings} from '../business-workspace/configurationState';
 import { usePayments } from '../sales/data/usePayments';
 import type { Receipt } from './settlementRepository';
 import { useState, useSyncExternalStore } from 'react';
@@ -13,7 +14,7 @@ import { bankAccountRepository } from '../banking/data/bankAccountRepository';
 import { customerRepository } from '../contacts/data/customerRepository';
 import { supplierRepository } from '../contacts/data/supplierRepository';
 import { usePermission } from '../security/usePermission';
-const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' });
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: businessSettings().timezone });
 export function SettlementPage({ kind, mode, id }: {
     kind: 'receipt' | 'customer-refund' | 'supplier-refund';
     mode: 'list' | 'new' | 'detail';

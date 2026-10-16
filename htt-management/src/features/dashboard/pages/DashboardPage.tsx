@@ -1,3 +1,4 @@
+import {businessSettings} from '../../business-workspace/configurationState';
 import { useState } from "react";
 import { ArrowRight, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -21,13 +22,13 @@ export function DashboardPage() {
     const accounts = useAccounts();
     const journals = useJournalEntries();
     const bankAccounts = useBankAccounts();
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland", year: "numeric", month: "2-digit", day: "2-digit" });
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: businessSettings().timezone, year: "numeric", month: "2-digit", day: "2-digit" });
     const dashboard = useMemo(() => buildLiveDashboard(accounts, journals, today, bankAccounts), [accounts, journals, today, bankAccounts]);
     return <div className="pb-8">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
             <div>
                 <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">Business overview · {today.slice(0, 7)}</p>
-                <h1 className="font-display text-[clamp(26px,3vw,34px)] leading-tight">Welcome back, ABC Flooring</h1>
+                <h1 className="font-display text-[clamp(26px,3vw,34px)] leading-tight">Welcome back, {businessSettings().companyName}</h1>
                 <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Your business performance, priorities and next steps in one place.</p>
             </div>
             <Link to="/demo"><Button variant="accent">Customer demo <ArrowRight size={16}/></Button></Link>

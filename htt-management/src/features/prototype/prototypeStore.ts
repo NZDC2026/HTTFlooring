@@ -1,3 +1,4 @@
+import { businessSettings } from '../business-workspace/configurationState';
 import { useSyncExternalStore } from 'react';
 export type Employee = { id: string; name: string; role: string; type: string; gross: number; status: string; email: string; startDate: string; bankAccount?: string; taxIdentifier?: string; retirementRate?: string; leaveHours?: string; payCycle?: string };
 export type DemoDocument = { id: string; name: string; category: string; owner: string; date: string; status: string; description: string; fileName?: string; size?: number };
@@ -22,7 +23,7 @@ const seed = {
  runs: [{ id: 'PAY-2026-020', start: '2026-09-28', end: '2026-10-11', payDate: '2026-10-15', status: 'Draft', employeeIds: ['EMP-001', 'EMP-002', 'EMP-003', 'EMP-004', 'EMP-005'] }] as PayRun[],
  leave: [{ id: 'LV-001', employeeId: 'EMP-003', type: 'Annual leave', start: '2026-10-20', end: '2026-10-21', status: 'Pending', note: 'Sample leave request' }] as Leave[],
  timesheets: [{ id: 'TS-001', employeeId: 'EMP-003', week: '2026-10-05', hours: 38, status: 'Submitted' }, { id: 'TS-002', employeeId: 'EMP-004', week: '2026-10-05', hours: 36, status: 'Draft' }] as Timesheet[],
- company: { name: 'HTT Flooring (Sample)', tradingName: 'HTT Flooring', identifier: '', email: 'accounts@example.test', phone: '', address: 'Sample business address', country: 'Australia', currency: 'AUD', timezone: 'Australia/Sydney' },
+ company: { name: 'HTT Flooring (Sample)', tradingName: 'HTT Flooring', identifier: '', email: 'accounts@example.test', phone: '', address: 'Sample business address', country: 'Australia', currency: businessSettings().currency, timezone: 'Australia/Sydney' },
  preferences: { dateFormat: 'DD/MM/YYYY', language: 'English', notifications: true, theme: 'System' },
 };
 export type PrototypeState = typeof seed;
@@ -32,4 +33,4 @@ export function updatePrototype(change: (next: PrototypeState) => void) { const 
 export function usePrototype() { return useSyncExternalStore(fn => { listeners.add(fn); return () => { listeners.delete(fn); }; }, () => state, () => state); }
 export function resetPrototype() { state = structuredClone(seed); listeners.forEach(fn => fn()); return state; }
 export const demoId = (prefix: string) => `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
-export const money = (n: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(n);
+export const money = (n: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: businessSettings().currency }).format(n);

@@ -1,3 +1,5 @@
+import {businessDateKey} from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
 import { useMemo } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -729,27 +731,14 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
             minimumFractionDigits: 2,
         },
     );
 }
 
 function getToday() {
-    const date = new Date();
-
-    const year =
-        date.getFullYear();
-
-    const month = String(
-        date.getMonth() + 1,
-    ).padStart(2, "0");
-
-    const day = String(
-        date.getDate(),
-    ).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+    return businessDateKey(new Date().toISOString());
 }
 
 const selectClassName = [

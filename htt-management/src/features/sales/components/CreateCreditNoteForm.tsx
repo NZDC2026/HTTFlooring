@@ -1,3 +1,5 @@
+import {businessDateKey} from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -17,7 +19,7 @@ import {
 
 import {
     calculateDocumentTotals,
-    calculateSalesLine,
+
 } from "../data/salesCalculations";
 
 import type {
@@ -105,7 +107,8 @@ export function CreateCreditNoteForm({
                                 item.quantity;
 
                             const calculation =
-                                calculateSalesLine({
+                                previewCreditLine({
+                                    lineSubtotal:item.line.lineSubtotal,taxAmount:item.line.taxAmount,sourceQuantity:item.line.quantity,
                                     taxRate: item.line.taxRate ?? (item.line.lineSubtotal ? item.line.taxAmount / item.line.lineSubtotal : 0.1),
                                     quantity,
 
@@ -390,7 +393,8 @@ export function CreateCreditNoteForm({
                                         item.line;
 
                                     const calculated =
-                                        calculateSalesLine({
+                                        previewCreditLine({
+                                            lineSubtotal:line.lineSubtotal,taxAmount:line.taxAmount,sourceQuantity:line.quantity,
                                             taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
                                             quantity:
                                                 item.selected
@@ -642,30 +646,7 @@ function SummaryRow({
 }
 
 function getToday() {
-    const now =
-        new Date();
-
-    const year =
-        now.getFullYear();
-
-    const month =
-        String(
-            now.getMonth() +
-            1,
-        ).padStart(
-            2,
-            "0",
-        );
-
-    const day =
-        String(
-            now.getDate(),
-        ).padStart(
-            2,
-            "0",
-        );
-
-    return `${year}-${month}-${day}`;
+    return businessDateKey(new Date().toISOString());
 }
 
 function formatMoney(
@@ -677,7 +658,13 @@ function formatMoney(
             style:
                 "currency",
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     ).format(value);
+}
+function previewCreditLine({quantity,unitPrice,standardUnitPrice,lineSubtotal,taxAmount,sourceQuantity}:{quantity:number;unitPrice:number;standardUnitPrice:number;taxRate:number;lineSubtotal?:number;taxAmount?:number;sourceQuantity?:number}){
+ const round=(n:number)=>Math.round((n+Number.EPSILON)*100)/100;
+ const net=round((lineSubtotal??unitPrice*(sourceQuantity??quantity))*quantity/((sourceQuantity??quantity)||1));
+ const tax=round((taxAmount??0)*quantity/((sourceQuantity??quantity)||1));
+ return {lineSubtotal:net,taxAmount:tax,lineTotal:round(net+tax),discountAmount:round(standardUnitPrice-unitPrice),discountPercent:standardUnitPrice?round((standardUnitPrice-unitPrice)/standardUnitPrice*100):0};
 }

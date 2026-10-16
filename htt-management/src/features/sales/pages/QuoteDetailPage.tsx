@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { usePermission } from '../../security/usePermission';
 import {
     useState,
@@ -905,7 +906,7 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
             minimumFractionDigits: 2,
         },
     );

@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { assertSourceNotReconciled } from '../../banking/data/reconciliationLock';
 import { registerRepository } from "../../security/repositoryHost";
 import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
@@ -612,7 +613,7 @@ function formatMoney(
                 "currency",
 
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     ).format(value);
 }

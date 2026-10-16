@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Eye, FileText, ReceiptText, Search, ShoppingCart, X } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -38,7 +39,7 @@ export function SalesOverviewPage() {
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [preview]);
-    const currency = useMemo(() => new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }), []);
+    const currency = useMemo(() => new Intl.NumberFormat("en-AU", { style: "currency", currency: businessSettings().currency }), []);
     const filtered = useMemo(() => {
         const needle = query.trim().toLowerCase();
         return documents.filter((document) => {

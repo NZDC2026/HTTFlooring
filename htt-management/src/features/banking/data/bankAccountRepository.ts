@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { z } from 'zod';
 import { requireDateKey } from '../../../lib/businessDate';
 import { journalEntryRepository } from '../../accounting/data/journalEntryRepository';
@@ -54,7 +55,7 @@ let bankAccounts:
                 "TRANSACTION",
 
             currency:
-                "AUD",
+                businessSettings().currency,
 
             glAccountId:
                 "acc_1000",
@@ -91,7 +92,7 @@ let bankAccounts:
                 "SAVINGS",
 
             currency:
-                "AUD",
+                businessSettings().currency,
 
             glAccountId:
                 "acc_1010",

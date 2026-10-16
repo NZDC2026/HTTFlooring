@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useState,
     useRef,
@@ -209,6 +210,7 @@ export function InvoiceDetailPage() {
         );
 
     const canVoid =
+        !invoice.openingBalanceImportId &&
         invoice.status !==
         "VOID" &&
         invoice.status !==
@@ -1752,7 +1754,7 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
             minimumFractionDigits: 2,
         },
     );

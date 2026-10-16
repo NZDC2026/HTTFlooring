@@ -1,3 +1,5 @@
+import {businessSettings} from '../features/business-workspace/configurationState';
+import {useWorkspaceRecords} from '../features/business-workspace/workspaceRepository';
 import { useSecurity } from "../features/security/securityClient";
 import { hasPermission, type Permission } from "../features/security/rbac";
 import {
@@ -146,6 +148,7 @@ const sections = [
 ];
 
 export function Sidebar() {
+    useWorkspaceRecords('settings');
     const { session } = useSecurity();
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
@@ -257,12 +260,12 @@ export function Sidebar() {
 
                     <div className="min-w-0 flex-1">
                         <div className="truncate text-xs font-medium">
-                            ABC Flooring
+                            {businessSettings().companyName}
                         </div>
 
                         <div className="mt-0.5 flex items-center gap-1 text-[10px] text-white/45">
                             <PackageCheck size={11} />
-                            Melbourne
+                            {businessSettings().currency} · {businessSettings().timezone}
                         </div>
                     </div>
 

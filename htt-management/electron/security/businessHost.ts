@@ -25,7 +25,7 @@ export class BusinessHost {
         let saved: Database | LegacyDatabase | undefined;
         if (existsSync(this.path)) {
             saved = parseDatabase(readFileSync(this.path, 'utf8'));
-            if (saved.schemaVersion !== 5) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
+            if (saved.schemaVersion !== 6) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');
@@ -64,7 +64,7 @@ export class BusinessHost {
         if (migrationSource) {
             atomicJson(join(dirname(this.path), `pre-migration-v${saved!.schemaVersion}-${randomUUID()}.json`), migrationSource);
             this.persist();
-            this.security.audit('business.migrate.v5', 'local-desktop-profile', 'SUCCESS', 'users.manage');
+            this.security.audit('business.migrate.v6', 'local-desktop-profile', 'SUCCESS', 'users.manage');
         }
         if (!saved) {
             this.persist();
@@ -183,6 +183,11 @@ export class BusinessHost {
             const request = args[0] as Record<string, unknown>;
             if (input.method === 'recordSalesManualReview') request.operator = actor.userId;
             if (input.method === 'closeVerifiedSalesReview') request.approver = actor.userId;
+        }
+        if (['voidInvoice','voidCreditNote','void','markVoid','voidCredit'].includes(input.method) && ['sales','supplierBills','supplierCredits'].includes(input.repository)) {
+            const s=snapshotRepositories() as Record<string,any>,id=typeof args[0]==='string'?args[0]:(args[0] as any)?.invoiceId??(args[0] as any)?.creditNoteId??(args[0] as any)?.supplierCreditId??(args[0] as any)?.supplierBillId;
+            const rows=[...s.sales.invoices,...s.customerCredits.creditNotes,...s.supplierBills.supplierBills,...s.supplierCredits.supplierCredits];
+            if(rows.some(d=>d.id===id&&d.openingBalanceImportId))throw new Error('Historical opening documents must be corrected through the opening batch reversal.');
         }
         const commandId = randomUUID(), action = `${input.repository}.${input.method}`;
         const resource = typeof args[0] === 'string' ? args[0].slice(0, 200) : String((args[0] as Record<string, unknown>)?.id ?? (args[0] as Record<string, unknown>)?.invoiceId ?? input.repository).slice(0, 200);

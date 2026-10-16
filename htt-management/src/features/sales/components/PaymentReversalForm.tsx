@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useState,
     type FormEvent,
@@ -216,7 +217,7 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
             minimumFractionDigits: 2,
         },
     );

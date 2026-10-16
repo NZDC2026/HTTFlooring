@@ -1,3 +1,5 @@
+import {FinancialSettingsPage,OpeningBalancesPage} from '../finance-foundation/FoundationPages';
+import {TaxSummaryPage} from '../finance-foundation/TaxSummaryPage';
 import { PaymentBatchPage } from '../finance-closure/PaymentBatchPage';
 import { SettlementPage } from '../finance-closure/SettlementPages';
 import { BankAccountSetupPage, BankClosurePage } from '../finance-closure/BankClosurePages';
@@ -8,7 +10,7 @@ import { useSecurity } from '../security/securityClient';
 import { hasPermission, type Permission } from '../security/rbac';
 import { previewModules, settingsForms, flowPages } from './catalog';
 import { DirectoryPage, ModuleList, ModuleForm, ModuleDetail, SettingsPreview } from './PreviewWorkspace';
-import { DocumentEditor, ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OpeningBalances, OperationalReport, Attachments, Delivery, CaptureReview, EntitySearch } from './PreviewFlows';
+import { DocumentEditor, ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport, Attachments, Delivery, CaptureReview, EntitySearch } from './PreviewFlows';
 import type { ReactNode } from 'react';
 export function PreviewAccess({ permission, children }: { permission: Permission; children: ReactNode }) {
  const { session } = useSecurity(), principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
@@ -34,7 +36,7 @@ function FlowRoute({ id }: { id: string }) {
  else if (id === 'recycle-bin') node = <RecycleBin />;
  else if (id === 'bank-import' || id === 'import-export') node = <ImportWizard key={id} bank={id === 'bank-import'} />;
  else if (id === 'bank-workbench') node = <BankWorkbench />;
- else if (id === 'opening-balances') node = <OpeningBalances />;
+ else if (id === 'opening-balances') node = <OpeningBalancesPage />;
  else if (id === 'attachments') node = <Attachments />;
  else if (id === 'delivery') node = <Delivery />;
  else if (id === 'ocr') node = <CaptureReview />;
@@ -43,6 +45,7 @@ function FlowRoute({ id }: { id: string }) {
  return <PreviewAccess permission={flow[4]}>{node}</PreviewAccess>;
 }
 export const additionalRoutes: RouteObject[] = [
+ {path:'reports/tax-summary',element:<PreviewAccess permission="accounting.read"><TaxSummaryPage/></PreviewAccess>},
  { path: 'workspace', element: <DirectoryPage /> },
  ...previewModules.flatMap(m => [
   { path: m.path.slice(1), element: <ModuleRoute moduleId={m.id} mode="list" /> },
@@ -51,5 +54,5 @@ export const additionalRoutes: RouteObject[] = [
   { path: `${m.path.slice(1)}/:previewId/edit`, element: <ModuleRoute moduleId={m.id} mode="edit" /> },
  ]),
  ...flowPages.map(f => ({ path: f[1].slice(1), element: <FlowRoute id={f[0]} /> })),
- ...Object.keys(settingsForms).map(section => ({ path: `settings/${section === 'business' ? 'financial' : section}`, element: <PreviewAccess permission="accounting.read"><SettingsPreview key={section} section={section} /></PreviewAccess> })),
+ ...Object.keys(settingsForms).map(section => ({ path: `settings/${section === 'business' ? 'financial' : section}`, element: <PreviewAccess permission="accounting.read">{['business','sales','purchases','reports'].includes(section)?<FinancialSettingsPage key={section}/>:<SettingsPreview key={section} section={section} />}</PreviewAccess> })),
 ];

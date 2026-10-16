@@ -1,10 +1,11 @@
+import {businessSettings} from '../../business-workspace/configurationState';
 import { useWorkspaceRecords } from '../../business-workspace/workspaceRepository';
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "../../../components/ui/Card";
 import { useFinanceOverview } from "../data/useFinanceOverview";
 const fmt = (n: number) => new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(n);
 export function TasksCard() {
- const today = new Date().toLocaleDateString("en-CA", {timeZone:"Pacific/Auckland"});
+ const today = new Date().toLocaleDateString("en-CA", {timeZone:businessSettings().timezone});
  const data = useFinanceOverview(today);
  const followups=useWorkspaceRecords('tasks').filter(t=>!['Completed','Inactive'].includes(t.status)&&t.due<=today);
  const tasks = [

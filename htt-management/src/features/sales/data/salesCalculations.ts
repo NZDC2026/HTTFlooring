@@ -19,11 +19,13 @@ export function calculateSalesLine({
     standardUnitPrice,
     unitPrice,
     taxRate = activeTaxRate(),
+    inclusiveLineTotal,
 }: {
     quantity: number;
     standardUnitPrice: number;
     unitPrice: number;
     taxRate?: number;
+    inclusiveLineTotal?: number;
 }) {
     const lineSubtotal =
         roundMoney(
@@ -32,7 +34,7 @@ export function calculateSalesLine({
 
     const taxAmount =
         roundMoney(
-            lineSubtotal * taxRate,
+            inclusiveLineTotal === undefined ? lineSubtotal * taxRate : inclusiveLineTotal - lineSubtotal,
         );
 
     const lineTotal =

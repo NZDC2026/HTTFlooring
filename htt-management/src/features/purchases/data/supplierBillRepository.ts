@@ -1,3 +1,4 @@
+import { configuredNumber } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
 import { businessDateKey } from "../../../lib/businessDate";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
@@ -58,48 +59,7 @@ function normalizeOptional(
 function createBillNumber(
     billDate: string,
 ) {
-    const year =
-        billDate.slice(
-            0,
-            4,
-        );
-
-    const prefix =
-        `BILL-${year}-`;
-
-    const numbers =
-        supplierBills
-            .filter(
-                (bill) =>
-                    bill.billNumber.startsWith(
-                        prefix,
-                    ),
-            )
-            .map(
-                (bill) =>
-                    Number.parseInt(
-                        bill.billNumber.slice(
-                            prefix.length,
-                        ),
-                        10,
-                    ),
-            )
-            .filter(
-                Number.isFinite,
-            );
-
-    const next =
-        Math.max(
-            0,
-            ...numbers,
-        ) + 1;
-
-    return `${prefix}${String(
-        next,
-    ).padStart(
-        4,
-        "0",
-    )}`;
+ return configuredNumber('BILL',supplierBills.map(r=>r.billNumber),billDate.slice(0,4));
 }
 
 export const supplierBillRepository =
@@ -850,10 +810,11 @@ export const supplierBillRepository =
                             },
                         );
 
+                    if(purchaseOrderLine.grossUnitCost!==undefined&&draftLine.unitCost===purchaseOrderLine.unitCost){calculations.taxAmount=roundCurrency(draftLine.quantity*purchaseOrderLine.grossUnitCost-calculations.lineSubtotal);calculations.lineTotal=roundCurrency(calculations.lineSubtotal+calculations.taxAmount);}
                     return {
                         id:
                             `bill_line_${crypto.randomUUID()}`,
-                        taxRate, taxCode: purchaseOrderLine.taxCode,
+                        grossUnitCost:draftLine.unitCost===purchaseOrderLine.unitCost?purchaseOrderLine.grossUnitCost:undefined,taxRate, taxCode: purchaseOrderLine.taxCode, taxCollectedAccountId:purchaseOrderLine.taxCollectedAccountId,taxPaidAccountId:purchaseOrderLine.taxPaidAccountId,taxReport:purchaseOrderLine.taxReport,
 
                         purchaseOrderLineId:
                             purchaseOrderLine.id,

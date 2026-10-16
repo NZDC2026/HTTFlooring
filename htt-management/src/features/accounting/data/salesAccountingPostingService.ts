@@ -1,3 +1,5 @@
+import {businessSettings} from '../../business-workspace/configurationState';
+import { taxPostingLines } from '../../business-workspace/taxPosting';
 import {
     accountRepository,
 } from "./accountRepository";
@@ -67,7 +69,7 @@ function getDateKeyFromTimestamp(
                 "en-CA",
                 {
                     timeZone:
-                        "Pacific/Auckland",
+                        businessSettings().timezone,
 
                     year:
                         "numeric",
@@ -231,21 +233,7 @@ export const salesAccountingPostingService =
                             invoice.totals.subtotal,
                     },
 
-                    {
-                        accountId:
-                            getAccountId(
-                                "GST_PAYABLE",
-                            ),
-
-                        description:
-                            invoice.documentNumber,
-
-                        debit:
-                            0,
-
-                        credit:
-                            invoice.totals.taxAmount,
-                    },
+                    ...taxPostingLines(invoice.lines,'collected',false,invoice.totals.taxAmount),
                 ],
             },
         );
@@ -462,21 +450,7 @@ export const salesAccountingPostingService =
                             0,
                     },
 
-                    {
-                        accountId:
-                            getAccountId(
-                                "GST_PAYABLE",
-                            ),
-
-                        description:
-                            creditNote.creditNoteNumber,
-
-                        debit:
-                            creditNote.totals.taxAmount,
-
-                        credit:
-                            0,
-                    },
+                    ...taxPostingLines(creditNote.lines,'collected',true,creditNote.totals.taxAmount),
 
                     {
                         accountId:

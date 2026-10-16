@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useState,
 } from "react";
@@ -125,7 +126,7 @@ export function SupplierBillDetailPage() {
                 type="button"
                 onClick={() =>
                     navigate(
-                        `/purchases/${bill.purchaseOrderId}`,
+                        bill.openingBalanceImportId?'/accounting/opening-balances':`/purchases/${bill.purchaseOrderId}`,
                     )
                 }
                 className="mb-5 flex items-center gap-2 text-xs text-[var(--color-text-secondary)] transition hover:text-[var(--color-primary)]"
@@ -882,7 +883,7 @@ function formatMoney(
             style:
                 "currency",
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     ).format(value);
 }

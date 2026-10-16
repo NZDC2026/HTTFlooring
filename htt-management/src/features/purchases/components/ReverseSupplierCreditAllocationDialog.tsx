@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useState,
 } from "react";
@@ -232,7 +233,7 @@ function formatMoney(
             style:
                 "currency",
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     ).format(value);
 }

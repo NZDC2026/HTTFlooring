@@ -1,5 +1,5 @@
 import { assertProductQuantity } from '../../business-workspace/productRules';
-import { activeTaxRate } from '../../business-workspace/configurationState';
+import { activeTaxRate, businessSettings, taxSnapshot, exclusivePrice } from '../../business-workspace/configurationState';
 import {
     getProductById,
     getProductUnit,
@@ -71,12 +71,12 @@ export function buildSalesLine({
     const hasManualPrice =
         draft.unitPrice !== undefined;
 
-    const unitPrice =
+    const inputPrice =
         hasManualPrice
             ? draft.unitPrice!
             : resolvedPrice.effectivePrice;
 
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    if (!Number.isFinite(inputPrice) || inputPrice < 0) {
         throw new Error(
             "Unit price cannot be negative",
         );
@@ -84,10 +84,12 @@ export function buildSalesLine({
 
     assertProductQuantity(draft.productId,draft.unitId,draft.quantity,'sell');
     if (product.sellEnabled === false) throw new Error("Product is not available for selling.");
-    const taxCode = product.taxCode ?? "GST", taxRate = activeTaxRate(taxCode);
+    const taxCode = product.taxCode ?? businessSettings().gstCode, taxRate = activeTaxRate(taxCode);
+    const unitPrice = hasManualPrice ? exclusivePrice(inputPrice, taxRate, draft.priceBasis) : inputPrice;
     const calculations =
         calculateSalesLine({
             taxRate,
+            inclusiveLineTotal:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?Math.round(draft.quantity*inputPrice*100)/100:undefined,
             quantity:
                 draft.quantity,
 
@@ -99,7 +101,7 @@ export function buildSalesLine({
 
     return {
         id: createId("line"),
-        taxCode, taxRate, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,
+        ...taxSnapshot(taxCode), priceBasis:hasManualPrice?(draft.priceBasis??businessSettings().basis) as 'Inclusive'|'Exclusive':'Exclusive',grossUnitPrice:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?inputPrice:undefined, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,
 
         productId:
             product.id,

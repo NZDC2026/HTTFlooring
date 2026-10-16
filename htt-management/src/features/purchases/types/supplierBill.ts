@@ -5,6 +5,10 @@ export type SupplierBillStatus =
     | "VOID";
 
 export interface SupplierBillLine {
+    grossUnitCost?: number;
+    taxCollectedAccountId?: string;
+    taxPaidAccountId?: string;
+    taxReport?: string;
     taxCode?: string;
     taxRate?: number;
     id: string;
@@ -38,6 +42,7 @@ export interface SupplierBillTotals {
 }
 
 export interface SupplierBill {
+    openingBalanceImportId?: string;
     id: string;
 
     billNumber: string;

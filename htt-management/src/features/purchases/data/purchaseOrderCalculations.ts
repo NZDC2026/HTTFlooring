@@ -22,10 +22,12 @@ export function calculatePurchaseOrderLine({
     orderedQuantity,
     unitCost,
     taxRate = activeTaxRate(),
+    inclusiveLineTotal,
 }: {
     orderedQuantity: number;
     unitCost: number;
     taxRate?: number;
+    inclusiveLineTotal?: number;
 }) {
     const lineSubtotal =
         roundPurchaseMoney(
@@ -35,8 +37,7 @@ export function calculatePurchaseOrderLine({
 
     const taxAmount =
         roundPurchaseMoney(
-            lineSubtotal *
-            taxRate,
+            inclusiveLineTotal === undefined ? lineSubtotal * taxRate : inclusiveLineTotal - lineSubtotal,
         );
 
     const lineTotal =

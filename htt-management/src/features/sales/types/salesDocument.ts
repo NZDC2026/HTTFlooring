@@ -44,6 +44,11 @@ export type SalesPriceSource =
     | "PROMOTIONAL_PRICE";
 
 export interface SalesDocumentLine {
+    priceBasis?: "Inclusive"|"Exclusive";
+    grossUnitPrice?: number;
+    taxCollectedAccountId?: string;
+    taxPaidAccountId?: string;
+    taxReport?: string;
     id: string;
 
     productId: string;
@@ -98,6 +103,7 @@ export interface SalesDocumentTotals {
 }
 
 interface SalesDocumentBase {
+    openingBalanceImportId?: string;
     id: string;
 
     documentNumber: string;
@@ -173,6 +179,7 @@ export type SalesDocument =
     | Invoice;
 
 export interface SalesLineDraft {
+    priceBasis?: "Inclusive" | "Exclusive";
     productId: string;
     unitId: string;
     quantity: number;

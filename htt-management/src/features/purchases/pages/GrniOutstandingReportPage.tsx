@@ -1,8 +1,9 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { useMemo, useState } from "react";
 import { grniOutstandingReportService } from "../data/grniOutstandingReportService";
 
 const today = () => new Date().toLocaleDateString("en-CA");
-const aud = (value: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(value);
+const aud = (value: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: businessSettings().currency }).format(value);
 function csvCell(value: string | number) { const text = String(value); return `"${text.replace(/"/g, '""')}"`; }
 export function GrniOutstandingReportPage() {
   const [asOfDate, setAsOfDate] = useState(today);

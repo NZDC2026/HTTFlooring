@@ -1,3 +1,4 @@
+import { configuredNumber, businessSettings, taxSnapshot, exclusivePrice } from '../../business-workspace/configurationState';
 import { assertProductQuantity } from '../../business-workspace/productRules';
 import { activeTaxRate } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
@@ -43,63 +44,10 @@ function createId(
     return `${prefix}_${crypto.randomUUID()}`;
 }
 
-function getYear(
-    date: string,
-) {
-    return date.slice(
-        0,
-        4,
-    );
-}
-
 function createPurchaseOrderNumber(
     orderDate: string,
 ) {
-    const year =
-        getYear(
-            orderDate,
-        );
-
-    const pattern =
-        new RegExp(
-            `^PO-${year}-(\\d+)$`,
-        );
-
-    const numbers =
-        purchaseOrders
-            .map(
-                (
-                    purchaseOrder,
-                ) => {
-                    const match =
-                        purchaseOrder.purchaseOrderNumber.match(
-                            pattern,
-                        );
-
-                    return match
-                        ? Number.parseInt(
-                            match[1],
-                            10,
-                        )
-                        : 0;
-                },
-            )
-            .filter(
-                Number.isFinite,
-            );
-
-    const nextNumber =
-        Math.max(
-            0,
-            ...numbers,
-        ) + 1;
-
-    return `PO-${year}-${nextNumber
-        .toString()
-        .padStart(
-            4,
-            "0",
-        )}`;
+ return configuredNumber('PO',purchaseOrders.map(r=>r.purchaseOrderNumber),orderDate.slice(0,4));
 }
 
 function normalizeOptional(
@@ -202,16 +150,17 @@ function buildLines(
 
             assertProductQuantity(draftLine.productId,draftLine.unitId,draftLine.orderedQuantity,'buy');
         if (product.buyEnabled === false) throw new Error("Product is not available for purchasing.");
-            const taxCode = product.taxCode ?? "GST", taxRate = activeTaxRate(taxCode);
+            const taxCode = product.taxCode ?? businessSettings().gstCode, taxRate = activeTaxRate(taxCode);
             const calculated =
                 calculatePurchaseOrderLine(
                     {
                         taxRate,
+                        inclusiveLineTotal:(draftLine.priceBasis??businessSettings().basis)==='Inclusive'?Math.round(draftLine.orderedQuantity*draftLine.unitCost*100)/100:undefined,
                         orderedQuantity:
                             draftLine.orderedQuantity,
 
                         unitCost:
-                            draftLine.unitCost,
+                            exclusivePrice(draftLine.unitCost,taxRate,draftLine.priceBasis),
                     },
                 );
 
@@ -220,7 +169,7 @@ function buildLines(
                     createId(
                         "pol",
                     ),
-                taxCode, taxRate,
+                ...taxSnapshot(taxCode),grossUnitCost:(draftLine.priceBasis??businessSettings().basis)==='Inclusive'?draftLine.unitCost:undefined,
 
                 productId:
                     product.id,
@@ -245,7 +194,7 @@ function buildLines(
                 billedQuantity: 0,
 
                 unitCost:
-                    draftLine.unitCost,
+                    exclusivePrice(draftLine.unitCost,taxRate,draftLine.priceBasis),
 
                 ...calculated,
             };

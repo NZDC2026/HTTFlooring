@@ -1,4 +1,6 @@
-import { activeTaxRate } from '../../business-workspace/configurationState';
+import {businessDateKey} from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
+import { activeTaxRate, exclusivePrice } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -1218,7 +1220,7 @@ function buildPreviewLine(
                 manualPrice >= 0
             ) {
                 unitPrice =
-                    manualPrice;
+                    exclusivePrice(manualPrice,activeTaxRate(product.taxCode??businessSettings().gstCode));
 
                 priceSource =
                     "MANUAL";
@@ -1227,6 +1229,7 @@ function buildPreviewLine(
 
         const calculation =
             calculateSalesLine({ taxRate: activeTaxRate(product?.taxCode??'GST'),
+                inclusiveLineTotal:line.manualPrice&&businessSettings().basis==='Inclusive'?Math.round(quantity*Number(line.unitPrice)*100)/100:undefined,
                 quantity,
 
                 standardUnitPrice:
@@ -1360,23 +1363,7 @@ function createEmptyLine():
 }
 
 function getToday() {
-    const date =
-        new Date();
-
-    const year =
-        date.getFullYear();
-
-    const month =
-        String(
-            date.getMonth() + 1,
-        ).padStart(2, "0");
-
-    const day =
-        String(
-            date.getDate(),
-        ).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+    return businessDateKey(new Date().toISOString());
 }
 
 function addDays(
@@ -1438,7 +1425,7 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
             minimumFractionDigits: 2,
         },
     );

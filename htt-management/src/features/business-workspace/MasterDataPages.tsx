@@ -5,7 +5,7 @@ import { Notice } from '../page-previews/PreviewWorkspace';
 import { workspaceDomains, workspaceRepositories, useWorkspaceRecords, systemRoles } from './workspaceRepository';
 import { productRepository, useProducts } from './productRepository';
 import { configurationHistory, } from './workspaceRepository';
-import { configurationRows, type ConfigRow } from './configurationState';
+import { businessSettings, configurationRows, type ConfigRow } from './configurationState';
 import { accountRepository } from '../accounting/data/accountRepository';
 import { customerRepository } from '../contacts/data/customerRepository';
 import { useSecurity } from '../security/securityClient';
@@ -28,7 +28,7 @@ export function ProductBusinessPage({ mode, id }: {
 }) {
     const rows = useProducts(), product = rows.find(p => p.id === id), canWrite = useCan('inventory.adjust'), navigate = useNavigate();
     const [query, setQuery] = useState(''), [error, setError] = useState(''), [expectedRevision] = useState(product ? (product.revision ?? 0) : undefined);
-    const [draft, setDraft] = useState<Product>(() => structuredClone(product ?? { id: crypto.randomUUID(), sku: '', name: '', category: 'Other', status: 'ACTIVE', baseUnitId: '', units: [], itemType: 'STOCK', buyEnabled: true, sellEnabled: true, reorderPoint: 0, targetStock: 0, wholePacks: true, taxCode: 'GST', createdAt: '', updatedAt: '' }));
+    const [draft, setDraft] = useState<Product>(() => structuredClone(product ?? { id: crypto.randomUUID(), sku: '', name: '', category: 'Other', status: 'ACTIVE', baseUnitId: '', units: [], itemType: 'STOCK', buyEnabled: true, sellEnabled: true, reorderPoint: 0, targetStock: 0, wholePacks: true, taxCode: businessSettings().gstCode, createdAt: '', updatedAt: '' }));
     if (id && !product)
         return <Missing path="/inventory/products"/>;
     const editing = mode === 'new' || mode === 'edit';
@@ -57,7 +57,7 @@ const choices = (values: string[]): Choice[] => values.map(v => ({ value: v, lab
 export function businessFields(domain: string): FormField[] {
     const accounts = accountRepository.getAll().filter(a => a.active).map(a => ({ value: a.id, label: `${a.code} · ${a.name}` })), customers = customerRepository.getAll().map(c => ({ value: c.id, label: c.businessName })), products = productRepository.getAll().filter(p => p.status === 'ACTIVE').map(p => ({ value: p.id, label: `${p.sku} · ${p.name}` })), units = productRepository.getAll().flatMap(p => p.units.map(u => ({ value: u.id, label: `${p.sku} · ${u.symbol}` })));
     const fields: Record<string, FormField[]> = {
-        'tax-codes': [{ key: 'code', label: 'Code' }, { key: 'rate', label: 'Rate (%)', type: 'number' }, { key: 'collected', label: 'GST collected account', options: accounts }, { key: 'paid', label: 'GST paid account', options: accounts }, { key: 'basis', label: 'Entry basis', options: choices(['Exclusive']) }, { key: 'report', label: 'Report mapping' }],
+        'tax-codes': [{ key: 'code', label: 'Code' }, { key: 'rate', label: 'Rate (%)', type: 'number' }, { key: 'collected', label: 'GST collected account', options: accounts }, { key: 'paid', label: 'GST paid account', options: accounts }, { key: 'basis', label: 'Entry basis', options: choices(['Exclusive','Inclusive']) }, { key: 'report', label: 'Report mapping' }],
         'linked-accounts': [{ key: 'role', label: 'Posting role', options: choices(systemRoles) }, { key: 'accountId', label: 'General ledger account', options: accounts }],
         promotions: [{ key: 'productId', label: 'Product', options: products }, { key: 'unitId', label: 'Selling unit', options: units }, { key: 'customerId', label: 'Customer (blank = all)', options: [{ value: '', label: 'All customers' }, ...customers], optional: true }, { key: 'starts', label: 'Start (ISO timestamp with time offset)' }, { key: 'ends', label: 'End (ISO timestamp with time offset)' }, { key: 'price', label: 'Unit price', type: 'number' }, { key: 'priority', label: 'Priority (higher wins)', type: 'number' }, { key: 'policy', label: 'Price conflict policy', options: choices(['Customer price first', 'Promotion first', 'Lowest eligible price']) }],
         jobs: [{ key: 'code', label: 'Job code' }, { key: 'customerId', label: 'Customer', options: customers }, { key: 'owner', label: 'Owner', optional: true }, { key: 'starts', label: 'Start date', type: 'date' }, { key: 'ends', label: 'End date', type: 'date' }, { key: 'budget', label: 'Revenue budget', type: 'number' }, { key: 'costBudget', label: 'Cost budget', type: 'number' }],

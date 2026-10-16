@@ -1,3 +1,5 @@
+import {useWorkspaceRecords} from '../features/business-workspace/workspaceRepository';
+import {businessSettings} from '../features/business-workspace/configurationState';
 import { useEffect } from 'react';
 import { RouteAccess } from "../features/security/SecurityGate";
 import { Link, Outlet, useLocation } from "react-router-dom";
@@ -9,6 +11,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppLayout() {
+    useWorkspaceRecords('settings');
     const location = useLocation();
     useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); }, [location.pathname]);
     const isDemoVisit = new URLSearchParams(location.search).get("demo") === "1";
@@ -42,7 +45,7 @@ export function AppLayout() {
                         <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 font-semibold text-sky-900">Customer Demo V1.0</span>
                         <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-medium text-amber-900">Mock Data · No live API</span>
                     </div>
-                    <RouteAccess><Outlet /></RouteAccess>
+                    <p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess><Outlet /></RouteAccess>
                 </div>
             </main>
         </div>

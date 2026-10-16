@@ -115,7 +115,7 @@ export function auditSalesConsistency(data: SalesAuditInput): SalesAuditIssue[] 
     }
     for (const note of data.creditNotes) {
         const invoice = invoices.get(note.sourceInvoiceId);
-        if (!invoice || invoice.customerId !== note.customerId)
+        if (!note.openingBalanceImportId && (!invoice || invoice.customerId !== note.customerId))
             add("CREDIT_SOURCE_LINK", note.id, "Credit note source invoice missing or customer mismatch");
         const active = data.allocations.filter(a => a.creditNoteId === note.id && a.status === "APPLIED");
         const applied = active.reduce((sum, a) => sum + cents(a.amount), 0);

@@ -29,7 +29,7 @@ export interface Supplier {
 
     paymentTermsDays: number;
 
-    currency: "AUD";
+    currency: string;
 
     taxRegistered: boolean;
 

@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -181,6 +182,7 @@ export function CreditNoteDetailPage() {
         );
 
     const canVoid =
+        !creditNote.openingBalanceImportId &&
         creditNote.status !==
         "VOID" &&
         creditNote.status !==
@@ -1057,7 +1059,7 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
         },
     ).format(value);
 }

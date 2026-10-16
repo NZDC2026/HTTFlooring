@@ -1,3 +1,5 @@
+import {businessDateKey} from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     AlertTriangle,
     CalendarDays,
@@ -741,29 +743,11 @@ function formatMoney(
         "en-AU",
         {
             style: "currency",
-            currency: "AUD",
+            currency: businessSettings().currency,
         },
     ).format(value);
 }
 
 function getToday() {
-    const now =
-        new Date();
-
-    return [
-        now.getFullYear(),
-        String(
-            now.getMonth() +
-            1,
-        ).padStart(
-            2,
-            "0",
-        ),
-        String(
-            now.getDate(),
-        ).padStart(
-            2,
-            "0",
-        ),
-    ].join("-");
+    return businessDateKey(new Date().toISOString());
 }

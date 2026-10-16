@@ -1,3 +1,5 @@
+import {businessDateKey} from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -151,6 +153,7 @@ export function CreateSupplierBillPage() {
                     calculateSupplierBillLine(
                         {
                             quantity,
+                            inclusiveLineTotal:line.grossUnitCost!==undefined&&Math.abs(unitCost-line.unitCost)<1e-8?Math.round(quantity*line.grossUnitCost*100)/100:undefined,
                             taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
                             unitCost,
                         },
@@ -730,7 +733,8 @@ export function CreateSupplierBillPage() {
                                             ? calculateSupplierBillLine(
                                                 {
                                                     quantity,
-                                                    taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
+                                                    inclusiveLineTotal:line.grossUnitCost!==undefined&&Math.abs(unitCost-line.unitCost)<1e-8?Math.round(quantity*line.grossUnitCost*100)/100:undefined,
+                            taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
                                                     unitCost,
                                                 },
                                             )
@@ -1090,7 +1094,7 @@ function formatMoney(
             style:
                 "currency",
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     ).format(value);
 }
@@ -1120,30 +1124,7 @@ function roundMoney(
 }
 
 function getToday() {
-    const now =
-        new Date();
-
-    const year =
-        now.getFullYear();
-
-    const month =
-        String(
-            now.getMonth() +
-            1,
-        ).padStart(
-            2,
-            "0",
-        );
-
-    const day =
-        String(
-            now.getDate(),
-        ).padStart(
-            2,
-            "0",
-        );
-
-    return `${year}-${month}-${day}`;
+    return businessDateKey(new Date().toISOString());
 }
 
 function addDays(

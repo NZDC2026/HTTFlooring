@@ -1,3 +1,4 @@
+import '../../src/features/finance-foundation/openingBalanceRepository';
 import '../../src/features/finance-closure/paymentBatchRepository';
 import '../../src/features/finance-closure/settlementRepository';
 import '../../src/features/finance-closure/bankStatementRepository';

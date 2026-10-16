@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import type {
     Supplier,
 } from "../types/supplier";
@@ -42,7 +43,7 @@ export const mockSuppliers: Supplier[] = [
 
         paymentTermsDays: 30,
 
-        currency: "AUD",
+        currency: businessSettings().currency,
 
         taxRegistered: true,
 
@@ -92,7 +93,7 @@ export const mockSuppliers: Supplier[] = [
 
         paymentTermsDays: 30,
 
-        currency: "AUD",
+        currency: businessSettings().currency,
 
         taxRegistered: true,
 
@@ -120,7 +121,7 @@ export const mockSuppliers: Supplier[] = [
 
         paymentTermsDays: 14,
 
-        currency: "AUD",
+        currency: businessSettings().currency,
 
         taxRegistered: true,
 

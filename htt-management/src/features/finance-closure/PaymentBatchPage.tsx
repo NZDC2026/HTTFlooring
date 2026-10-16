@@ -1,3 +1,4 @@
+import {businessSettings} from '../business-workspace/configurationState';
 import { useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BusinessFrame } from '../business-workspace/MasterDataPages';
@@ -14,7 +15,7 @@ export function PaymentBatchPage({ mode, id }: {
     id?: string;
 }) {
     const rows = usePaymentBatches(), row = rows.find(r => r.id === id), banks = useBankAccounts(), bills = useSyncExternalStore(supplierBillRepository.subscribe, supplierBillRepository.getSnapshot, supplierBillRepository.getSnapshot), navigate = useNavigate(), canWrite = usePermission('purchases.payment'), canApprove = usePermission('accounting.post');
-    const [date, setDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })), [bank, setBank] = useState('bank_001'), [reference, setReference] = useState(''), [amounts, setAmounts] = useState<Record<string, string>>({}), [reason, setReason] = useState(''), [error, setError] = useState(''), [operationId] = useState(() => crypto.randomUUID());
+    const [date, setDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: businessSettings().timezone })), [bank, setBank] = useState('bank_001'), [reference, setReference] = useState(''), [amounts, setAmounts] = useState<Record<string, string>>({}), [reason, setReason] = useState(''), [error, setError] = useState(''), [operationId] = useState(() => crypto.randomUUID());
     const path = '/banking/payment-batches', act = (fn: () => void) => { try {
         fn();
         setError('');

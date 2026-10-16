@@ -26,7 +26,7 @@ export const workspaceDomains: Record<string, {
     templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
     'report-packs': { read: 'accounting.read', write: 'accounting.post', required: ['periodStart', 'periodEnd', 'reports'], fields: ['periodStart', 'periodEnd', 'reports', 'cover', 'introduction'] },
-    settings: { read: 'accounting.read', write: 'accounting.post', required: ['section'], fields: ['section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase'] },
+    settings: { read: 'inventory.read', write: 'accounting.post', required: ['section'], fields: ['section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase', 'billPrefix', 'supplierCreditPrefix', 'nextBill', 'nextSupplierCredit', 'tradingName', 'identifier', 'email', 'phone', 'address'] },
 };
 const listeners = new Set<() => void>();
 let revision = 0;
@@ -58,15 +58,21 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
         throw new Error('Invalid business status.');
     if (domain === 'tax-codes') {
         money(input.rate, 'Tax rate');
-        if (input.basis && input.basis !== 'Exclusive')
-            throw new Error('Only tax-exclusive document entry is supported.');
+        if (input.basis && !['Exclusive','Inclusive'].includes(input.basis))
+            throw new Error('Invalid entry basis.');
+        if(checkReferences){
+            const prior=rows.find(r=>r.id===input.id),snap=snapshotRepositories() as Record<string,any>;
+            const defaultCode=configurationRows.settings?.find(r=>r.section==='business'&&r.status==='Active')?.gstCode??'GST';
+            if(input.status==='Inactive'&&input.code===defaultCode)throw new Error('The default tax code must remain active. Change the business default first.');
+            if(prior&&prior.code!==input.code&&(prior.code===defaultCode||snap.products.products.some((p:any)=>(p.taxCode??'GST')===prior.code)||(configurationRows['bank-rules']??[]).some(r=>r.taxCode===prior.code)))throw new Error('A referenced tax code cannot be renamed. Create a new code and update future-use references.');
+        }
         if (Number(input.rate) > 100)
             throw new Error('Tax rate cannot exceed 100%.');
         if (checkReferences) {
-            account(input.collected, 'LIABILITY');
-            account(input.paid, 'ASSET');
-            if (input.collected !== accountRepository.requireBySystemRole('GST_PAYABLE').id || input.paid !== accountRepository.requireBySystemRole('GST_RECEIVABLE').id)
-                throw new Error('Tax codes use the global GST posting accounts. Change the unused linked accounts first.');
+            const collected=account(input.collected,'LIABILITY'),paid=account(input.paid,'ASSET');
+            const bankIds=((snapshotRepositories().bankAccounts as {bankAccounts:{glAccountId:string}[]}|undefined)?.bankAccounts??[]).map(b=>b.glAccountId);
+            if(collected.systemRole&&collected.systemRole!=='GST_PAYABLE'||paid.systemRole&&paid.systemRole!=='GST_RECEIVABLE'||bankIds.includes(paid.id))throw new Error('Tax mappings cannot use AR/AP, inventory, GRNI or bank control accounts.');
+
         }
         if (rows.some(r => r.id !== input.id && r.code.toLowerCase() === input.code.toLowerCase()))
             throw new Error('Tax code must be unique.');
@@ -132,6 +138,23 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
     if (domain === 'report-packs' && (!validDate(input.periodStart) || !validDate(input.periodEnd) || input.periodEnd < input.periodStart))
         throw new Error('Invalid report period.');
     if (domain === 'settings') {
+        if (rows.some(r=>r.id!==input.id&&r.section===input.section)) throw new Error('One record per settings section is allowed.');
+        if(input.section==='business') {
+            for(const field of ['companyName','currency','timezone','yearEnd','gstCode','basis','terms'])requiredText(input[field],field);
+            if(input.status!=='Active')throw new Error('Business settings must remain active.');
+            if(!['Exclusive','Inclusive'].includes(input.basis))throw new Error('Invalid price basis.');
+            if(!/^\d+$/.test(input.terms)||Number(input.terms)>365)throw new Error('Payment terms must be 0–365 days.');
+            if(!/^\d{2}-\d{2}$/.test(input.yearEnd)||!validDate('2001-'+input.yearEnd))throw new Error('Year end must be MM-DD.');
+            for(const field of ['quotePrefix','orderPrefix','invoicePrefix','creditPrefix','purchasePrefix','billPrefix','supplierCreditPrefix']) if(input[field]&&!/^[A-Z0-9]{1,12}$/.test(input[field]))throw new Error('Number prefixes require 1–12 uppercase letters/numbers.');
+            if(checkReferences) {
+                if(!configurationRows['tax-codes'].some(r=>r.code===input.gstCode&&r.status==='Active'))throw new Error('Default tax code must be active.');
+                const journals=(snapshotRepositories().journals as {journalEntries:unknown[]}).journalEntries;
+                const old=rows.find(r=>r.id===input.id);const banks=(snapshotRepositories().bankAccounts as {bankAccounts:{currency:string}[]}).bankAccounts;
+                const currency=old?.currency??banks[0]?.currency??'AUD';
+                if(input.currency!==currency&&(journals.length||banks.length))throw new Error('Base currency is locked after bank accounts or financial postings exist. Create a separately initialized currency profile.');
+            }
+        }
+
         if (!['business', 'sales', 'purchases', 'payroll', 'reports'].includes(input.section))
             throw new Error('Unknown settings section.');
         if (input.currency && !['NZD', 'AUD'].includes(input.currency))
@@ -144,8 +167,8 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
                 throw new Error('Invalid time zone.');
             }
         }
-        for (const key of ['nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase'])
-            if (input[key] && (!/^\d+$/.test(input[key]) || Number(input[key]) < 1))
+        for (const key of ['nextQuote','nextOrder','nextInvoice','nextCredit','nextPurchase','nextBill','nextSupplierCredit'])
+            if (input[key] && (!/^\d+$/.test(input[key]) || Number(input[key]) < 1 || !Number.isSafeInteger(Number(input[key])) || Number(input[key])>999999999))
                 throw new Error('Next document numbers must be positive integers.');
     }
 }

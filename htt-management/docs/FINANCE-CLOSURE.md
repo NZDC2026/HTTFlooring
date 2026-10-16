@@ -1,3 +1,5 @@
+> Latest follow-up: [Finance foundation](FINANCE-FOUNDATION.md) connects financial settings, tax account/report snapshots and reconciled opening-balance import. Older scope notes below describe their earlier baseline.
+
 # Local finance closure — 2026-10-16
 
 Implemented inventory cost read permissions and separate sales management authority; enforced in the trusted business host as well as UI. Supplier financial credits now post purchase price variance rather than reduce inventory valuation.

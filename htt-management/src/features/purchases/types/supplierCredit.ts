@@ -4,6 +4,11 @@ export type SupplierCreditStatus =
     | "VOID";
 
 export interface SupplierCreditLine {
+    taxCode?: string;
+    taxRate?: number;
+    taxCollectedAccountId?: string;
+    taxPaidAccountId?: string;
+    taxReport?: string;
     id: string;
 
     purchaseOrderLineId?: string;
@@ -31,6 +36,7 @@ export interface SupplierCreditTotals {
 }
 
 export interface SupplierCredit {
+    openingBalanceImportId?: string;
     amountRefunded?: number;
     refundEvents?: { id:string; date:string; amount:number; reversalDate?:string }[];
     id: string;

@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import { feedback } from "../../../components/ui/feedback";
 import {
     ArrowLeft,
@@ -943,7 +944,7 @@ function formatMoney(
                 "currency",
 
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     );
 }

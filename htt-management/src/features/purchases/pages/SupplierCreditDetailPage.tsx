@@ -1,3 +1,4 @@
+import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
@@ -130,6 +131,7 @@ export function SupplierCreditDetailPage() {
         credit.id;
 
     const canVoid =
+        !credit.openingBalanceImportId &&
         credit.status !==
         "VOID" &&
         !hasActiveAllocations;
@@ -260,12 +262,12 @@ export function SupplierCreditDetailPage() {
 
     return (
         <div className="pb-8">
-            <p className="mb-5 rounded-lg border bg-slate-50 p-3 text-sm">Financial supplier credit: the net adjustment posts to purchase price variance, consistent with receipt-cost inventory valuation. This document does not record a physical stock return.</p>
+            <p className="mb-5 rounded-lg border bg-slate-50 p-3 text-sm">{credit.openingBalanceImportId?'Historical opening credit. No new tax or expense is recognized.':''} Financial supplier credit: the net adjustment posts to purchase price variance, consistent with receipt-cost inventory valuation. This document does not record a physical stock return.</p>
             <button
                 type="button"
                 onClick={() =>
                     navigate(
-                        `/purchases/bills/${credit.sourceSupplierBillId}`,
+                        credit.openingBalanceImportId?'/accounting/opening-balances':`/purchases/bills/${credit.sourceSupplierBillId}`,
                     )
                 }
                 className="mb-5 flex items-center gap-2 text-xs text-[var(--color-text-secondary)] transition hover:text-[var(--color-primary)]"
@@ -1030,7 +1032,7 @@ function formatMoney(
             style:
                 "currency",
             currency:
-                "AUD",
+                businessSettings().currency,
         },
     ).format(value);
 }

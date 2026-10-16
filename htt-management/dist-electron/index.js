@@ -1,4 +1,4 @@
-import { c as e, d as t, f as n, l as r, m as i, s as a, t as o, u as s } from "./accountingPeriodValidation-wQqi6VPo.js";
+import { C as e, _ as t, b as n, g as r, t as i, v as a, x as o, y as s } from "./accountingPeriodValidation-CZo7ZwM-.js";
 import { BrowserWindow as c, app as l, dialog as u, ipcMain as d, nativeImage as f } from "electron";
 import { closeSync as p, existsSync as m, fsyncSync as h, mkdirSync as g, openSync as _, readFileSync as v, realpathSync as y, renameSync as b, statSync as x, writeFileSync as S } from "node:fs";
 import { createHash as C, createHmac as w, randomBytes as T, randomUUID as E, scryptSync as D, timingSafeEqual as O } from "node:crypto";
@@ -40,9 +40,9 @@ function L(e) {
 	if (typeof e != "string" || e.length < 12 || e.length > 256) throw Error("Password must contain 12–256 characters.");
 	return e;
 }
-function R(e) {
-	if (!Array.isArray(e) || !e.length || !e.every((e) => i.includes(e))) throw Error("Choose at least one valid role.");
-	return [...new Set(e)];
+function R(t) {
+	if (!Array.isArray(t) || !t.length || !t.every((t) => e.includes(t))) throw Error("Choose at least one valid role.");
+	return [...new Set(t)];
 }
 var z = (e, t) => D(e, t, 64).toString("hex"), B = class {
 	state;
@@ -114,7 +114,7 @@ var z = (e, t) => D(e, t, 64).toString("hex"), B = class {
 	}
 	require(e) {
 		let t = this.principal();
-		if (!n(t, e)) throw this.audit("permission.denied", e, "DENIED", e), Error(`Permission denied: ${e}`);
+		if (!o(t, e)) throw this.audit("permission.denied", e, "DENIED", e), Error(`Permission denied: ${e}`);
 		return this.session.idleUntil = Math.min(this.now() + 18e5, this.session.absoluteUntil), t;
 	}
 	status() {
@@ -234,7 +234,7 @@ var z = (e, t) => D(e, t, 64).toString("hex"), B = class {
 }, V = (e) => !!e && typeof e == "object" && !Array.isArray(e);
 function H(e) {
 	let t = {
-		schemaVersion: 5,
+		schemaVersion: 6,
 		savedAt: (/* @__PURE__ */ new Date()).toISOString(),
 		storage: e.storage,
 		repositories: e.repositories,
@@ -253,10 +253,11 @@ function U(e) {
 		2,
 		3,
 		4,
-		5
+		5,
+		6
 	].includes(t.schemaVersion)) throw Error("Unsupported business snapshot version.");
 	if (!V(t.storage) || !Object.entries(t.storage).every(([e, t]) => e.startsWith("htt") && typeof t == "string") || !V(t.repositories) || t.lastCommandId !== void 0 && typeof t.lastCommandId != "string") throw Error("Invalid business snapshot structure.");
-	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4 || t.schemaVersion === 5) {
+	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4 || t.schemaVersion === 5 || t.schemaVersion === 6) {
 		let { checksum: e, ...n } = t;
 		if (typeof t.savedAt != "string" || !Number.isFinite(Date.parse(t.savedAt)) || e !== C("sha256").update(JSON.stringify(n)).digest("hex")) throw Error("Business snapshot checksum failed.");
 	}
@@ -270,7 +271,7 @@ function W(e, t) {
 			if (!Array.isArray(t)) throw Error(`Invalid ${n} snapshot.`);
 		} else if (!V(t) || JSON.stringify(Object.keys(t).sort()) !== JSON.stringify(Object.keys(r).sort()) || !Object.values(t).every(Array.isArray)) throw Error(`Invalid ${n} snapshot.`);
 	}
-	e.accountingPeriods && o(e.accountingPeriods.periods);
+	e.accountingPeriods && i(e.accountingPeriods.periods);
 	for (let t of Object.values(e)) {
 		let e = Array.isArray(t) ? [t] : Object.values(t);
 		for (let t of e) {
@@ -286,7 +287,7 @@ function W(e, t) {
 	}
 }
 function G(e) {
-	return e.schemaVersion === 3 || e.schemaVersion === 4 || e.schemaVersion === 5 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
+	return e.schemaVersion === 3 || e.schemaVersion === 4 || e.schemaVersion === 5 || e.schemaVersion === 6 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
 }
 var K = [
 	"products",
@@ -303,10 +304,11 @@ var K = [
 	"customerSettlements",
 	"supplierRefunds",
 	"bankStatements",
-	"paymentBatches"
+	"paymentBatches",
+	"openingBalances"
 ];
 function q(e, t) {
-	if (e.schemaVersion === 5) return !1;
+	if (e.schemaVersion === 6) return !1;
 	for (let n of K) if (!Object.hasOwn(e.repositories, n)) {
 		if (!Object.hasOwn(t, n)) throw Error("Workspace contracts are not initialized.");
 		e.repositories[n] = structuredClone(t[n]);
@@ -330,21 +332,21 @@ var ie = class {
 	constructor(e, t) {
 		this.path = e, this.security = t;
 	}
-	async initialize(n = {}) {
+	async initialize(e = {}) {
 		if (this.blocked) throw Error("Restart the desktop application before reopening business data.");
 		if (this.initialized) return;
 		if (!this.security.principal()) throw Error("Login required.");
 		let r, i;
-		if (m(this.path)) i = U(v(this.path, "utf8")), i.schemaVersion !== 5 && (r = structuredClone(i), G(i)), this.values = i.storage;
+		if (m(this.path)) i = U(v(this.path, "utf8")), i.schemaVersion !== 6 && (r = structuredClone(i), G(i)), this.values = i.storage;
 		else {
-			if (this.security.require("users.manage"), !n || typeof n != "object" || Object.keys(n).length > 1e3) throw Error("Invalid legacy local data.");
-			for (let [e, t] of Object.entries(n)) if (!e.startsWith("htt") || typeof t != "string" || t.length > 5e7) throw Error("Invalid legacy local data.");
-			let e = M(j(this.path), "legacy-profile-backup-v1.json");
-			m(e) || P(e, {
+			if (this.security.require("users.manage"), !e || typeof e != "object" || Object.keys(e).length > 1e3) throw Error("Invalid legacy local data.");
+			for (let [t, n] of Object.entries(e)) if (!t.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
+			let t = M(j(this.path), "legacy-profile-backup-v1.json");
+			m(t) || P(t, {
 				schemaVersion: 1,
 				capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
-				storage: n
-			}), this.values = { ...n }, this.security.audit("business.import", "local-desktop-profile", "INTENT", "users.manage");
+				storage: e
+			}), this.values = { ...e }, this.security.audit("business.import", "local-desktop-profile", "INTENT", "users.manage");
 		}
 		let a = {
 			get length() {
@@ -372,8 +374,8 @@ var ie = class {
 			configurable: !0,
 			value: { localStorage: a }
 		});
-		let c = await import("./businessEngine-ceUlXfq2.js");
-		this.workspaceDefaults = c.workspaceDefaults, i && (q(i, this.workspaceDefaults), W(i.repositories, s()), t(i.repositories), e(i.repositories), this.lastCommandId = i.lastCommandId), c.initialize(() => this.security.principal()), this.assertPeriod = c.assertPostingPeriod, r && (P(M(j(this.path), `pre-migration-v${i.schemaVersion}-${E()}.json`), r), this.persist(), this.security.audit("business.migrate.v5", "local-desktop-profile", "SUCCESS", "users.manage")), i || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
+		let c = await import("./businessEngine-BoOwdqxE.js");
+		this.workspaceDefaults = c.workspaceDefaults, i && (q(i, this.workspaceDefaults), W(i.repositories, s()), n(i.repositories), t(i.repositories), this.lastCommandId = i.lastCommandId), c.initialize(() => this.security.principal()), this.assertPeriod = c.assertPostingPeriod, r && (P(M(j(this.path), `pre-migration-v${i.schemaVersion}-${E()}.json`), r), this.persist(), this.security.audit("business.migrate.v6", "local-desktop-profile", "SUCCESS", "users.manage")), i || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
 		for (let e of this.security.pendingBusinessCommands()) this.security.audit(`recovery.${e.action}`, e.resourceId, e.commandId === this.lastCommandId ? "SUCCESS" : "FAILED", e.permission, e.commandId);
 		this.initialized = !0;
 	}
@@ -387,21 +389,21 @@ var ie = class {
 	exportBackup() {
 		if (this.security.require("users.manage"), !this.initialized || this.blocked) throw Error("Backup requires healthy initialized business data.");
 		let e = U(v(this.path, "utf8"));
-		return W(e.repositories, s()), t(e.repositories), H({
+		return W(e.repositories, s()), n(e.repositories), H({
 			storage: e.storage,
 			repositories: e.repositories,
 			lastCommandId: e.lastCommandId
 		});
 	}
 	prepareRestore(e) {
-		let n = this.security.require("users.manage");
+		let t = this.security.require("users.manage");
 		this.prepared = void 0;
 		let r = U(e);
-		G(r), this.initialized && (q(r, this.workspaceDefaults), W(r.repositories, s()), t(r.repositories));
+		G(r), this.initialized && (q(r, this.workspaceDefaults), W(r.repositories, s()), n(r.repositories));
 		let i = E();
 		this.prepared = {
 			token: i,
-			actor: n.userId,
+			actor: t.userId,
 			database: r,
 			revision: this.lastCommandId,
 			expires: Date.now() + 3e5
@@ -415,8 +417,8 @@ var ie = class {
 		};
 	}
 	async restoreBackup(e) {
-		let n = this.security.require("users.manage"), r = this.prepared;
-		if (this.prepared = void 0, !r || r.token !== e || r.actor !== n.userId || r.revision !== this.lastCommandId || r.expires < Date.now()) throw Error("Restore preview expired; select the backup again.");
+		let t = this.security.require("users.manage"), r = this.prepared;
+		if (this.prepared = void 0, !r || r.token !== e || r.actor !== t.userId || r.revision !== this.lastCommandId || r.expires < Date.now()) throw Error("Restore preview expired; select the backup again.");
 		if (Object.defineProperty(globalThis, "__HTT_MAIN_HOST__", {
 			configurable: !0,
 			value: !0
@@ -435,8 +437,8 @@ var ie = class {
 				value: { localStorage: t }
 			});
 		}
-		let i = await import("./businessEngine-ceUlXfq2.js");
-		if (q(r.database, i.workspaceDefaults), W(r.database.repositories, s()), t(r.database.repositories), this.security.require("users.manage").userId !== n.userId) throw Error("Restore session changed.");
+		let i = await import("./businessEngine-BoOwdqxE.js");
+		if (q(r.database, i.workspaceDefaults), W(r.database.repositories, s()), n(r.database.repositories), this.security.require("users.manage").userId !== t.userId) throw Error("Restore session changed.");
 		let a = this.security.pendingBusinessCommands();
 		if (a.length) {
 			let e = U(v(this.path, "utf8"));
@@ -478,22 +480,22 @@ var ie = class {
 	view() {
 		let e = this.security.principal();
 		if (!e || !this.initialized) throw Error("Login and desktop data initialization required.");
-		let t = n(e, "audit.read") ? Object.fromEntries(Object.entries(this.values).filter(([e]) => e === "htt:financial-operations:v1" || e.startsWith("htt.purchasePosting."))) : {};
+		let t = o(e, "audit.read") ? Object.fromEntries(Object.entries(this.values).filter(([e]) => e === "htt:financial-operations:v1" || e.startsWith("htt.purchasePosting."))) : {};
 		return {
-			repositories: r(e),
+			repositories: a(e),
 			storage: t
 		};
 	}
-	command(t) {
+	command(e) {
 		if (this.blocked || !this.initialized) throw Error("Business writes blocked; restart and inspect local audit.");
-		if (!t || typeof t.repository != "string" || typeof t.method != "string" || !Array.isArray(t.args) || t.args.length > 20) throw Error("Invalid business command.");
+		if (!e || typeof e.repository != "string" || typeof e.method != "string" || !Array.isArray(e.args) || e.args.length > 20) throw Error("Invalid business command.");
 		let n;
 		try {
-			n = a(t.repository, t.method);
-		} catch (e) {
-			throw this.security.audit("command.denied", `${t.repository}.${t.method}`.slice(0, 200), "DENIED"), e;
+			n = r(e.repository, e.method);
+		} catch (t) {
+			throw this.security.audit("command.denied", `${e.repository}.${e.method}`.slice(0, 200), "DENIED"), t;
 		}
-		let r = this.security.require(n.permission), i = structuredClone(t.args);
+		let i = this.security.require(n.permission), a = structuredClone(e.args);
 		if ([
 			"sales",
 			"fulfilments",
@@ -503,8 +505,8 @@ var ie = class {
 			"supplierCredits",
 			"bankTransactions",
 			"bankReconciliations"
-		].includes(t.repository) && i[0] && typeof i[0] == "object") {
-			let e = [
+		].includes(e.repository) && a[0] && typeof a[0] == "object") {
+			let t = [
 				"paymentDate",
 				"creditDate",
 				"allocationDate",
@@ -516,39 +518,58 @@ var ie = class {
 				"transactionDate",
 				"transferDate",
 				"statementDate"
-			], r = i[0];
+			], r = a[0];
 			try {
-				for (let t of e) if (r[t] !== void 0) {
-					if (typeof r[t] != "string") throw Error("Invalid posting date.");
-					this.assertPeriod(r[t]);
+				for (let e of t) if (r[e] !== void 0) {
+					if (typeof r[e] != "string") throw Error("Invalid posting date.");
+					this.assertPeriod(r[e]);
 				}
-			} catch (e) {
-				throw this.security.audit("period.denied", `${t.repository}.${t.method}`, "DENIED", n.permission), e;
+			} catch (t) {
+				throw this.security.audit("period.denied", `${e.repository}.${e.method}`, "DENIED", n.permission), t;
 			}
 		}
-		if (t.repository === "journals") {
-			let e = i[0];
-			if (t.method === "post" && (e?.sourceType !== "MANUAL_JOURNAL" || e.sourceId)) throw Error("System journals must be posted through their business source.");
-			if (t.method === "reverse" && s().journals.journalEntries.find((t) => t.id === e?.journalEntryId)?.sourceType !== "MANUAL_JOURNAL") throw Error("System journals must be reversed through their business source.");
+		if (e.repository === "journals") {
+			let t = a[0];
+			if (e.method === "post" && (t?.sourceType !== "MANUAL_JOURNAL" || t.sourceId)) throw Error("System journals must be posted through their business source.");
+			if (e.method === "reverse" && s().journals.journalEntries.find((e) => e.id === t?.journalEntryId)?.sourceType !== "MANUAL_JOURNAL") throw Error("System journals must be reversed through their business source.");
 		}
-		if (t.repository === "supplierPayments" && t.method === "reverse" && s().paymentBatches.batches.some((e) => e.status === "POSTED" && e.paymentIds.includes(i[0]))) throw Error("Reverse this supplier payment through its payment batch.");
-		if (t.repository === "sales" && t.method === "reverseInvoicePayment" && s().customerSettlements.receipts.some((e) => e.status === "POSTED" && e.paymentIds.includes(i[0]))) throw Error("Reverse this payment through its grouped customer receipt.");
-		if (t.repository === "salesRecovery" && i[0] && typeof i[0] == "object") {
-			let e = i[0];
-			t.method === "recordSalesManualReview" && (e.operator = r.userId), t.method === "closeVerifiedSalesReview" && (e.approver = r.userId);
+		if (e.repository === "supplierPayments" && e.method === "reverse" && s().paymentBatches.batches.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this supplier payment through its payment batch.");
+		if (e.repository === "sales" && e.method === "reverseInvoicePayment" && s().customerSettlements.receipts.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this payment through its grouped customer receipt.");
+		if (e.repository === "salesRecovery" && a[0] && typeof a[0] == "object") {
+			let t = a[0];
+			e.method === "recordSalesManualReview" && (t.operator = i.userId), e.method === "closeVerifiedSalesReview" && (t.approver = i.userId);
 		}
-		let o = E(), c = `${t.repository}.${t.method}`, l = typeof i[0] == "string" ? i[0].slice(0, 200) : String(i[0]?.id ?? i[0]?.invoiceId ?? t.repository).slice(0, 200);
+		if ([
+			"voidInvoice",
+			"voidCreditNote",
+			"void",
+			"markVoid",
+			"voidCredit"
+		].includes(e.method) && [
+			"sales",
+			"supplierBills",
+			"supplierCredits"
+		].includes(e.repository)) {
+			let e = s(), t = typeof a[0] == "string" ? a[0] : a[0]?.invoiceId ?? a[0]?.creditNoteId ?? a[0]?.supplierCreditId ?? a[0]?.supplierBillId;
+			if ([
+				...e.sales.invoices,
+				...e.customerCredits.creditNotes,
+				...e.supplierBills.supplierBills,
+				...e.supplierCredits.supplierCredits
+			].some((e) => e.id === t && e.openingBalanceImportId)) throw Error("Historical opening documents must be corrected through the opening batch reversal.");
+		}
+		let o = E(), c = `${e.repository}.${e.method}`, l = typeof a[0] == "string" ? a[0].slice(0, 200) : String(a[0]?.id ?? a[0]?.invoiceId ?? e.repository).slice(0, 200);
 		this.security.audit(c, l, "INTENT", n.permission, o);
 		let u = s(), d = structuredClone(this.values), f;
 		try {
-			if (f = n.execute(i), t.repository === "sales" && t.method === "createInvoiceFromOrder" && this.assertPeriod(f.documentDate), f instanceof Promise) throw Error("Business commands must be synchronous.");
-		} catch (t) {
-			throw this.values = d, e(u), this.security.audit(c, l, "FAILED", n.permission, o), t;
+			if (f = n.execute(a), e.repository === "sales" && e.method === "createInvoiceFromOrder" && this.assertPeriod(f.documentDate), f instanceof Promise) throw Error("Business commands must be synchronous.");
+		} catch (e) {
+			throw this.values = d, t(u), this.security.audit(c, l, "FAILED", n.permission, o), e;
 		}
 		try {
 			this.persist(o);
-		} catch (t) {
-			throw this.values = d, e(u), this.blocked = !0, Error(`Business commit ${o} could not be confirmed: ${t instanceof Error ? t.message : String(t)}. Restart and review before retry.`);
+		} catch (e) {
+			throw this.values = d, t(u), this.blocked = !0, Error(`Business commit ${o} could not be confirmed: ${e instanceof Error ? e.message : String(e)}. Restart and review before retry.`);
 		}
 		try {
 			this.security.audit(c, l, "SUCCESS", n.permission, o);
