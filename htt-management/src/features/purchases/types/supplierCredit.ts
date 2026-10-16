@@ -31,6 +31,8 @@ export interface SupplierCreditTotals {
 }
 
 export interface SupplierCredit {
+    amountRefunded?: number;
+    refundEvents?: { id:string; date:string; amount:number; reversalDate?:string }[];
     id: string;
 
     creditNumber: string;

@@ -1,3 +1,4 @@
+import { assertSourceNotReconciled } from '../../banking/data/reconciliationLock';
 import { registerRepository } from "../../security/repositoryHost";
 import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
 import { requireDateKey } from "../../../lib/businessDate";
@@ -405,6 +406,7 @@ export const supplierPaymentRepository =
             string,
         reason: string,
     ): SupplierPayment {
+        assertSourceNotReconciled('SUPPLIER_PAYMENT',supplierPaymentId);
         const payment =
             supplierPayments.find(
                 (item) =>

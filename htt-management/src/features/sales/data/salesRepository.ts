@@ -1,3 +1,4 @@
+import { assertSourceNotReconciled } from '../../banking/data/reconciliationLock';
 import { assertProductQuantity } from '../../business-workspace/productRules';
 import { activeTaxRate } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
@@ -1314,7 +1315,7 @@ export const salesRepository = {
             roundCurrency(
                 Math.max(
                     0,
-                    currentCredit.totals.total -
+                    currentCredit.totals.total - (currentCredit.amountRefunded ?? 0) -
                     amountApplied,
                 ),
             );
@@ -1490,7 +1491,7 @@ export const salesRepository = {
             roundCurrency(
                 Math.max(
                     0,
-                    creditNote.totals.total -
+                    creditNote.totals.total - (creditNote.amountRefunded ?? 0) -
                     amountApplied,
                 ),
             );
@@ -1565,6 +1566,7 @@ export const salesRepository = {
             );
         }
 
+        if ((creditNote.amountRefunded ?? 0) > 0) throw new Error('Reverse customer refunds before voiding the credit.');
         const reason =
             input.reason.trim();
 
@@ -1950,6 +1952,7 @@ export const salesRepository = {
         paymentId: string,
         reason: string,
     ): Payment {
+        assertSourceNotReconciled('CUSTOMER_PAYMENT',paymentId);
         assertCurrentCrossModuleWriteSafe();
         assertCurrentSalesWriteSafety();
         const payment =
@@ -2365,7 +2368,7 @@ function getLocalDateKey(
 }
 registerRepository("sales", {
     repository: salesRepository, read: "sales.read",
-    commands: {"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.write", "declineQuote": "sales.write", "convertQuoteToOrder": "sales.write", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.write", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
+    commands: {"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
     snapshot: () => ({ quotes, salesOrders, invoices }),
     restore: value => { quotes = value.quotes; salesOrders = value.salesOrders; invoices = value.invoices; snapshot = buildSnapshot(); },
     publish: () => listeners.forEach(listener => listener()),

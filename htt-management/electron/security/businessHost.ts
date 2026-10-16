@@ -25,7 +25,7 @@ export class BusinessHost {
         let saved: Database | LegacyDatabase | undefined;
         if (existsSync(this.path)) {
             saved = parseDatabase(readFileSync(this.path, 'utf8'));
-            if (saved.schemaVersion !== 4) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
+            if (saved.schemaVersion !== 5) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');
@@ -64,7 +64,7 @@ export class BusinessHost {
         if (migrationSource) {
             atomicJson(join(dirname(this.path), `pre-migration-v${saved!.schemaVersion}-${randomUUID()}.json`), migrationSource);
             this.persist();
-            this.security.audit('business.migrate.v4', 'local-desktop-profile', 'SUCCESS', 'users.manage');
+            this.security.audit('business.migrate.v5', 'local-desktop-profile', 'SUCCESS', 'users.manage');
         }
         if (!saved) {
             this.persist();
@@ -170,6 +170,14 @@ export class BusinessHost {
                 const original = state.journalEntries.find(entry => entry.id === first?.journalEntryId);
                 if (original?.sourceType !== 'MANUAL_JOURNAL') throw new Error('System journals must be reversed through their business source.');
             }
+        }
+        if(input.repository==='supplierPayments'&&input.method==='reverse'){
+            const groups=(snapshotRepositories().paymentBatches as {batches:{status:string;paymentIds:string[]}[]}).batches;
+            if(groups.some(r=>r.status==='POSTED'&&r.paymentIds.includes(args[0] as string)))throw new Error('Reverse this supplier payment through its payment batch.');
+        }
+        if(input.repository==='sales'&&input.method==='reverseInvoicePayment'){
+            const groups=(snapshotRepositories().customerSettlements as {receipts:{status:string;paymentIds:string[]}[]}).receipts;
+            if(groups.some(r=>r.status==='POSTED'&&r.paymentIds.includes(args[0] as string)))throw new Error('Reverse this payment through its grouped customer receipt.');
         }
         if (input.repository === 'salesRecovery' && args[0] && typeof args[0] === 'object') {
             const request = args[0] as Record<string, unknown>;

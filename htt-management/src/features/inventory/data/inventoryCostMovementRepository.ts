@@ -339,7 +339,7 @@ export const inventoryCostMovementRepository =
     },
 };
 registerRepository("costMovements", {
-    repository: inventoryCostMovementRepository, read: "inventory.read",
+    repository: inventoryCostMovementRepository, read: "inventory.cost.read",
     commands: {"if": null, "create": null, "replaceAll": null, "clear": null},
     snapshot: () => ({ movements }),
     restore: value => { movements = value.movements;  },

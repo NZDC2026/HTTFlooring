@@ -159,8 +159,8 @@ export const productCostingRepository =
     },
 };
 registerRepository("costingPolicies", {
-    repository: productCostingRepository, read: "inventory.read",
-    commands: {"ensureProductPolicy": null, "setActive": "inventory.adjust"},
+    repository: productCostingRepository, read: "inventory.cost.read",
+    commands: {"ensureProductPolicy": null, "setActive": "accounting.post"},
     snapshot: () => ({ policies }),
     restore: value => { policies = value.policies;  },
     publish: () => listeners.forEach(listener => listener()),

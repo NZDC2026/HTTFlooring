@@ -1,3 +1,4 @@
+import { assertBankPostingDate } from '../../banking/data/reconciliationLock';
 import { assertPostingPeriod } from './accountingPeriodRepository';
 import { registerRepository } from "../../security/repositoryHost";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
@@ -414,6 +415,7 @@ export const journalEntryRepository =
             JournalEntryDraft,
     ): JournalEntry {
         assertPostingPeriod(draft.journalDate);
+        assertBankPostingDate(draft.journalDate,draft.lines.map(line=>line.accountId));
         const validation =
             validateDraft(
                 draft,
@@ -569,6 +571,7 @@ export const journalEntryRepository =
             );
         }
 
+        assertBankPostingDate(input.reversalDate,original.lines.map(line=>line.accountId));
         const reversalDraft:
             JournalEntryDraft = {
             journalDate:

@@ -1,3 +1,5 @@
+> Follow-up: [Finance closure](FINANCE-CLOSURE.md) implements receipts, refunds, bank statement processing and supplier payment batches, and corrects the permissions and supplier-credit posting described in the earlier baseline below. Historical credits use the controlled repair workflow.
+
 # Local business data integration — 2026-10-16
 
 This change follows the completed static-page baseline. It uses the existing Electron-main Repository/Service architecture and local checksummed snapshots. There is no independent backend or new external connection. It does **not** mean every preview workflow is now operational.

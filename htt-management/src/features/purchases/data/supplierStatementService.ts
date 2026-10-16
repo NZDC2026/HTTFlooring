@@ -403,6 +403,10 @@ export function buildSupplierStatement({
         }
     }
 
+    for (const credit of credits.filter(c=>c.supplierId===supplierId)) for (const event of credit.refundEvents??[]) {
+        if(event.date<=toDate)allEntries.push({id:'refund-'+event.id,date:event.date,sortDateTime:event.date+'T00:00:00Z',type:'REFUND',reference:credit.creditNumber,description:'Supplier credit refund',supplierCreditId:credit.id,debit:0,credit:event.amount});
+        if(event.reversalDate&&event.reversalDate<=toDate)allEntries.push({id:'refund-reversal-'+event.id,date:event.reversalDate,sortDateTime:event.reversalDate+'T23:59:59Z',type:'REFUND_REVERSAL',reference:credit.creditNumber,description:'Supplier refund reversal',supplierCreditId:credit.id,debit:event.amount,credit:0});
+    }
     allEntries.sort(
         compareEntries,
     );
@@ -584,6 +588,8 @@ function compareEntries(
             SupplierStatementEntryType,
             number
         > = {
+        REFUND: 35,
+        REFUND_REVERSAL: 45,
         BILL: 10,
         PAYMENT: 20,
         SUPPLIER_CREDIT: 30,

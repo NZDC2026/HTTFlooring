@@ -260,6 +260,7 @@ export function SupplierCreditDetailPage() {
 
     return (
         <div className="pb-8">
+            <p className="mb-5 rounded-lg border bg-slate-50 p-3 text-sm">Financial supplier credit: the net adjustment posts to purchase price variance, consistent with receipt-cost inventory valuation. This document does not record a physical stock return.</p>
             <button
                 type="button"
                 onClick={() =>
@@ -384,6 +385,7 @@ export function SupplierCreditDetailPage() {
                 </div>
             )}
 
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border bg-slate-50 p-3 text-sm"><span>Refunded: {formatMoney(credit.amountRefunded ?? 0)}</span><button className="underline" onClick={()=>navigate('/purchases/refunds')}>Review refunds</button></div>
             <div className="mb-5 grid grid-cols-5 gap-4">
                 <Summary
                     label="Supplier Credit No."

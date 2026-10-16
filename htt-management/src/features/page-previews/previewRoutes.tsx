@@ -1,3 +1,6 @@
+import { PaymentBatchPage } from '../finance-closure/PaymentBatchPage';
+import { SettlementPage } from '../finance-closure/SettlementPages';
+import { BankAccountSetupPage, BankClosurePage } from '../finance-closure/BankClosurePages';
 import { ConnectedOperationalReport, ConnectedBankWorkbench } from '../business-workspace/OperationalDataPages';
 import { ProductBusinessPage, ConfigurationBusinessPage, connectedModules } from '../business-workspace/MasterDataPages';
 import { useParams, type RouteObject } from 'react-router-dom';
@@ -13,6 +16,8 @@ export function PreviewAccess({ permission, children }: { permission: Permission
 }
 function ModuleRoute({ moduleId, mode }: { moduleId: string; mode: 'list' | 'new' | 'edit' | 'detail' }) {
  const { previewId } = useParams(), m = previewModules.find(m => m.id === moduleId)!;
+ if(m.id==='payment-batches')return <PreviewAccess permission={m.permission}><PaymentBatchPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
+ if(m.id==='bank-accounts')return <PreviewAccess permission={m.permission}><BankAccountSetupPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(connectedModules.has(m.id))return <PreviewAccess permission={m.permission}>{m.id==='products'?<ProductBusinessPage key={`${m.id}/${mode}/${previewId}`} mode={mode} id={previewId}/>:<ConfigurationBusinessPage key={`${m.id}/${mode}/${previewId}`} domain={m.id} path={m.path} title={m.title} mode={mode} id={previewId}/>}</PreviewAccess>;
  return <PreviewAccess permission={m.permission}>{mode === 'list' ? <ModuleList key={m.id} module={m} /> : mode === 'detail' ? <ModuleDetail key={`${m.id}/${previewId}`} module={m} id={previewId!} /> : <ModuleForm key={`${m.id}/${mode}/${previewId}`} module={m} id={mode === 'edit' ? previewId : undefined} />}</PreviewAccess>;
 }
@@ -20,7 +25,9 @@ function FlowRoute({ id }: { id: string }) {
  const { previewId } = useParams();
  const flow = flowPages.find(f => f[0] === id)!;
  let node: ReactNode;
- if (['sales-report','purchases-report','banking-report'].includes(id)) node = <ConnectedOperationalReport key={id} kind={id}/>;
+ if(id==='bank-import'||id==='bank-workbench') node=<BankClosurePage key={id} importOnly={id==='bank-import'}/>;
+ else if(id.startsWith('receipt')||id.startsWith('customer-refund')||id.startsWith('supplier-refund'))node=<SettlementPage key={id+previewId} kind={id.startsWith('receipt')?'receipt':id.startsWith('customer')?'customer-refund':'supplier-refund'} mode={id.endsWith('-new')?'new':id.endsWith('-detail')?'detail':'list'} id={previewId}/>;
+ else if (['sales-report','purchases-report','banking-report'].includes(id)) node = <ConnectedOperationalReport key={id} kind={id}/>;
  else if(id==='bank-workbench') node=<ConnectedBankWorkbench/>;
  else if (['sales-order', 'sales-order-edit', 'invoice', 'invoice-edit', 'bill', 'bill-edit'].includes(id)) node = <DocumentEditor key={id + previewId} kind={id.startsWith('sales-order') ? 'order' : id.startsWith('invoice') ? 'invoice' : 'bill'} id={id.endsWith('edit') ? previewId : undefined} />;
  else if (id.startsWith('receipt') || id.startsWith('customer-refund') || id.startsWith('supplier-refund')) node = <ReceiptRefund key={id + previewId} kind={id.startsWith('receipt') ? 'receipt' : id.startsWith('customer') ? 'customer-refund' : 'supplier-refund'} mode={id.endsWith('-new') ? 'new' : id.endsWith('-detail') ? 'detail' : 'list'} id={previewId} />;

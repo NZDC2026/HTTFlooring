@@ -1,3 +1,4 @@
+import { usePermission } from '../../security/usePermission';
 import {
     useState,
 } from "react";
@@ -517,8 +518,9 @@ function QuoteActions({
     onDecline: () => void;
     onConvert: () => void;
 }) {
+    const canManage = usePermission('sales.manage'), canWrite = usePermission('sales.write');
     if (
-        status === "DRAFT"
+        status === "DRAFT" && canWrite
     ) {
         return (
             <div className="flex items-center gap-3">
@@ -555,7 +557,7 @@ function QuoteActions({
     }
 
     if (
-        status === "SENT"
+        status === "SENT" && canManage
     ) {
         return (
             <div className="flex items-center gap-3">
@@ -592,7 +594,7 @@ function QuoteActions({
     }
 
     if (
-        status === "ACCEPTED"
+        status === "ACCEPTED" && canManage
     ) {
         return (
             <Button

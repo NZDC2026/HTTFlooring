@@ -538,6 +538,8 @@ function EntryBadge({
     SupplierStatementEntry["type"];
 }) {
     const labels: Record<SupplierStatementEntry["type"], string> = {
+        REFUND: "Refund",
+        REFUND_REVERSAL: "Refund reversal",
         BILL: "Bill",
         BILL_VOID: "Bill void",
         PAYMENT: "Payment",

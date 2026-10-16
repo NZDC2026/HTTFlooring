@@ -97,7 +97,7 @@ export function calculateSupplierCreditBalanceAsAt(
             roundCurrency(
                 Math.max(
                     0,
-                    total -
+                    total - (credit.refundEvents ?? []).filter(r=>r.date<=asOfDate&&(!r.reversalDate||r.reversalDate>asOfDate)).reduce((sum,r)=>sum+r.amount,0) -
                     amountApplied,
                 ),
             ),

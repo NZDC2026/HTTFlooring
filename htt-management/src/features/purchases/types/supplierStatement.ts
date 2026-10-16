@@ -1,6 +1,8 @@
 export type SupplierStatementEntryType =
     | "BILL"
     | "BILL_VOID"
+    | "REFUND"
+    | "REFUND_REVERSAL"
     | "PAYMENT"
     | "PAYMENT_REVERSAL"
     | "SUPPLIER_CREDIT"

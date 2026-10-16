@@ -1,3 +1,4 @@
+import { usePermission } from '../../security/usePermission';
 import {
     useState,
 } from "react";
@@ -36,6 +37,7 @@ import type {
 } from "../types/salesDocument";
 
 export function SalesOrderDetailPage() {
+    const canManage = usePermission('sales.manage');
     const {
         orderId,
     } = useParams<{
@@ -163,7 +165,7 @@ export function SalesOrderDetailPage() {
                     </p>
                 </div>
 
-                {(order.status ===
+                {canManage && (order.status ===
                     "CONFIRMED" ||
                     order.status ===
                     "PARTIALLY_FULFILLED" ||

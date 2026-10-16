@@ -111,7 +111,7 @@ export function calculateCreditNoteBalanceAsAt(
         roundCurrency(
             Math.max(
                 0,
-                creditTotal -
+                creditTotal - (creditNote.refundEvents ?? []).filter(r=>r.date<=asOfDate&&(!r.reversalDate||r.reversalDate>asOfDate)).reduce((sum,r)=>sum+r.amount,0) -
                 amountApplied,
             ),
         );

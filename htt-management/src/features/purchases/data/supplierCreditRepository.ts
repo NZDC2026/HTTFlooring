@@ -773,7 +773,7 @@ export const supplierCreditRepository =
             roundCurrency(
                 Math.max(
                     0,
-                    credit.totals.total -
+                    credit.totals.total - (credit.amountRefunded ?? 0) -
                     amountApplied,
                 ),
             );
@@ -940,7 +940,7 @@ export const supplierCreditRepository =
             roundCurrency(
                 Math.max(
                     0,
-                    credit.totals.total -
+                    credit.totals.total - (credit.amountRefunded ?? 0) -
                     amountApplied,
                 ),
             );
@@ -1030,6 +1030,7 @@ export const supplierCreditRepository =
             );
         }
 
+        if ((credit.amountRefunded ?? 0) > 0) throw new Error('Reverse supplier refunds before voiding the credit.');
         const reason =
             input.reason.trim();
 

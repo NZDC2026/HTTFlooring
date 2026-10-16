@@ -121,7 +121,7 @@ export function auditSalesConsistency(data: SalesAuditInput): SalesAuditIssue[] 
         const applied = active.reduce((sum, a) => sum + cents(a.amount), 0);
         if (cents(note.amountApplied) !== applied)
             add("CREDIT_APPLIED_MISMATCH", note.id, "Credit note amountApplied differs from allocations");
-        if (note.status === "VOID" ? (applied !== 0 || cents(note.amountAvailable) !== 0) : cents(note.amountAvailable) !== cents(note.totals.total) - applied)
+        if (note.status === "VOID" ? (applied !== 0 || cents(note.amountAvailable) !== 0) : cents(note.amountAvailable) !== cents(note.totals.total) - applied - cents(note.amountRefunded ?? 0))
             add("CREDIT_AVAILABLE_MISMATCH", note.id, "Credit note amountAvailable is inconsistent");
     }
     for (const allocation of data.allocations) {

@@ -1,4 +1,4 @@
-import { c as e, d as t, f as n, l as r, m as i, s as a, t as o, u as s } from "./accountingPeriodValidation-9Djbsd6O.js";
+import { c as e, d as t, f as n, l as r, m as i, s as a, t as o, u as s } from "./accountingPeriodValidation-wQqi6VPo.js";
 import { BrowserWindow as c, app as l, dialog as u, ipcMain as d, nativeImage as f } from "electron";
 import { closeSync as p, existsSync as m, fsyncSync as h, mkdirSync as g, openSync as _, readFileSync as v, realpathSync as y, renameSync as b, statSync as x, writeFileSync as S } from "node:fs";
 import { createHash as C, createHmac as w, randomBytes as T, randomUUID as E, scryptSync as D, timingSafeEqual as O } from "node:crypto";
@@ -234,7 +234,7 @@ var z = (e, t) => D(e, t, 64).toString("hex"), B = class {
 }, V = (e) => !!e && typeof e == "object" && !Array.isArray(e);
 function H(e) {
 	let t = {
-		schemaVersion: 4,
+		schemaVersion: 5,
 		savedAt: (/* @__PURE__ */ new Date()).toISOString(),
 		storage: e.storage,
 		repositories: e.repositories,
@@ -252,10 +252,11 @@ function U(e) {
 		1,
 		2,
 		3,
-		4
+		4,
+		5
 	].includes(t.schemaVersion)) throw Error("Unsupported business snapshot version.");
 	if (!V(t.storage) || !Object.entries(t.storage).every(([e, t]) => e.startsWith("htt") && typeof t == "string") || !V(t.repositories) || t.lastCommandId !== void 0 && typeof t.lastCommandId != "string") throw Error("Invalid business snapshot structure.");
-	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4) {
+	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4 || t.schemaVersion === 5) {
 		let { checksum: e, ...n } = t;
 		if (typeof t.savedAt != "string" || !Number.isFinite(Date.parse(t.savedAt)) || e !== C("sha256").update(JSON.stringify(n)).digest("hex")) throw Error("Business snapshot checksum failed.");
 	}
@@ -285,7 +286,7 @@ function W(e, t) {
 	}
 }
 function G(e) {
-	return e.schemaVersion === 3 || e.schemaVersion === 4 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
+	return e.schemaVersion === 3 || e.schemaVersion === 4 || e.schemaVersion === 5 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
 }
 var K = [
 	"products",
@@ -298,10 +299,14 @@ var K = [
 	"workspace_templates",
 	"workspace_custom_reports",
 	"workspace_report_packs",
-	"workspace_settings"
+	"workspace_settings",
+	"customerSettlements",
+	"supplierRefunds",
+	"bankStatements",
+	"paymentBatches"
 ];
 function q(e, t) {
-	if (e.schemaVersion === 4) return !1;
+	if (e.schemaVersion === 5) return !1;
 	for (let n of K) if (!Object.hasOwn(e.repositories, n)) {
 		if (!Object.hasOwn(t, n)) throw Error("Workspace contracts are not initialized.");
 		e.repositories[n] = structuredClone(t[n]);
@@ -330,7 +335,7 @@ var ie = class {
 		if (this.initialized) return;
 		if (!this.security.principal()) throw Error("Login required.");
 		let r, i;
-		if (m(this.path)) i = U(v(this.path, "utf8")), i.schemaVersion !== 4 && (r = structuredClone(i), G(i)), this.values = i.storage;
+		if (m(this.path)) i = U(v(this.path, "utf8")), i.schemaVersion !== 5 && (r = structuredClone(i), G(i)), this.values = i.storage;
 		else {
 			if (this.security.require("users.manage"), !n || typeof n != "object" || Object.keys(n).length > 1e3) throw Error("Invalid legacy local data.");
 			for (let [e, t] of Object.entries(n)) if (!e.startsWith("htt") || typeof t != "string" || t.length > 5e7) throw Error("Invalid legacy local data.");
@@ -367,8 +372,8 @@ var ie = class {
 			configurable: !0,
 			value: { localStorage: a }
 		});
-		let c = await import("./businessEngine-BkDKy24E.js");
-		this.workspaceDefaults = c.workspaceDefaults, i && (q(i, this.workspaceDefaults), W(i.repositories, s()), t(i.repositories), e(i.repositories), this.lastCommandId = i.lastCommandId), c.initialize(() => this.security.principal()), this.assertPeriod = c.assertPostingPeriod, r && (P(M(j(this.path), `pre-migration-v${i.schemaVersion}-${E()}.json`), r), this.persist(), this.security.audit("business.migrate.v4", "local-desktop-profile", "SUCCESS", "users.manage")), i || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
+		let c = await import("./businessEngine-ceUlXfq2.js");
+		this.workspaceDefaults = c.workspaceDefaults, i && (q(i, this.workspaceDefaults), W(i.repositories, s()), t(i.repositories), e(i.repositories), this.lastCommandId = i.lastCommandId), c.initialize(() => this.security.principal()), this.assertPeriod = c.assertPostingPeriod, r && (P(M(j(this.path), `pre-migration-v${i.schemaVersion}-${E()}.json`), r), this.persist(), this.security.audit("business.migrate.v5", "local-desktop-profile", "SUCCESS", "users.manage")), i || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
 		for (let e of this.security.pendingBusinessCommands()) this.security.audit(`recovery.${e.action}`, e.resourceId, e.commandId === this.lastCommandId ? "SUCCESS" : "FAILED", e.permission, e.commandId);
 		this.initialized = !0;
 	}
@@ -430,7 +435,7 @@ var ie = class {
 				value: { localStorage: t }
 			});
 		}
-		let i = await import("./businessEngine-BkDKy24E.js");
+		let i = await import("./businessEngine-ceUlXfq2.js");
 		if (q(r.database, i.workspaceDefaults), W(r.database.repositories, s()), t(r.database.repositories), this.security.require("users.manage").userId !== n.userId) throw Error("Restore session changed.");
 		let a = this.security.pendingBusinessCommands();
 		if (a.length) {
@@ -526,6 +531,8 @@ var ie = class {
 			if (t.method === "post" && (e?.sourceType !== "MANUAL_JOURNAL" || e.sourceId)) throw Error("System journals must be posted through their business source.");
 			if (t.method === "reverse" && s().journals.journalEntries.find((t) => t.id === e?.journalEntryId)?.sourceType !== "MANUAL_JOURNAL") throw Error("System journals must be reversed through their business source.");
 		}
+		if (t.repository === "supplierPayments" && t.method === "reverse" && s().paymentBatches.batches.some((e) => e.status === "POSTED" && e.paymentIds.includes(i[0]))) throw Error("Reverse this supplier payment through its payment batch.");
+		if (t.repository === "sales" && t.method === "reverseInvoicePayment" && s().customerSettlements.receipts.some((e) => e.status === "POSTED" && e.paymentIds.includes(i[0]))) throw Error("Reverse this payment through its grouped customer receipt.");
 		if (t.repository === "salesRecovery" && i[0] && typeof i[0] == "object") {
 			let e = i[0];
 			t.method === "recordSalesManualReview" && (e.operator = r.userId), t.method === "closeVerifiedSalesReview" && (e.approver = r.userId);

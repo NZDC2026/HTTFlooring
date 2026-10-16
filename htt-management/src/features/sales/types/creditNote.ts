@@ -10,6 +10,8 @@ export type CreditNoteStatus =
     | "VOID";
 
 export interface CreditNote {
+    amountRefunded?: number;
+    refundEvents?: { id:string; date:string; amount:number; reversalDate?:string }[];
     id: string;
 
     creditNoteNumber: string;

@@ -408,6 +408,7 @@ export function CreditNoteDetailPage() {
                 </div>
             )}
 
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border bg-slate-50 p-3 text-sm"><span>Refunded: {formatMoney(creditNote.amountRefunded ?? 0)}</span><button className="underline" onClick={()=>navigate('/sales/refunds')}>Review refunds</button></div>
             <div className="mb-5 grid grid-cols-4 gap-4">
                 <MetricCard
                     label="Credit Total"

@@ -1,3 +1,6 @@
+import '../../src/features/finance-closure/paymentBatchRepository';
+import '../../src/features/finance-closure/settlementRepository';
+import '../../src/features/finance-closure/bankStatementRepository';
 import '../../src/features/business-workspace/productRepository';
 import '../../src/features/business-workspace/workspaceRepository';
 export { assertPostingPeriod } from '../../src/features/accounting/data/accountingPeriodRepository';

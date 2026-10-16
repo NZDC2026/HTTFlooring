@@ -791,7 +791,7 @@ export const purchasesAccountingPostingService =
                     {
                         accountId:
                             getAccountId(
-                                "INVENTORY",
+                                "PURCHASE_PRICE_VARIANCE",
                             ),
 
                         description:
@@ -828,6 +828,9 @@ export const purchasesAccountingPostingService =
         credit:
             SupplierCredit,
     ) {
+        for (const repair of journalEntryRepository.getBySource('SUPPLIER_CREDIT_RECLASS',credit.id).filter(j=>j.status==='POSTED')) {
+            journalEntryRepository.reverse({journalEntryId:repair.id,reversalDate:getDateKeyFromTimestamp(credit.voidedAt),reason:credit.voidReason??'Credit void'});
+        }
         const original =
             requireOriginalJournal(
                 "SUPPLIER_CREDIT",

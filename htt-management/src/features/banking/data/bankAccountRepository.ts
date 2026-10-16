@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { requireDateKey } from '../../../lib/businessDate';
+import { journalEntryRepository } from '../../accounting/data/journalEntryRepository';
 import { registerRepository } from "../../security/repositoryHost";
 import type {
     BankAccount,
@@ -239,6 +242,18 @@ export const bankAccountRepository =
         return bankAccount;
     },
 
+    save(raw: {id?:string;name:string;bankName:string;accountNumber:string;accountType:BankAccount['accountType'];currency:string;glAccountId:string;openingBalanceDate:string;active:boolean},expectedUpdatedAt?:string): BankAccount {
+        const input=z.object({id:z.string().optional(),name:z.string().trim().min(1).max(180),bankName:z.string().trim().min(1).max(180),accountNumber:z.string().trim().min(1).max(100),accountType:z.enum(['TRANSACTION','SAVINGS','CREDIT_CARD','OTHER']),currency:z.enum(['AUD','NZD']),glAccountId:z.string().min(1),openingBalanceDate:z.string(),active:z.boolean()}).strict().parse(raw);
+        requireDateKey(input.openingBalanceDate,'Opening date');if(bankAccounts[0]&&input.currency!==bankAccounts[0].currency)throw new Error('This profile uses one base currency; foreign-currency bank accounts are not supported.');const existing=bankAccounts.find(a=>a.id===input.id);
+        if(existing&&existing.updatedAt!==expectedUpdatedAt)throw new Error('Bank account changed; reload before editing.');
+        if(!existing&&input.id)throw new Error('Bank account was not found.');
+        if(bankAccounts.some(a=>a.id!==existing?.id&&a.glAccountId===input.glAccountId))throw new Error('Each bank account needs its own GL account.');
+        const gl=accountRepository.requireById(input.glAccountId);if(!gl.active||gl.type!=='ASSET'||gl.systemRole&&gl.systemRole!=='BANK')throw new Error('Choose an active bank Asset account.');
+        const used=existing&&journalEntryRepository.getAll().some(j=>j.lines.some(l=>l.accountId===existing.glAccountId));
+        if(used&&(existing.glAccountId!==input.glAccountId||existing.openingBalanceDate!==input.openingBalanceDate||existing.currency!==input.currency))throw new Error('A used bank account cannot change its ledger, currency or opening date.');
+        const timestamp=new Date(Math.max(Date.now(),existing?Date.parse(existing.updatedAt)+1:0)).toISOString(),account:BankAccount={...input,id:existing?.id??crypto.randomUUID(),openingBalance:existing?.openingBalance??0,createdAt:existing?.createdAt??timestamp,updatedAt:timestamp};
+        validateBankAccount(account);bankAccounts=[...bankAccounts.filter(a=>a.id!==account.id),account];emitChange();return account;
+    },
     setActive(
         bankAccountId:
             string,
@@ -288,7 +303,7 @@ export const bankAccountRepository =
 };
 registerRepository("bankAccounts", {
     repository: bankAccountRepository, read: "banking.read",
-    commands: {"if": null, "validateBankAccount": null, "setActive": "banking.write"},
+    commands: {"if": null, "validateBankAccount": null, "setActive": "banking.write", "save": "banking.write"},
     snapshot: () => ({ bankAccounts }),
     restore: value => { bankAccounts = value.bankAccounts;  },
     publish: () => listeners.forEach(listener => listener()),

@@ -444,6 +444,10 @@ export function buildCustomerStatement({
         }
     }
 
+    for (const credit of customerCreditNotes) for (const event of credit.refundEvents??[]) {
+        if(event.date<=toDate)allEntries.push({id:'refund-'+event.id,date:event.date,sortDateTime:event.date+'T00:00:00Z',type:'REFUND',reference:credit.creditNoteNumber,description:'Customer credit refund',creditNoteId:credit.id,debit:event.amount,credit:0});
+        if(event.reversalDate&&event.reversalDate<=toDate)allEntries.push({id:'refund-reversal-'+event.id,date:event.reversalDate,sortDateTime:event.reversalDate+'T23:59:59Z',type:'REFUND_REVERSAL',reference:credit.creditNoteNumber,description:'Customer refund reversal',creditNoteId:credit.id,debit:0,credit:event.amount});
+    }
     allEntries.sort(
         compareEntries,
     );

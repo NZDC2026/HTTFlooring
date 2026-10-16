@@ -41,8 +41,12 @@ export function isCreditNoteState(value: unknown): value is CreditNoteState {
     return notes.every(n => {
         const applied = allocations.filter(a => a.creditNoteId === n.id && a.status === "APPLIED").reduce((sum, a) => sum + a.amount, 0);
         if (Math.abs(applied - n.amountApplied) > 0.011) return false;
-        if (n.status === "VOID") return applied === 0 && n.amountAvailable === 0;
-        if (Math.abs(n.amountAvailable - (n.totals.total - applied)) > 0.011) return false;
+        const refunds=n.refundEvents??[];
+        if(!Array.isArray(refunds)||refunds.some(r=>!r||!text(r.id)||!text(r.date)||!finite(r.amount)||r.amount<=0||r.reversalDate!==undefined&&!text(r.reversalDate))||new Set(refunds.map(r=>r.id)).size!==refunds.length)return false;
+        const refunded=refunds.filter(r=>!r.reversalDate).reduce((sum,r)=>sum+r.amount,0);
+        if(!finite(n.amountRefunded??0)||Math.abs(refunded-(n.amountRefunded??0))>0.011||applied+refunded>n.totals.total+0.011)return false;
+        if (n.status === "VOID") return applied === 0 && refunded === 0 && n.amountAvailable === 0;
+        if (Math.abs(n.amountAvailable - (n.totals.total - applied - refunded)) > 0.011) return false;
         return n.status !== "FULLY_APPLIED" || n.amountAvailable < 0.011;
     });
 }

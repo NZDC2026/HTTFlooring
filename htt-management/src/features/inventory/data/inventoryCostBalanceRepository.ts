@@ -146,7 +146,7 @@ export const inventoryCostBalanceRepository =
     },
 };
 registerRepository("costBalances", {
-    repository: inventoryCostBalanceRepository, read: "inventory.read",
+    repository: inventoryCostBalanceRepository, read: "inventory.cost.read",
     commands: {"save": null, "replaceAll": null, "clear": null},
     snapshot: () => ({ balances }),
     restore: value => { balances = value.balances;  },

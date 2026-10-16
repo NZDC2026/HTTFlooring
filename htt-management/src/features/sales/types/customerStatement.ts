@@ -1,6 +1,8 @@
 export type StatementEntryType =
     | "INVOICE"
     | "INVOICE_VOID"
+    | "REFUND"
+    | "REFUND_REVERSAL"
     | "PAYMENT"
     | "PAYMENT_REVERSAL"
     | "CREDIT_NOTE"
