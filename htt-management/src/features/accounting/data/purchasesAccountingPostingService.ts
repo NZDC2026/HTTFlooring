@@ -776,22 +776,7 @@ export const purchasesAccountingPostingService =
                             0,
                     },
 
-                    {
-                        accountId:
-                            getAccountId(
-                                "PURCHASE_PRICE_VARIANCE",
-                            ),
-
-                        description:
-                            credit.creditNumber,
-
-                        debit:
-                            0,
-
-                        credit:
-                            credit.totals.subtotal,
-                    },
-
+                    ...credit.lines.reduce<{accountId:string;debit:number;credit:number}[]>((rows,line)=>{const accountId=line.expenseAccountId??getAccountId('PURCHASE_PRICE_VARIANCE');const old=rows.find(r=>r.accountId===accountId);if(old)old.credit=Math.round((old.credit+line.lineSubtotal)*100)/100;else if(line.lineSubtotal)rows.push({accountId,debit:0,credit:line.lineSubtotal});return rows;},[]),
                     ...taxPostingLines(credit.lines,'paid',false,credit.totals.taxAmount),
                 ],
             },

@@ -139,6 +139,26 @@ function buildSnapshot():
 }
 
 export const salesRepository = {
+    createManagedOrder(input: {draftId:string;customerId:string;documentDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):SalesOrder {
+        const prior=salesOrders.find(o=>o.managedDraftId===input.draftId);if(prior)return prior;
+        const now=new Date().toISOString(),order:SalesOrder={id:createId('order'),managedDraftId:input.draftId,type:'SALES_ORDER',status:'CONFIRMED',documentNumber:getNextDocumentNumber('SO',salesOrders.map(o=>o.documentNumber)),customerId:input.customerId,documentDate:input.documentDate,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),invoiceIds:[],createdAt:now,updatedAt:now};
+        commitOrderDocuments([order,...salesOrders]);return order;
+    },
+    createManagedInvoice(input: {draftId:string;customerId:string;documentDate:string;dueDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):Invoice {
+        const prior=invoices.find(i=>i.managedDraftId===input.draftId);if(prior)return prior;
+        const order=salesRepository.createManagedOrder(input),now=new Date().toISOString();
+        const invoice:Invoice={id:createId('invoice'),managedDraftId:input.draftId,type:'INVOICE',status:'ISSUED',documentNumber:getNextDocumentNumber('INV',invoices.map(i=>i.documentNumber)),customerId:input.customerId,documentDate:input.documentDate,dueDate:input.dueDate,sourceSalesOrderId:order.id,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),amountPaid:0,amountDue:input.totals.total,createdAt:now,updatedAt:now};
+        const nextOrders=salesOrders.map(o=>o.id===order.id?{...o,status:'INVOICED' as const,invoiceIds:[...o.invoiceIds,invoice.id],updatedAt:now}:o);
+        persistSalesDocuments({quotes,salesOrders:nextOrders,invoices:[invoice,...invoices]});salesOrders=nextOrders;invoices=[invoice,...invoices];emitChange();salesAccountingPostingService.postInvoice(invoice);return invoice;
+    },
+    cancelManagedOrder(id:string,reason:string):SalesOrder {
+        const order=salesOrders.find(o=>o.id===id);if(!order?.managedDraftId)throw new Error('Managed order not found.');
+        if(order.status==='CANCELLED')return order;
+        if(order.invoiceIds.some(id=>invoices.some(i=>i.id===id&&i.status!=='VOID')))throw new Error('Void active invoices before cancelling the order.');
+        if(order.status==='PARTIALLY_FULFILLED'||order.status==='FULFILLED'||order.fulfilmentStatus==='PARTIALLY_FULFILLED'||order.fulfilmentStatus==='FULFILLED')throw new Error('Reverse active fulfilments before cancelling the order.');
+        if(reason.trim().length<3)throw new Error('Cancellation reason is required.');
+        const result={...order,status:'CANCELLED' as const,notes:(order.notes??'')+'\nCancelled: '+reason.trim(),updatedAt:new Date().toISOString()};commitOrderDocuments(salesOrders.map(o=>o.id===id?result:o));return result;
+    },
     subscribe(
         listener: Listener,
     ) {
@@ -766,7 +786,7 @@ export const salesRepository = {
             order.status !==
             "PARTIALLY_FULFILLED" &&
             order.status !==
-            "FULFILLED"
+            "FULFILLED" && order.status!=="INVOICED"
         ) {
             throw new Error(
                 "Sales order fulfilment status cannot be changed from its current state.",
@@ -778,7 +798,8 @@ export const salesRepository = {
         {
             ...order,
 
-            status,
+            status: order.status==='INVOICED'?'INVOICED':status,
+            fulfilmentStatus:status,
 
             updatedAt:
                 new Date()
@@ -841,6 +862,7 @@ export const salesRepository = {
                 "invoice",
             ),
 
+            managedDraftId:order.managedDraftId,
             type:
                 "INVOICE",
 
@@ -1897,6 +1919,7 @@ export const salesRepository = {
             );
         }
 
+        if(invoice.managedDraftId&&creditNoteRepository.getByInvoice(invoice.id).some(c=>c.status!=='VOID'))throw new Error('Void source credits before voiding this direct invoice.');
         const now =
             new Date().toISOString();
 
@@ -2325,7 +2348,7 @@ function getLocalDateKey(
 }
 registerRepository("sales", {
     repository: salesRepository, read: "sales.read",
-    commands: {"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
+    commands: {"createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
     snapshot: () => ({ quotes, salesOrders, invoices }),
     restore: value => { quotes = value.quotes; salesOrders = value.salesOrders; invoices = value.invoices; snapshot = buildSnapshot(); },
     publish: () => listeners.forEach(listener => listener()),

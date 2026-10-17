@@ -124,7 +124,7 @@ export function SalesOrderDetailPage() {
     }
 
     return (
-        <div className="mx-auto w-full max-w-[1600px]">
+        <div className="mx-auto w-full max-w-[1600px]"><button className="mb-4 rounded-lg border px-4 py-2 text-sm" onClick={()=>navigate('/inventory/sales-dispatch')}>Dispatch &amp; fulfilments</button>
             <button
                 type="button"
                 onClick={() =>

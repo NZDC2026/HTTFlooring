@@ -126,7 +126,7 @@ export function SupplierBillDetailPage() {
                 type="button"
                 onClick={() =>
                     navigate(
-                        bill.openingBalanceImportId?'/accounting/opening-balances':`/purchases/${bill.purchaseOrderId}`,
+                        bill.kind==='EXPENSE'?'/purchases/expense-bills':bill.openingBalanceImportId?'/accounting/opening-balances':`/purchases/${bill.purchaseOrderId}`,
                     )
                 }
                 className="mb-5 flex items-center gap-2 text-xs text-[var(--color-text-secondary)] transition hover:text-[var(--color-primary)]"
@@ -298,7 +298,7 @@ export function SupplierBillDetailPage() {
                 />
 
                 <Summary
-                    label="Purchase Order"
+                    label={bill.kind==='EXPENSE'?'Bill type':'Purchase Order'}
                     value={
                         bill.purchaseOrderNumber
                     }
@@ -335,11 +335,7 @@ export function SupplierBillDetailPage() {
                     </h2>
 
                     <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                        Quantities
-                        matched against
-                        received
-                        purchase order
-                        quantities.
+                        {bill.kind==='EXPENSE'?'Expense and service allocations; no goods receipt is required.':'Quantities matched against received purchase order quantities.'}
                     </p>
                 </div>
 
@@ -691,15 +687,7 @@ export function SupplierBillDetailPage() {
             </div>
 
             <div className="mt-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs text-[var(--color-text-secondary)]">
-                This supplier
-                bill creates an
-                Accounts Payable
-                obligation. It does
-                not change inventory,
-                because inventory was
-                already updated when
-                the Goods Receipt was
-                posted.
+                {bill.kind==='EXPENSE'?'This expense/service bill posts to expense, input tax and Accounts Payable. It does not change inventory or GRNI.':'This supplier bill creates an Accounts Payable obligation. It does not change inventory, because inventory was already updated when the Goods Receipt was posted.'}
             </div>
 
             {voidOpen && (

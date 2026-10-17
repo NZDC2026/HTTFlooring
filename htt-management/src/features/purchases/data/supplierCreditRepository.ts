@@ -373,7 +373,7 @@ export const supplierCreditRepository =
                                 `supplier-credit-line-${index + 1}`,
                             ),
 
-                        taxCode:sourceLine.taxCode,taxRate:sourceLine.taxRate,taxCollectedAccountId:sourceLine.taxCollectedAccountId,taxPaidAccountId:sourceLine.taxPaidAccountId,taxReport:sourceLine.taxReport,
+                        expenseAccountId:sourceLine.expenseAccountId,taxCode:sourceLine.taxCode,taxRate:sourceLine.taxRate,taxCollectedAccountId:sourceLine.taxCollectedAccountId,taxPaidAccountId:sourceLine.taxPaidAccountId,taxReport:sourceLine.taxReport,
                         purchaseOrderLineId:
                             sourceLine
                                 .purchaseOrderLineId,

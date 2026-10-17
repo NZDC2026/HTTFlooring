@@ -1,3 +1,5 @@
+> Latest follow-up: [Direct documents](DIRECT-DOCUMENTS.md) connects direct sales orders/invoices, expense/service bills and sales dispatch to the persisted local business engine.
+
 > Latest follow-up: [Finance foundation](FINANCE-FOUNDATION.md) connects financial settings, tax account/report snapshots and reconciled opening-balance import. Older scope notes below describe their earlier baseline.
 
 > Follow-up: [Finance closure](FINANCE-CLOSURE.md) implements receipts, refunds, bank statement processing and supplier payment batches, and corrects the permissions and supplier-credit posting described in the earlier baseline below. Historical credits use the controlled repair workflow.

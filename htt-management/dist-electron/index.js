@@ -234,7 +234,7 @@ var z = (e, t) => D(e, t, 64).toString("hex"), B = class {
 }, V = (e) => !!e && typeof e == "object" && !Array.isArray(e);
 function H(e) {
 	let t = {
-		schemaVersion: 6,
+		schemaVersion: 7,
 		savedAt: (/* @__PURE__ */ new Date()).toISOString(),
 		storage: e.storage,
 		repositories: e.repositories,
@@ -254,10 +254,11 @@ function U(e) {
 		3,
 		4,
 		5,
-		6
+		6,
+		7
 	].includes(t.schemaVersion)) throw Error("Unsupported business snapshot version.");
 	if (!V(t.storage) || !Object.entries(t.storage).every(([e, t]) => e.startsWith("htt") && typeof t == "string") || !V(t.repositories) || t.lastCommandId !== void 0 && typeof t.lastCommandId != "string") throw Error("Invalid business snapshot structure.");
-	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4 || t.schemaVersion === 5 || t.schemaVersion === 6) {
+	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4 || t.schemaVersion === 5 || t.schemaVersion === 6 || t.schemaVersion === 7) {
 		let { checksum: e, ...n } = t;
 		if (typeof t.savedAt != "string" || !Number.isFinite(Date.parse(t.savedAt)) || e !== C("sha256").update(JSON.stringify(n)).digest("hex")) throw Error("Business snapshot checksum failed.");
 	}
@@ -287,7 +288,7 @@ function W(e, t) {
 	}
 }
 function G(e) {
-	return e.schemaVersion === 3 || e.schemaVersion === 4 || e.schemaVersion === 5 || e.schemaVersion === 6 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
+	return e.schemaVersion === 3 || e.schemaVersion === 4 || e.schemaVersion === 5 || e.schemaVersion === 6 || e.schemaVersion === 7 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
 }
 var K = [
 	"products",
@@ -305,10 +306,13 @@ var K = [
 	"supplierRefunds",
 	"bankStatements",
 	"paymentBatches",
-	"openingBalances"
+	"openingBalances",
+	"managedSalesDocuments",
+	"expenseBillDrafts",
+	"salesDispatch"
 ];
 function q(e, t) {
-	if (e.schemaVersion === 6) return !1;
+	if (e.schemaVersion === 7) return !1;
 	for (let n of K) if (!Object.hasOwn(e.repositories, n)) {
 		if (!Object.hasOwn(t, n)) throw Error("Workspace contracts are not initialized.");
 		e.repositories[n] = structuredClone(t[n]);
@@ -337,7 +341,7 @@ var ie = class {
 		if (this.initialized) return;
 		if (!this.security.principal()) throw Error("Login required.");
 		let r, i;
-		if (m(this.path)) i = U(v(this.path, "utf8")), i.schemaVersion !== 6 && (r = structuredClone(i), G(i)), this.values = i.storage;
+		if (m(this.path)) i = U(v(this.path, "utf8")), i.schemaVersion !== 7 && (r = structuredClone(i), G(i)), this.values = i.storage;
 		else {
 			if (this.security.require("users.manage"), !e || typeof e != "object" || Object.keys(e).length > 1e3) throw Error("Invalid legacy local data.");
 			for (let [t, n] of Object.entries(e)) if (!t.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
@@ -374,8 +378,8 @@ var ie = class {
 			configurable: !0,
 			value: { localStorage: a }
 		});
-		let c = await import("./businessEngine-BoOwdqxE.js");
-		this.workspaceDefaults = c.workspaceDefaults, i && (q(i, this.workspaceDefaults), W(i.repositories, s()), n(i.repositories), t(i.repositories), this.lastCommandId = i.lastCommandId), c.initialize(() => this.security.principal()), this.assertPeriod = c.assertPostingPeriod, r && (P(M(j(this.path), `pre-migration-v${i.schemaVersion}-${E()}.json`), r), this.persist(), this.security.audit("business.migrate.v6", "local-desktop-profile", "SUCCESS", "users.manage")), i || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
+		let c = await import("./businessEngine-DPkzqP27.js");
+		this.workspaceDefaults = c.workspaceDefaults, i && (q(i, this.workspaceDefaults), W(i.repositories, s()), n(i.repositories), t(i.repositories), this.lastCommandId = i.lastCommandId), c.initialize(() => this.security.principal()), this.assertPeriod = c.assertPostingPeriod, r && (P(M(j(this.path), `pre-migration-v${i.schemaVersion}-${E()}.json`), r), this.persist(), this.security.audit("business.migrate.v7", "local-desktop-profile", "SUCCESS", "users.manage")), i || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
 		for (let e of this.security.pendingBusinessCommands()) this.security.audit(`recovery.${e.action}`, e.resourceId, e.commandId === this.lastCommandId ? "SUCCESS" : "FAILED", e.permission, e.commandId);
 		this.initialized = !0;
 	}
@@ -437,7 +441,7 @@ var ie = class {
 				value: { localStorage: t }
 			});
 		}
-		let i = await import("./businessEngine-BoOwdqxE.js");
+		let i = await import("./businessEngine-DPkzqP27.js");
 		if (q(r.database, i.workspaceDefaults), W(r.database.repositories, s()), n(r.database.repositories), this.security.require("users.manage").userId !== t.userId) throw Error("Restore session changed.");
 		let a = this.security.pendingBusinessCommands();
 		if (a.length) {

@@ -1,3 +1,4 @@
+import {usePermission} from '../../security/usePermission';
 import { businessSettings } from '../../business-workspace/configurationState';
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Eye, FileText, ReceiptText, Search, ShoppingCart, X } from "lucide-react";
@@ -26,6 +27,7 @@ export function getSalesDocumentPath(document: SalesDocument): string {
 }
 
 export function SalesOverviewPage() {
+    const canManage=usePermission('sales.manage');
     const documents = useSalesDocuments();
     const [tab, setTab] = useState<Tab>("ALL");
     const [query, setQuery] = useState("");
@@ -61,9 +63,10 @@ export function SalesOverviewPage() {
                     <h1 className="mt-1 font-display text-3xl">Sales overview</h1>
                     <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Explore quotes, customer orders and invoices in one place.</p>
                 </div>
-                <Badge variant="info">Demo data · AUD</Badge>
+                <Badge variant="info">Local business · {businessSettings().currency}</Badge>
             </header>
 
+            <div className="flex flex-wrap gap-3 text-sm"><Link className="underline" to="/sales/drafts/orders">Order drafts</Link><Link className="underline" to="/sales/drafts/invoices">Invoice drafts</Link>{canManage&&<><Link className="rounded-lg border px-4 py-2" to="/sales/drafts/orders/new">New sales order</Link><Link className="rounded-lg border px-4 py-2" to="/sales/drafts/invoices/new">New direct invoice</Link></>}</div>
             <div className="grid gap-4 md:grid-cols-3">
                 {[
                     { label: "Quotes", value: counts.quotes, icon: FileText, tab: "QUOTE" as Tab },

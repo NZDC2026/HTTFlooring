@@ -387,13 +387,14 @@ export const salesFulfilmentRepository =
             order.status !==
             "CONFIRMED" &&
             order.status !==
-            "PARTIALLY_FULFILLED"
+            "PARTIALLY_FULFILLED" && order.status!=="INVOICED"
         ) {
             throw new Error(
                 "Only a confirmed or partially fulfilled sales order can be fulfilled.",
             );
         }
 
+        if(order.status==='INVOICED'&&!order.invoiceIds.some(id=>{const d=salesRepository.getById(id);return d?.type==='INVOICE'&&d.status!=='VOID';}))throw new Error('This order has no active invoice; do not fulfil a void invoice.');
         const site =
             inventorySiteRepository
                 .getById(
@@ -938,7 +939,7 @@ export const salesFulfilmentRepository =
          * any inventory, costing or GL mutation.
          */
         if (
-            order.status === "INVOICED"
+            order.status === "INVOICED" && (order.invoiceIds.some(id=>{const d=salesRepository.getById(id);return d?.type==='INVOICE'&&d.status!=='VOID';}))
         ) {
             throw new Error(
                 "Cannot void a sales fulfilment for an invoiced sales order.",
@@ -948,7 +949,7 @@ export const salesFulfilmentRepository =
         if (
             order.status !== "CONFIRMED" &&
             order.status !== "PARTIALLY_FULFILLED" &&
-            order.status !== "FULFILLED"
+            order.status !== "FULFILLED" && order.status!=='INVOICED'
         ) {
             throw new Error(
                 `Cannot void a sales fulfilment when the sales order status is ${order.status}.`,

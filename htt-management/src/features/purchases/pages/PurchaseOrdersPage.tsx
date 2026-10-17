@@ -300,7 +300,7 @@ export function PurchaseOrdersPage() {
             );
 
     return (
-        <div className="pb-8">
+        <div className="pb-8"><div className="mb-4 flex flex-wrap gap-4 text-sm"><Link className="underline" to="/purchases/expense-bills">Expense / service bill register</Link><Link className="underline" to="/purchases/expense-bills/new">New expense / service bill</Link></div>
             <div className="mb-7 flex items-start justify-between gap-6">
                 <div>
                     <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">

@@ -1,3 +1,5 @@
+import {ManagedDocumentPage} from '../direct-documents/ManagedDocumentPages';
+import {DispatchPage} from '../direct-documents/DispatchPage';
 import {FinancialSettingsPage,OpeningBalancesPage} from '../finance-foundation/FoundationPages';
 import {TaxSummaryPage} from '../finance-foundation/TaxSummaryPage';
 import { PaymentBatchPage } from '../finance-closure/PaymentBatchPage';
@@ -10,7 +12,7 @@ import { useSecurity } from '../security/securityClient';
 import { hasPermission, type Permission } from '../security/rbac';
 import { previewModules, settingsForms, flowPages } from './catalog';
 import { DirectoryPage, ModuleList, ModuleForm, ModuleDetail, SettingsPreview } from './PreviewWorkspace';
-import { DocumentEditor, ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport, Attachments, Delivery, CaptureReview, EntitySearch } from './PreviewFlows';
+import { ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport, Attachments, Delivery, CaptureReview, EntitySearch } from './PreviewFlows';
 import type { ReactNode } from 'react';
 export function PreviewAccess({ permission, children }: { permission: Permission; children: ReactNode }) {
  const { session } = useSecurity(), principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
@@ -31,7 +33,7 @@ function FlowRoute({ id }: { id: string }) {
  else if(id.startsWith('receipt')||id.startsWith('customer-refund')||id.startsWith('supplier-refund'))node=<SettlementPage key={id+previewId} kind={id.startsWith('receipt')?'receipt':id.startsWith('customer')?'customer-refund':'supplier-refund'} mode={id.endsWith('-new')?'new':id.endsWith('-detail')?'detail':'list'} id={previewId}/>;
  else if (['sales-report','purchases-report','banking-report'].includes(id)) node = <ConnectedOperationalReport key={id} kind={id}/>;
  else if(id==='bank-workbench') node=<ConnectedBankWorkbench/>;
- else if (['sales-order', 'sales-order-edit', 'invoice', 'invoice-edit', 'bill', 'bill-edit'].includes(id)) node = <DocumentEditor key={id + previewId} kind={id.startsWith('sales-order') ? 'order' : id.startsWith('invoice') ? 'invoice' : 'bill'} id={id.endsWith('edit') ? previewId : undefined} />;
+ else if (['sales-order', 'sales-order-edit', 'invoice', 'invoice-edit', 'bill', 'bill-edit'].includes(id)) node = <ManagedDocumentPage key={id+previewId} kind={id.startsWith('sales-order')?'ORDER':id.startsWith('invoice')?'INVOICE':'EXPENSE'} mode={id.endsWith('edit')?'edit':'new'} id={previewId}/>;
  else if (id.startsWith('receipt') || id.startsWith('customer-refund') || id.startsWith('supplier-refund')) node = <ReceiptRefund key={id + previewId} kind={id.startsWith('receipt') ? 'receipt' : id.startsWith('customer') ? 'customer-refund' : 'supplier-refund'} mode={id.endsWith('-new') ? 'new' : id.endsWith('-detail') ? 'detail' : 'list'} id={previewId} />;
  else if (id === 'recycle-bin') node = <RecycleBin />;
  else if (id === 'bank-import' || id === 'import-export') node = <ImportWizard key={id} bank={id === 'bank-import'} />;
@@ -44,7 +46,10 @@ function FlowRoute({ id }: { id: string }) {
  else node = <OperationalReport key={id} kind={id} title={flow[2]} />;
  return <PreviewAccess permission={flow[4]}>{node}</PreviewAccess>;
 }
+function ManagedDetail({kind,permission}:{kind:'ORDER'|'INVOICE'|'EXPENSE';permission:Permission}){const {previewId}=useParams();return <PreviewAccess permission={permission}><ManagedDocumentPage key={previewId} kind={kind} mode="detail" id={previewId}/></PreviewAccess>;}
 export const additionalRoutes: RouteObject[] = [
+ {path:'inventory/sales-dispatch',element:<PreviewAccess permission="inventory.read"><DispatchPage/></PreviewAccess>},
+ ...([{path:'sales/drafts/orders',kind:'ORDER',permission:'sales.read'},{path:'sales/drafts/invoices',kind:'INVOICE',permission:'sales.read'},{path:'purchases/expense-bills',kind:'EXPENSE',permission:'purchases.read'}] as const).flatMap(m=>[{path:m.path,element:<PreviewAccess permission={m.permission}><ManagedDocumentPage key={m.kind+'list'} kind={m.kind} mode="list"/></PreviewAccess>},{path:m.path+'/:previewId',element:<ManagedDetail kind={m.kind} permission={m.permission}/>}]),
  {path:'reports/tax-summary',element:<PreviewAccess permission="accounting.read"><TaxSummaryPage/></PreviewAccess>},
  { path: 'workspace', element: <DirectoryPage /> },
  ...previewModules.flatMap(m => [

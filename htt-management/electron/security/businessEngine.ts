@@ -1,3 +1,5 @@
+import '../../src/features/direct-documents/dispatchRepository';
+import '../../src/features/direct-documents/managedDocumentRepository';
 import '../../src/features/finance-foundation/openingBalanceRepository';
 import '../../src/features/finance-closure/paymentBatchRepository';
 import '../../src/features/finance-closure/settlementRepository';

@@ -1,5 +1,5 @@
 import { configuredNumber } from '../../business-workspace/configurationState';
-import { registerRepository } from "../../security/repositoryHost";
+import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import { businessDateKey } from "../../../lib/businessDate";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import { assertCurrentCrossModuleWriteSafe } from '../../integration/crossModuleWriteGate';
@@ -64,6 +64,11 @@ function createBillNumber(
 
 export const supplierBillRepository =
 {
+    insertExpenseBill(bill:SupplierBill):SupplierBill {
+        const prior=supplierBills.find(b=>b.managedDraftId===bill.managedDraftId);if(prior)return prior;
+        if(supplierBills.some(b=>b.supplierId===bill.supplierId&&b.supplierInvoiceNumber.toLowerCase()===bill.supplierInvoiceNumber.toLowerCase()&&b.status!=='VOID'))throw new Error('Supplier invoice reference already exists.');
+        supplierBills=[bill,...supplierBills];emitChange();return bill;
+    },
     subscribe(
         listener: Listener,
     ) {
@@ -567,6 +572,11 @@ export const supplierBillRepository =
             throw new Error("A paid or credited supplier bill cannot be voided directly.");
         }
 
+        if(bill.kind==='EXPENSE') {
+            const credits=(snapshotRepositories().supplierCredits as {supplierCredits:{sourceSupplierBillId:string;status:string}[]}).supplierCredits;if(credits.some(c=>c.sourceSupplierBillId===bill.id&&c.status!=='VOID'))throw new Error('Void source supplier credits before voiding the expense bill.');
+            assertCurrentCrossModuleWriteSafe();const now=new Date().toISOString(),voided={...bill,status:'VOID' as const,voidedAt:now,voidReason:normalizedReason,updatedAt:now};
+            purchasesAccountingPostingService.reverseSupplierBill(voided);supplierBills=supplierBills.map(b=>b.id===bill.id?voided:b);emitChange();return voided;
+        }
         const activeMatches = supplierBillReceiptMatchRepository.getByBill(bill.id)
             .filter((match) => match.status === "ACTIVE");
         if (activeMatches.length === 0) {
@@ -987,7 +997,7 @@ function roundCurrency(
 }
 registerRepository("supplierBills", {
     repository: supplierBillRepository, read: "purchases.read",
-    commands: {"catch": null, "applyPayment": null, "reversePayment": null, "applyCredit": null, "reverseCredit": null, "markVoid": "purchases.void", "create": "purchases.bill", "return": null},
+    commands: {"insertExpenseBill":null,"catch": null, "applyPayment": null, "reversePayment": null, "applyCredit": null, "reverseCredit": null, "markVoid": "purchases.void", "create": "purchases.bill", "return": null},
     snapshot: () => ({ supplierBills }),
     restore: value => { supplierBills = value.supplierBills;  },
     publish: () => listeners.forEach(listener => listener()),

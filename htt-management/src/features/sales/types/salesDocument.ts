@@ -103,6 +103,7 @@ export interface SalesDocumentTotals {
 }
 
 interface SalesDocumentBase {
+    managedDraftId?: string;
     openingBalanceImportId?: string;
     id: string;
 
@@ -145,6 +146,7 @@ export interface SalesOrder
     requestedDeliveryDate?: string;
 
     sourceQuoteId?: string;
+    fulfilmentStatus?: "CONFIRMED"|"PARTIALLY_FULFILLED"|"FULFILLED";
 
     invoiceIds: string[];
 }

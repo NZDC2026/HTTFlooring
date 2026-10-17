@@ -4,6 +4,7 @@ export type SupplierCreditStatus =
     | "VOID";
 
 export interface SupplierCreditLine {
+    expenseAccountId?: string;
     taxCode?: string;
     taxRate?: number;
     taxCollectedAccountId?: string;

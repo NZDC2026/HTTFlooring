@@ -1,3 +1,5 @@
+> Latest follow-up: [Direct documents](DIRECT-DOCUMENTS.md) connects direct sales orders/invoices, expense/service bills and sales dispatch to the persisted local business engine.
+
 # Finance foundation — company/tax settings and opening balances
 
 ## Connected settings

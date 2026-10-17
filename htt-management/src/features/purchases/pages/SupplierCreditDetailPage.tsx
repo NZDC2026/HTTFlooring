@@ -262,7 +262,7 @@ export function SupplierCreditDetailPage() {
 
     return (
         <div className="pb-8">
-            <p className="mb-5 rounded-lg border bg-slate-50 p-3 text-sm">{credit.openingBalanceImportId?'Historical opening credit. No new tax or expense is recognized.':''} Financial supplier credit: the net adjustment posts to purchase price variance, consistent with receipt-cost inventory valuation. This document does not record a physical stock return.</p>
+            <p className="mb-5 rounded-lg border bg-slate-50 p-3 text-sm">{credit.openingBalanceImportId?'Historical opening credit. No new tax or expense is recognized.':''} Financial supplier credit: expense/service adjustments reverse the source expense account; stock price adjustments post to purchase price variance. This document does not record a physical stock return.</p>
             <button
                 type="button"
                 onClick={() =>
