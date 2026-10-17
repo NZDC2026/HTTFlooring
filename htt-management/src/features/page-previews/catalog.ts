@@ -63,7 +63,7 @@ export const flowPages = [
  ['payroll-report', '/reports/payroll-summary', 'Payroll summary', 'Reports', 'accounting.read'],
  ['banking-report', '/reports/banking-summary', 'Banking summary', 'Reports', 'banking.read'],
  ['import-export', '/tools/import-export', 'Data import & export', 'Documents & imports', 'accounting.read'],
- ['delivery', '/documents/delivery', 'Document preview & delivery', 'Documents & imports', 'accounting.read'],
+ ['delivery', '/documents/delivery', 'Sales document preparation', 'Documents & imports', 'sales.read'],
  ['attachments', '/documents/attachments', 'Business attachments', 'Documents & imports', 'accounting.read'],
  ['ocr', '/documents/capture', 'Document capture & review', 'Documents & imports', 'accounting.read'],
  ['entity-search', '/search/records', 'Business record search', 'Automation & tasks', 'sales.read'],

@@ -1,3 +1,4 @@
+import '../../src/features/document-output/outputRepository';
 import '../../src/features/direct-documents/dispatchRepository';
 import '../../src/features/direct-documents/managedDocumentRepository';
 import '../../src/features/finance-foundation/openingBalanceRepository';

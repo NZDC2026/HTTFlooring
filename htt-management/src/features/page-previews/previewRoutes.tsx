@@ -1,3 +1,4 @@
+import { OutputPage } from '../document-output/OutputPage';
 import {ManagedDocumentPage} from '../direct-documents/ManagedDocumentPages';
 import {DispatchPage} from '../direct-documents/DispatchPage';
 import {FinancialSettingsPage,OpeningBalancesPage} from '../finance-foundation/FoundationPages';
@@ -12,7 +13,7 @@ import { useSecurity } from '../security/securityClient';
 import { hasPermission, type Permission } from '../security/rbac';
 import { previewModules, settingsForms, flowPages } from './catalog';
 import { DirectoryPage, ModuleList, ModuleForm, ModuleDetail, SettingsPreview } from './PreviewWorkspace';
-import { ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport, Attachments, Delivery, CaptureReview, EntitySearch } from './PreviewFlows';
+import { ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport, Attachments, CaptureReview, EntitySearch } from './PreviewFlows';
 import type { ReactNode } from 'react';
 export function PreviewAccess({ permission, children }: { permission: Permission; children: ReactNode }) {
  const { session } = useSecurity(), principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
@@ -40,7 +41,7 @@ function FlowRoute({ id }: { id: string }) {
  else if (id === 'bank-workbench') node = <BankWorkbench />;
  else if (id === 'opening-balances') node = <OpeningBalancesPage />;
  else if (id === 'attachments') node = <Attachments />;
- else if (id === 'delivery') node = <Delivery />;
+ else if (id === 'delivery') node = <OutputPage />;
  else if (id === 'ocr') node = <CaptureReview />;
  else if (id === 'entity-search') node = <EntitySearch />;
  else node = <OperationalReport key={id} kind={id} title={flow[2]} />;

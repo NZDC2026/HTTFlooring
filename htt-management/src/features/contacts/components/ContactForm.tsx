@@ -45,6 +45,7 @@ export function ContactForm({
         resolver: zodResolver(contactFormSchema),
 
         defaultValues: {
+            isAccounting: contact?.isAccounting ?? false,
             firstName:
                 contact?.firstName ?? "",
             lastName:
@@ -176,6 +177,7 @@ export function ContactForm({
                 </div>
 
                 <div className="col-span-2">
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...register("isAccounting")} /> Accounting contact (invoice recipient)</label>
                     <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background-subtle)] p-4">
                         <input
                             {...register("isPrimary")}

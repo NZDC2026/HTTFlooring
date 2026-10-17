@@ -1,3 +1,7 @@
+import { validateAreaSnapshot } from './areaPacks';
+import { validateRecipientSnapshot } from './salesRecipients';
+import { salesRecipient } from './salesRecipients';
+import { areaQuantity } from './areaPacks';
 import { assertSourceNotReconciled } from '../../banking/data/reconciliationLock';
 import { assertProductQuantity } from '../../business-workspace/productRules';
 import { activeTaxRate, businessSettings, configuredNumber, taxSnapshot } from '../../business-workspace/configurationState';
@@ -139,15 +143,15 @@ function buildSnapshot():
 }
 
 export const salesRepository = {
-    createManagedOrder(input: {draftId:string;customerId:string;documentDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):SalesOrder {
+    createManagedOrder(input: {draftId:string;recipient?:import("../types/salesDocument").SalesRecipientSnapshot;customerId:string;documentDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):SalesOrder {
         const prior=salesOrders.find(o=>o.managedDraftId===input.draftId);if(prior)return prior;
-        const now=new Date().toISOString(),order:SalesOrder={id:createId('order'),managedDraftId:input.draftId,type:'SALES_ORDER',status:'CONFIRMED',documentNumber:getNextDocumentNumber('SO',salesOrders.map(o=>o.documentNumber)),customerId:input.customerId,documentDate:input.documentDate,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),invoiceIds:[],createdAt:now,updatedAt:now};
+        const now=new Date().toISOString(),order:SalesOrder={id:createId('order'),managedDraftId:input.draftId,type:'SALES_ORDER',status:'CONFIRMED',documentNumber:getNextDocumentNumber('SO',salesOrders.map(o=>o.documentNumber)),customerId:input.customerId,recipient:structuredClone(input.recipient),documentDate:input.documentDate,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),invoiceIds:[],createdAt:now,updatedAt:now};
         commitOrderDocuments([order,...salesOrders]);return order;
     },
-    createManagedInvoice(input: {draftId:string;customerId:string;documentDate:string;dueDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):Invoice {
+    createManagedInvoice(input: {draftId:string;recipient?:import("../types/salesDocument").SalesRecipientSnapshot;customerId:string;documentDate:string;dueDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):Invoice {
         const prior=invoices.find(i=>i.managedDraftId===input.draftId);if(prior)return prior;
         const order=salesRepository.createManagedOrder(input),now=new Date().toISOString();
-        const invoice:Invoice={id:createId('invoice'),managedDraftId:input.draftId,type:'INVOICE',status:'ISSUED',documentNumber:getNextDocumentNumber('INV',invoices.map(i=>i.documentNumber)),customerId:input.customerId,documentDate:input.documentDate,dueDate:input.dueDate,sourceSalesOrderId:order.id,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),amountPaid:0,amountDue:input.totals.total,createdAt:now,updatedAt:now};
+        const invoice:Invoice={id:createId('invoice'),managedDraftId:input.draftId,type:'INVOICE',status:'ISSUED',documentNumber:getNextDocumentNumber('INV',invoices.map(i=>i.documentNumber)),customerId:input.customerId,recipient:structuredClone(input.recipient),documentDate:input.documentDate,dueDate:input.dueDate,sourceSalesOrderId:order.id,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),amountPaid:0,amountDue:input.totals.total,createdAt:now,updatedAt:now};
         const nextOrders=salesOrders.map(o=>o.id===order.id?{...o,status:'INVOICED' as const,invoiceIds:[...o.invoiceIds,invoice.id],updatedAt:now}:o);
         persistSalesDocuments({quotes,salesOrders:nextOrders,invoices:[invoice,...invoices]});salesOrders=nextOrders;invoices=[invoice,...invoices];emitChange();salesAccountingPostingService.postInvoice(invoice);return invoice;
     },
@@ -283,6 +287,7 @@ export const salesRepository = {
                     ),
                 ),
 
+            recipient: salesRecipient(draft.customerId, draft),
             customerId:
                 draft.customerId,
 
@@ -392,13 +397,14 @@ export const salesRepository = {
                         );
                     }
 
-                    assertProductQuantity(line.productId,line.unitId,line.quantity,'sell');
+                    const area = areaQuantity(line.productId,line.unitId,line.quantity,line.requestedArea);
+                    assertProductQuantity(line.productId,line.unitId,area.quantity,'sell');
                     const taxCode = getProductById(line.productId)?.taxCode ?? businessSettings().gstCode;
                     const taxRate = activeTaxRate(taxCode);
                     const calculated =
                         calculateSalesLine({ taxRate,
                             quantity:
-                                line.quantity,
+                                area.quantity,
 
                             standardUnitPrice:
                                 line.standardUnitPrice,
@@ -415,6 +421,7 @@ export const salesRepository = {
                         );
 
                     return {
+                        ...area,
                         id:
                             existingLine
                                 ?.id ??
@@ -449,7 +456,7 @@ export const salesRepository = {
                                 .unitSymbol,
 
                         quantity:
-                            line.quantity,
+                            area.quantity,
 
                         standardUnitPrice:
                             line.standardUnitPrice,
@@ -471,6 +478,7 @@ export const salesRepository = {
 
         const updated: Quote = {
             ...existing,
+            recipient: draft.locationId === undefined && draft.accountingContactId === undefined ? existing.recipient : salesRecipient(existing.customerId,draft),
 
             documentDate:
                 draft.documentDate,
@@ -705,6 +713,7 @@ export const salesRepository = {
                     ),
                 ),
 
+            recipient: structuredClone(quote.recipient),
             customerId:
                 quote.customerId,
 
@@ -875,6 +884,7 @@ export const salesRepository = {
                     ),
                 ),
 
+            recipient: structuredClone(order.recipient),
             customerId:
                 order.customerId,
 
@@ -1017,6 +1027,7 @@ export const salesRepository = {
             if (!source || seen.has(source.id)) throw new Error('Select each original invoice line only once.');
             seen.add(source.id);
             if (!Number.isFinite(request.quantity) || request.quantity <= 0) throw new Error('Credit quantity must be finite and greater than zero.');
+            if (source.areaPerPack && !Number.isInteger(request.quantity)) throw new Error('Area-based lines must be credited in whole packs.');
             const credited = creditNoteRepository.getByInvoice(invoice.id).filter(c => c.status !== 'VOID').flatMap(c => c.lines).filter(l => l.id === source.id).reduce((sum,l) => sum+l.quantity,0);
             if (request.quantity + credited > source.quantity + 1e-8) throw new Error('Credit quantity cannot exceed the original invoice quantity.');
             const taxRate = source.taxRate ?? (source.lineSubtotal ? source.taxAmount/source.lineSubtotal : 0.1);
@@ -1024,7 +1035,7 @@ export const salesRepository = {
             const final=request.quantity+credited>=source.quantity-1e-8;
             const lineSubtotal=roundCurrency(final?source.lineSubtotal-priorLines.reduce((n,l)=>n+l.lineSubtotal,0):source.lineSubtotal*request.quantity/source.quantity);
             const taxAmount=roundCurrency(final?source.taxAmount-priorLines.reduce((n,l)=>n+l.taxAmount,0):source.taxAmount*request.quantity/source.quantity);
-            return {...source,quantity:request.quantity,taxRate,lineSubtotal,taxAmount,lineTotal:roundCurrency(lineSubtotal+taxAmount)};
+            return {...source,requestedArea:request.quantity===source.quantity?source.requestedArea:undefined,coveredArea:source.areaPerPack?Math.round(request.quantity*source.areaPerPack*1e8)/1e8:undefined,quantity:request.quantity,taxRate,lineSubtotal,taxAmount,lineTotal:roundCurrency(lineSubtotal+taxAmount)};
         });
 
         const totals =
@@ -1099,6 +1110,7 @@ export const salesRepository = {
                         ),
                 ),
 
+            recipient: structuredClone(invoice.recipient),
             customerId:
                 invoice.customerId,
 
@@ -2349,6 +2361,13 @@ function getLocalDateKey(
 registerRepository("sales", {
     repository: salesRepository, read: "sales.read",
     commands: {"createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
+    validate: value => {
+        const saved=value as {quotes:Quote[];salesOrders:SalesOrder[];invoices:Invoice[]};
+        for (const d of [...saved.quotes,...saved.salesOrders,...saved.invoices]) {
+            validateRecipientSnapshot(d.recipient);
+            for (const l of d.lines) validateAreaSnapshot(l);
+        }
+    },
     snapshot: () => ({ quotes, salesOrders, invoices }),
     restore: value => { quotes = value.quotes; salesOrders = value.salesOrders; invoices = value.invoices; snapshot = buildSnapshot(); },
     publish: () => listeners.forEach(listener => listener()),

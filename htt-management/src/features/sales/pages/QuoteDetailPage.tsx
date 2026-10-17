@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom';
+import { SalesDeliverySummary } from '../components/SalesDeliveryFields';
+import { AreaPackSummary } from '../components/AreaPackEntry';
 import { businessSettings } from '../../business-workspace/configurationState';
 import { usePermission } from '../../security/usePermission';
 import {
@@ -275,6 +278,7 @@ export function QuoteDetailPage() {
             />
 
             <div className="mb-5 grid grid-cols-4 gap-4">
+                <div><Link className="text-sm underline" to={`/documents/delivery?kind=QUOTE&sourceId=${quote.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={quote.recipient}/></div>
                 <InfoCard
                     label="Customer"
                     value={
@@ -397,7 +401,7 @@ export function QuoteDetailPage() {
                             <div className="text-right text-sm">
                                 {
                                     line.quantity
-                                }
+                                }<AreaPackSummary line={line}/>
                             </div>
 
                             <div className="money text-right text-sm text-[var(--color-text-secondary)]">

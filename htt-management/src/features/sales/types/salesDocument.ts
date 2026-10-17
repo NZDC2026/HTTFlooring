@@ -43,7 +43,19 @@ export type SalesPriceSource =
     | "MANUAL"
     | "PROMOTIONAL_PRICE";
 
+export interface SalesRecipientSnapshot {
+    locationId?: string;
+    locationName?: string;
+    deliveryAddress?: string;
+    accountingContactId?: string;
+    accountingContactName?: string;
+    accountingEmail?: string;
+}
 export interface SalesDocumentLine {
+    requestedArea?: number;
+    areaPerPack?: number;
+    coveredArea?: number;
+
     priceBasis?: "Inclusive"|"Exclusive";
     grossUnitPrice?: number;
     taxCollectedAccountId?: string;
@@ -103,6 +115,7 @@ export interface SalesDocumentTotals {
 }
 
 interface SalesDocumentBase {
+    recipient?: SalesRecipientSnapshot;
     managedDraftId?: string;
     openingBalanceImportId?: string;
     id: string;
@@ -181,6 +194,7 @@ export type SalesDocument =
     | Invoice;
 
 export interface SalesLineDraft {
+    requestedArea?: number;
     priceBasis?: "Inclusive" | "Exclusive";
     productId: string;
     unitId: string;
@@ -196,6 +210,8 @@ export interface SalesLineDraft {
 }
 
 export interface SalesDocumentDraft {
+    locationId?: string;
+    accountingContactId?: string;
     customerId: string;
     documentDate: string;
 
@@ -206,6 +222,7 @@ export interface SalesDocumentDraft {
 }
 
 export interface QuoteLineUpdateDraft {
+    requestedArea?: number;
     lineId?: string;
 
     productId: string;
@@ -223,6 +240,8 @@ export interface QuoteLineUpdateDraft {
 }
 
 export interface QuoteUpdateDraft {
+    locationId?: string;
+    accountingContactId?: string;
     documentDate: string;
     expiryDate?: string;
 

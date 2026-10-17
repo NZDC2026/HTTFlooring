@@ -520,6 +520,7 @@ export const salesFulfilmentRepository =
                             draftLine.fulfilledQuantity,
                         );
 
+                    if (orderLine.areaPerPack && !Number.isInteger(draftLine.fulfilledQuantity)) throw new Error("Area-based lines must be dispatched in whole packs.");
                     const alreadyFulfilled =
                         getFulfilledQuantity(
                             order.id,

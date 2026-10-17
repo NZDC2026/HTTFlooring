@@ -31,6 +31,7 @@ export interface CustomerLocation {
 }
 
 export interface CustomerContact {
+    isAccounting?: boolean;
     id: string;
 
     firstName: string;

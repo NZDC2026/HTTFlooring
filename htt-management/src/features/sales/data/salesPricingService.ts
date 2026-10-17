@@ -1,3 +1,4 @@
+import { areaQuantity } from './areaPacks';
 import { assertProductQuantity } from '../../business-workspace/productRules';
 import { activeTaxRate, businessSettings, taxSnapshot, exclusivePrice } from '../../business-workspace/configurationState';
 import {
@@ -82,16 +83,17 @@ export function buildSalesLine({
         );
     }
 
-    assertProductQuantity(draft.productId,draft.unitId,draft.quantity,'sell');
+    const area = areaQuantity(draft.productId,draft.unitId,draft.quantity,draft.requestedArea);
+    assertProductQuantity(draft.productId,draft.unitId,area.quantity,'sell');
     if (product.sellEnabled === false) throw new Error("Product is not available for selling.");
     const taxCode = product.taxCode ?? businessSettings().gstCode, taxRate = activeTaxRate(taxCode);
     const unitPrice = hasManualPrice ? exclusivePrice(inputPrice, taxRate, draft.priceBasis) : inputPrice;
     const calculations =
         calculateSalesLine({
             taxRate,
-            inclusiveLineTotal:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?Math.round(draft.quantity*inputPrice*100)/100:undefined,
+            inclusiveLineTotal:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?Math.round(area.quantity*inputPrice*100)/100:undefined,
             quantity:
-                draft.quantity,
+                area.quantity,
 
             standardUnitPrice:
                 resolvedPrice.basePrice,
@@ -101,6 +103,7 @@ export function buildSalesLine({
 
     return {
         id: createId("line"),
+        ...area,
         ...taxSnapshot(taxCode), priceBasis:hasManualPrice?(draft.priceBasis??businessSettings().basis) as 'Inclusive'|'Exclusive':'Exclusive',grossUnitPrice:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?inputPrice:undefined, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,
 
         productId:
@@ -119,7 +122,7 @@ export function buildSalesLine({
             unit.symbol,
 
         quantity:
-            draft.quantity,
+            area.quantity,
 
         standardUnitPrice:
             resolvedPrice.basePrice,

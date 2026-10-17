@@ -1,3 +1,4 @@
+import { contactFormSchema } from '../schemas/customerSchemas';
 import { registerRepository } from "../../security/repositoryHost";
 import { readMockRepository, writeMockRepository, canWriteMockRepository } from "../../../lib/persistence/mockRepositoryStorage";
 import { mockCustomers } from "./mockCustomers";
@@ -447,6 +448,7 @@ export const customerRepository = {
         customerId: string,
         values: ContactFormValues,
     ): CustomerContact {
+        values = contactFormSchema.parse(values);
         const customer =
             customerRepository.getById(
                 customerId,
@@ -504,6 +506,7 @@ export const customerRepository = {
                 ),
 
             isPrimary: shouldBePrimary,
+            isAccounting: values.isAccounting ?? false,
         };
 
         updateCustomerRecord(
@@ -544,6 +547,7 @@ export const customerRepository = {
         contactId: string,
         values: ContactFormValues,
     ): CustomerContact {
+        values = contactFormSchema.parse(values);
         const customer =
             customerRepository.getById(
                 customerId,
@@ -614,6 +618,7 @@ export const customerRepository = {
                 ),
 
             isPrimary: shouldBePrimary,
+            isAccounting: values.isAccounting ?? false,
         };
 
         updateCustomerRecord(

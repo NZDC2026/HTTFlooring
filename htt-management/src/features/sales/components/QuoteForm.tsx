@@ -1,3 +1,6 @@
+import { SalesDeliveryFields } from './SalesDeliveryFields';
+import { AreaPackEntry } from './AreaPackEntry';
+import { areaQuantity } from '../data/areaPacks';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import { activeTaxRate, exclusivePrice } from '../../business-workspace/configurationState';
@@ -38,6 +41,7 @@ interface QuoteFormProps {
 }
 
 interface QuoteLineEditor {
+    requestedArea?: number;
     id: string;
 
     productId: string;
@@ -84,6 +88,7 @@ export function QuoteForm({
     onCancel,
     onSaved,
 }: QuoteFormProps) {
+    const [delivery,setDelivery] = useState<{locationId?:string;accountingContactId?:string}>({});
     const [documentDate, setDocumentDate] =
         useState(getToday());
 
@@ -222,6 +227,7 @@ export function QuoteForm({
             lineId,
             (line) => ({
                 ...line,
+                requestedArea:undefined,
 
                 productId,
 
@@ -253,6 +259,7 @@ export function QuoteForm({
             lineId,
             (line) => ({
                 ...line,
+                requestedArea:undefined,
 
                 unitId,
 
@@ -453,6 +460,7 @@ export function QuoteForm({
                                     line.unitId,
 
                                 quantity,
+                                requestedArea:line.requestedArea,
 
                                 unitPrice:
                                     manualPrice,
@@ -467,6 +475,7 @@ export function QuoteForm({
                                 line.unitId,
 
                             quantity,
+                            requestedArea:line.requestedArea,
                         };
                     },
                 );
@@ -476,6 +485,7 @@ export function QuoteForm({
             salesRepository.createQuote(
                 {
                     customerId,
+                    ...delivery,
 
                     documentDate,
 
@@ -552,6 +562,7 @@ export function QuoteForm({
                     </div>
                 )}
 
+                <SalesDeliveryFields customerId={customerId} {...delivery} onChange={setDelivery} />
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                     <Field
                         label="Customer"
@@ -714,6 +725,7 @@ export function QuoteForm({
                                                 unitId,
                                             )
                                         }
+                                        onAreaChange={area => updateLine(line.id,current=>({...current,requestedArea:area,quantity: area === undefined ? current.quantity : safePacks(current.productId,current.unitId,area,current.quantity)}))}
                                         onQuantityChange={(
                                             quantity,
                                         ) =>
@@ -724,6 +736,7 @@ export function QuoteForm({
                                                 ) => ({
                                                     ...current,
                                                     quantity,
+                                                    requestedArea:undefined,
                                                 }),
                                             )
                                         }
@@ -835,6 +848,7 @@ function QuoteLineRow({
     documentDate,
     onProductChange,
     onUnitChange,
+    onAreaChange,
     onQuantityChange,
     onManualPriceChange,
     onResetPrice,
@@ -853,6 +867,7 @@ function QuoteLineRow({
         unitId: string,
     ) => void;
 
+    onAreaChange: (area?:number)=>void;
     onQuantityChange: (
         quantity: string,
     ) => void;
@@ -987,6 +1002,7 @@ function QuoteLineRow({
                 )}
             </select>
 
+            <div>
             <Input
                 type="number"
                 min="0"
@@ -1002,6 +1018,8 @@ function QuoteLineRow({
                 }
                 placeholder="0"
             />
+                <AreaPackEntry productId={line.productId} unitId={line.unitId} value={line.requestedArea} onChange={onAreaChange}/>
+            </div>
 
             <div>
                 <div className="money text-sm">
@@ -1444,3 +1462,11 @@ const selectClassName = [
     "disabled:bg-[var(--color-surface-muted)]",
     "disabled:opacity-70",
 ].join(" ");
+
+function safePacks(productId: string, unitId: string, area: number, fallback: string) {
+    try {
+        return String(areaQuantity(productId, unitId, 1, area).quantity);
+    } catch {
+        return fallback;
+    }
+}

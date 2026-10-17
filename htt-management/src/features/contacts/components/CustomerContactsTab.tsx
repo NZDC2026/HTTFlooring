@@ -116,7 +116,7 @@ export function CustomerContactsTab({
                                             />
 
                                             <span className="truncate">
-                                                {contact.email}
+                                                {contact.email}{contact.isAccounting && <span className="ml-2 rounded bg-blue-50 px-2 text-blue-700">Accounting</span>}
                                             </span>
                                         </div>
 

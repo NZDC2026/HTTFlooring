@@ -27,7 +27,7 @@ describe('8D native backup file boundary', () => {
         expect((await request('business.backup.save')).ok).toBe(true);
         const text = readFileSync(file, 'utf8'); expect(text).not.toContain('passwordHash'); expect(text).not.toContain('auditKey');
         mocks.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [file] });
-        const preview = await request('business.restore.preview', { filePath: '/ignored-renderer-path' }); expect(preview.ok).toBe(true); expect(preview.value.schemaVersion).toBe(7);
+        const preview = await request('business.restore.preview', { filePath: '/ignored-renderer-path' }); expect(preview.ok).toBe(true); expect(preview.value.schemaVersion).toBe(8);
         expect((await request('business.restore.commit', { token: preview.value.token })).value.restartRequired).toBe(true);
     });
     it('rejects a save over active account or business data', async () => {

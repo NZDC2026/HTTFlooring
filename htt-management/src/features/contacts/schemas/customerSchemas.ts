@@ -145,6 +145,7 @@ export const locationFormSchema = z.object({
 });
 
 export const contactFormSchema = z.object({
+    isAccounting: z.boolean().optional(),
     firstName: z
         .string()
         .trim()

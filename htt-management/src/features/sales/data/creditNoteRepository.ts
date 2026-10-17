@@ -1,3 +1,5 @@
+import { validateRecipientSnapshot } from './salesRecipients';
+import { validateAreaSnapshot } from './areaPacks';
 import { registerRepository } from "../../security/repositoryHost";
 import { loadCreditNoteState, persistCreditNoteState } from "./creditNoteStorage";
 import type {
@@ -234,6 +236,7 @@ export const creditNoteRepository = {
 registerRepository("customerCredits", {
     repository: creditNoteRepository, read: "sales.read",
     commands: {"persistCreditNoteState": null, "emitChange": null, "create": null, "update": null, "createAllocation": null, "updateAllocation": null, "commitAllocationAndCredit": null},
+    validate: value => {for(const credit of (value as {creditNotes:CreditNote[]}).creditNotes){validateRecipientSnapshot(credit.recipient);for(const line of credit.lines)validateAreaSnapshot(line);}},
     snapshot: () => ({ creditNotes, allocations }),
     restore: value => { creditNotes = value.creditNotes; allocations = value.allocations; creditNoteSnapshot = [...creditNotes]; allocationSnapshot = [...allocations]; },
     publish: () => listeners.forEach(listener => listener()),

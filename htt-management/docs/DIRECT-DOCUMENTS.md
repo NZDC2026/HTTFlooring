@@ -1,3 +1,5 @@
+> Follow-up: customer store/accounting-contact snapshots and area-to-pack entry are connected. [Sales document output](DOCUMENT-OUTPUT.md) now provides immutable local printable versions and email preparation.
+
 # Direct sales and expense documents — 2026-10-17
 
 ## Delivered workflow
@@ -32,4 +34,4 @@ Production build passes. Full suite: 63 test files, 738 tests passed. The delive
 
 ## Boundaries
 
-This completes the local direct-document workflow. It does not add non-stock sales catalogue types, physical supplier returns, customer/store hierarchy, automatic area-to-pack rounding, document delivery or external integrations. Those remain separate development items. Draft cancellation preserves history; posted invoice/bill corrections preserve originals and reversing journals.
+This completes the local direct-document workflow. It does not add non-stock sales catalogue types, physical supplier returns, physical multi-company customer hierarchy or external integrations. Those remain separate development items. Draft cancellation preserves history; posted invoice/bill corrections preserve originals and reversing journals.
