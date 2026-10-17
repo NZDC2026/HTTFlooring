@@ -109,6 +109,7 @@ function getDateKeyFromTimestamp(
         );
     }
 
+    if (/^\d{4}-\d{2}-\d{2}$/.test(timestamp)) return timestamp;
     const date =
         new Date(
             timestamp,

@@ -23,6 +23,7 @@ export type AccountingSourceType =
     | "BANK_TRANSFER"
     | "CUSTOMER_REFUND"
     | "SUPPLIER_REFUND"
+    | "SUPPLIER_RETURN"
     | "SUPPLIER_CREDIT_RECLASS"
     | "BANK_STATEMENT";
 

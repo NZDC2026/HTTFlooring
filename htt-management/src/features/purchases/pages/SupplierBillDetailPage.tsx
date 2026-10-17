@@ -1,3 +1,5 @@
+import { usePermission } from '../../security/usePermission';
+import { Link } from 'react-router-dom';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useState,
@@ -40,6 +42,7 @@ import {
 } from "../components/VoidSupplierBillDialog";
 
 export function SupplierBillDetailPage() {
+    const canReadReturns=usePermission("purchases.return.read");
     const navigate =
         useNavigate();
 
@@ -169,6 +172,7 @@ export function SupplierBillDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {canReadReturns&&bill.kind!=="EXPENSE"&&!bill.openingBalanceImportId&&<Link className="underline" to={`/purchases/supplier-returns?billId=${bill.id}`}>Physical supplier return</Link>}
                     {bill.status !==
                         "VOID" && (
                             <button

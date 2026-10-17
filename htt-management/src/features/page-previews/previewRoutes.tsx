@@ -1,3 +1,4 @@
+import { SupplierReturnsPage } from '../supplier-returns/SupplierReturnsPage';
 import { OutputPage } from '../document-output/OutputPage';
 import {ManagedDocumentPage} from '../direct-documents/ManagedDocumentPages';
 import {DispatchPage} from '../direct-documents/DispatchPage';
@@ -49,6 +50,7 @@ function FlowRoute({ id }: { id: string }) {
 }
 function ManagedDetail({kind,permission}:{kind:'ORDER'|'INVOICE'|'EXPENSE';permission:Permission}){const {previewId}=useParams();return <PreviewAccess permission={permission}><ManagedDocumentPage key={previewId} kind={kind} mode="detail" id={previewId}/></PreviewAccess>;}
 export const additionalRoutes: RouteObject[] = [
+ {path:"purchases/supplier-returns",element:<PreviewAccess permission="purchases.return.read"><SupplierReturnsPage/></PreviewAccess>},
  {path:'inventory/sales-dispatch',element:<PreviewAccess permission="inventory.read"><DispatchPage/></PreviewAccess>},
  ...([{path:'sales/drafts/orders',kind:'ORDER',permission:'sales.read'},{path:'sales/drafts/invoices',kind:'INVOICE',permission:'sales.read'},{path:'purchases/expense-bills',kind:'EXPENSE',permission:'purchases.read'}] as const).flatMap(m=>[{path:m.path,element:<PreviewAccess permission={m.permission}><ManagedDocumentPage key={m.kind+'list'} kind={m.kind} mode="list"/></PreviewAccess>},{path:m.path+'/:previewId',element:<ManagedDetail kind={m.kind} permission={m.permission}/>}]),
  {path:'reports/tax-summary',element:<PreviewAccess permission="accounting.read"><TaxSummaryPage/></PreviewAccess>},

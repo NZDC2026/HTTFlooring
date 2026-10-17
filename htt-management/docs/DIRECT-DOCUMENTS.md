@@ -1,3 +1,5 @@
+> Follow-up: [Physical supplier returns](SUPPLIER-RETURNS.md) now connects confirmed credits to inventory dispatch and atomic reversal.
+
 > Follow-up: customer store/accounting-contact snapshots and area-to-pack entry are connected. [Sales document output](DOCUMENT-OUTPUT.md) now provides immutable local printable versions and email preparation.
 
 # Direct sales and expense documents — 2026-10-17

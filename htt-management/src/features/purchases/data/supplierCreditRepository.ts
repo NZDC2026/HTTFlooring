@@ -54,6 +54,7 @@ function emitChange() {
     listeners.forEach(listener => financialStateStorage.notify(listener));
 }
 
+let linkedReturnMutation = false;
 export const supplierCreditRepository =
 {
     subscribe(
@@ -159,6 +160,16 @@ export const supplierCreditRepository =
         );
     },
 
+    createReturnCredit(draft: SupplierCreditDraft, physicalReturnId: string): SupplierCredit {
+        const credit = supplierCreditRepository.create(draft);
+        const linked = {...credit,physicalReturnId};
+        supplierCreditRepository.update(linked);
+        return linked;
+    },
+    voidReturnCredit(input: {supplierCreditId:string;reason:string;voidDate:string}): SupplierCredit {
+        linkedReturnMutation = true;
+        try {return supplierCreditRepository.voidCredit(input);} finally {linkedReturnMutation = false;}
+    },
     create(
         draft:
             SupplierCreditDraft,
@@ -350,16 +361,14 @@ export const supplierCreditRepository =
                         );
                     }
 
-                    const lineSubtotal =
-                        roundCurrency(
-                            quantity *
-                            unitCost,
-                        );
-
-                    const taxAmount =
-                        roundCurrency(
-                            sourceLine.unitCost ? sourceLine.taxAmount * quantity/sourceLine.quantity * unitCost/sourceLine.unitCost : 0,
-                        );
+                    const priorLines = supplierCredits.filter(c => c.sourceSupplierBillId === sourceBill.id && c.status !== 'VOID').flatMap(c => c.lines).filter(l => l.supplierBillLineId === sourceLine.id);
+                    const fullPrice = Math.abs(unitCost-sourceLine.unitCost)<1e-8;
+                    const fullPriceHistory = priorLines.every(l => Math.abs(l.unitCost-sourceLine.unitCost)<1e-8);
+                    const finalFullPrice = fullPrice && fullPriceHistory && Math.abs(quantity+priorLines.reduce((n,l)=>n+l.quantity,0)-sourceLine.quantity)<1e-8;
+                    const priorNet = priorLines.reduce((n,l)=>n+l.lineSubtotal,0),priorTax=priorLines.reduce((n,l)=>n+l.taxAmount,0);
+                    const lineSubtotal = roundCurrency(finalFullPrice ? sourceLine.lineSubtotal-priorNet : fullPrice ? sourceLine.lineSubtotal*quantity/sourceLine.quantity : quantity*unitCost);
+                    const taxAmount = roundCurrency(finalFullPrice ? sourceLine.taxAmount-priorTax : sourceLine.unitCost ? sourceLine.taxAmount*quantity/sourceLine.quantity*unitCost/sourceLine.unitCost : 0);
+                    if (lineSubtotal<0 || taxAmount<0 || roundCurrency(lineSubtotal+priorNet)>sourceLine.lineSubtotal || roundCurrency(taxAmount+priorTax)>sourceLine.taxAmount) throw new Error('Credit line value exceeds the uncredited source bill line.');
 
                     const lineTotal =
                         roundCurrency(
@@ -1004,6 +1013,7 @@ export const supplierCreditRepository =
         input: {
             supplierCreditId: string;
             reason: string;
+            voidDate?: string;
         },
     ): SupplierCredit {
         const credit =
@@ -1028,6 +1038,7 @@ export const supplierCreditRepository =
             );
         }
 
+        if (credit.physicalReturnId && !linkedReturnMutation) throw new Error('Reverse the linked physical supplier return instead of voiding its credit separately.');
         if ((credit.amountRefunded ?? 0) > 0) throw new Error('Reverse supplier refunds before voiding the credit.');
         const reason =
             input.reason.trim();
@@ -1085,7 +1096,7 @@ export const supplierCreditRepository =
                 0,
 
             voidedAt:
-                now,
+                linkedReturnMutation && input.voidDate ? input.voidDate : now,
 
             voidReason:
                 reason,
@@ -1310,7 +1321,7 @@ supplierCreditRepository.updateAllocation = function (...args: Parameters<typeof
 
 registerRepository("supplierCredits", {
     repository: supplierCreditRepository, read: "purchases.read",
-    commands: {"create": "purchases.bill", "applyToBill": "purchases.bill", "reverseAllocation": "purchases.void", "voidCredit": "purchases.void", "updateAllocation": null, "update": null, "return": null, "assertCurrentCrossModuleWriteSafe": null},
+    commands: {"createReturnCredit":null,"voidReturnCredit":null,"create": "purchases.bill", "applyToBill": "purchases.bill", "reverseAllocation": "purchases.void", "voidCredit": "purchases.void", "updateAllocation": null, "update": null, "return": null, "assertCurrentCrossModuleWriteSafe": null},
     snapshot: () => ({ supplierCredits, allocations }),
     restore: value => { supplierCredits = value.supplierCredits; allocations = value.allocations; supplierCreditSnapshot = [...supplierCredits]; allocationSnapshot = [...allocations]; },
     publish: () => listeners.forEach(listener => listener()),

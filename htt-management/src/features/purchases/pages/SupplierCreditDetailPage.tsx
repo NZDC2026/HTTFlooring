@@ -1,3 +1,5 @@
+import { usePermission } from '../../security/usePermission';
+import { Link } from 'react-router-dom';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
@@ -50,6 +52,7 @@ import {
 } from "../components/VoidSupplierCreditDialog";
 
 export function SupplierCreditDetailPage() {
+    const canReadReturns=usePermission("purchases.return.read");
     const navigate =
         useNavigate();
 
@@ -262,7 +265,7 @@ export function SupplierCreditDetailPage() {
 
     return (
         <div className="pb-8">
-            <p className="mb-5 rounded-lg border bg-slate-50 p-3 text-sm">{credit.openingBalanceImportId?'Historical opening credit. No new tax or expense is recognized.':''} Financial supplier credit: expense/service adjustments reverse the source expense account; stock price adjustments post to purchase price variance. This document does not record a physical stock return.</p>
+            <p className="mb-5 rounded-lg border bg-slate-50 p-3 text-sm">{credit.openingBalanceImportId?'Historical opening credit. No new tax or expense is recognized.':credit.physicalReturnId?'This credit is linked to a physical supplier return. Stock and inventory value are recorded on that return. Reverse the linked return to restore stock and reverse this credit together.':'Financial supplier credit: expense/service adjustments reverse the source expense account; stock price adjustments post to purchase price variance. This document does not record a physical stock return.'}</p>
             <button
                 type="button"
                 onClick={() =>
@@ -313,7 +316,8 @@ export function SupplierCreditDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {credit.status !==
+                    {canReadReturns&&credit.physicalReturnId && <Link className="underline" to={`/purchases/supplier-returns?returnId=${credit.physicalReturnId}`}>Physical return / reversal</Link>}
+                    {!credit.physicalReturnId && credit.status !==
                         "VOID" && (
                             <button
                                 type="button"

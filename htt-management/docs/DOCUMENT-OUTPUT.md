@@ -1,3 +1,5 @@
+> Follow-up: [Physical supplier returns](SUPPLIER-RETURNS.md) now connects confirmed credits to inventory dispatch and atomic reversal.
+
 # Sales document output — local preparation
 
 Entry: Sales → Document preparation, Documents → Sales document preparation, or the preparation link on quote/order/invoice details (`/documents/delivery`).

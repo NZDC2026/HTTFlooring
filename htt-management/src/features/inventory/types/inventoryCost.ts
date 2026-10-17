@@ -89,6 +89,8 @@ export interface InventoryCostMovement {
     inventoryValueAfter: number;
 
     referenceType:
+    | "SUPPLIER_RETURN"
+    | "SUPPLIER_RETURN_VOID"
     | "GOODS_RECEIPT"
     | "SALE"
     | "MANUAL"

@@ -572,8 +572,9 @@ export const supplierBillRepository =
             throw new Error("A paid or credited supplier bill cannot be voided directly.");
         }
 
+        const sourceCredits=(snapshotRepositories().supplierCredits as {supplierCredits:{sourceSupplierBillId:string;status:string}[]}|undefined)?.supplierCredits ?? financialStateStorage.read().supplierCredits;
+        if(sourceCredits.some(c=>c.sourceSupplierBillId===bill.id&&c.status!=='VOID'))throw new Error('Reverse source supplier credits and linked physical returns before voiding the bill.');
         if(bill.kind==='EXPENSE') {
-            const credits=(snapshotRepositories().supplierCredits as {supplierCredits:{sourceSupplierBillId:string;status:string}[]}).supplierCredits;if(credits.some(c=>c.sourceSupplierBillId===bill.id&&c.status!=='VOID'))throw new Error('Void source supplier credits before voiding the expense bill.');
             assertCurrentCrossModuleWriteSafe();const now=new Date().toISOString(),voided={...bill,status:'VOID' as const,voidedAt:now,voidReason:normalizedReason,updatedAt:now};
             purchasesAccountingPostingService.reverseSupplierBill(voided);supplierBills=supplierBills.map(b=>b.id===bill.id?voided:b);emitChange();return voided;
         }

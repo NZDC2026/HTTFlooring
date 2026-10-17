@@ -36,6 +36,8 @@ export interface InventoryMovement {
     conversionToBase: number;
 
     referenceType:
+    | "SUPPLIER_RETURN"
+    | "SUPPLIER_RETURN_VOID"
     | "GOODS_RECEIPT"
     | "SALES_FULFILMENT"
     | "SALES_FULFILMENT_VOID"

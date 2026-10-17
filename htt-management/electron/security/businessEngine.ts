@@ -1,3 +1,4 @@
+import '../../src/features/supplier-returns/supplierReturnRepository';
 import '../../src/features/document-output/outputRepository';
 import '../../src/features/direct-documents/dispatchRepository';
 import '../../src/features/direct-documents/managedDocumentRepository';
