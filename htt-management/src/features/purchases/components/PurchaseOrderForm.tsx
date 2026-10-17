@@ -771,7 +771,7 @@ export function PurchaseOrderForm({
                                                                 item,
                                                             ) =>
                                                                 item.status ===
-                                                                "ACTIVE",
+                                                                "ACTIVE" && item.buyEnabled!==false && (!item.itemType||item.itemType==="STOCK"),
                                                         )
                                                         .map(
                                                             (

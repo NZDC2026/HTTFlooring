@@ -1,3 +1,5 @@
+> Follow-up: [Cash reports](CASH-REPORTS.md) replaces cash-flow sample figures and the limited banking analysis with dated local bank ledger reports. Historical preview notes below describe the earlier baseline.
+
 # Requirements-driven static page completion
 
 Date: 2026-10-16

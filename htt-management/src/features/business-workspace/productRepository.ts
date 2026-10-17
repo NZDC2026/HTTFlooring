@@ -1,3 +1,4 @@
+import { isStockProduct } from '../inventory/data/itemTypes';
 import { useSyncExternalStore } from 'react';
 import { z } from 'zod';
 import { registerRepository, snapshotRepositories } from '../security/repositoryHost';
@@ -5,7 +6,7 @@ import { mockProducts } from '../inventory/data/mockProducts';
 import { productCostingRepository } from '../inventory/data/productCostingRepository';
 import { activeTaxRate } from './configurationState';
 import type { Product } from '../inventory/types/product';
-const unitSchema = z.object({ id: z.string().min(1), code: z.enum(['M2', 'LM', 'BOX', 'PIECE', 'ROLL', 'BUCKET']), name: z.string().trim().min(1), symbol: z.string().min(1), conversionToBase: z.number().finite().positive(), basePrice: z.number().finite().nonnegative(), isBaseUnit: z.boolean(), active: z.boolean() }).strict();
+const unitSchema = z.object({ id: z.string().min(1), code: z.enum(['M2', 'LM', 'BOX', 'PIECE', 'ROLL', 'BUCKET', 'HOUR', 'JOB']), name: z.string().trim().min(1), symbol: z.string().min(1), conversionToBase: z.number().finite().positive(), basePrice: z.number().finite().nonnegative(), isBaseUnit: z.boolean(), active: z.boolean() }).strict();
 export const productSchema = z.object({ id: z.string().min(1), sku: z.string().trim().min(1).max(80), name: z.string().trim().min(1).max(180), category: z.enum(['Timber', 'Hybrid', 'Laminate', 'Vinyl', 'Carpet', 'Accessories', 'Other']), brand: z.string().optional(), collection: z.string().optional(), description: z.string().optional(), status: z.enum(['ACTIVE', 'INACTIVE']), baseUnitId: z.string().min(1), units: z.array(unitSchema).min(1), createdAt: z.string(), updatedAt: z.string(), revision: z.number().int().nonnegative().optional(), itemType: z.enum(['STOCK', 'NON_STOCK', 'SERVICE']).optional(), buyEnabled: z.boolean().optional(), sellEnabled: z.boolean().optional(), reorderPoint: z.number().finite().nonnegative().optional(), targetStock: z.number().finite().nonnegative().optional(), wholePacks: z.boolean().optional(), taxCode: z.string().min(1).optional() }).strict();
 const listeners = new Set<() => void>();
 let view: Product[] = [...mockProducts];
@@ -21,6 +22,9 @@ export function validateProducts(rows: unknown): Product[] {
             throw new Error('Duplicate product ID or SKU.');
         ids.add(p.id);
         skus.add(p.sku.toLowerCase());
+        if(!isStockProduct(p)&&p.buyEnabled!==false)throw new Error('Non-stock/service catalogue items must use expense bills for purchasing.');
+        if(!isStockProduct(p)&&((p.reorderPoint??0)!==0||(p.targetStock??0)!==0))throw new Error('Non-stock/service items cannot have stock reorder thresholds.');
+        if(isStockProduct(p)&&p.units.some(u=>u.code==='HOUR'||u.code==='JOB'))throw new Error('Hour/job units require non-stock or service items.');
         const units = new Set(p.units.map(u => u.id));
         if (units.size !== p.units.length || p.units.filter(u => u.isBaseUnit).length !== 1 || !p.units.some(u => u.id === p.baseUnitId && u.isBaseUnit && u.conversionToBase === 1))
             throw new Error('A product needs exactly one valid base unit.');
@@ -38,11 +42,12 @@ export const productRepository = {
         if (!current && expectedRevision !== undefined)
             throw new Error('Product no longer exists.');
         activeTaxRate(data.taxCode ?? 'GST');
-        if (data.itemType && data.itemType !== 'STOCK')
-            throw new Error('Only stocked products are supported by the current fulfilment workflow.');
+        if (!isStockProduct(data) && data.buyEnabled !== false) throw new Error('Non-stock and service catalogue items are sales-only. Use expense/service bills for supplier costs.');
         const snapshots = snapshotRepositories();
         delete snapshots.products;
         if (current) {
+            const businessReferences={...snapshots};delete businessReferences.costingPolicies;
+            if ((current.itemType??'STOCK') !== (data.itemType??'STOCK') && references(businessReferences,data.id)) throw new Error('A referenced product cannot change item type. Create a new catalogue item.');
             if (current.baseUnitId !== data.baseUnitId && references(snapshots, data.id))
                 throw new Error('A referenced product cannot change base unit.');
             for (const old of current.units) {
@@ -57,10 +62,11 @@ export const productRepository = {
             mockProducts.splice(mockProducts.indexOf(current), 1, product);
         else
             mockProducts.push(product);
-        productCostingRepository.ensureProductPolicy(product.id, product.baseUnitId, product.itemType !== 'SERVICE' && product.itemType !== 'NON_STOCK');
+        productCostingRepository.ensureProductPolicy(product.id, product.baseUnitId, isStockProduct(product));
+        if (current && isStockProduct(current)!==isStockProduct(product)) productCostingRepository.setActive(product.id,isStockProduct(product));
         publish();
         return product;
     }
 };
-registerRepository('products', { validate: (value,snapshots) => { const products=validateProducts((value as {products:unknown}).products);const taxes=(snapshots.workspace_tax_codes as {records:{code:string}[]}).records;if(products.some(p=>!taxes.some(t=>t.code===(p.taxCode??'GST'))))throw new Error('Backup product tax-code reference is invalid.'); }, repository: productRepository, read: 'inventory.read', commands: { save: 'inventory.adjust' }, snapshot: () => ({ products: structuredClone(mockProducts) }), restore: value => { const rows = validateProducts(value.products); mockProducts.splice(0, mockProducts.length, ...rows); view = [...mockProducts]; }, publish });
+registerRepository('products', { validate: (value,snapshots) => { const products=validateProducts((value as {products:unknown}).products);const taxes=(snapshots.workspace_tax_codes as {records:{code:string}[]}).records;const policies=(snapshots.costingPolicies as {policies:{productId:string;active:boolean}[]}).policies;const balances=(snapshots.stock as {balances:{productId:string;quantityOnHand:number}[]}).balances;for(const p of products.filter(p=>!isStockProduct(p)))if(policies.some(c=>c.productId===p.id&&c.active)||balances.some(b=>b.productId===p.id&&b.quantityOnHand!==0))throw new Error('Non-stock/service product has inventory activity or active costing.');if(products.some(p=>!taxes.some(t=>t.code===(p.taxCode??'GST'))))throw new Error('Backup product tax-code reference is invalid.'); }, repository: productRepository, read: 'inventory.read', commands: { save: 'inventory.adjust' }, snapshot: () => ({ products: structuredClone(mockProducts) }), restore: value => { const rows = validateProducts(value.products); mockProducts.splice(0, mockProducts.length, ...rows); view = [...mockProducts]; }, publish });
 export function useProducts() { return useSyncExternalStore(productRepository.subscribe, productRepository.getSnapshot, productRepository.getSnapshot); }

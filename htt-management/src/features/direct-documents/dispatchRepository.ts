@@ -1,3 +1,4 @@
+import { isStockLine } from '../inventory/data/itemTypes';
 import { useSyncExternalStore } from 'react';
 import { z } from 'zod';
 import { registerRepository } from '../security/repositoryHost';
@@ -8,7 +9,7 @@ import { assertCurrentCrossModuleWriteSafe } from '../integration/crossModuleWri
 import { requireDateKey } from '../../lib/businessDate';
 const text = z.string().trim().min(1).max(200);
 const inputSchema = z.object({ operationId: text, salesOrderId: text, siteId: text, fulfilmentDate: text, lines: z.array(z.object({ salesOrderLineId: text, fulfilledQuantity: z.number().positive().finite() }).strict()).min(1).max(500) }).strict();
-function currentOrders() { return salesRepository.getAll().filter(d => d.type === 'SALES_ORDER' && ['CONFIRMED', 'PARTIALLY_FULFILLED', 'INVOICED'].includes(d.status)).filter(d => d.type === 'SALES_ORDER' && (d.status !== 'INVOICED' || d.invoiceIds.some(id => { const invoice = salesRepository.getById(id); return invoice?.type === 'INVOICE' && invoice.status !== 'VOID'; }))).map(d => ({ id: d.id, number: d.documentNumber, date: d.documentDate, delivery: d.recipient?.deliveryAddress, store: d.recipient?.locationName, lines: d.lines.map(l => ({ id: l.id, sku: l.sku, description: l.description, unit: l.unitSymbol, quantity: l.quantity, fulfilled: salesFulfilmentRepository.getAll().filter(f => f.salesOrderId === d.id && f.status === 'ACTIVE').flatMap(f => f.lines).filter(line => line.salesOrderLineId === l.id).reduce((n, line) => n + line.fulfilledQuantity, 0) })) })); }
+function currentOrders() { return salesRepository.getAll().filter(d => d.type === 'SALES_ORDER' && ['CONFIRMED', 'PARTIALLY_FULFILLED', 'INVOICED'].includes(d.status)).filter(d => d.type === 'SALES_ORDER' && (d.status !== 'INVOICED' || d.invoiceIds.some(id => { const invoice = salesRepository.getById(id); return invoice?.type === 'INVOICE' && invoice.status !== 'VOID'; }))).map(d => ({ id: d.id, number: d.documentNumber, date: d.documentDate, delivery: d.recipient?.deliveryAddress, store: d.recipient?.locationName, lines: d.lines.filter(isStockLine).map(l => ({ id: l.id, sku: l.sku, description: l.description, unit: l.unitSymbol, quantity: l.quantity, fulfilled: salesFulfilmentRepository.getAll().filter(f => f.salesOrderId === d.id && f.status === 'ACTIVE').flatMap(f => f.lines).filter(line => line.salesOrderLineId === l.id).reduce((n, line) => n + line.fulfilledQuantity, 0) })) })).filter(o=>o.lines.length>0); }
 export type DispatchOrder = ReturnType<typeof currentOrders>[number];
 let orders: DispatchOrder[] = currentOrders(), requests: {
     id: string;

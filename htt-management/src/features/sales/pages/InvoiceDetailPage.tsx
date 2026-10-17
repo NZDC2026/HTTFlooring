@@ -1,3 +1,4 @@
+import { ItemTypeSummary } from '../components/ItemTypeSummary';
 import { Link } from 'react-router-dom';
 import { SalesDeliverySummary } from '../components/SalesDeliveryFields';
 import { AreaPackSummary } from '../components/AreaPackEntry';
@@ -810,7 +811,7 @@ export function InvoiceDetailPage() {
                             <div className="text-right text-sm">
                                 {
                                     line.quantity
-                                }<AreaPackSummary line={line}/>
+                                }<AreaPackSummary line={line}/><ItemTypeSummary line={line}/>
                             </div>
 
                             <div className="money text-right text-sm text-[var(--color-text-secondary)]">

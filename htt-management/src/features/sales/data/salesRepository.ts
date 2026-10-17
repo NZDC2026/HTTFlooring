@@ -1,3 +1,4 @@
+import { validateLineItemType } from '../../inventory/data/itemTypes';
 import { validateAreaSnapshot } from './areaPacks';
 import { validateRecipientSnapshot } from './salesRecipients';
 import { salesRecipient } from './salesRecipients';
@@ -421,6 +422,7 @@ export const salesRepository = {
                         );
 
                     return {
+                        itemType:getProductById(line.productId)?.itemType??"STOCK",
                         ...area,
                         id:
                             existingLine
@@ -2361,11 +2363,11 @@ function getLocalDateKey(
 registerRepository("sales", {
     repository: salesRepository, read: "sales.read",
     commands: {"createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
-    validate: value => {
+    validate: (value,snapshots) => {
         const saved=value as {quotes:Quote[];salesOrders:SalesOrder[];invoices:Invoice[]};
         for (const d of [...saved.quotes,...saved.salesOrders,...saved.invoices]) {
             validateRecipientSnapshot(d.recipient);
-            for (const l of d.lines) validateAreaSnapshot(l);
+            for (const l of d.lines) {validateAreaSnapshot(l);validateLineItemType(l,(snapshots.products as {products:import("../../inventory/types/product").Product[]}).products.find(p=>p.id===l.productId));}
         }
     },
     snapshot: () => ({ quotes, salesOrders, invoices }),

@@ -1,3 +1,4 @@
+import { CashReportsPage } from '../cash-reports/CashReportsPage';
 import { SupplierReturnsPage } from '../supplier-returns/SupplierReturnsPage';
 import { OutputPage } from '../document-output/OutputPage';
 import {ManagedDocumentPage} from '../direct-documents/ManagedDocumentPages';
@@ -33,7 +34,8 @@ function FlowRoute({ id }: { id: string }) {
  let node: ReactNode;
  if(id==='bank-import'||id==='bank-workbench') node=<BankClosurePage key={id} importOnly={id==='bank-import'}/>;
  else if(id.startsWith('receipt')||id.startsWith('customer-refund')||id.startsWith('supplier-refund'))node=<SettlementPage key={id+previewId} kind={id.startsWith('receipt')?'receipt':id.startsWith('customer')?'customer-refund':'supplier-refund'} mode={id.endsWith('-new')?'new':id.endsWith('-detail')?'detail':'list'} id={previewId}/>;
- else if (['sales-report','purchases-report','banking-report'].includes(id)) node = <ConnectedOperationalReport key={id} kind={id}/>;
+ else if (id==='cash-flow'||id==='banking-report') node=<CashReportsPage key={id} banking={id==='banking-report'}/>;
+ else if (['sales-report','purchases-report'].includes(id)) node = <ConnectedOperationalReport key={id} kind={id}/>;
  else if(id==='bank-workbench') node=<ConnectedBankWorkbench/>;
  else if (['sales-order', 'sales-order-edit', 'invoice', 'invoice-edit', 'bill', 'bill-edit'].includes(id)) node = <ManagedDocumentPage key={id+previewId} kind={id.startsWith('sales-order')?'ORDER':id.startsWith('invoice')?'INVOICE':'EXPENSE'} mode={id.endsWith('edit')?'edit':'new'} id={previewId}/>;
  else if (id.startsWith('receipt') || id.startsWith('customer-refund') || id.startsWith('supplier-refund')) node = <ReceiptRefund key={id + previewId} kind={id.startsWith('receipt') ? 'receipt' : id.startsWith('customer') ? 'customer-refund' : 'supplier-refund'} mode={id.endsWith('-new') ? 'new' : id.endsWith('-detail') ? 'detail' : 'list'} id={previewId} />;

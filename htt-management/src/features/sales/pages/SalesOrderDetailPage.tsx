@@ -1,3 +1,4 @@
+import { ItemTypeSummary } from '../components/ItemTypeSummary';
 import { Link } from 'react-router-dom';
 import { SalesDeliverySummary } from '../components/SalesDeliveryFields';
 import { AreaPackSummary } from '../components/AreaPackEntry';
@@ -127,7 +128,7 @@ export function SalesOrderDetailPage() {
     }
 
     return (
-        <div className="mx-auto w-full max-w-[1600px]"><button className="mb-4 rounded-lg border px-4 py-2 text-sm" onClick={()=>navigate('/inventory/sales-dispatch')}>Dispatch &amp; fulfilments</button>
+        <div className="mx-auto w-full max-w-[1600px]">{order.lines.some(l=>(l.itemType??'STOCK')==='STOCK')?<button className="mb-4 rounded-lg border px-4 py-2 text-sm" onClick={()=>navigate('/inventory/sales-dispatch')}>Dispatch &amp; fulfilments</button>:<p className="mb-4 rounded border p-3 text-sm">No inventory dispatch required. This order contains only non-stock or service items.</p>}
             <button
                 type="button"
                 onClick={() =>
@@ -378,7 +379,7 @@ export function SalesOrderDetailPage() {
                             <div className="text-right text-sm">
                                 {
                                     line.quantity
-                                }<AreaPackSummary line={line}/>
+                                }<AreaPackSummary line={line}/><ItemTypeSummary line={line}/>
                             </div>
 
                             <div className="money text-right text-sm text-[var(--color-text-secondary)]">

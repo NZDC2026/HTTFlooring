@@ -382,7 +382,7 @@ var ie = class {
 			configurable: !0,
 			value: { localStorage: a }
 		});
-		let c = await import("./businessEngine-i_9C1F7M.js");
+		let c = await import("./businessEngine-BjKrUMtX.js");
 		this.workspaceDefaults = c.workspaceDefaults, i && (q(i, this.workspaceDefaults), W(i.repositories, s()), n(i.repositories), t(i.repositories), this.lastCommandId = i.lastCommandId), c.initialize(() => this.security.principal()), this.assertPeriod = c.assertPostingPeriod, r && (P(M(j(this.path), `pre-migration-v${i.schemaVersion}-${E()}.json`), r), this.persist(), this.security.audit("business.migrate.v9", "local-desktop-profile", "SUCCESS", "users.manage")), i || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
 		for (let e of this.security.pendingBusinessCommands()) this.security.audit(`recovery.${e.action}`, e.resourceId, e.commandId === this.lastCommandId ? "SUCCESS" : "FAILED", e.permission, e.commandId);
 		this.initialized = !0;
@@ -445,7 +445,7 @@ var ie = class {
 				value: { localStorage: t }
 			});
 		}
-		let i = await import("./businessEngine-i_9C1F7M.js");
+		let i = await import("./businessEngine-BjKrUMtX.js");
 		if (q(r.database, i.workspaceDefaults), W(r.database.repositories, s()), n(r.database.repositories), this.security.require("users.manage").userId !== t.userId) throw Error("Restore session changed.");
 		let a = this.security.pendingBusinessCommands();
 		if (a.length) {

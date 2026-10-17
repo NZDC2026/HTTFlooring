@@ -1,7 +1,7 @@
 import { getProductById } from '../../inventory/data/mockProducts';
 export function areaPackSize(productId: string, unitId: string): number | undefined {
     const p = getProductById(productId), unit = p?.units.find(u => u.id === unitId), base = p?.units.find(u => u.id === p.baseUnitId);
-    return p?.status === 'ACTIVE' && unit?.active && base?.code === 'M2' && ['BOX', 'ROLL'].includes(unit.code) && Number.isFinite(unit.conversionToBase) && unit.conversionToBase > 0 ? unit.conversionToBase : undefined;
+    return p?.status === 'ACTIVE' && p.itemType !== 'SERVICE' && unit?.active && base?.code === 'M2' && ['BOX', 'ROLL'].includes(unit.code) && Number.isFinite(unit.conversionToBase) && unit.conversionToBase > 0 ? unit.conversionToBase : undefined;
 }
 export function areaQuantity(productId: string, unitId: string, quantity: number, requestedArea?: number) {
     if (requestedArea === undefined)

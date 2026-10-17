@@ -103,6 +103,7 @@ export function buildSalesLine({
 
     return {
         id: createId("line"),
+        itemType: product.itemType??"STOCK",
         ...area,
         ...taxSnapshot(taxCode), priceBasis:hasManualPrice?(draft.priceBasis??businessSettings().basis) as 'Inclusive'|'Exclusive':'Exclusive',grossUnitPrice:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?inputPrice:undefined, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,
 

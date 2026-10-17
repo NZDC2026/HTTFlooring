@@ -1,3 +1,4 @@
+import { validateLineItemType } from '../inventory/data/itemTypes';
 import { salesRecipient, validateRecipientSnapshot } from '../sales/data/salesRecipients';
 import { validateAreaSnapshot } from '../sales/data/areaPacks';
 import { useSyncExternalStore } from 'react';
@@ -255,6 +256,7 @@ for (const kind of ['sales', 'expense'] as const)
                     const raw = d.payload.lines[i] as any, l = line as Record<string, any>;
                     if (d.kind !== 'EXPENSE') {
                         validateAreaSnapshot(l as any);
+                        validateLineItemType(l as any,snapshotsAny.products.products.find((p:any)=>p.id===l.productId));
                         if (l.requestedArea !== raw.requestedArea) throw new Error('Draft area requirement mismatch.');
                     }
                     if (typeof l.quantity !== 'number' || !Number.isFinite(l.quantity) || l.quantity <= 0 || (raw.requestedArea === undefined && l.quantity !== raw.quantity) || money(l.lineSubtotal + l.taxAmount) !== l.lineTotal)

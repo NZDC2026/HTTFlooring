@@ -1,3 +1,4 @@
+import { isStockProduct } from './itemTypes';
 import {
     getProductById,
     getProductUnit,
@@ -165,6 +166,7 @@ function requireCostingContext(
         );
     }
 
+    if(!isStockProduct(product))throw new Error('Non-stock/service items cannot move inventory value.');
     const policy =
         productCostingRepository
             .requireByProductId(
@@ -913,6 +915,7 @@ export function restoreInventoryCost(
         );
     }
 
+    if(!isStockProduct(product))throw new Error('Non-stock/service items cannot restore inventory value.');
     const policy =
         productCostingRepository
             .requireByProductId(

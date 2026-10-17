@@ -1,3 +1,4 @@
+import { isStockLine } from '../../inventory/data/itemTypes';
 import { registerRepository } from "../../security/repositoryHost";
 import {
     salesRepository,
@@ -185,7 +186,7 @@ function updateSalesOrderFulfilmentStatus(
     }
 
     const fulfilledQuantities =
-        document.lines.map(
+        document.lines.filter(isStockLine).map(
             (
                 line,
             ) =>
@@ -205,7 +206,7 @@ function updateSalesOrderFulfilmentStatus(
         );
 
     const fullyFulfilled =
-        document.lines.every(
+        document.lines.filter(isStockLine).every(
             (
                 line,
                 index,
@@ -352,6 +353,7 @@ export const salesFulfilmentRepository =
             );
         }
 
+        if(!isStockLine(line))return 0;
         return roundInventoryQuantity(
             line.quantity -
             getFulfilledQuantity(
@@ -486,6 +488,7 @@ export const salesFulfilmentRepository =
                         );
                     }
 
+                    if(!isStockLine(orderLine))throw new Error("Non-stock and service lines do not require inventory dispatch.");
                     const product =
                         getProductById(
                             orderLine.productId,

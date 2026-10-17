@@ -1,3 +1,5 @@
+import { isStockProduct } from './itemTypes';
+import { getProductById } from './mockProducts';
 import { registerRepository } from "../../security/repositoryHost";
 import {
     mockProducts,
@@ -55,7 +57,7 @@ export const productCostingRepository =
     ensureProductPolicy(productId: string, baseUnitId: string, active: boolean) {
         const existing = policies.find(p => p.productId === productId);
         const now = new Date().toISOString();
-        const policy: ProductCostingPolicy = { productId, baseUnitId, active: existing?.active ?? active, costingMethod: "MOVING_WEIGHTED_AVERAGE", createdAt: existing?.createdAt ?? now, updatedAt: now };
+        const policy: ProductCostingPolicy = { productId, baseUnitId, active: active ? existing?.active ?? true : false, costingMethod: "MOVING_WEIGHTED_AVERAGE", createdAt: existing?.createdAt ?? now, updatedAt: now };
         policies = [...policies.filter(p => p.productId !== productId), policy];
         emitChange();
         return policy;
@@ -124,6 +126,7 @@ export const productCostingRepository =
         active:
             boolean,
     ) {
+        if(active && !isStockProduct(getProductById(productId)??{itemType:'SERVICE'}))throw new Error('Inventory costing cannot be enabled for non-stock/service items.');
         const existing =
             productCostingRepository
                 .requireByProductId(

@@ -17,7 +17,9 @@ export type UnitCode =
     | "BOX"
     | "PIECE"
     | "ROLL"
-    | "BUCKET";
+    | "BUCKET"
+    | "HOUR"
+    | "JOB";
 
 export interface ProductUnit {
     id: string;

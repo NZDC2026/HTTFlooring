@@ -52,6 +52,7 @@ export interface SalesRecipientSnapshot {
     accountingEmail?: string;
 }
 export interface SalesDocumentLine {
+    itemType?: Product["itemType"];
     requestedArea?: number;
     areaPerPack?: number;
     coveredArea?: number;
