@@ -1,3 +1,7 @@
+> Follow-up: [Management report packs](REPORT-PACKS.md) generates selected current financial reports with ordered sections, CSV and printable HTML/PDF output.
+
+> Follow-up: [Net document analysis](NET-DOCUMENT-ANALYSIS.md) includes sales/purchase credits and dated void reversals with contact summaries and filtered export.
+
 > Follow-up: [Cash reports](CASH-REPORTS.md) replaces cash-flow sample figures and the limited banking analysis with dated local bank ledger reports. Historical preview notes below describe the earlier baseline.
 
 # Requirements-driven static page completion

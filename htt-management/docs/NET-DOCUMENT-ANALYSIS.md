@@ -1,0 +1,22 @@
+# Net sales and purchase document analysis
+
+Entry: Report library → Net sales document analysis / Net purchase document analysis.
+Routes remain `/reports/sales-analysis` and `/reports/purchase-analysis`.
+
+These reports replace invoice/bill-only totals. Original issued invoices and supplier bills contribute positive saved amounts. Customer and supplier credits contribute negative amounts on their credit dates. Voiding a document retains its original event and adds the exact opposite on its void date; voiding a credit restores its value. Historical periods no longer lose original activity when a document is voided later. Physical-return credits are counted through their canonical supplier credit once, without adding inventory return journals again.
+
+Saved net, tax and gross totals are used in integer cents; current tax masters, quantities, prices and allocation balances do not reprice historical activity. Paid, overdue, fully applied and partially paid states do not change document amounts. Drafts, quotes, orders and historical opening-balance documents/credits are excluded. Receipts, supplier payments, refunds and credit allocations do not become additional sales or purchases.
+
+Dates are inclusive and default to the configured financial-year start through the current business date. Void timestamp conversion follows the existing business-timezone convention used by source accounting. As with the existing historical subledgers, changing the business timezone can reinterpret legacy timestamp boundaries; this phase does not migrate historical timestamps to another timezone. Missing/invalid void dates, contradictory dates, duplicate source identities and unbalanced monetary snapshots block calculation with a source-specific error rather than silently dropping history.
+
+Filters include customer/supplier ID, source activity and document/contact search. Totals, activity breakdown, contact summary, details and CSV all use the same filtered rows. Restricting to one activity displays an explicit notice to choose All activity for the full net result. Contacts group by ID, so identical display names do not merge unrelated parties. Customer display names use the current customer register; supplier names retain their document snapshots. Status labels show the current source state, not an inferred historical payment state.
+
+Detail pages retain source invoice/bill/credit links and paginate at 50 events. CSV includes period/currency/filter context, net/tax/gross totals, activity and contact summaries, all filtered detail pages and the report basis. Existing local CSV handling protects against spreadsheet formula injection. No backend, new database schema or posting path is introduced. Trusted repository snapshots and existing sales/purchasing/accounting/audit roles continue to govern read access.
+
+This is accrual document activity. It is not profit, recognized inventory expense, outstanding AR/AP, cash flow or a statutory return. Manual GL adjustments and nondocument income/expense remain in the financial statements and GL reports. A report with a source-data error should be corrected through the normal source/recovery workflow.
+
+Automated acceptance adds 13 calculation cases and 8 BusinessHost integration cases: cross-period invoice/bill/credit voids; partial credits; rounding; draft/opening exclusions; settlement-independent totals; same-name contacts; date/search/contact/activity filtering; timezone boundary; invalid source snapshots; actual revenue/AP source-GL agreement; current-tax changes; physical supplier returns and dated reversal; restart; unchanged persisted books; and operational/read-only role separation.
+
+Native Electron acceptance used a disposable synthetic profile. Sales showed 6063.75 originals less 55.00 credit = 6008.75 gross; the Credit note filter showed -55.00 and a one-event detail. Purchases showed 110.00 bill less 55.00 credit = 55.00 gross. Both default-desktop layouts were visually reviewed, the supplier-credit link opened the canonical detail, and a real CSV was saved and parsed to verify filter context, net/tax/gross and credit detail. The test app was restarted during acceptance after native input stopped responding. Actual business profiles were not used; narrow-window and exhaustive state screenshots were outside this run.
+
+See the delivery response for the final actual-project build and full-suite results.
