@@ -1,3 +1,7 @@
+## Business attachments and real file versions — 2026-10-18
+
+Attachments now persist real local file contents with object-scoped access, immutable versions, old-version restore, preview/export, recoverable recycle lifecycle and schema 14 backup migration. See [BUSINESS-ATTACHMENTS.md](BUSINESS-ATTACHMENTS.md) for file limits, permission inheritance and acceptance evidence.
+
 ## Project allocation and actual profitability — 2026-10-18
 
 Jobs now support posted GL revenue/expense splits, inherited reversals, unallocated reconciliation, actual profit/margin, budget variances and full-row CSV export, with audited revision controls and schema 13 migration. See [JOB-COSTING.md](JOB-COSTING.md) for calculation rules, workflow and scope.

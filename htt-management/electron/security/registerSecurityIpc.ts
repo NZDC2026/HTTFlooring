@@ -1,5 +1,6 @@
 import { ipcMain, dialog, type BrowserWindow } from 'electron';
 import { readFileSync, statSync, realpathSync } from 'node:fs';
+import {attachmentBytes,atomicAttachmentExport,readSelectedAttachment} from './attachmentFiles';
 import { atomicJson } from './localSecurity';
 import { join, relative, isAbsolute, dirname, basename, sep } from 'node:path';
 import { LocalSecurity } from './localSecurity';
@@ -50,6 +51,26 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
                     value = business.prepareRestore(readFileSync(choice.filePaths[0], 'utf8')); break;
                 }
                 case 'business.restore.commit': await business.restoreBackup(input.token); value = { restartRequired: true }; break;
+                case 'attachments.select': {
+                    security.require('inventory.read');
+                    business.command({repository:'attachments',method:'checkTarget',args:[input.target]});
+                    const choice=await dialog.showOpenDialog(owner,{title:'Select attachment file (maximum 10 MB)',properties:['openFile'],filters:[{name:'Business files',extensions:['pdf','png','jpg','jpeg','csv','txt','docx','xlsx']}]});
+                    if(choice.canceled||!choice.filePaths[0]){value={saved:false};break;}
+                    const content=readSelectedAttachment(choice.filePaths[0]);
+                    const result=business.command({repository:'attachments',method:'upload',args:[{...input,file:{name:basename(choice.filePaths[0]),content:content.toString('base64')}}]});
+                    value={saved:true,...result};break;
+                }
+                case 'attachments.export': {
+                    security.require('inventory.read');
+                    const result=business.command({repository:'attachments',method:'read',args:[input]}).result as Parameters<typeof attachmentBytes>[0];
+                    const choice=await dialog.showSaveDialog(owner,{title:'Export attachment version',defaultPath:result.name});
+                    if(choice.canceled||!choice.filePath){value={saved:false};break;}
+                    const target=relative(realpathSync(directory),join(realpathSync(dirname(choice.filePath)),basename(choice.filePath)));
+                    if(!target||(!target.startsWith('..'+sep)&&target!=='..'&&!isAbsolute(target)))throw new Error('Choose an export location outside the active local data directory.');
+                    security.audit('attachments.export',String(input.id)+'/'+String(input.versionId),'INTENT','inventory.read');
+                    try{const current=business.command({repository:'attachments',method:'read',args:[input]}).result as Parameters<typeof attachmentBytes>[0];atomicAttachmentExport(join(realpathSync(dirname(choice.filePath)),basename(choice.filePath)),attachmentBytes(current));}catch(error){security.audit('attachments.export',String(input.id)+'/'+String(input.versionId),'FAILED','inventory.read');throw error;}
+                    security.audit('attachments.export',String(input.id)+'/'+String(input.versionId),'SUCCESS','inventory.read');value={saved:true};break;
+                }
                 case 'business.command': value = business.command(input as { repository: string; method: string; args: unknown[] }); break;
                 default: throw new Error('Unknown desktop security action.');
             }

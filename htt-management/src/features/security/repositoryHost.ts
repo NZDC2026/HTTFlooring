@@ -1,6 +1,6 @@
 import { hasPermission, type Permission, type VerifiedPrincipal } from './rbac';
 import type { BusinessView, SecurityBridge } from './securityContract';
-type Entry = { validate?: (value: unknown, snapshots: Record<string, unknown>) => void; read: Permission; snapshot: () => unknown; restore: (value: any) => void; publish: () => void; repository: Record<string, any>; commands: Record<string, Permission | null> };
+type Entry = { view?: (principal: VerifiedPrincipal) => unknown; validate?: (value: unknown, snapshots: Record<string, unknown>) => void; read: Permission; snapshot: () => unknown; restore: (value: any) => void; publish: () => void; repository: Record<string, any>; commands: Record<string, Permission | null> };
 const entries = new Map<string, Entry>();
 let currentView: BusinessView | undefined;
 const mainHost = () => (globalThis as Record<string, unknown>).__HTT_MAIN_HOST__ === true;
@@ -40,8 +40,8 @@ export function registerRepository(name: string, entry: Entry): void {
         };
     }
 }
-export function snapshotRepositories(): Record<string, unknown> {
-    return Object.fromEntries([...entries].map(([name, entry]) => [name, structuredClone(entry.snapshot())]));
+export function snapshotRepositories(names?: string[]): Record<string, unknown> {
+    return Object.fromEntries([...entries].filter(([name]) => !names || names.includes(name)).map(([name, entry]) => [name, structuredClone(entry.snapshot())]));
 }
 export function validateRegisteredSnapshots(snapshots: Record<string, unknown>): void {
     for (const [name, value] of Object.entries(snapshots)) entries.get(name)?.validate?.(structuredClone(value), snapshots);
@@ -65,6 +65,6 @@ export function snapshotForPrincipal(principal: VerifiedPrincipal): Record<strin
         const state = structuredClone(entry.snapshot());
         const allowed = hasPermission(principal, entry.read);
         const empty = Array.isArray(state) ? [] : Object.fromEntries(Object.keys(state as object).map(key => [key, []]));
-        return [name, allowed ? state : empty];
+        return [name, allowed ? entry.view?.(principal) ?? state : empty];
     }));
 }

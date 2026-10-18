@@ -1,3 +1,4 @@
+import {AttachmentsPage} from '../attachments/AttachmentsPage';
 import {JobCostingPage} from '../job-costing/JobCostingPage';
 import { ContactReviewPage } from '../contact-review/ContactReviewPage';
 import { BillCapturePage } from '../bill-capture/BillCapturePage';
@@ -24,7 +25,7 @@ import { useSecurity } from '../security/securityClient';
 import { hasPermission, type Permission } from '../security/rbac';
 import { previewModules, settingsForms, flowPages } from './catalog';
 import { DirectoryPage, ModuleList, ModuleForm, ModuleDetail, SettingsPreview } from './PreviewWorkspace';
-import { ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport, Attachments } from './PreviewFlows';
+import { ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport } from './PreviewFlows';
 import type { ReactNode } from 'react';
 export function PreviewAccess({ permission, children }: { permission: Permission; children: ReactNode }) {
  const { session } = useSecurity(), principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
@@ -58,7 +59,7 @@ function FlowRoute({ id }: { id: string }) {
  else if (id === 'bank-import' || id === 'import-export') node = <ImportWizard key={id} bank={id === 'bank-import'} />;
  else if (id === 'bank-workbench') node = <BankWorkbench />;
  else if (id === 'opening-balances') node = <OpeningBalancesPage />;
- else if (id === 'attachments') node = <Attachments />;
+ else if (id === 'attachments') node = <AttachmentsPage />;
  else if (id === 'delivery') node = <OutputPage />;
  else if (id === 'ocr') node = <BillCapturePage />;
  else if (id === 'entity-search') node = <RecordSearchPage />;

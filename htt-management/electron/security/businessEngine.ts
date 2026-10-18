@@ -1,3 +1,4 @@
+import './attachmentRepository';
 import '../../src/features/job-costing/jobCostingRepository';
 import '../../src/features/contact-review/reviewRepository';
 import '../../src/features/sales-visits/visitRepository';

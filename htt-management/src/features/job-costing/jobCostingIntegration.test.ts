@@ -81,7 +81,7 @@ it('migrates schema 12 with empty allocations and retains prior business workflo
     before.checksum = createHash('sha256').update(JSON.stringify(before)).digest('hex');
     writeFileSync(join(root, 'business.json'), JSON.stringify(before));
     await restart();
-    expect(host.exportBackup().schemaVersion).toBe(13);
+    expect(host.exportBackup().schemaVersion).toBe(14);
     expect(state('jobCosting')).toEqual({ allocations: [], history: [] });
     for (const key of ['contactReviews', 'salesVisits', 'journals', 'customers'])
         expect(state(key)).toEqual(before.repositories[key]);
