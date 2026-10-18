@@ -6,7 +6,7 @@ import { Panel, fieldClass, buttonClass } from '../features/prototype/PrototypeU
 const destinations: { name: string; description: string; path: string; permission?: Permission }[] = [
  { name: 'Page directory', description: 'Products, tax codes, refunds, bank rules, templates and additional previews', path: '/workspace' },
  { name: 'Business record search', description: 'Current local numbers, names and references available to your role', path: '/search/records', permission: 'inventory.read' },
- { name: 'Tasks & action centre', description: 'Follow-ups, owners, due dates and status history samples', path: '/tasks', permission: 'sales.read' },
+ { name: 'Tasks & action centre', description: 'Local follow-ups, owners, due dates and audited status history', path: '/tasks', permission: 'sales.read' },
  { name: 'Dashboard', description: 'Financial overview and recent activity', path: '/dashboard', permission: 'accounting.read' },
  { name: 'Sales', description: 'Quotes, orders, invoices and customer credits', path: '/sales', permission: 'sales.read' },
  { name: 'Purchases', description: 'Purchase orders, receipts and supplier bills', path: '/purchases', permission: 'purchases.read' },
@@ -43,9 +43,4 @@ export function HelpPage() {
  ['Does the application send data to a live backend?', 'The current implementation uses local repositories and mocks. The integration configuration screens are static previews.'],
  ].map(([question, answer]) => <details className="rounded border p-4" key={question}><summary className="font-medium">{question}</summary><p className="mt-3 text-sm">{answer}</p></details>)}</Panel></main>;
 }
-export function NotificationsPage() {
- const [read, setRead] = useState<string[]>([]), [filter, setFilter] = useState('All');
- const items = [{ id: 'sample-1', title: 'Payroll review example', text: 'A sample timesheet is ready for review.', path: '/payroll/timesheets' }, { id: 'sample-2', title: 'Document review example', text: 'The sample stock-count worksheet is in draft.', path: '/documents/DOC-1003' }];
- const rows = items.filter(i => filter === 'All' || !read.includes(i.id));
- return <main className="space-y-5"><h1 className="text-3xl font-semibold">Notifications</h1><p className="rounded border border-amber-200 bg-amber-50 p-3">Sample notification layouts only. These are illustrative messages, not a live business alert feed.</p><div className="flex flex-wrap gap-3"><select aria-label="Notification filter" className={`${fieldClass} max-w-48`} value={filter} onChange={e => setFilter(e.target.value)}><option>All</option><option>Unread</option></select><button className={buttonClass} onClick={() => setRead(items.map(i => i.id))}>Mark samples read</button></div>{rows.map(i => <Panel key={i.id} title={i.title}><p>{i.text}</p><p className="text-sm text-slate-500">{read.includes(i.id) ? 'Read' : 'Unread'} · Sample</p><div className="flex gap-3"><Link className={buttonClass} to={i.path}>View example</Link><button className={buttonClass} onClick={() => setRead(read.includes(i.id) ? read.filter(id => id !== i.id) : [...read, i.id])}>{read.includes(i.id) ? 'Mark unread' : 'Mark read'}</button></div></Panel>)}{!rows.length && <Panel title="All caught up"><p>No unread sample notifications.</p></Panel>}</main>;
-}
+export { ActionCentrePage as NotificationsPage } from '../features/action-centre/ActionCentrePage';

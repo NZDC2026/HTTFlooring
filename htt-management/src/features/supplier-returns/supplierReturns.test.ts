@@ -209,7 +209,7 @@ it('rejects corrupt return backup references and migrates schema 8 preserving ex
     b.checksum = createHash('sha256').update(JSON.stringify(b)).digest('hex');
     writeFileSync(join(root, 'business.json'), JSON.stringify(b));
     await restart();
-    expect(host.exportBackup().schemaVersion).toBe(9);
+    expect(host.exportBackup().schemaVersion).toBe(10);
     expect(state('physicalSupplierReturns').returns).toEqual([]);
     expect(costBalance(f).inventoryValue).toBe(100);
 });

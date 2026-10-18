@@ -26,6 +26,7 @@ const salesLine = z.object({ requestedArea: z.number().finite().positive().max(1
 const expenseLine = z.object({ description: z.string().trim().min(1).max(500), accountId: text, quantity: z.number().positive().finite(), unitCost: z.number().nonnegative().finite(), taxCode: text, priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
 const salesPayload = z.object({ kind: z.enum(['ORDER', 'INVOICE']), customerId: text, locationId: text.or(z.literal('')).optional(), accountingContactId: text.or(z.literal('')).optional(), documentDate: text, dueDate: text.optional(), customerReference: optional, notes: optional, lines: z.array(salesLine).min(1).max(500) }).strict();
 const billPayload = z.object({ kind: z.literal('EXPENSE'), supplierId: text, supplierInvoiceNumber: text, documentDate: text, dueDate: text, notes: optional, lines: z.array(expenseLine).min(1).max(500) }).strict();
+export const parseManagedPayload = (raw: unknown) => z.union([salesPayload, billPayload]).parse(raw);
 export type SalesPayload = z.infer<typeof salesPayload>;
 export type ExpensePayload = z.infer<typeof billPayload>;
 export type ManagedDraft = {
@@ -141,6 +142,7 @@ function repo(kind: 'sales' | 'expense') {
     }
     function change(row: ManagedDraft, action: string, extra: Partial<ManagedDraft> = {}, reason?: string) { return saveRow({ ...row, ...extra, revision: row.revision + 1, updatedAt: new Date().toISOString(), history: [...row.history, history(action, reason)] }); }
     return {
+        getAll: rows,
         save(raw: {
             operationId: string;
             id?: string;

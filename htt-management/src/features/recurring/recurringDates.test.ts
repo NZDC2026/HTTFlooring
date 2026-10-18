@@ -1,0 +1,7 @@
+import { it, expect } from 'vitest';
+import { occurrenceDate, addDays } from './recurringDates';
+it('anchors month-end occurrences to the original day without February drift', () => { expect([0, 1, 2, 3].map(i => occurrenceDate('2026-01-31', 'Monthly', i))).toEqual(['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30']); expect(occurrenceDate('2028-01-31', 'Monthly', 1)).toBe('2028-02-29'); });
+it('anchors quarterly dates and handles leap-year anniversaries', () => { expect(occurrenceDate('2026-08-31', 'Quarterly', 1)).toBe('2026-11-30'); expect(occurrenceDate('2024-02-29', 'Monthly', 12)).toBe('2025-02-28'); expect(occurrenceDate('2024-02-29', 'Monthly', 48)).toBe('2028-02-29'); });
+it('uses calendar dates for weekly/fortnightly schedules and terms across daylight saving', () => { expect(occurrenceDate('2026-09-26', 'Weekly', 1)).toBe('2026-10-03'); expect(occurrenceDate('2026-12-25', 'Fortnightly', 1)).toBe('2027-01-08'); expect(addDays('2026-09-26', 2)).toBe('2026-09-28'); });
+it('rejects invalid dates, frequencies, negative/fractional indices and date overflow', () => { for (const f of [() => occurrenceDate('2026-02-30', 'Monthly', 1), () => occurrenceDate('2026-01-01', 'Monthly', -1), () => occurrenceDate('2026-01-01', 'Monthly', 0.5), () => occurrenceDate('2026-01-01', 'Yearly' as any, 1), () => occurrenceDate('9999-12-31', 'Monthly', 1), () => addDays('9999-12-31', 1)])
+    expect(f).toThrow(); });

@@ -128,6 +128,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             throw new Error('Job code must be unique.');
     }
     if (domain === 'tasks') {
+        if (checkReferences && !['Open', 'In progress', 'Completed'].includes(input.status ?? 'Open')) throw new Error('Task status must be Open, In progress or Completed.');
         if (!validDate(input.due) || !['Low', 'Normal', 'High'].includes(input.priority))
             throw new Error('Invalid due date or priority.');
     }
@@ -186,9 +187,12 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
         getAll: () => configurationRows[domain], getById: (id: string) => configurationRows[domain].find(r => r.id === id),
         save(raw: Record<string, string>, expectedRevision?: string) { const input = strings.parse(raw), existing = configurationRows[domain].find(r => r.id === input.id); if (existing && existing.revision !== expectedRevision)
             throw new Error('Record changed. Reload before saving.'); if (!existing && expectedRevision !== undefined)
-            throw new Error('Record no longer exists.'); const timestamp = now(), row: ConfigRow = { ...input, id: existing?.id ?? crypto.randomUUID(), name: input.name.trim(), status: input.status ?? 'Active', revision: String(Number(existing?.revision ?? '0') + 1), createdAt: existing?.createdAt ?? timestamp, updatedAt: timestamp }; if (domain === 'tasks' && row.status === 'Completed') {
-            row.completedAt = existing?.completedAt ?? timestamp;
-            row.completedBy = existing?.completedBy ?? trustedAuthorization.current()?.userId ?? 'local-test';
+            throw new Error('Record no longer exists.'); const timestamp = now(), row: ConfigRow = { ...input, id: existing?.id ?? crypto.randomUUID(), name: input.name.trim(), status: input.status ?? (domain === 'tasks' ? 'Open' : 'Active'), revision: String(Number(existing?.revision ?? '0') + 1), createdAt: existing?.createdAt ?? timestamp, updatedAt: timestamp }; if (domain === 'tasks') {
+            delete row.completedAt; delete row.completedBy;
+            if (row.status === 'Completed') {
+                row.completedAt = existing?.status === 'Completed' ? existing.completedAt || timestamp : timestamp;
+                row.completedBy = existing?.status === 'Completed' ? existing.completedBy || trustedAuthorization.current()?.userId || 'local-test' : trustedAuthorization.current()?.userId ?? 'local-test';
+            }
         } validate(domain, row, configurationRows[domain]); configurationRows[domain] = [...configurationRows[domain].filter(r => r.id !== row.id), row]; log(domain, row, existing ? 'Updated' : 'Created'); emit(); return row; },
         setStatus(id: string, status: string, expectedRevision: string) { const row = repository.getById(id); if (!row)
             throw new Error('Record was not found.'); return repository.save({ ...row, status }, expectedRevision); },

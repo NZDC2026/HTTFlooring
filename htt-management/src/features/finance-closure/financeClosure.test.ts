@@ -44,7 +44,7 @@ describe('trusted closure boundaries and financial lifecycle', () => {
         body.checksum = createHash('sha256').update(JSON.stringify(body)).digest('hex');
         writeFileSync(join(root, 'business.json'), JSON.stringify(body));
         await restart();
-        expect(host.exportBackup().schemaVersion).toBe(9);
+        expect(host.exportBackup().schemaVersion).toBe(10);
         expect(state('customerSettlements')).toEqual({ receipts: [], refunds: [] });
         expect(state('bankStatements')).toEqual({ lines: [] });
     });

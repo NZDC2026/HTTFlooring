@@ -25,7 +25,7 @@ export class BusinessHost {
         let saved: Database | LegacyDatabase | undefined;
         if (existsSync(this.path)) {
             saved = parseDatabase(readFileSync(this.path, 'utf8'));
-            if (saved.schemaVersion !== 9) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
+            if (saved.schemaVersion !== 10) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');

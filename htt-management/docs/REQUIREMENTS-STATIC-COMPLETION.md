@@ -1,3 +1,11 @@
+## Recurring invoice and expense draft integration — 2026-10-18
+
+Recurring transactions now copy existing entry drafts into saved templates, generate one due occurrence into a real reviewable draft, retain run history and support pause/resume, retry protection and schema 10 migration. See [RECURRING-TRANSACTIONS.md](RECURRING-TRANSACTIONS.md) for calculation rules and scope.
+
+## Notifications and task lifecycle — 2026-10-18
+
+Notifications now display current overdue AR/AP and due tasks from local repositories. Task completion metadata is main-controlled and reopening clears it; changes persist with audit/history. See [ACTION-CENTRE.md](ACTION-CENTRE.md).
+
 ## Business record search integration — 2026-10-18
 
 Business record search now uses current permission-filtered local records across 11 categories, with literal search, type/status/date filters, pagination and source navigation with a return link. See [RECORD-SEARCH.md](RECORD-SEARCH.md) for supported fields, scope and verification.
