@@ -1,3 +1,11 @@
+## Project allocation and actual profitability — 2026-10-18
+
+Jobs now support posted GL revenue/expense splits, inherited reversals, unallocated reconciliation, actual profit/margin, budget variances and full-row CSV export, with audited revision controls and schema 13 migration. See [JOB-COSTING.md](JOB-COSTING.md) for calculation rules, workflow and scope.
+
+## Customer, branch and contact review — 2026-10-18
+
+Customer review now receives manual/JSON drafts, validates and compares real master data, approves or links all three record types, rejects/reopens with reasons, and persists main-controlled history with schema 12 migration. See [CONTACT-REVIEW.md](CONTACT-REVIEW.md) for intake fields, authority, safeguards and verification.
+
 ## Supplier document review integration — 2026-10-18
 
 Supplier document capture now supports manual/CSV intake, main-calculated source-total verification, duplicate detection and real expense draft creation under existing purchasing authority. Automatic image/PDF OCR and file-byte storage are not connected. See [SUPPLIER-DOCUMENT-CAPTURE.md](SUPPLIER-DOCUMENT-CAPTURE.md).

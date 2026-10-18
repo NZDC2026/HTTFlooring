@@ -1,3 +1,5 @@
+import '../../src/features/job-costing/jobCostingRepository';
+import '../../src/features/contact-review/reviewRepository';
 import '../../src/features/sales-visits/visitRepository';
 import '../../src/features/recurring/recurringRepository';
 import '../../src/features/supplier-returns/supplierReturnRepository';

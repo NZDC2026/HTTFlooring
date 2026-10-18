@@ -219,6 +219,9 @@ export function CustomersPage() {
                 </div>
 
                 <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => navigate("/contacts/review")}>
+                        Incoming reviews
+                    </Button>
                     <Button
                         variant="secondary"
                         onClick={() =>

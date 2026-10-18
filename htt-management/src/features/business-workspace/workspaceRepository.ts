@@ -122,6 +122,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
     if (domain === 'jobs') {
         money(input.budget, 'Revenue budget');
         money(input.costBudget, 'Cost budget');
+        if(checkReferences)for(const key of ['budget','costBudget']){const amount=Number(input[key]);if(!Number.isSafeInteger(Math.round(amount*100))||Math.abs(Math.round(amount*100)/100-amount)>0.0000001)throw new Error('Project budgets require safe currency amounts with at most two decimals.');}
         if (!validDate(input.starts) || !validDate(input.ends) || input.ends < input.starts)
             throw new Error('Invalid project dates.');
         if (rows.some(r => r.id !== input.id && r.code.toLowerCase() === input.code.toLowerCase()))

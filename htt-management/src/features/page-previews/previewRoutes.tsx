@@ -1,3 +1,5 @@
+import {JobCostingPage} from '../job-costing/JobCostingPage';
+import { ContactReviewPage } from '../contact-review/ContactReviewPage';
 import { BillCapturePage } from '../bill-capture/BillCapturePage';
 import { VisitsPage } from '../sales-visits/VisitsPage';
 import { RecurringPage } from '../recurring/RecurringPage';
@@ -30,6 +32,8 @@ export function PreviewAccess({ permission, children }: { permission: Permission
 }
 function ModuleRoute({ moduleId, mode }: { moduleId: string; mode: 'list' | 'new' | 'edit' | 'detail' }) {
  const { previewId } = useParams(), m = previewModules.find(m => m.id === moduleId)!;
+ if(m.id==='jobs')return <PreviewAccess permission={m.permission}><JobCostingPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
+ if(m.id==='draft-review')return <PreviewAccess permission={m.permission}><ContactReviewPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='visits')return <PreviewAccess permission={m.permission}><VisitsPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='recurring')return <PreviewAccess permission={m.permission}><RecurringPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='custom-reports')return <PreviewAccess permission={m.permission}><SavedReportsPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
