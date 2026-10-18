@@ -44,7 +44,7 @@ it('migrates v6 backup with empty managed document and dispatch registers', asyn
     backup.checksum = createHash('sha256').update(JSON.stringify(backup)).digest('hex');
     writeFileSync(join(root, 'business.json'), JSON.stringify(backup));
     await restart();
-    expect(host.exportBackup().schemaVersion).toBe(10);
+    expect(host.exportBackup().schemaVersion).toBe(11);
     expect(state('managedSalesDocuments')).toEqual({ drafts: [] });
     expect(state('expenseBillDrafts').drafts).toEqual([]);
     expect(state('salesDispatch').requests).toEqual([]);

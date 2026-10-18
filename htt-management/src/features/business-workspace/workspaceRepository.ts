@@ -128,6 +128,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             throw new Error('Job code must be unique.');
     }
     if (domain === 'tasks') {
+        if (checkReferences && input.id && ((snapshotRepositories().salesVisits as {visits:{followupTaskId?:string;customerId:string}[]}|undefined)?.visits??[]).some(v=>v.followupTaskId===input.id&&v.customerId!==input.customerId)) throw new Error('A visit follow-up must retain the visit customer.');
         if (checkReferences && !['Open', 'In progress', 'Completed'].includes(input.status ?? 'Open')) throw new Error('Task status must be Open, In progress or Completed.');
         if (!validDate(input.due) || !['Low', 'Normal', 'High'].includes(input.priority))
             throw new Error('Invalid due date or priority.');

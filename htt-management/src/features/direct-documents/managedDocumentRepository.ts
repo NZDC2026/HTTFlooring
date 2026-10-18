@@ -27,6 +27,32 @@ const expenseLine = z.object({ description: z.string().trim().min(1).max(500), a
 const salesPayload = z.object({ kind: z.enum(['ORDER', 'INVOICE']), customerId: text, locationId: text.or(z.literal('')).optional(), accountingContactId: text.or(z.literal('')).optional(), documentDate: text, dueDate: text.optional(), customerReference: optional, notes: optional, lines: z.array(salesLine).min(1).max(500) }).strict();
 const billPayload = z.object({ kind: z.literal('EXPENSE'), supplierId: text, supplierInvoiceNumber: text, documentDate: text, dueDate: text, notes: optional, lines: z.array(expenseLine).min(1).max(500) }).strict();
 export const parseManagedPayload = (raw: unknown) => z.union([salesPayload, billPayload]).parse(raw);
+const captureAmount = z.number().finite().nonnegative().refine(n => Number.isSafeInteger(Math.round(n*100)) && n===Math.round(n*100)/100, 'Use an amount in whole cents within the supported range.');
+const captureSchema = z.object({operationId:text,sourceName:z.string().trim().max(200),reviewed:z.boolean(),declared:z.object({subtotal:captureAmount,taxAmount:captureAmount,total:captureAmount}).strict(),payload:billPayload.extend({notes:z.string().trim().max(1000).optional()})}).strict();
+export type CaptureInput = z.infer<typeof captureSchema>;
+function capturePayload(input:CaptureInput):ExpensePayload{return {...input.payload,notes:[input.payload.notes,`Reviewed source: ${input.sourceName||'Manual entry'}`,`Declared net / tax / total: ${input.declared.subtotal.toFixed(2)} / ${input.declared.taxAmount.toFixed(2)} / ${input.declared.total.toFixed(2)}`].filter(Boolean).join('\n')};}
+function reviewCaptureInput(input: CaptureInput) {
+    const supplier = supplierRepository.getById(input.payload.supplierId);
+    if (!supplier || supplier.status !== 'ACTIVE') throw new Error('Select an active supplier.');
+    const built = build(input.payload), reference = input.payload.supplierInvoiceNumber.trim().toLowerCase();
+    const bills = supplierBillRepository.getAll(), voidIds = new Set(bills.filter(b => b.status === 'VOID').map(b => b.id));
+    const duplicates = [
+        ...billDrafts.filter(d => d.operationId !== input.operationId && d.status !== 'CANCELLED'
+            && !(d.status === 'POSTED' && d.documentId && voidIds.has(d.documentId))
+            && d.payload.kind === 'EXPENSE' && d.payload.supplierId === input.payload.supplierId
+            && d.payload.supplierInvoiceNumber.trim().toLowerCase() === reference).map(d => ({kind:'Entry draft',id:d.id})),
+        ...bills.filter(b => b.status !== 'VOID' && b.supplierId === input.payload.supplierId
+            && b.supplierInvoiceNumber.trim().toLowerCase() === reference).map(b => ({kind:'Supplier bill',id:b.id})),
+    ];
+    const labels = {subtotal:'net',taxAmount:'tax',total:'total'}, issues: string[] = [];
+    if (Math.round((input.declared.subtotal + input.declared.taxAmount)*100) !== Math.round(input.declared.total*100))
+        issues.push('Declared net plus tax does not equal the declared total.');
+    for (const key of ['subtotal','taxAmount','total'] as const)
+        if (Math.round(built.totals[key]*100) !== Math.round(input.declared[key]*100))
+            issues.push(`Calculated ${labels[key]} does not match the source document.`);
+    if (duplicates.length) issues.push('This supplier invoice reference already exists in an entry draft or supplier bill.');
+    return {totals:built.totals,declared:input.declared,lines:built.lines,duplicates,issues,matches:issues.length===0};
+}
 export type SalesPayload = z.infer<typeof salesPayload>;
 export type ExpensePayload = z.infer<typeof billPayload>;
 export type ManagedDraft = {
@@ -141,8 +167,11 @@ function repo(kind: 'sales' | 'expense') {
             throw new Error('Draft changed. Reload before editing or approving.');
     }
     function change(row: ManagedDraft, action: string, extra: Partial<ManagedDraft> = {}, reason?: string) { return saveRow({ ...row, ...extra, revision: row.revision + 1, updatedAt: new Date().toISOString(), history: [...row.history, history(action, reason)] }); }
+    const repositorySave=(operationId:string,payload:ExpensePayload)=> expenseDraftRepository.save({operationId,payload});
     return {
         getAll: rows,
+        reviewCapture(raw:unknown){trustedAuthorization.require('purchases.bill');if(kind!=='expense')throw new Error('Capture is only available for expense bills.');return reviewCaptureInput(captureSchema.parse(raw));},
+        capture(raw:unknown){trustedAuthorization.require('purchases.bill');if(kind!=='expense')throw new Error('Capture is only available for expense bills.');const input=captureSchema.parse(raw);if(!input.reviewed)throw new Error('Confirm that the supplier document has been reviewed.');const payload=capturePayload(input),prior=rows().find(d=>d.operationId===input.operationId);if(prior)return repositorySave(input.operationId,payload);const review=reviewCaptureInput(input);if(!review.matches)throw new Error(review.issues.join(' '));return repositorySave(input.operationId,payload);},
         save(raw: {
             operationId: string;
             id?: string;
@@ -232,7 +261,7 @@ function repo(kind: 'sales' | 'expense') {
 export const managedSalesRepository = repo('sales'), expenseDraftRepository = repo('expense');
 const draftSchema = z.object({ recipient: z.object({locationId: z.string().optional(),locationName: z.string().optional(),deliveryAddress: z.string().optional(),accountingContactId: z.string().optional(),accountingContactName: z.string().optional(),accountingEmail: z.string().email().optional()}).strict().optional(), id: text, operationId: text, creationFingerprint: z.string().max(1000000), revision: z.number().int().positive(), kind: z.enum(['ORDER', 'INVOICE', 'EXPENSE']), status: z.enum(['DRAFT', 'APPROVED', 'POSTED', 'CANCELLED']), payload: z.union([salesPayload, billPayload]), lines: z.array(z.object({ id: text, description: z.string().min(1), quantity: z.number().finite().positive(), unitSymbol: z.string().min(1), unitPrice: z.number().finite().nonnegative().optional(), unitCost: z.number().finite().nonnegative().optional(), taxRate: z.number().finite().min(0).max(1), taxCode: text, taxPaidAccountId: text.optional(), taxCollectedAccountId: text.optional(), lineSubtotal: z.number().finite().nonnegative(), taxAmount: z.number().finite().nonnegative(), lineTotal: z.number().finite().nonnegative() }).passthrough()).min(1), totals: z.object({ subtotal: z.number().finite(), taxAmount: z.number().finite(), total: z.number().finite() }), documentId: text.optional(), createdAt: text, updatedAt: text, history: z.array(z.object({ action: text, actorId: text, at: text, reason: z.string().optional() }).strict()).min(1) }).strict();
 for (const kind of ['sales', 'expense'] as const)
-    registerRepository(kind === 'sales' ? 'managedSalesDocuments' : 'expenseBillDrafts', { repository: kind === 'sales' ? managedSalesRepository : expenseDraftRepository, read: kind === 'sales' ? 'sales.read' : 'purchases.read', commands: { save: kind === 'sales' ? 'sales.manage' : 'purchases.bill', approve: kind === 'sales' ? 'sales.manage' : 'accounting.post', reopen: kind === 'sales' ? 'sales.manage' : 'accounting.post', cancel: kind === 'sales' ? 'sales.manage' : 'purchases.bill', post: kind === 'sales' ? 'sales.manage' : 'purchases.bill', cancelOrder: kind === 'sales' ? 'sales.manage' : null }, snapshot: () => kind === 'sales' ? { drafts: salesDrafts } : { drafts: billDrafts, options: actualExpenseOptions() }, restore: v => {
+    registerRepository(kind === 'sales' ? 'managedSalesDocuments' : 'expenseBillDrafts', { repository: kind === 'sales' ? managedSalesRepository : expenseDraftRepository, read: kind === 'sales' ? 'sales.read' : 'purchases.read', commands: {reviewCapture:kind==='expense'?'purchases.bill':null,capture:kind==='expense'?'purchases.bill':null, save: kind === 'sales' ? 'sales.manage' : 'purchases.bill', approve: kind === 'sales' ? 'sales.manage' : 'accounting.post', reopen: kind === 'sales' ? 'sales.manage' : 'accounting.post', cancel: kind === 'sales' ? 'sales.manage' : 'purchases.bill', post: kind === 'sales' ? 'sales.manage' : 'purchases.bill', cancelOrder: kind === 'sales' ? 'sales.manage' : null }, snapshot: () => kind === 'sales' ? { drafts: salesDrafts } : { drafts: billDrafts, options: actualExpenseOptions() }, restore: v => {
             if (kind === 'sales')
                 salesDrafts = v.drafts;
             else {

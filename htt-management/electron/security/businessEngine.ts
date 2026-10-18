@@ -1,3 +1,4 @@
+import '../../src/features/sales-visits/visitRepository';
 import '../../src/features/recurring/recurringRepository';
 import '../../src/features/supplier-returns/supplierReturnRepository';
 import '../../src/features/document-output/outputRepository';

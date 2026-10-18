@@ -1,3 +1,11 @@
+## Supplier document review integration — 2026-10-18
+
+Supplier document capture now supports manual/CSV intake, main-calculated source-total verification, duplicate detection and real expense draft creation under existing purchasing authority. Automatic image/PDF OCR and file-byte storage are not connected. See [SUPPLIER-DOCUMENT-CAPTURE.md](SUPPLIER-DOCUMENT-CAPTURE.md).
+
+## Sales visits and linked follow-ups — 2026-10-18
+
+Sales activity now supports persisted plans, trusted check-in/out, outcomes, cancellation, append-only notes and atomic linked follow-up task creation. Schema 11 migration and permission checks apply. See [SALES-VISITS.md](SALES-VISITS.md).
+
 ## Recurring invoice and expense draft integration — 2026-10-18
 
 Recurring transactions now copy existing entry drafts into saved templates, generate one due occurrence into a real reviewable draft, retain run history and support pause/resume, retry protection and schema 10 migration. See [RECURRING-TRANSACTIONS.md](RECURRING-TRANSACTIONS.md) for calculation rules and scope.
