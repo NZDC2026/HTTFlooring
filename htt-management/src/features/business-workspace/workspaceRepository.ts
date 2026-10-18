@@ -1,3 +1,5 @@
+import { runSavedReport } from '../saved-reports/savedReportCommand';
+import { parseSavedReportConfiguration } from '../saved-reports/savedReportService';
 import { generateSavedReportPack } from '../report-packs/reportPackCommand';
 import { parseReportSelection } from '../report-packs/reportPackService';
 import { useSyncExternalStore } from 'react';
@@ -137,6 +139,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
         if (checkReferences && !configurationRows['tax-codes'].some(r => r.status === 'Active' && r.code === input.taxCode))
             throw new Error('Active tax code not found.');
     }
+    if (domain === 'custom-reports' && checkReferences) parseSavedReportConfiguration({dataset:input.dataset,columns:input.columns,basis:input.basis,filter:input.filter,favourite:input.favourite});
     if (domain === 'report-packs' && checkReferences) parseReportSelection(input.reports);
     if (domain === 'report-packs' && (!validDate(input.periodStart) || !validDate(input.periodEnd) || input.periodEnd < input.periodStart))
         throw new Error('Invalid report period.');
@@ -178,6 +181,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
 function log(domain: string, row: ConfigRow, action: string) { configurationHistory[domain].push({ id: crypto.randomUUID(), name: action, status: 'Active', revision: '1', createdAt: now(), updatedAt: now(), recordId: row.id, actorId: trustedAuthorization.current()?.userId ?? 'local-test', after: JSON.stringify(row) }); }
 export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDomains).map(domain => {
     const repository = {
+        run(raw:unknown) { if(domain!=='custom-reports') throw new Error('Saved-report execution is not available on this register.'); return runSavedReport(raw); },
         generate(raw:unknown) { if(domain!=='report-packs') throw new Error('Report generation is only available for report packs.'); return generateSavedReportPack(raw); },
         getAll: () => configurationRows[domain], getById: (id: string) => configurationRows[domain].find(r => r.id === id),
         save(raw: Record<string, string>, expectedRevision?: string) { const input = strings.parse(raw), existing = configurationRows[domain].find(r => r.id === input.id); if (existing && existing.revision !== expectedRevision)
@@ -191,7 +195,7 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
         addNote(id: string, note: string) { const row = repository.getById(id); if (!row || domain !== 'tasks' || !note.trim() || note.length > 4000)
             throw new Error('A valid task note is required.'); log(domain, { ...row, note: note.trim() }, 'Note added'); emit(); },
     };
-    registerRepository('workspace_' + domain.replaceAll('-', '_'), { validate: (value, snapshots) => { validateConfigurationSnapshot(domain, value); validateConfigurationReferences(domain, value, snapshots); }, repository, read: workspaceDomains[domain].read, commands: { generate: domain==='report-packs'?'accounting.read':null, save: workspaceDomains[domain].write, setStatus: workspaceDomains[domain].write, addNote: domain === 'tasks' ? 'sales.write' : null }, snapshot: () => ({ records: configurationRows[domain], history: configurationHistory[domain] }), restore: value => { validateConfigurationSnapshot(domain, value); configurationRows[domain] = value.records; configurationHistory[domain] = value.history; }, publish: emit });
+    registerRepository('workspace_' + domain.replaceAll('-', '_'), { validate: (value, snapshots) => { validateConfigurationSnapshot(domain, value); validateConfigurationReferences(domain, value, snapshots); }, repository, read: workspaceDomains[domain].read, commands: { run: domain==='custom-reports'?'accounting.read':null, generate: domain==='report-packs'?'accounting.read':null, save: workspaceDomains[domain].write, setStatus: workspaceDomains[domain].write, addNote: domain === 'tasks' ? 'sales.write' : null }, snapshot: () => ({ records: configurationRows[domain], history: configurationHistory[domain] }), restore: value => { validateConfigurationSnapshot(domain, value); configurationRows[domain] = value.records; configurationHistory[domain] = value.history; }, publish: emit });
     return [domain, repository];
 }));
 export function validateConfigurationSnapshot(domain: string, value: unknown) { const snapshot = z.object({ records: z.array(strings), history: z.array(strings) }).strict().parse(value); const ids = new Set<string>(); for (const row of snapshot.records) {

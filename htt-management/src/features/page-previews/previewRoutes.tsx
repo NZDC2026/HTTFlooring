@@ -1,3 +1,5 @@
+import { RecordSearchPage } from '../record-search/RecordSearchPage';
+import { SavedReportsPage } from '../saved-reports/SavedReportsPage';
 import { ReportPacksPage } from '../report-packs/ReportPacksPage';
 import { NetAnalysisPage } from '../net-analysis/NetAnalysisPage';
 import { CashReportsPage } from '../cash-reports/CashReportsPage';
@@ -17,7 +19,7 @@ import { useSecurity } from '../security/securityClient';
 import { hasPermission, type Permission } from '../security/rbac';
 import { previewModules, settingsForms, flowPages } from './catalog';
 import { DirectoryPage, ModuleList, ModuleForm, ModuleDetail, SettingsPreview } from './PreviewWorkspace';
-import { ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport, Attachments, CaptureReview, EntitySearch } from './PreviewFlows';
+import { ReceiptRefund, RecycleBin, ImportWizard, BankWorkbench, OperationalReport, Attachments, CaptureReview } from './PreviewFlows';
 import type { ReactNode } from 'react';
 export function PreviewAccess({ permission, children }: { permission: Permission; children: ReactNode }) {
  const { session } = useSecurity(), principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
@@ -25,6 +27,7 @@ export function PreviewAccess({ permission, children }: { permission: Permission
 }
 function ModuleRoute({ moduleId, mode }: { moduleId: string; mode: 'list' | 'new' | 'edit' | 'detail' }) {
  const { previewId } = useParams(), m = previewModules.find(m => m.id === moduleId)!;
+ if(m.id==='custom-reports')return <PreviewAccess permission={m.permission}><SavedReportsPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='report-packs')return <PreviewAccess permission={m.permission}><ReportPacksPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='payment-batches')return <PreviewAccess permission={m.permission}><PaymentBatchPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='bank-accounts')return <PreviewAccess permission={m.permission}><BankAccountSetupPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
@@ -49,7 +52,7 @@ function FlowRoute({ id }: { id: string }) {
  else if (id === 'attachments') node = <Attachments />;
  else if (id === 'delivery') node = <OutputPage />;
  else if (id === 'ocr') node = <CaptureReview />;
- else if (id === 'entity-search') node = <EntitySearch />;
+ else if (id === 'entity-search') node = <RecordSearchPage />;
  else node = <OperationalReport key={id} kind={id} title={flow[2]} />;
  return <PreviewAccess permission={flow[4]}>{node}</PreviewAccess>;
 }

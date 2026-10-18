@@ -1,3 +1,11 @@
+## Business record search integration — 2026-10-18
+
+Business record search now uses current permission-filtered local records across 11 categories, with literal search, type/status/date filters, pagination and source navigation with a return link. See [RECORD-SEARCH.md](RECORD-SEARCH.md) for supported fields, scope and verification.
+
+## Saved report business integration — 2026-10-18
+
+Saved & favourite reports now run real Sales, Purchases, Banking and General ledger datasets with structured filters, ordered columns and complete CSV exports. See [SAVED-REPORTS.md](SAVED-REPORTS.md) for scope, permissions, compatibility and validation.
+
 > Follow-up: [Management report packs](REPORT-PACKS.md) generates selected current financial reports with ordered sections, CSV and printable HTML/PDF output.
 
 > Follow-up: [Net document analysis](NET-DOCUMENT-ANALYSIS.md) includes sales/purchase credits and dated void reversals with contact summaries and filtered export.

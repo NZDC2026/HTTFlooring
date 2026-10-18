@@ -7,7 +7,7 @@ const reports: { name: string; group: string; description: string; path: string;
  { name: 'Net purchase document analysis', group: 'Sales & purchases', description: 'Supplier bills less credits, with dated void corrections and supplier summaries.', path: '/reports/purchase-analysis', permission: 'purchases.read' },
  { name: 'Payroll summary · Sample', group: 'Additional previews', description: 'Gross, deductions and net pay layout.', path: '/reports/payroll-summary', permission: 'accounting.read' },
  { name: 'Banking summary', group: 'Banking', description: 'Complete bank ledger movements, account balances and journal detail.', path: '/reports/banking-summary', permission: 'banking.read' },
- { name: 'Saved & favourite reports · Sample', group: 'Additional previews', description: 'Dataset, column and filter configuration.', path: '/reports/saved', permission: 'accounting.read' },
+ { name: 'Saved & favourite reports', group: 'Saved reports', description: 'Run saved date, contact/account filters and ordered columns against current local books.', path: '/reports/saved', permission: 'accounting.read' },
  { name: 'Management report packs', group: 'Financial statements', description: 'Generate combined financial reports, review and export printable copies.', path: '/reports/packs', permission: 'accounting.read' },
  { name: 'Aged receivables', group: 'Receivables', description: 'Customer balances and overdue ageing.', path: '/reports', permission: 'sales.read' },
  { name: 'Aged payables', group: 'Payables', description: 'Supplier balances and payment ageing.', path: '/reports/aged-payables', permission: 'purchases.read' },
