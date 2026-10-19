@@ -25,7 +25,7 @@ export function FinancialSettingsPage() {
         string,
         string?
     ][] = [['companyName', 'Company name'], ['tradingName', 'Trading name'], ['identifier', 'Business / tax identifier'], ['email', 'Contact email', 'email'], ['phone', 'Phone'], ['address', 'Address'], ['currency', 'Base currency'], ['timezone', 'Business time zone'], ['yearEnd', 'Financial year end (MM-DD)'], ['gstCode', 'Default tax code'], ['basis', 'Manual price entry basis'], ['terms', 'Default invoice terms (days)', 'number']];
-    return <BusinessFrame title="Company & financial settings" actions={<><Link className={buttonClass} to="/accounting/tax-codes">Tax codes & posting accounts</Link><Link className={buttonClass} to="/accounting/opening-balances">Opening balances</Link></>}><Notice error>{error}</Notice><Notice>{notice}</Notice><form className="space-y-5" onSubmit={e => {
+    return <BusinessFrame title="Company & financial settings" actions={<><Link className={buttonClass} to="/settings/preferences">Personal preferences</Link><Link className={buttonClass} to="/settings/integrations">Local capabilities & integrations</Link><Link className={buttonClass} to="/settings/roles">Role policy</Link><Link className={buttonClass} to="/accounting/tax-codes">Tax codes & posting accounts</Link><Link className={buttonClass} to="/accounting/opening-balances">Opening balances</Link></>}><Notice error>{error}</Notice><Notice>{notice}</Notice><form className="space-y-5" onSubmit={e => {
             e.preventDefault();
             try {
                 const saved = workspaceRepositories.settings.save(draft, expected);

@@ -7,7 +7,7 @@ import { areaQuantity } from './areaPacks';
 import { assertSourceNotReconciled } from '../../banking/data/reconciliationLock';
 import { assertProductQuantity } from '../../business-workspace/productRules';
 import { activeTaxRate, businessSettings, configuredNumber, taxSnapshot } from '../../business-workspace/configurationState';
-import { registerRepository } from "../../security/repositoryHost";
+import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import { requireDateKey, businessDateKey } from "../../../lib/businessDate";
 import { assertCurrentCrossModuleWriteSafe } from '../../integration/crossModuleWriteGate';
 import { loadSalesDocuments, persistSalesDocuments } from "./invoiceStorage";
@@ -1576,8 +1576,12 @@ export const salesRepository = {
         input: {
             creditNoteId: string;
             reason: string;
+            voidDate?: string;
         },
     ): CreditNote {
+        const owned = snapshotRepositories().physicalCustomerReturns as { returns: { creditNoteId: string; status: string }[] } | undefined;
+        if (owned?.returns.some(r => r.creditNoteId === input.creditNoteId && r.status === 'POSTED')) throw new Error('Reverse the linked physical customer return before voiding this credit.');
+        if (input.voidDate) requireDateKey(input.voidDate, 'Credit reversal date');
         const creditNote =
             creditNoteRepository.getById(
                 input.creditNoteId,
@@ -1607,6 +1611,8 @@ export const salesRepository = {
             );
         }
 
+        if (input.voidDate && ((creditNote.refundEvents ?? []).some(e => (e.reversalDate ?? e.date) > input.voidDate!) || creditNoteRepository.getAllocationsByCreditNote(creditNote.id).some(a => businessDateKey(a.reversedAt ?? a.createdAt) > input.voidDate!))) throw new Error('Credit reversal precedes later settlement activity.');
+        if (input.voidDate && input.voidDate < creditNote.creditDate) throw new Error('Credit reversal date precedes credit date.');
         if ((creditNote.amountRefunded ?? 0) > 0) throw new Error('Reverse customer refunds before voiding the credit.');
         const reason =
             input.reason.trim();
@@ -1661,7 +1667,7 @@ export const salesRepository = {
             amountAvailable: 0,
 
             voidedAt:
-                now,
+                input.voidDate ?? now,
 
             voidReason:
                 reason,
@@ -1997,6 +2003,7 @@ export const salesRepository = {
         assertSourceNotReconciled('CUSTOMER_PAYMENT',paymentId);
         assertCurrentCrossModuleWriteSafe();
         assertCurrentSalesWriteSafety();
+        if (paymentRepository.getById(paymentId)?.depositApplicationId) throw new Error('Reverse this settlement through customer deposits.');
         const payment =
             paymentRepository.getById(
                 paymentId,

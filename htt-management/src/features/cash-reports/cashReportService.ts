@@ -31,8 +31,10 @@ const cents = (n: number) => Math.round(n * 100);
 const amount = (n: number) => n / 100;
 function category(entry: JournalEntry): CashCategory {
     switch (entry.sourceType) {
+        case 'CUSTOMER_DEPOSIT':
         case 'CUSTOMER_PAYMENT':
         case 'CUSTOMER_PAYMENT_REVERSAL': return cashCategories[0];
+        case 'CUSTOMER_DEPOSIT_REFUND':
         case 'CUSTOMER_REFUND': return cashCategories[1];
         case 'SUPPLIER_PAYMENT':
         case 'SUPPLIER_PAYMENT_REVERSAL': return cashCategories[2];

@@ -1,4 +1,4 @@
-import { hasPermission } from "./rbac";
+import { landingFor, personalPreferenceStore } from '../settings/data/personalPreferences';
 import { useSyncExternalStore } from 'react';
 import { hydrateBusiness, nativeRequest } from './repositoryHost';
 import type { BusinessView, SecurityStatus } from './securityContract';
@@ -14,11 +14,12 @@ export function enterBusiness(): void {
     hydrateBusiness(nativeRequest<BusinessView>('business.bootstrap', { legacyStorage }));
     const current = refreshSecurity();
     const principal = current.session && { userId: current.session.user.id, roles: current.session.user.roles, authenticated: true as const };
-    if ((!location.hash || location.hash === '#/' || location.hash === '#/dashboard') && !hasPermission(principal, 'accounting.read')) {
-        location.hash = hasPermission(principal, 'sales.read') ? '/sales' : hasPermission(principal, 'purchases.read') ? '/purchases' : '/inventory';
+    if (!location.hash || location.hash === '#/' || location.hash === '#') {
+        const preferences = personalPreferenceStore().get(current.session?.user.id ?? '');
+        location.hash = landingFor(principal, preferences.landingPage);
     }
 }
 export function logout(): void {
-    nativeRequest('logout'); refreshSecurity();
+    nativeRequest('logout'); refreshSecurity(); location.hash = '/';
 }
 export function useSecurity() { return useSyncExternalStore(listener => { listeners.add(listener); return () => listeners.delete(listener); }, () => status, () => status); }

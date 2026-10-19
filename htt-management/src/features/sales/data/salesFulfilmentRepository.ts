@@ -1,5 +1,5 @@
 import { isStockLine } from '../../inventory/data/itemTypes';
-import { registerRepository } from "../../security/repositoryHost";
+import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import {
     salesRepository,
 } from "./salesRepository";
@@ -861,6 +861,8 @@ export const salesFulfilmentRepository =
         input:
             VoidSalesFulfilmentInput,
     ) {
+        const returns = snapshotRepositories().physicalCustomerReturns as { returns: { status: string; lines: { fulfilmentId: string }[] }[] } | undefined;
+        if (returns?.returns.some(r => r.status === 'POSTED' && r.lines.some(l => l.fulfilmentId === input.fulfilmentId))) throw new Error('Reverse physical customer returns before voiding this dispatch.');
         const fulfilment =
             fulfilments.find(
                 (

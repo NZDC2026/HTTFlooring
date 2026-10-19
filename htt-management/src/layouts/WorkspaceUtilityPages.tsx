@@ -4,7 +4,7 @@ import { useSecurity } from '../features/security/securityClient';
 import { hasPermission, type Permission } from '../features/security/rbac';
 import { Panel, fieldClass, buttonClass } from '../features/prototype/PrototypeUI';
 const destinations: { name: string; description: string; path: string; permission?: Permission }[] = [
- { name: 'Page directory', description: 'Products, tax codes, refunds, bank rules, templates and additional previews', path: '/workspace' },
+ { name: 'Page directory', description: 'Products, tax codes, refunds, bank rules, templates and local workflows', path: '/workspace' },
  { name: 'Business record search', description: 'Current local numbers, names and references available to your role', path: '/search/records', permission: 'inventory.read' },
  { name: 'Tasks & action centre', description: 'Local follow-ups, owners, due dates and audited status history', path: '/tasks', permission: 'sales.read' },
  { name: 'Dashboard', description: 'Financial overview and recent activity', path: '/dashboard', permission: 'accounting.read' },
@@ -19,8 +19,10 @@ const destinations: { name: string; description: string; path: string; permissio
  { name: 'Suppliers', description: 'Supplier contacts and details', path: '/contacts/suppliers', permission: 'contacts.write' },
  { name: 'Employees', description: 'Saved employee payroll profiles', path: '/payroll/employees', permission: 'payroll.read' },
  { name: 'Payroll', description: 'Local pay runs, timesheets and leave', path: '/payroll', permission: 'payroll.read' },
- { name: 'Documents', description: 'Sample document library and upload preview', path: '/documents' },
- { name: 'Settings', description: 'Company and preference previews', path: '/settings' },
+ { name: 'Documents', description: 'Local files, linked business records, versions and recovery', path: '/documents' },
+ { name: 'Personal preferences', description: 'Saved sign-in home, table density and reduced motion for your local account', path: '/settings/preferences' },
+ { name: 'Local capabilities & integrations', description: 'Implemented local workflows and external service boundaries', path: '/settings/integrations' },
+ { name: 'Settings', description: 'Company settings and local capability information', path: '/settings' },
  { name: 'Local access & audit', description: 'Local users, password, audit and backup controls', path: '/settings/security' },
  { name: 'Help', description: 'Workspace guide and feature boundaries', path: '/help' },
 ];
@@ -36,11 +38,12 @@ export function HelpPage() {
  ['Finance & closing', 'Review reconciliation controls, resolve pending operations, configure open accounting periods and run close checks before closing.', '/accounting/periods'],
  ['Local security & recovery', 'Sign in to the desktop profile. Administrators manage users and business backups. Restore requires quitting and reopening the application.', '/settings/security'],
  ['Local payroll', 'Employees, hours, leave, reviewed payroll, journals and recorded payments. Government submission uses an external service.', '/payroll'],
- ['Document prototype', 'Explore metadata, sample content outlines, version/access layouts and file-selection preview. No file bytes are uploaded or stored.', '/documents'],
+ ['Document centre', 'Save files against business records, preview or export versions, and recover recycled attachments. File bytes and audit history are included in local business backups.', '/documents'],
+ ['Personal preferences', 'Choose your sign-in home, compact or comfortable tables and reduced motion. Settings persist for your account on this device, separately from business backups.', '/settings/preferences'],
  ].map(([title, text, path]) => <Panel key={title} title={title}><p className="text-sm leading-6">{text}</p><Link className={buttonClass} to={path}>Open workspace</Link></Panel>)}</div><Panel title="Frequently asked questions">{[
  ['Why is an action unavailable?', 'Actions depend on your signed-in role, document status, accounting period and any unresolved posting operations. Review the displayed reason before retrying.'],
- ['Will prototype changes remain after reload?', 'Remaining document and general setting previews reset on reload. Local payroll persists with normal business backups. Actual finance, contacts, security and period data use the local main-process storage.'],
- ['Does the application send data to a live backend?', 'The current implementation uses local repositories and mocks. The integration configuration screens are static previews.'],
+ ['Will changes remain after reload?', 'Business records, files and payroll persist in local main-process storage and business backups. Personal display preferences persist separately on this device for your account.'],
+ ['Does the application send data to a live backend?', 'The current implementation uses local repositories and mocks. The integration page describes local capabilities and external services that are not connected.'],
  ].map(([question, answer]) => <details className="rounded border p-4" key={question}><summary className="font-medium">{question}</summary><p className="mt-3 text-sm">{answer}</p></details>)}</Panel></main>;
 }
 export { ActionCentrePage as NotificationsPage } from '../features/action-centre/ActionCentrePage';

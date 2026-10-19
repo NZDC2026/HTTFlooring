@@ -1,4 +1,4 @@
-import { assertBankPostingDate } from '../../banking/data/reconciliationLock';
+import { assertBankPostingDate, assertJournalNotStatementMatched } from '../../banking/data/reconciliationLock';
 import { assertPostingPeriod } from './accountingPeriodRepository';
 import { registerRepository } from "../../security/repositoryHost";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
@@ -525,6 +525,8 @@ export const journalEntryRepository =
                 "Journal entry was not found.",
             );
         }
+
+        assertJournalNotStatementMatched(original.id);
 
         if (
             original

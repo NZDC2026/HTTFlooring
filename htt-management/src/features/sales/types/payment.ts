@@ -10,6 +10,8 @@ export type PaymentStatus =
     | "REVERSED";
 
 export interface Payment {
+    depositId?: string;
+    depositApplicationId?: string;
     id: string;
 
     paymentNumber: string;

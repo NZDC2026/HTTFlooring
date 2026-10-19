@@ -12,11 +12,12 @@ import { useSecurity } from '../security/securityClient';
 import { hasPermission, type Permission } from '../security/rbac';
 import type { Product, ProductUnit } from '../inventory/types/product';
 export const connectedModules = new Set(['products', ...Object.keys(workspaceDomains).filter(d => d !== 'settings')]);
-export function BusinessFrame({ title, children, actions }: {
+export function BusinessFrame({ title, children, actions, description = 'Saved in this desktop business profile. Authorized changes are recorded in the local security audit.' }: {
     title: string;
     children: ReactNode;
     actions?: ReactNode;
-}) { return <div className="space-y-5 pb-10"><header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-accent)]">Local business data</p><h1 className="mt-1 font-display text-3xl">{title}</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Saved in this desktop business profile. Authorized changes are recorded in the local security audit.</p></div><div className="flex flex-wrap gap-2"><Link className={buttonClass} to="/workspace">Page directory</Link>{actions}</div></header>{children}</div>; }
+    description?: string;
+}) { return <div className="space-y-5 pb-10"><header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-accent)]">Local business data</p><h1 className="mt-1 font-display text-3xl">{title}</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">{description}</p></div><div className="flex flex-wrap gap-2"><Link className={buttonClass} to="/workspace">Page directory</Link>{actions}</div></header>{children}</div>; }
 function useCan(permission: Permission) { const { session } = useSecurity(); return hasPermission(session && { userId: session.user.id, roles: session.user.roles, authenticated: true }, permission); }
 function Missing({ path }: {
     path: string;

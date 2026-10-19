@@ -654,7 +654,7 @@ export function InvoiceDetailPage() {
                 />
 
                 <MoneyCard
-                    label="Payments Received"
+                    label="Payments & deposit applications"
                     value={
                         invoice.amountPaid
                     }
@@ -1359,9 +1359,7 @@ function PaymentHistory({
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <div className="text-xs font-medium">
-                                                {formatPaymentMethod(
-                                                    payment.method,
-                                                )}
+                                                {payment.depositId ? <Link className="underline" to={'/sales/customer-deposits/'+payment.depositId}>Deposit applied · no new cash</Link> : formatPaymentMethod(payment.method)}
                                             </div>
 
                                             <PaymentStatusBadge
@@ -1403,7 +1401,7 @@ function PaymentHistory({
                                     </div>
 
                                     <div className="flex justify-end">
-                                        {!reversed &&
+                                        {!reversed && !payment.depositApplicationId &&
                                             allowReverse && (
                                                 <Button
                                                     variant="ghost"

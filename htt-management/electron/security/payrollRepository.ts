@@ -73,6 +73,21 @@ function employment(e: Employee, from: string, to = from) {
     if (from < e.startDate || (e.endDate && to > e.endDate))
         throw new Error('Dates must be within the employment period.');
 }
+function validateTimeSource(t: z.infer<typeof timeFields>) {
+    const e = employeeFor(t.employeeId);
+    employment(e, t.date);
+    const i = row('items', t.itemId) as PayItem;
+    if (!i.active || i.category !== 'Earnings' || (e.basis === 'Hourly' && i.method !== 'Hourly') || (e.basis === 'Salary' && i.id !== e.earningItemId))
+        throw new Error('Select an appropriate employee earnings item.');
+    validateItem(i);
+}
+function validateLeaveSource(l: z.infer<typeof leaveFields>, except?: string) {
+    employment(employeeFor(l.employeeId), l.start, l.end);
+    if (l.start > l.end || l.hours > ((Date.parse(l.end) - Date.parse(l.start)) / 86400000 + 1) * 24)
+        throw new Error('Leave dates or hours are invalid.');
+    if (state.leave.some(other => other.id !== except && other.employeeId === l.employeeId && ['Pending', 'Approved'].includes(other.status) && other.start <= l.end && other.end >= l.start))
+        throw new Error('Leave request dates overlap.');
+}
 function settings() {
     const s = state.settings[0];
     if (!s)
@@ -140,6 +155,10 @@ function build(input: z.infer<typeof runFields>, except?: string) {
         const times = state.timesheets.filter(t => t.employeeId === e.id && t.status === 'Approved' && t.date >= input.start && t.date <= input.end), leaves = state.leave.filter(l => l.employeeId === e.id && l.status === 'Approved' && l.start <= input.end && l.end >= input.start);
         if (leaves.some(l => l.start < input.start || l.end > input.end))
             throw new Error('Split leave spanning pay periods before including it in payroll.');
+        for (const t of times)
+            validateTimeSource(t);
+        for (const l of leaves)
+            validateLeaveSource(l, l.id);
         if (times.some(t => reserved('timesheets', t.id, except)) || leaves.some(l => reserved('leave', l.id, except)))
             throw new Error('Hours or leave are already reserved by another pay run.');
         if (times.some(t => leaves.some(l => t.date >= l.start && t.date <= l.end)))
@@ -325,11 +344,8 @@ export const payrollRepository = {
             version(old, input.expectedRevision);
             if (old && (old.status !== 'Draft' || reserved('timesheets', old.id)))
                 throw new Error('Only an unreserved draft timesheet can be edited.');
-            const e = employeeFor(input.values.employeeId);
-            employment(e, input.values.date);
-            const i = row('items', input.values.itemId) as PayItem;
-            if (!i.active || i.category !== 'Earnings' || (e.basis === 'Hourly' && i.method !== 'Hourly') || (e.basis === 'Salary' && i.id !== e.earningItemId))
-                throw new Error('Select an appropriate employee earnings item.');
+            validateTimeSource(input.values);
+            const e = employeeFor(input.values.employeeId), i = row('items', input.values.itemId) as PayItem;
             if (state.timesheets.filter(t => t.id !== old?.id && t.employeeId === e.id && t.date === input.values.date).reduce((n, t) => n + t.hours, 0) + input.values.hours > 24)
                 throw new Error('Total timesheet hours cannot exceed 24 for one employee/day.');
             if (state.timesheets.some(t => t.id !== old?.id && t.employeeId === e.id && t.itemId === i.id && t.date === input.values.date))
@@ -347,6 +363,8 @@ export const payrollRepository = {
                 throw new Error('Timesheet is reserved by a pay run.');
             if (input.action === 'Submit' && old.status !== 'Draft' || input.action === 'Approve' && old.status !== 'Submitted' || input.action === 'Reopen' && old.status === 'Draft')
                 throw new Error('Invalid timesheet transition.');
+            if (input.action !== 'Reopen')
+                validateTimeSource(old);
             return put('timesheets', { ...old, ...meta(old, input.action, input.reason), status: input.action === 'Submit' ? 'Submitted' : input.action === 'Approve' ? 'Approved' : 'Draft' });
         });
     },
@@ -358,14 +376,7 @@ export const payrollRepository = {
             version(old, input.expectedRevision);
             if (old && (old.status !== 'Pending' || reserved('leave', old.id)))
                 throw new Error('Only an unreserved pending leave request can be edited.');
-            const e = employeeFor(input.values.employeeId);
-            employment(e, input.values.start, input.values.end);
-            if (input.values.hours > ((Date.parse(input.values.end) - Date.parse(input.values.start)) / 86400000 + 1) * 24)
-                throw new Error('Leave hours exceed the selected date range.');
-            if (input.values.start > input.values.end)
-                throw new Error('Leave dates are invalid.');
-            if (state.leave.some(l => l.id !== old?.id && l.employeeId === e.id && ['Pending', 'Approved'].includes(l.status) && l.start <= input.values.end && l.end >= input.values.start))
-                throw new Error('Leave request dates overlap.');
+            validateLeaveSource(input.values, old?.id);
             return put('leave', { ...input.values, ...meta(old, old ? 'Edited' : 'Created', input.reason), status: 'Pending' });
         });
     },
@@ -379,6 +390,8 @@ export const payrollRepository = {
                 throw new Error('Leave is reserved by a pay run.');
             if ((['Approve', 'Decline'].includes(input.action) && old.status !== 'Pending') || (input.action === 'Cancel' && ['Cancelled', 'Declined'].includes(old.status)) || (input.action === 'Reopen' && !['Cancelled', 'Declined'].includes(old.status)))
                 throw new Error('Invalid leave transition.');
+            if (input.action === 'Approve' || input.action === 'Reopen')
+                validateLeaveSource(old, old.id);
             const next = put('leave', { ...old, ...meta(old, input.action, input.reason), status: input.action === 'Approve' ? 'Approved' : input.action === 'Decline' ? 'Declined' : input.action === 'Cancel' ? 'Cancelled' : 'Pending' });
             if (next.status === 'Approved')
                 enough(old.employeeId);
@@ -613,6 +626,15 @@ registerRepository('payroll', { repository: payrollRepository, read: 'payroll.re
                         if (live(r)) {
                             if (consumed.has(sourceId) || source.status !== 'Approved')
                                 throw new Error('Payroll source is reused or unapproved.');
+                            const from = entity === 'timesheets' ? source.date : source.start, to = entity === 'timesheets' ? source.date : source.end;
+                            employment(slip.employee, from, to);
+                            if (from < r.start || to > r.end)
+                                throw new Error('Payroll source dates are outside the pay period.');
+                            const prefix = entity === 'timesheets' ? 'Time:' : 'Leave:';
+                            const payable = slip.employee.basis === 'Hourly' && (entity === 'timesheets' || source.type !== 'Unpaid');
+                            const lines = slip.lines.filter(l => l.source === prefix + sourceId);
+                            if (payable ? lines.length !== 1 || lines[0].quantity !== source.hours || lines[0].item.id !== (entity === 'timesheets' ? source.itemId : slip.employee.earningItemId) : lines.length !== 0)
+                                throw new Error('Payroll source hours do not match the frozen payslip.');
                             consumed.add(sourceId);
                         }
                     }

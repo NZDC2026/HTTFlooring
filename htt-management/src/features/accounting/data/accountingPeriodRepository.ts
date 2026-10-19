@@ -1,7 +1,7 @@
 import { registerRepository } from '../../security/repositoryHost';
 import { validatePeriods } from './accountingPeriodValidation';
 import { requireDateKey } from '../../../lib/businessDate';
-export type PeriodCheck = { code: string; message: string };
+export type PeriodCheck = { code: string; message: string; path?: string };
 export type AccountingPeriod = { id: string; name: string; startDate: string; endDate: string; status: 'OPEN' | 'CLOSED'; history: { action: 'CREATE' | 'CLOSE' | 'REOPEN'; actor: string; reason: string; at: string; checks?: { journalCount: number; debit: number; credit: number } }[] };
 export type CloseCheck = { blockers: PeriodCheck[]; journalCount: number; debit: number; credit: number };
 let periods: AccountingPeriod[] = [];

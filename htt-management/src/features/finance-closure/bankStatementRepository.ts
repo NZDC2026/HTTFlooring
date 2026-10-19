@@ -46,6 +46,7 @@ function unmatched(l: StatementLine) { if (l.status !== 'UNMATCHED')
     throw new Error('Statement date is already reconciled.'); }
 function save(l: StatementLine) { lines = lines.map(r => r.id === l.id ? l : r); emit(); return l; }
 const ledger = (bankAccountId: string, date: string) => calculateBankRegister(bank(bankAccountId), journalEntryRepository.getAll(), date).transactions;
+function assertCurrentStatementBankDate(l: StatementLine) { if (l.date < bank(l.bankAccountId).openingBalanceDate) throw new Error('Statement predates the current bank opening date.'); }
 const inputRow = z.object({ date: id, description: z.string().trim().min(1).max(1000), amount: z.number().finite().refine(n => n !== 0 && money(n) === n, 'Enter a non-zero amount in cents'), reference: z.string().max(500).default(''), externalId: z.string().max(200).default('') }).strict();
 export const bankStatementRepository = {
     importRows(raw: {
@@ -123,7 +124,7 @@ export const bankStatementRepository = {
     match(input: {
         id: string;
         ledgerIds: string[];
-    }) { const l = line(input.id); unmatched(l); if (!Array.isArray(input.ledgerIds) || !input.ledgerIds.length || new Set(input.ledgerIds).size !== input.ledgerIds.length)
+    }) { const l = line(input.id); unmatched(l); assertCurrentStatementBankDate(l); if (!Array.isArray(input.ledgerIds) || !input.ledgerIds.length || new Set(input.ledgerIds).size !== input.ledgerIds.length)
         throw new Error('Select unique ledger entries.'); const candidates = bankStatementRepository.candidates({ bankAccountId: l.bankAccountId, asOfDate: l.date }); const selected = input.ledgerIds.map(id => candidates.find(r => r.id === id)); if (selected.some(r => !r) || money(selected.reduce((s, r) => s + r!.moneyIn - r!.moneyOut, 0)) !== l.amount)
         throw new Error('Selected bank entries must match this signed statement amount exactly.'); return save({ ...l, status: 'MATCHED', ledgerIds: [...input.ledgerIds], history: [...l.history, { action: 'Matched', date: new Date().toISOString() }] }); },
     suggestions(input: {
@@ -140,7 +141,7 @@ export const bankStatementRepository = {
         if (l.fingerprint !== fingerprint)
             throw new Error('Line was already posted with different categorisation.');
         return l;
-    } unmatched(l); const splits = z.array(z.object({ accountId: id, amount: z.number().finite().positive().refine(n => money(n) === n), taxCode: id }).strict()).min(1).max(100).parse(input.splits); if (money(splits.reduce((s, p) => s + p.amount, 0)) !== Math.abs(l.amount))
+    } unmatched(l); assertCurrentStatementBankDate(l); const splits = z.array(z.object({ accountId: id, amount: z.number().finite().positive().refine(n => money(n) === n), taxCode: id }).strict()).min(1).max(100).parse(input.splits); if (money(splits.reduce((s, p) => s + p.amount, 0)) !== Math.abs(l.amount))
         throw new Error('Split amounts must equal the statement total.'); const b = bank(l.bankAccountId), out = l.amount < 0; const offset = splits.flatMap(s => { const a = accountRepository.requireById(s.accountId); if (!a.active || !a.allowManualPosting || !['EXPENSE', 'REVENUE'].includes(a.type))
         throw new Error('Use an active manual expense/revenue account. Payments against AR/AP must be matched to their source documents.'); const rate = activeTaxRate(s.taxCode), net = money(s.amount / (1 + rate)), tax = money(s.amount - net); return [{ accountId: a.id, debit: out ? net : 0, credit: out ? 0 : net }, ...(tax ? [{ accountId: (out?taxSnapshot(s.taxCode).taxPaidAccountId:taxSnapshot(s.taxCode).taxCollectedAccountId)||accountRepository.requireBySystemRole(out ? 'GST_RECEIVABLE' : 'GST_PAYABLE').id, debit: out ? tax : 0, credit: out ? 0 : tax }] : [])]; }); const j = journalEntryRepository.post({ journalDate: l.date, description: l.description, reference: l.reference, sourceType: 'BANK_STATEMENT', sourceId: l.id + ':' + l.history.filter(h => h.action === 'Posted').length, lines: [{ accountId: b.glAccountId, debit: out ? 0 : l.amount, credit: out ? -l.amount : 0 }, ...offset] }); const ledgerIds = j.lines.filter(r => r.accountId === b.glAccountId).map(r => j.id + ':' + r.id); return save({ ...l, status: 'POSTED', journalEntryId: j.id, ledgerIds, fingerprint, history: [...l.history, { action: 'Posted', date: new Date().toISOString() }] }); },
     ignore(input: {
@@ -164,9 +165,65 @@ export const bankStatementRepository = {
         statementBalance: number;
     }) { assertPostingPeriod(input.statementDate); assertCurrentCrossModuleWriteSafe(); requireDateKey(input.statementDate, 'Statement date'); if (!lines.some(l => l.bankAccountId === input.bankAccountId && l.date <= input.statementDate))
         throw new Error('Import the statement first.'); if (lines.some(l => l.bankAccountId === input.bankAccountId && l.date <= input.statementDate && l.status === 'UNMATCHED'))
-        throw new Error('Process every statement line before completing reconciliation.'); const cleared = lines.filter(l => l.bankAccountId === input.bankAccountId && l.date <= input.statementDate).flatMap(l => l.ledgerIds); return bankReconciliationRepository.complete({ ...input, clearedTransactionIds: [...new Set([...bankReconciliationRepository.getClearedTransactionIds(input.bankAccountId), ...cleared])] }); }
+        throw new Error('Process every statement line before completing reconciliation.'); const processed = lines.filter(l => l.bankAccountId === input.bankAccountId && l.date <= input.statementDate);
+        const entries = ledger(input.bankAccountId, input.statementDate);
+        for (const row of processed.filter(l => l.status === 'MATCHED' || l.status === 'POSTED')) {
+            const matched = row.ledgerIds.map(id => entries.find(e => e.id === id));
+            if (!matched.length || matched.some(e => !e || e.journalStatus !== 'POSTED') || money(matched.reduce((n, e) => n + e!.moneyIn - e!.moneyOut, 0)) !== row.amount)
+                throw new Error('Statement match is stale. Revert the statement line and review its ledger sources before reconciling.');
+        }
+        const cleared = processed.flatMap(l => l.ledgerIds); return bankReconciliationRepository.complete({ ...input, clearedTransactionIds: [...new Set([...bankReconciliationRepository.getClearedTransactionIds(input.bankAccountId), ...cleared])] }); }
 };
 const schema = z.object({ id, key: z.string(), bankAccountId: id, date: id, description: z.string(), reference: z.string(), amount: z.number().finite(), externalId: z.string(), status: z.enum(['UNMATCHED', 'MATCHED', 'POSTED', 'IGNORED']), ledgerIds: z.array(id), journalEntryId: z.string().optional(), fingerprint: z.string().optional(), history: z.array(z.object({ action: z.string(), date: z.string(), reason: z.string().optional() })) }).strict();
-registerRepository('bankStatements', { repository: bankStatementRepository, read: 'banking.read', commands: { importRows: 'banking.write', importCsv: 'banking.write', candidates: 'banking.read', suggestions: 'banking.read', match: 'banking.write', post: 'banking.write', ignore: 'banking.write', revert: 'banking.write', reconcile: 'banking.reconcile' }, snapshot: () => ({ lines }), restore: v => { lines = v.lines; }, validate: v => { z.array(schema).parse((v as {
-        lines: StatementLine[];
-    }).lines); }, publish: emit });
+registerRepository('bankStatements', { repository: bankStatementRepository, read: 'banking.read', commands: { importRows: 'banking.write', importCsv: 'banking.write', candidates: 'banking.read', suggestions: 'banking.read', match: 'banking.write', post: 'banking.write', ignore: 'banking.write', revert: 'banking.write', reconcile: 'banking.reconcile' }, snapshot: () => ({ lines }), restore: v => { lines = v.lines; }, validate: (value, snapshots) => {
+    const parsed = z.object({ lines: z.array(schema) }).strict().parse(value), all = snapshots as Record<string, any>;
+    const banks = all.bankAccounts.bankAccounts as { id: string; glAccountId: string }[];
+    const journals = all.journals.journalEntries as import('../accounting/types/journalEntry').JournalEntry[];
+    const used = new Set<string>(), journalById = new Map(journals.map(j => [j.id, j]));
+    const ledgerById = new Map(journals.flatMap(journal => journal.lines.map(entry => [journal.id + ':' + entry.id, { journal, entry }] as const)));
+    if (new Set(parsed.lines.map(l => l.key)).size !== parsed.lines.length) throw new Error('Duplicate bank statement import key.');
+    for (const row of parsed.lines) {
+        const account = banks.find(b => b.id === row.bankAccountId);
+        if (!account) throw new Error('Bank statement account is missing.');
+        try { requireDateKey(row.date); inputRow.parse({ date: row.date, description: row.description, amount: row.amount, reference: row.reference, externalId: row.externalId }); } catch { throw new Error('Invalid bank statement date, amount or metadata.'); }
+        const expectedKey = JSON.stringify([row.bankAccountId, row.externalId || [row.date, row.amount, row.description.trim().toLowerCase(), row.reference.trim().toLowerCase()]]);
+        if (row.key !== expectedKey) throw new Error('Bank statement import identity does not match its data.');
+        let status: StatementLine['status'] | undefined;
+        for (const event of row.history) {
+            if (!Number.isFinite(Date.parse(event.date))) throw new Error('Invalid bank statement history date.');
+            if (!status && event.action === 'Imported') status = 'UNMATCHED';
+            else if (status === 'UNMATCHED' && ['Matched', 'Posted', 'Excluded'].includes(event.action)) {
+                if (event.action === 'Excluded' && (event.reason?.trim().length ?? 0) < 3) throw new Error('Bank statement exclusion has no reason.');
+                status = event.action === 'Matched' ? 'MATCHED' : event.action === 'Posted' ? 'POSTED' : 'IGNORED';
+            }
+            else if (status && status !== 'UNMATCHED' && event.action === 'Reverted' && (event.reason?.trim().length ?? 0) >= 3) status = 'UNMATCHED';
+            else throw new Error('Invalid bank statement lifecycle history.');
+        }
+        if (status !== row.status) throw new Error('Bank statement status does not match its history.');
+        if (row.status === 'UNMATCHED' || row.status === 'IGNORED') {
+            if (row.ledgerIds.length || row.journalEntryId || row.fingerprint) throw new Error('An unposted bank statement line cannot retain ledger links.');
+            continue;
+        }
+        if (!row.ledgerIds.length || new Set(row.ledgerIds).size !== row.ledgerIds.length) throw new Error('Bank statement ledger links are missing or duplicated.');
+        let total = 0;
+        for (const ledgerId of row.ledgerIds) {
+            const linked = ledgerById.get(ledgerId), journal = linked?.journal, entry = linked?.entry;
+            if (used.has(ledgerId) || !journal || !entry || entry.accountId !== account.glAccountId || journal.journalDate > row.date) throw new Error('Bank statement ledger source is invalid or reused.');
+            used.add(ledgerId); total = money(total + entry.debit - entry.credit);
+        }
+        if (total !== row.amount) throw new Error('Bank statement amount does not match its ledger links.');
+        if (row.status === 'MATCHED') {
+            // Old unmatched reversals remain loadable so users can revert and repair them.
+            if (row.journalEntryId || row.fingerprint) throw new Error('Matched bank statements cannot claim categorisation journals.');
+        }
+        else {
+            const journal = journalById.get(row.journalEntryId ?? ''), generation = row.history.filter(h => h.action === 'Posted').length - 1;
+            const expectedIds = journal?.lines.filter(l => l.accountId === account.glAccountId).map(l => journal.id + ':' + l.id).sort();
+            if (!journal || journal.status !== 'POSTED' || journal.sourceType !== 'BANK_STATEMENT' || journal.sourceId !== row.id + ':' + generation || journal.journalDate !== row.date || JSON.stringify(expectedIds) !== JSON.stringify([...row.ledgerIds].sort())) throw new Error('Bank statement categorisation journal does not match its source.');
+            try {
+                const splits = z.array(z.object({ accountId: id, amount: z.number().finite().positive().refine(n => money(n) === n), taxCode: id }).strict()).min(1).max(100).parse(JSON.parse(row.fingerprint ?? ''));
+                if (money(splits.reduce((n, p) => n + p.amount, 0)) !== Math.abs(row.amount)) throw new Error('Wrong split total.');
+            } catch { throw new Error('Bank statement categorisation fingerprint is invalid.'); }
+        }
+    }
+}, publish: emit });

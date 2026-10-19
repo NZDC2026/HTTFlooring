@@ -1,3 +1,19 @@
+## Customer physical returns and deposits — 2026-10-20
+
+Both workflows now have connected local registers, receipt forms, details, reversal, accounting, audit and persistence under schema 18. Customer returns restore original dispatched stock and cost, with a new or linked credit. Deposits remain liabilities until applied to invoices or refunded; applications do not create duplicate bank cash. See [CUSTOMER-RETURNS-AND-DEPOSITS.md](CUSTOMER-RETURNS-AND-DEPOSITS.md) for controls and supported scope.
+
+## Personal preferences and truthful settings — 2026-10-20
+
+`/settings/preferences` now persists per-account device display choices: authorized sign-in home, table density and reduced CSS motion. Preferences survive application restarts, remain outside business backups and business-storage hydration, and do not alter financial dates, document exports or other users. A home page is rechecked against current roles on sign-in; explicit deep links remain intact. System reduced-motion settings take precedence. Unsupported preview language/theme/date controls and the sample-data reset button were removed.
+
+Role policy now displays the actual enforced permissions without a prototype disclaimer. Integration routes describe local accounting, AU payroll/STP boundaries, local document storage and document preparation, with authorized links. They no longer collect fictitious connection labels or schedules. Sidebar, company settings, workspace search and help link to these live pages. Earlier preview descriptions below are historical.
+
+## Live document centre — 2026-10-20
+
+The main document library (`/documents`), upload (`/documents/upload`) and detail (`/documents/:documentId`) now use the existing local attachment repository. `/documents/attachments` remains an alias of the same register. Native file selection saves bytes, links files to authorized business records and opens the saved document. Details expose actual versions, exports, preview, rename, recycle/recovery and scoped audit history. Read-only access hides maintenance actions. Missing or inaccessible legacy IDs show a neutral missing state. No sample document records are migrated into business data.
+
+Earlier static-preview descriptions below are historical; this update supersedes their document-library/upload/detail claims. File limits, object authority and backup behavior remain governed by the attachment repository. PDF/Office files can be exported for viewing; automatic OCR and external storage are outside this local workflow.
+
 ## Australian local payroll lifecycle — 2026-10-19
 
 Payroll pages now operate on persisted employees, pay items, approved hours/leave, reviewed AU PAYG/SG, calculation snapshots, payroll journals, recorded bank payments and reversals. Payslips, payroll summary and external filing review use real saved data under schema 17 and payroll-specific permissions. See [AU-PAYROLL.md](AU-PAYROLL.md) for supported calculation cases and external STP/SuperStream boundaries.

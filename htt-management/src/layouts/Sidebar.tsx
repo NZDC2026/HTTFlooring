@@ -138,6 +138,7 @@ const sections = [
     {
         label: "System",
         items: [
+            { label: "Personal preferences", path: "/settings/preferences", icon: Settings },
             {
                 label: "Settings",
                 path: "/settings",
@@ -212,7 +213,7 @@ export function Sidebar() {
                                         <NavLink
                                             key={item.path}
                                             to={item.path}
-                                            end={item.path === "/reports"}
+                                            end={item.path === "/reports" || item.path === "/settings"}
                                             className={({ isActive }) =>
                                                 cn(
                                                     "group flex h-10 items-center gap-3 rounded-lg px-3",

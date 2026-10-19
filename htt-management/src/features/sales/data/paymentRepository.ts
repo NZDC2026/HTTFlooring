@@ -301,6 +301,18 @@ export const paymentRepository = {
         return payment;
     },
 
+    recordDepositSettlement(input: { id: string; depositId: string; applicationId: string; customerId: string; invoiceId: string; paymentDate: string; bankAccountId: string; amount: number; reference: string }): Payment {
+        requireDateKey(input.paymentDate); if (!input.depositId || !input.applicationId || !Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Invalid deposit application payment.');
+        if (payments.some(p => p.id === input.id || p.depositApplicationId === input.applicationId)) throw new Error('Deposit application payment already exists.');
+        const now = new Date().toISOString(), payment: Payment = { id: input.id, paymentNumber: getNextPaymentNumber(), depositId: input.depositId, depositApplicationId: input.applicationId, customerId: input.customerId, invoiceId: input.invoiceId, paymentDate: input.paymentDate, bankAccountId: input.bankAccountId, amount: roundCurrency(input.amount), reference: input.reference, method: 'OTHER', notes: 'Deposit applied to invoice; no new bank receipt.', status: 'RECEIVED', createdAt: now, updatedAt: now };
+        const next = [payment, ...payments]; financialStateStorage.update('payments', next); payments = next; emitChange(); return payment;
+    },
+    reverseDepositSettlement(paymentId: string, reversalDate: string, reason: string): Payment {
+        requireDateKey(reversalDate); const payment = payments.find(p => p.id === paymentId);
+        if (!payment?.depositApplicationId || payment.status !== 'RECEIVED' || reversalDate < payment.paymentDate || reason.trim().length < 3) throw new Error('Invalid deposit settlement reversal.');
+        const updated: Payment = { ...payment, status: 'REVERSED', reversedAt: reversalDate, reversalReason: reason, updatedAt: new Date().toISOString() };
+        const next = payments.map(p => p.id === paymentId ? updated : p); financialStateStorage.update('payments', next); payments = next; emitChange(); return updated;
+    },
     reverse(
         paymentId: string,
         reason: string,
@@ -405,7 +417,7 @@ function roundCurrency(
 }
 registerRepository("customerPayments", {
     repository: paymentRepository, read: "sales.read",
-    commands: {"create": null, "reverse": null},
+    commands: {"create": null, "reverse": null, "recordDepositSettlement": null, "reverseDepositSettlement": null},
     snapshot: () => ({ payments }),
     restore: value => { payments = value.payments;  },
     publish: () => listeners.forEach(listener => listener()),

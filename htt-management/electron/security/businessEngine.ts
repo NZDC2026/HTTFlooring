@@ -1,3 +1,5 @@
+import '../../src/features/customer-deposits/customerDepositRepository';
+import '../../src/features/customer-returns/customerReturnRepository';
 import './payrollRepository';
 import './documentRecycleRepository';
 import './transferRepository';

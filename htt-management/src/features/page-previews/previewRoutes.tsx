@@ -1,3 +1,5 @@
+import { CustomerReturnsPage } from '../customer-returns/CustomerReturnsPage';
+import { CustomerDepositsPage } from '../customer-deposits/CustomerDepositsPage';
 import { PayItemsPage, PayrollSettingsPage, PayrollFilingPage, PayrollSummaryPage } from '../payroll/pages/PayrollPages';
 import { RecycleBinPage } from '../document-recycle/RecycleBinPage';
 import {DataTransferPage} from '../data-transfer/DataTransferPage';
@@ -74,7 +76,11 @@ function FlowRoute({ id }: { id: string }) {
  return <PreviewAccess permission={flow[4]}>{node}</PreviewAccess>;
 }
 function ManagedDetail({kind,permission}:{kind:'ORDER'|'INVOICE'|'EXPENSE';permission:Permission}){const {previewId}=useParams();return <PreviewAccess permission={permission}><ManagedDocumentPage key={previewId} kind={kind} mode="detail" id={previewId}/></PreviewAccess>;}
+function CustomerReturnRoute() { const {id}=useParams(); return <PreviewAccess permission="inventory.cost.read"><CustomerReturnsPage key={id??'list'}/></PreviewAccess>; }
+function CustomerDepositRoute() { const {id}=useParams(); return <PreviewAccess permission="sales.read"><CustomerDepositsPage key={id??'list'}/></PreviewAccess>; }
 export const additionalRoutes: RouteObject[] = [
+ ...['sales/customer-returns','sales/customer-returns/:id'].map(path=>({path,element:<CustomerReturnRoute/>})),
+ ...['sales/customer-deposits','sales/customer-deposits/:id'].map(path=>({path,element:<CustomerDepositRoute/>})),
  {path:"purchases/supplier-returns",element:<PreviewAccess permission="purchases.return.read"><SupplierReturnsPage/></PreviewAccess>},
  {path:'inventory/sales-dispatch',element:<PreviewAccess permission="inventory.read"><DispatchPage/></PreviewAccess>},
  ...([{path:'sales/drafts/orders',kind:'ORDER',permission:'sales.read'},{path:'sales/drafts/invoices',kind:'INVOICE',permission:'sales.read'},{path:'purchases/expense-bills',kind:'EXPENSE',permission:'purchases.read'}] as const).flatMap(m=>[{path:m.path,element:<PreviewAccess permission={m.permission}><ManagedDocumentPage key={m.kind+'list'} kind={m.kind} mode="list"/></PreviewAccess>},{path:m.path+'/:previewId',element:<ManagedDetail kind={m.kind} permission={m.permission}/>}]),

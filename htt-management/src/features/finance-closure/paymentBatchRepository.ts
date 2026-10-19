@@ -57,7 +57,7 @@ export const paymentBatchRepository = {
         throw new Error('Approve the batch before recording payments.'); assertCurrentCrossModuleWriteSafe(); validate(row); const groups = new Map<string, typeof row.allocations>(); for (const allocation of row.allocations) {
         const bill = supplierBillRepository.getById(allocation.supplierBillId)!;
         groups.set(bill.supplierId, [...(groups.get(bill.supplierId) ?? []), allocation]);
-    } const payments = [...groups].map(([supplierId, allocations]) => supplierPaymentRepository.create({ operationId: 'batch:' + row.id + ':' + supplierId, supplierId, paymentDate: row.paymentDate, bankAccountId: row.bankAccountId, reference: row.reference, method: 'BANK_TRANSFER', allocations })); return save({ ...row, status: 'POSTED', paymentIds: payments.map(p => p.id), history: [...row.history, event('Payments recorded')] }); },
+    } const payments = [...groups].map(([supplierId, allocations]) => supplierPaymentRepository.create({ operationId: 'batch:' + row.id + ':' + supplierId, supplierId, paymentDate: row.paymentDate, bankAccountId: row.bankAccountId, reference: row.reference, method: 'BANK_TRANSFER', allocations })); if (payments.some(p => p.status !== 'POSTED')) throw new Error('Batch payment is not posted. Inspect the prior operation before retrying.'); return save({ ...row, status: 'POSTED', paymentIds: payments.map(p => p.id), history: [...row.history, event('Payments recorded')] }); },
     cancel(input: {
         id: string;
         reason: string;
@@ -76,24 +76,43 @@ export const paymentBatchRepository = {
     } for (const id of row.paymentIds)
         supplierPaymentRepository.reverse(id, input.reason); return save({ ...row, status: 'REVERSED', history: [...row.history, event('Reversed', input.reason)] }); }
 };
-registerRepository('paymentBatches', { repository: paymentBatchRepository, read: 'banking.read', commands: { create: 'purchases.payment', approve: 'accounting.post', post: 'purchases.payment', cancel: 'purchases.payment', reverse: 'purchases.payment' }, snapshot: () => ({ batches }), restore: v => { batches = v.batches; }, validate: (value, snapshots) => { const state = z.object({ batches: z.array(inputSchema.extend({ id, fingerprint: z.string(), status: z.enum(['DRAFT', 'APPROVED', 'POSTED', 'REVERSED', 'CANCELLED']), createdBy: id, approvedBy: id.optional(), paymentIds: z.array(id), history: z.array(z.object({ action: id, actor: id, at: id, reason: z.string().optional() })) })) }).strict().parse(value); const payments = (snapshots.supplierPayments as {
-        supplierPayments: {
-            id: string;
-            status: string;
-            amount: number;
-            bankAccountId: string;
-        }[];
-    }).supplierPayments; for (const row of state.batches) {
-        if (!['POSTED', 'REVERSED'].includes(row.status))
+registerRepository('paymentBatches', { repository: paymentBatchRepository, read: 'banking.read', commands: { create: 'purchases.payment', approve: 'accounting.post', post: 'purchases.payment', cancel: 'purchases.payment', reverse: 'purchases.payment' }, snapshot: () => ({ batches }), restore: v => { batches = v.batches; }, validate: (value, snapshots) => {
+    const batchSchema = inputSchema.extend({ id, fingerprint: z.string(), status: z.enum(['DRAFT', 'APPROVED', 'POSTED', 'REVERSED', 'CANCELLED']), createdBy: id, approvedBy: id.optional(), paymentIds: z.array(id), history: z.array(z.object({ action: id, actor: id, at: id, reason: z.string().optional() }).strict()) }).strict();
+    const state = z.object({ batches: z.array(batchSchema) }).strict().parse(value);
+    const all = snapshots as Record<string, any>, payments = all.supplierPayments.supplierPayments as import('../purchases/types/supplierPayment').SupplierPayment[];
+    const banks = all.bankAccounts.bankAccounts as { id: string }[], bills = all.supplierBills.supplierBills as { id: string; supplierId: string }[];
+    const owned = new Set<string>();
+    if (new Set(state.batches.map(b => b.id)).size !== state.batches.length || new Set(state.batches.map(b => b.operationId)).size !== state.batches.length)
+        throw new Error('Duplicate payment batch identity or operation.');
+    const allocationsKey = (rows: { supplierBillId: string; amount: number }[]) => JSON.stringify(rows.map(a => ({ supplierBillId: a.supplierBillId, amount: a.amount })).sort((a, b) => a.supplierBillId.localeCompare(b.supplierBillId)));
+    for (const row of state.batches) {
+        try { requireDateKey(row.paymentDate, 'Batch payment date'); } catch { throw new Error('Invalid payment batch date.'); }
+        const input = { operationId: row.operationId, paymentDate: row.paymentDate, bankAccountId: row.bankAccountId, reference: row.reference, allocations: row.allocations };
+        if (row.fingerprint !== JSON.stringify(input) || !banks.some(b => b.id === row.bankAccountId) || new Set(row.allocations.map(a => a.supplierBillId)).size !== row.allocations.length || row.allocations.some(a => !bills.some(b => b.id === a.supplierBillId)))
+            throw new Error('Payment batch creation data or references are invalid.');
+        const actions = row.history.map(h => h.action).join('|'), approved = row.history.find(h => h.action === 'Approved');
+        const expectedActions: Record<PaymentBatch['status'], string[]> = { DRAFT: ['Created'], APPROVED: ['Created|Approved'], POSTED: ['Created|Approved|Payments recorded'], REVERSED: ['Created|Approved|Payments recorded|Reversed'], CANCELLED: ['Created|Cancelled', 'Created|Approved|Cancelled'] };
+        if (!expectedActions[row.status].includes(actions) || row.createdBy !== row.history[0]?.actor || row.approvedBy !== approved?.actor || row.history.some(h => !Number.isFinite(Date.parse(h.at)) || ['Cancelled', 'Reversed'].includes(h.action) && (h.reason?.trim().length ?? 0) < 3))
+            throw new Error('Payment batch lifecycle or approval history is invalid.');
+        if (!['POSTED', 'REVERSED'].includes(row.status)) {
+            if (row.paymentIds.length) throw new Error('An unposted batch cannot own supplier payments.');
             continue;
-        const linked = row.paymentIds.map(id => payments.find(p => p.id === id));
-        if (!linked.length || linked.some(p => !p || p.bankAccountId !== row.bankAccountId || p.status !== (row.status === 'REVERSED' ? 'REVERSED' : 'POSTED')) || money(linked.reduce((s, p) => s + (p?.amount ?? 0), 0)) !== money(row.allocations.reduce((s, p) => s + p.amount, 0)))
-            throw new Error('Batch payment relationships are invalid.');
-        if (row.paymentIds.some(id => !((snapshots.journals as {
-            journalEntries: {
-                sourceType: string;
-                sourceId?: string;
-            }[];
-        }).journalEntries.some(j => j.sourceType === 'SUPPLIER_PAYMENT' && j.sourceId === id))))
-            throw new Error('A batch payment journal is missing.');
-    } }, publish: emit });
+        }
+        const groups = new Map<string, typeof row.allocations>();
+        for (const allocation of row.allocations) {
+            const supplierId = bills.find(b => b.id === allocation.supplierBillId)!.supplierId;
+            groups.set(supplierId, [...(groups.get(supplierId) ?? []), allocation]);
+        }
+        if (row.paymentIds.length !== groups.size || new Set(row.paymentIds).size !== row.paymentIds.length)
+            throw new Error('Payment batch supplier groups are incomplete or duplicated.');
+        const seenSuppliers = new Set<string>();
+        for (const paymentId of row.paymentIds) {
+            const payment = payments.find(p => p.id === paymentId), expected = payment && groups.get(payment.supplierId);
+            if (owned.has(paymentId) || !payment || !expected || seenSuppliers.has(payment.supplierId) || payment.operationId !== 'batch:' + row.id + ':' + payment.supplierId || payment.bankAccountId !== row.bankAccountId || payment.paymentDate !== row.paymentDate || payment.method !== 'BANK_TRANSFER' || (payment.reference ?? '') !== row.reference.trim() || payment.status !== (row.status === 'REVERSED' ? 'REVERSED' : 'POSTED') || allocationsKey(payment.allocations) !== allocationsKey(expected) || payment.amount !== money(expected.reduce((n, a) => n + a.amount, 0)))
+                throw new Error('Payment batch payment relationships are invalid.');
+            owned.add(paymentId); seenSuppliers.add(payment.supplierId);
+            if (!all.journals.journalEntries.some((j: { sourceType: string; sourceId?: string }) => j.sourceType === 'SUPPLIER_PAYMENT' && j.sourceId === paymentId))
+                throw new Error('A batch payment journal is missing.');
+        }
+    }
+}, publish: emit });

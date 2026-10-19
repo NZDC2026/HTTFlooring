@@ -1,3 +1,11 @@
+## Cross-module close readiness follow-up — 2026-10-20
+
+Close preflight now lists approved direct invoice/expense drafts dated through the period end, plus imported statement lines that are unprocessed, stale or not cleared. Unapproved drafts, sales orders, cancelled records and later-period documents do not add these blockers. Statement blockers are grouped by bank. Existing payroll/payment-batch blockers and the new document blockers include local review links; payroll names and links are withheld from users without payroll access.
+
+The original bank reconciliation command also checks imported rows. It cannot bypass the workbench by completing with unprocessed rows or omitting processed entries from its cleared set. Previously cleared entries remain valid. Business storage schema is unchanged.
+
+Automated acceptance covers approval, reopening, posting, cancellation, date boundaries, persisted state, zero-activity bank imports, direct reconciliation bypass, successful clearing and payroll privacy under the AUDITOR role.
+
 # 8E — Accounting periods, closing and reopening
 
 Implemented 2026-10-16, using the existing local main-process repository architecture. No independent backend.

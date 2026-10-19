@@ -63,7 +63,7 @@ it('protects privacy across operational and audit roles while allowing finance p
     expect(() => cmd('payroll', 'recordPayment', { ...base(), runId: r.id, accountId: r.settings.netAccountId, bankAccountId: 'missing', date: r.payDate, amount: 1, reference: '' })).toThrow(/banking.write/);
 }, 30000);
 it('retries immutable creation and lifecycle operations safely after restart and later reversal', async () => { setup(); const e = employee(), request = { ...base(), expectedRevision: 0, values: values(e) }, r = cmd('payroll', 'saveRun', request), approve = { ...base(), id: r.id, expectedRevision: r.revision, action: 'Approve' }, a = cmd('payroll', 'changeRun', approve); expect(cmd('payroll', 'changeRun', approve).id).toBe(a.id); await restart(); expect(cmd('payroll', 'saveRun', request).id).toBe(r.id); expect(() => cmd('payroll', 'saveRun', { ...request, reason: 'Changed operation' })).toThrow(/different payroll/); expect(state().runs).toHaveLength(1); });
-it('migrates schema 16 with empty payroll and restores posted payroll, receipts and journals', async () => { const old = host.exportBackup() as any; old.schemaVersion = 16; delete old.repositories.payroll; delete old.checksum; old.checksum = createHash('sha256').update(JSON.stringify(old)).digest('hex'); writeFileSync(join(root, 'business.json'), JSON.stringify(old)); await restart(); expect(host.exportBackup().schemaVersion).toBe(17); expect(state().employees).toEqual([]); setup(); const e = employee(), r = post(e), backup = host.exportBackup(); change(r, 'Reverse', { date: '2026-10-16' }); const prepared = host.prepareRestore(JSON.stringify(backup)); await host.restoreBackup(prepared.token); await restart(); expect(state().runs[0].status).toBe('Posted'); expect(raw().journals.journalEntries.find((j: any) => j.id === r.journalId).status).toBe('POSTED'); });
+it('migrates schema 16 with empty payroll and restores posted payroll, receipts and journals', async () => { const old = host.exportBackup() as any; old.schemaVersion = 16; delete old.repositories.payroll; delete old.checksum; old.checksum = createHash('sha256').update(JSON.stringify(old)).digest('hex'); writeFileSync(join(root, 'business.json'), JSON.stringify(old)); await restart(); expect(host.exportBackup().schemaVersion).toBe(18); expect(state().employees).toEqual([]); setup(); const e = employee(), r = post(e), backup = host.exportBackup(); change(r, 'Reverse', { date: '2026-10-16' }); const prepared = host.prepareRestore(JSON.stringify(backup)); await host.restoreBackup(prepared.token); await restart(); expect(state().runs[0].status).toBe('Posted'); expect(raw().journals.journalEntries.find((j: any) => j.id === r.journalId).status).toBe('POSTED'); });
 it('rejects corrupted snapshots, mismatched totals, orphan journals and forged operation receipts', () => {
     setup();
     const e = employee();
@@ -82,3 +82,46 @@ it('blocks reversal of a reconciled payroll payment and posting through the reco
 it('rolls back payroll, receipts and a newly posted journal together after an injected failure', async () => { setup(); const e = employee(), r = change(save(values(e)), 'Approve'), before = structuredClone(raw()), { journalEntryRepository } = await import('../../accounting/data/journalEntryRepository'), original = journalEntryRepository.post.bind(journalEntryRepository), spy = vi.spyOn(journalEntryRepository, 'post').mockImplementation(input => { original(input); throw new Error('Injected payroll commit failure'); }); expect(() => change(r, 'Post')).toThrow(/Injected/); spy.mockRestore(); expect(raw()).toEqual(before); expect(change(r, 'Post').status).toBe('Posted'); });
 it('prevents a prior accrual reversal from overdrawing later approved leave', () => { setup(); const e = employee({ annualOpening: 0 }), r = post(e, { employeeInputs: [{ employeeId: e.id, withholding: 100, annualAccrual: 8, personalAccrual: 0 }] }); leave(e, 'Annual', 8, '2026-10-20'); expect(() => change(r, 'Reverse', { date: '2026-10-16' })).toThrow(/available/); expect(state().runs[0].status).toBe('Posted'); });
 it('rejects duplicate records, impossible hours, currency mismatches and forged payroll metadata', () => { setup(); const e = employee(); expect(() => time(e, '2026-10-05', 25)).toThrow(/24/); const config = state().settings[0]; expect(() => cmd('payroll', 'saveSettings', { ...base(), expectedRevision: config.revision, values: { ...pick(settingsFields, config), currency: 'NZD' } })).toThrow(/currency/); expect(() => cmd('payroll', 'saveEmployee', { ...base(), expectedRevision: 0, values: { ...pick(employeeFields, e), code: 'FORGED' }, actorId: 'forged' })).toThrow(); });
+it('rejects reopening overlapping leave atomically, but permits correction after the conflict is cancelled', () => {
+    setup(); const e = employee(), old = leave(e);
+    const cancelled = cmd('payroll', 'changeLeave', { ...base(), id: old.id, expectedRevision: old.revision, action: 'Cancel' });
+    const replacement = leave(e), before = structuredClone(raw());
+    expect(() => cmd('payroll', 'changeLeave', { ...base(), id: old.id, expectedRevision: cancelled.revision, action: 'Reopen' })).toThrow(/overlap/);
+    expect(raw()).toEqual(before);
+    cmd('payroll', 'changeLeave', { ...base(), id: replacement.id, expectedRevision: replacement.revision, action: 'Cancel' });
+    expect(cmd('payroll', 'changeLeave', { ...base(), id: old.id, expectedRevision: cancelled.revision, action: 'Reopen' }).status).toBe('Pending');
+});
+it('revalidates employee status at time submission and leave approval while allowing recovery', () => {
+    setup(); const e = employee();
+    const t = cmd('payroll', 'saveTime', { ...base(), expectedRevision: 0, values: { employeeId: e.id, itemId: e.earningItemId, date: '2026-10-05', hours: 8, notes: '' } });
+    const l = cmd('payroll', 'saveLeave', { ...base(), expectedRevision: 0, values: { employeeId: e.id, type: 'Annual', start: '2026-10-06', end: '2026-10-06', hours: 8, notes: '' } });
+    cmd('payroll', 'saveEmployee', { ...base(), id: e.id, expectedRevision: e.revision, values: { ...pick(employeeFields, e), status: 'Inactive' } });
+    const before = structuredClone(raw());
+    expect(() => cmd('payroll', 'changeTime', { ...base(), id: t.id, expectedRevision: t.revision, action: 'Submit' })).toThrow(/active employee/);
+    expect(() => cmd('payroll', 'changeLeave', { ...base(), id: l.id, expectedRevision: l.revision, action: 'Approve' })).toThrow(/active employee/);
+    expect(raw()).toEqual(before);
+    expect(cmd('payroll', 'changeLeave', { ...base(), id: l.id, expectedRevision: l.revision, action: 'Cancel' }).status).toBe('Cancelled');
+});
+it('rechecks approved source employment dates when calculating hourly payroll', () => {
+    setup(); const e = employee({ basis: 'Hourly', rate: 30, earningItemId: state().items.find((i: any) => i.code === 'ORD').id }); time(e); leave(e);
+    const edited = cmd('payroll', 'saveEmployee', { ...base(), id: e.id, expectedRevision: e.revision, values: { ...pick(employeeFields, e), startDate: '2026-10-06' } });
+    const before = structuredClone(raw()); expect(() => save(values(edited))).toThrow(/employment period/); expect(raw()).toEqual(before);
+});
+it('revalidates the earnings item when approving submitted time', () => {
+    setup(); const e = employee(), t = time(e), reopened = cmd('payroll', 'changeTime', { ...base(), id: t.id, expectedRevision: t.revision, action: 'Reopen' });
+    const submitted = cmd('payroll', 'changeTime', { ...base(), id: t.id, expectedRevision: reopened.revision, action: 'Submit' });
+    const item = state().items.find((i: any) => i.id === e.earningItemId);
+    cmd('payroll', 'saveItem', { ...base(), id: item.id, expectedRevision: item.revision, values: { ...pick(itemFields, item), active: false } });
+    expect(() => cmd('payroll', 'changeTime', { ...base(), id: t.id, expectedRevision: submitted.revision, action: 'Approve' })).toThrow(/earnings item/);
+});
+it('rejects restored source tampering and preserves frozen posted employment after master edits', async () => {
+    setup(); const e = employee({ basis: 'Hourly', rate: 30, earningItemId: state().items.find((i: any) => i.code === 'ORD').id }); time(e); leave(e); post(e);
+    cmd('payroll', 'saveEmployee', { ...base(), id: e.id, expectedRevision: e.revision, values: { ...pick(employeeFields, e), startDate: '2026-10-10' } });
+    const backup = host.exportBackup();
+    for (const mutate of [(s: any) => s.timesheets[0].hours = 7, (s: any) => s.timesheets[0].date = '2026-09-30', (s: any) => s.leave[0].hours = 7]) {
+        const b = structuredClone(backup) as any; mutate(b.repositories.payroll); delete b.checksum; b.checksum = createHash('sha256').update(JSON.stringify(b)).digest('hex');
+        expect(() => host.prepareRestore(JSON.stringify(b))).toThrow(/source|period/);
+    }
+    await restart(); expect(state().runs[0].status).toBe('Posted');
+    expect(state().runs[0].slips[0].employee.startDate).toBe('2026-07-01');
+});

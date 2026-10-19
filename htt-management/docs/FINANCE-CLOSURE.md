@@ -1,3 +1,19 @@
+## Bank match and statement integrity follow-up — 2026-10-20
+
+Matched ledger sources must be explicitly unmatched before reversal. The shared journal reversal service enforces this for source-owned receipts, payments, transfers and manual journals. Statement categorisation retains its existing revert workflow. Before completing statement reconciliation, every current match is checked against active posted ledger rows and the signed statement amount.
+
+Backup checks verify import identity, date/cent amounts, bank references, status/history transitions, unique bank-ledger ownership, signed totals and current categorisation journal references/fingerprints. Old matches whose source was already reversed remain loadable so they can be reverted and repaired; they cannot complete reconciliation while stale. New matching/categorisation also rechecks the current bank opening date. Exclusion remains available for an imported line outside a revised opening period.
+
+The change uses existing local repositories and the existing backup schema. Regression tests cover blocked reversal with atomic rollback, old-stale-match recovery, corrupt backup references, categorisation/reversion cycles and bank-opening-date changes.
+
+## Payment batch integrity follow-up — 2026-10-20
+
+Period close checks now flag approved, unposted supplier payment batches dated on or before the period end. Post or cancel those batches before closing. Drafts, cancellations and batches after the period end do not add this blocker.
+
+Backup validation now checks batch creation fingerprints, approval actors and lifecycle history, unique payment ownership, and each supplier's exact bill allocations, payment date, bank, method, reference, status and operation identity. Equal totals cannot substitute for the wrong supplier payment. Valid posted/reversed histories remain recoverable; stale draft balances remain editable by cancellation/replacement rather than making backups invalid. Posting refuses an idempotent operation result that is already reversed.
+
+Regression coverage includes injected failures after the second supplier has posted or reversed. The trusted host restores every payment, allocation, journal and batch together; successful retry does not duplicate payments. No new persistence schema or external payment service is introduced.
+
 > Latest follow-up: [Finance foundation](FINANCE-FOUNDATION.md) connects financial settings, tax account/report snapshots and reconciled opening-balance import. Older scope notes below describe their earlier baseline.
 
 # Local finance closure — 2026-10-16

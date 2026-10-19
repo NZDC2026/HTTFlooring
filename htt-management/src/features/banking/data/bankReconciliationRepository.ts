@@ -1,4 +1,4 @@
-import { registerRepository } from "../../security/repositoryHost";
+import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
 import { requireDateKey } from "../../../lib/businessDate";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
@@ -289,6 +289,14 @@ export const bankReconciliationRepository =
                 ...previouslyCleared,
                 ...newClearedIds,
             ]);
+
+        const imported = (snapshotRepositories().bankStatements as { lines: { bankAccountId: string; date: string; status: string; ledgerIds: string[] }[] } | undefined)?.lines.filter(l => l.bankAccountId === bankAccount.id && l.date <= input.statementDate) ?? [];
+        if (imported.some(l => l.status === 'UNMATCHED')) throw new Error('Process every imported statement line before completing reconciliation.');
+        const registerById = new Map(register.transactions.map(r => [r.id, r]));
+        for (const line of imported.filter(l => l.status === 'MATCHED' || l.status === 'POSTED')) {
+            if (line.ledgerIds.some(id => registerById.get(id)?.journalStatus !== 'POSTED')) throw new Error('Repair stale imported statement matches before completing reconciliation.');
+            if (line.ledgerIds.some(id => !allClearedForCalculation.has(id))) throw new Error('Include every processed imported statement entry in reconciliation.');
+        }
 
         const calculation =
             calculateBankReconciliation(

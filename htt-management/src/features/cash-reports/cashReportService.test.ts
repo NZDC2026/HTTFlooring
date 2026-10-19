@@ -105,3 +105,5 @@ describe('bank ledger cash report', () => {
         expect(report([bank()], entries, { bankIds: [] })).toMatchObject({ accounts: [], opening: 0, closing: 0, difference: 0 });
     });
 });
+
+it('includes deposit receipts and refunds in customer cash while ignoring noncash application journals',()=>{const r=report([bank()],[journal('2026-10-09','CUSTOMER_DEPOSIT',[['gl-b1',200,0],['deposit',0,200]]),journal('2026-10-10','CUSTOMER_PAYMENT',[['deposit',150,0],['ar',0,150]]),journal('2026-10-11','CUSTOMER_DEPOSIT_REFUND',[['deposit',50,0],['gl-b1',0,50]])]);expect(r).toMatchObject({grossIn:200,grossOut:50,closing:150,difference:0});expect(r.details).toHaveLength(2);expect(r.details.map(d=>d.category)).toEqual([cashCategories[0],cashCategories[1]]);});

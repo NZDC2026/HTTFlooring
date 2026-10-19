@@ -1,3 +1,6 @@
+import { useSecurity } from '../features/security/securityClient';
+import { personalPreferenceStore } from '../features/settings/data/personalPreferences';
+import { usePersonalPreferences } from '../features/settings/data/usePersonalPreferences';
 import { recordSearchReturnPath } from '../features/record-search/recordSearchService';
 import {useWorkspaceRecords} from '../features/business-workspace/workspaceRepository';
 import {businessSettings} from '../features/business-workspace/configurationState';
@@ -13,11 +16,14 @@ import { Topbar } from "./Topbar";
 
 export function AppLayout() {
     useWorkspaceRecords('settings');
+    const { session } = useSecurity();
+    const preferences = usePersonalPreferences(session?.user.id ?? '');
+    useEffect(() => { const changed = (e: StorageEvent) => personalPreferenceStore().invalidate(e.key); window.addEventListener('storage', changed); return () => window.removeEventListener('storage', changed); }, []);
     const location = useLocation(), searchReturn = recordSearchReturnPath(location.state);
     useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); }, [location.pathname]);
     const isDemoVisit = new URLSearchParams(location.search).get("demo") === "1";
     return (
-        <div className="min-h-screen bg-[var(--color-background)]">
+        <div data-workspace-density={preferences.density.toLowerCase()} data-reduce-motion={preferences.reduceMotion ? "true" : "false"} className="min-h-screen bg-[var(--color-background)]">
             <FeedbackHost />
             <Sidebar />
             <Topbar />

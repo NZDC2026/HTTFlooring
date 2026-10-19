@@ -1,3 +1,6 @@
+import { useCustomerDeposits, depositBalanceAt } from '../../customer-deposits/customerDepositRepository';
+import { businessSettings } from '../../business-workspace/configurationState';
+import { Link } from 'react-router-dom';
 import { CustomerActivityTab } from '../components/CustomerActivityTab';
 import { useState } from "react";
 
@@ -79,6 +82,7 @@ type EditorState =
     | null;
 
 export function CustomerDetailPage() {
+    const deposits=useCustomerDeposits();
     const { customerId } = useParams();
 
     const navigate = useNavigate();
@@ -180,7 +184,7 @@ export function CustomerDetailPage() {
 
     return (
         <>
-            <div className="pb-8">
+            <div className="pb-8"><div className="mb-4 rounded-xl border bg-white p-4 text-sm">Customer deposits held: {new Intl.NumberFormat('en-AU',{style:'currency',currency:businessSettings().currency}).format(depositBalanceAt(deposits,customer.id,new Intl.DateTimeFormat('en-CA',{timeZone:businessSettings().timezone}).format(new Date())))} · Held separately from invoice receivables. <Link className="underline" to="/sales/customer-deposits">Review deposits</Link></div>
                 <button
                     type="button"
                     onClick={() =>

@@ -29,6 +29,7 @@ export function getSalesDocumentPath(document: SalesDocument): string {
 
 export function SalesOverviewPage() {
     const canManage=usePermission('sales.manage');
+    const canReadCost=usePermission('inventory.cost.read');
     const documents = useSalesDocuments();
     const [tab, setTab] = useState<Tab>("ALL");
     const [query, setQuery] = useState("");
@@ -67,7 +68,7 @@ export function SalesOverviewPage() {
                 <Badge variant="info">Local business · {businessSettings().currency}</Badge>
             </header>
 
-            <div className="flex flex-wrap gap-3 text-sm"><Link className="rounded-lg border px-4 py-2 text-sm" to="/documents/delivery">Document preparation</Link><Link className="underline" to="/sales/drafts/orders">Order drafts</Link><Link className="underline" to="/sales/drafts/invoices">Invoice drafts</Link>{canManage&&<><Link className="rounded-lg border px-4 py-2" to="/sales/drafts/orders/new">New sales order</Link><Link className="rounded-lg border px-4 py-2" to="/sales/drafts/invoices/new">New direct invoice</Link></>}</div>
+            <div className="flex flex-wrap gap-3 text-sm"><Link className="rounded-lg border px-4 py-2" to="/sales/customer-deposits">Customer deposits</Link>{canReadCost&&<Link className="rounded-lg border px-4 py-2" to="/sales/customer-returns">Physical customer returns</Link>}<Link className="rounded-lg border px-4 py-2 text-sm" to="/documents/delivery">Document preparation</Link><Link className="underline" to="/sales/drafts/orders">Order drafts</Link><Link className="underline" to="/sales/drafts/invoices">Invoice drafts</Link>{canManage&&<><Link className="rounded-lg border px-4 py-2" to="/sales/drafts/orders/new">New sales order</Link><Link className="rounded-lg border px-4 py-2" to="/sales/drafts/invoices/new">New direct invoice</Link></>}</div>
             <div className="grid gap-4 md:grid-cols-3">
                 {[
                     { label: "Quotes", value: counts.quotes, icon: FileText, tab: "QUOTE" as Tab },

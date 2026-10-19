@@ -48,7 +48,7 @@ it('migrates schema 13 with an empty library and preserves existing review, cost
     before.checksum = createHash('sha256').update(JSON.stringify(before)).digest('hex');
     writeFileSync(join(root, 'business.json'), JSON.stringify(before));
     await restart();
-    expect(host.exportBackup().schemaVersion).toBe(17);
+    expect(host.exportBackup().schemaVersion).toBe(18);
     expect(state('attachments')).toEqual({ documents: [], history: [] });
     for (const key of ['contactReviews', 'jobCosting', 'journals', 'customers'])
         expect(state(key)).toEqual(before.repositories[key]);
