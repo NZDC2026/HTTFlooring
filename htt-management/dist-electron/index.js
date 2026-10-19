@@ -1,4 +1,4 @@
-import { A as e, C as t, M as n, S as r, _ as i, b as a, g as o, t as s, v as c, x as l, y as u } from "./accountingPeriodValidation-SL8KKS6G.js";
+import { A as e, C as t, M as n, S as r, _ as i, b as a, g as o, t as s, v as c, x as l, y as u } from "./accountingPeriodValidation-Ha5z4pK5.js";
 import { BrowserWindow as d, app as f, dialog as p, ipcMain as m, nativeImage as ee } from "electron";
 import { closeSync as h, existsSync as g, fsyncSync as _, mkdirSync as v, openSync as y, readFileSync as b, realpathSync as x, renameSync as S, statSync as te, writeFileSync as C } from "node:fs";
 import { createHash as w, createHmac as T, randomBytes as E, randomUUID as D, scryptSync as ne, timingSafeEqual as O } from "node:crypto";
@@ -234,7 +234,7 @@ var V = (e, t) => ne(e, t, 64).toString("hex"), ae = class {
 }, H = (e) => !!e && typeof e == "object" && !Array.isArray(e);
 function U(e) {
 	let t = {
-		schemaVersion: 14,
+		schemaVersion: 17,
 		savedAt: (/* @__PURE__ */ new Date()).toISOString(),
 		storage: e.storage,
 		repositories: e.repositories,
@@ -262,10 +262,13 @@ function W(e) {
 		11,
 		12,
 		13,
-		14
+		14,
+		15,
+		16,
+		17
 	].includes(t.schemaVersion)) throw Error("Unsupported business snapshot version.");
 	if (!H(t.storage) || !Object.entries(t.storage).every(([e, t]) => e.startsWith("htt") && typeof t == "string") || !H(t.repositories) || t.lastCommandId !== void 0 && typeof t.lastCommandId != "string") throw Error("Invalid business snapshot structure.");
-	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4 || t.schemaVersion === 5 || t.schemaVersion === 6 || t.schemaVersion === 7 || t.schemaVersion === 8 || t.schemaVersion === 9 || t.schemaVersion === 10 || t.schemaVersion === 11 || t.schemaVersion === 12 || t.schemaVersion === 13 || t.schemaVersion === 14) {
+	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4 || t.schemaVersion === 5 || t.schemaVersion === 6 || t.schemaVersion === 7 || t.schemaVersion === 8 || t.schemaVersion === 9 || t.schemaVersion === 10 || t.schemaVersion === 11 || t.schemaVersion === 12 || t.schemaVersion === 13 || t.schemaVersion === 14 || t.schemaVersion === 15 || t.schemaVersion === 16 || t.schemaVersion === 17) {
 		let { checksum: e, ...n } = t;
 		if (typeof t.savedAt != "string" || !Number.isFinite(Date.parse(t.savedAt)) || e !== w("sha256").update(JSON.stringify(n)).digest("hex")) throw Error("Business snapshot checksum failed.");
 	}
@@ -295,11 +298,11 @@ function G(e, t) {
 	}
 }
 function K(e) {
-	return e.schemaVersion === 3 || e.schemaVersion === 4 || e.schemaVersion === 5 || e.schemaVersion === 6 || e.schemaVersion === 7 || e.schemaVersion === 8 || e.schemaVersion === 9 || e.schemaVersion === 10 || e.schemaVersion === 11 || e.schemaVersion === 12 || e.schemaVersion === 13 || e.schemaVersion === 14 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
+	return e.schemaVersion === 3 || e.schemaVersion === 4 || e.schemaVersion === 5 || e.schemaVersion === 6 || e.schemaVersion === 7 || e.schemaVersion === 8 || e.schemaVersion === 9 || e.schemaVersion === 10 || e.schemaVersion === 11 || e.schemaVersion === 12 || e.schemaVersion === 13 || e.schemaVersion === 14 || e.schemaVersion === 15 || e.schemaVersion === 16 || e.schemaVersion === 17 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
 }
-var oe = /* @__PURE__ */ "products.workspace_tax_codes.workspace_linked_accounts.workspace_promotions.workspace_jobs.workspace_tasks.workspace_bank_rules.workspace_templates.workspace_custom_reports.workspace_report_packs.workspace_settings.customerSettlements.supplierRefunds.bankStatements.paymentBatches.openingBalances.managedSalesDocuments.expenseBillDrafts.salesDispatch.preparedSalesOutputs.physicalSupplierReturns.recurringInvoices.recurringExpenses.salesVisits.contactReviews.jobCosting.attachments".split(".");
+var oe = /* @__PURE__ */ "products.workspace_tax_codes.workspace_linked_accounts.workspace_promotions.workspace_jobs.workspace_tasks.workspace_bank_rules.workspace_templates.workspace_custom_reports.workspace_report_packs.workspace_settings.customerSettlements.supplierRefunds.bankStatements.paymentBatches.openingBalances.managedSalesDocuments.expenseBillDrafts.salesDispatch.preparedSalesOutputs.physicalSupplierReturns.recurringInvoices.recurringExpenses.salesVisits.contactReviews.jobCosting.attachments.dataTransfers.documentRecycle.payroll".split(".");
 function q(e, t) {
-	if (e.schemaVersion === 14) return !1;
+	if (e.schemaVersion === 17) return !1;
 	for (let n of oe) if (!Object.hasOwn(e.repositories, n)) {
 		if (!Object.hasOwn(t, n)) throw Error("Workspace contracts are not initialized.");
 		e.repositories[n] = structuredClone(t[n]);
@@ -328,7 +331,7 @@ var se = class {
 		if (this.initialized) return;
 		if (!this.security.principal()) throw Error("Login required.");
 		let t, n;
-		if (g(this.path)) n = W(b(this.path, "utf8")), n.schemaVersion !== 14 && (t = structuredClone(n), K(n)), this.values = n.storage;
+		if (g(this.path)) n = W(b(this.path, "utf8")), n.schemaVersion !== 17 && (t = structuredClone(n), K(n)), this.values = n.storage;
 		else {
 			if (this.security.require("users.manage"), !e || typeof e != "object" || Object.keys(e).length > 1e3) throw Error("Invalid legacy local data.");
 			for (let [t, n] of Object.entries(e)) if (!t.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
@@ -365,7 +368,7 @@ var se = class {
 			configurable: !0,
 			value: { localStorage: r }
 		});
-		let s = await import("./businessEngine-B7vMwvlS.js");
+		let s = await import("./businessEngine-Df_buprz.js");
 		this.workspaceDefaults = s.workspaceDefaults, n && (q(n, this.workspaceDefaults), G(n.repositories, u()), a(n.repositories), i(n.repositories), this.lastCommandId = n.lastCommandId), s.initialize(() => this.security.principal()), this.assertPeriod = s.assertPostingPeriod, t && (I(N(j(this.path), `pre-migration-v${n.schemaVersion}-${D()}.json`), t), this.persist(), this.security.audit("business.migrate.v9", "local-desktop-profile", "SUCCESS", "users.manage")), n || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
 		for (let e of this.security.pendingBusinessCommands()) this.security.audit(`recovery.${e.action}`, e.resourceId, e.commandId === this.lastCommandId ? "SUCCESS" : "FAILED", e.permission, e.commandId);
 		this.initialized = !0;
@@ -428,7 +431,7 @@ var se = class {
 				value: { localStorage: t }
 			});
 		}
-		let r = await import("./businessEngine-B7vMwvlS.js");
+		let r = await import("./businessEngine-Df_buprz.js");
 		if (q(n.database, r.workspaceDefaults), G(n.database.repositories, u()), a(n.database.repositories), this.security.require("users.manage").userId !== t.userId) throw Error("Restore session changed.");
 		let i = this.security.pendingBusinessCommands();
 		if (i.length) {

@@ -153,7 +153,8 @@ export function Sidebar() {
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
         if (path.startsWith('/reports/purchase') || path.startsWith('/reports/grni') || path.startsWith('/purchases')) return 'purchases.read';
-        if (path === '/dashboard' || path === '/accounting' || path === '/payroll') return 'accounting.read';
+        if (path === '/payroll') return 'payroll.read';
+        if (path === '/dashboard' || path === '/accounting') return 'accounting.read';
         if (path === '/banking') return 'banking.read';
         if (path === '/sales' || path === '/demo' || path === '/reports') return 'sales.read';
         if (path === '/inventory') return 'inventory.read';

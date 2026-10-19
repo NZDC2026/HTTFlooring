@@ -1,3 +1,6 @@
+import './payrollRepository';
+import './documentRecycleRepository';
+import './transferRepository';
 import './attachmentRepository';
 import '../../src/features/job-costing/jobCostingRepository';
 import '../../src/features/contact-review/reviewRepository';

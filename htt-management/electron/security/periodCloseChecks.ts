@@ -15,6 +15,7 @@ export function periodCloseChecks(period: AccountingPeriod): CloseCheck {
     for (const row of financialOperationJournal.getUnresolved()) add('UNRESOLVED_OPERATION', `Resolve financial operation ${row.operationId}.`);
     for (const row of s.purchaseOperations) if (row.status !== 'POSTED') add('UNRESOLVED_PURCHASE', `Resolve purchase posting ${row.key}.`);
     for (const issue of runFinancialConsistencyAudit()) add(issue.code, `${issue.entityId}: ${issue.message}`);
+    for (const run of s.payroll?.runs ?? []) if (run.status === 'Approved' && run.payDate <= period.endDate) add('PAYROLL_NOT_POSTED', `Post, reopen or cancel approved payroll ${run.name} dated ${run.payDate}.`);
     const common = { accounts: s.accounts.accounts, journalEntries: s.journals.journalEntries, asOfDate: period.endDate };
     const reconciliations = [
         ['AR', () => calculateAccountsReceivableGlReconciliation({ ...common, customers: s.customers.customers, documents: [...s.sales.quotes, ...s.sales.salesOrders, ...s.sales.invoices], payments: s.customerPayments.payments, creditNotes: s.customerCredits.creditNotes, creditAllocations: s.customerCredits.allocations })],

@@ -17,8 +17,8 @@ const destinations: { name: string; description: string; path: string; permissio
  { name: 'Report library', description: 'Financial and operational report directory', path: '/reports/library', permission: 'sales.read' },
  { name: 'Customers', description: 'Customer contacts and pricing', path: '/contacts', permission: 'contacts.write' },
  { name: 'Suppliers', description: 'Supplier contacts and details', path: '/contacts/suppliers', permission: 'contacts.write' },
- { name: 'Employees', description: 'Sample employee profiles', path: '/payroll/employees', permission: 'accounting.read' },
- { name: 'Payroll', description: 'Sample pay runs, timesheets and leave', path: '/payroll', permission: 'accounting.read' },
+ { name: 'Employees', description: 'Saved employee payroll profiles', path: '/payroll/employees', permission: 'payroll.read' },
+ { name: 'Payroll', description: 'Local pay runs, timesheets and leave', path: '/payroll', permission: 'payroll.read' },
  { name: 'Documents', description: 'Sample document library and upload preview', path: '/documents' },
  { name: 'Settings', description: 'Company and preference previews', path: '/settings' },
  { name: 'Local access & audit', description: 'Local users, password, audit and backup controls', path: '/settings/security' },
@@ -35,11 +35,11 @@ export function HelpPage() {
  ['Purchase workflow', 'Create and approve a purchase order, record received goods, match the supplier bill and allocate its payment.', '/purchases'],
  ['Finance & closing', 'Review reconciliation controls, resolve pending operations, configure open accounting periods and run close checks before closing.', '/accounting/periods'],
  ['Local security & recovery', 'Sign in to the desktop profile. Administrators manage users and business backups. Restore requires quitting and reopening the application.', '/settings/security'],
- ['Payroll prototype', 'Explore employees, hours, leave, sample pay runs and payslip layouts. Preview amounts do not perform tax calculations or payments.', '/payroll'],
+ ['Local payroll', 'Employees, hours, leave, reviewed payroll, journals and recorded payments. Government submission uses an external service.', '/payroll'],
  ['Document prototype', 'Explore metadata, sample content outlines, version/access layouts and file-selection preview. No file bytes are uploaded or stored.', '/documents'],
  ].map(([title, text, path]) => <Panel key={title} title={title}><p className="text-sm leading-6">{text}</p><Link className={buttonClass} to={path}>Open workspace</Link></Panel>)}</div><Panel title="Frequently asked questions">{[
  ['Why is an action unavailable?', 'Actions depend on your signed-in role, document status, accounting period and any unresolved posting operations. Review the displayed reason before retrying.'],
- ['Will prototype changes remain after reload?', 'Payroll, documents and general setting previews reset on reload. Actual finance, contacts, security and period data use the local main-process storage.'],
+ ['Will prototype changes remain after reload?', 'Remaining document and general setting previews reset on reload. Local payroll persists with normal business backups. Actual finance, contacts, security and period data use the local main-process storage.'],
  ['Does the application send data to a live backend?', 'The current implementation uses local repositories and mocks. The integration configuration screens are static previews.'],
  ].map(([question, answer]) => <details className="rounded border p-4" key={question}><summary className="font-medium">{question}</summary><p className="mt-3 text-sm">{answer}</p></details>)}</Panel></main>;
 }

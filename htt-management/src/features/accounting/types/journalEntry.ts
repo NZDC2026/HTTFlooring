@@ -25,7 +25,9 @@ export type AccountingSourceType =
     | "SUPPLIER_REFUND"
     | "SUPPLIER_RETURN"
     | "SUPPLIER_CREDIT_RECLASS"
-    | "BANK_STATEMENT";
+    | "BANK_STATEMENT"
+    | "PAYROLL"
+    | "PAYROLL_PAYMENT";
 
 export interface JournalLine {
     id: string;

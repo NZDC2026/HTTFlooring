@@ -1,3 +1,4 @@
+import { assertNotRecycled } from '../document-recycle/recycleState';
 import { hasPermission, type Permission, type VerifiedPrincipal } from './rbac';
 import type { BusinessView, SecurityBridge } from './securityContract';
 type Entry = { view?: (principal: VerifiedPrincipal) => unknown; validate?: (value: unknown, snapshots: Record<string, unknown>) => void; read: Permission; snapshot: () => unknown; restore: (value: any) => void; publish: () => void; repository: Record<string, any>; commands: Record<string, Permission | null> };
@@ -57,7 +58,7 @@ export function resolveCommand(repository: string, method: string) {
     const entry = entries.get(repository);
     const permission = entry && Object.hasOwn(entry.commands, method) ? entry.commands[method] : null;
     if (!permission || typeof entry?.repository[method] !== 'function') throw new Error('Unknown or internal desktop business command.');
-    return { permission, execute: (args: unknown[]) => entry.repository[method].apply(entry.repository, args) };
+    return { permission, execute: (args: unknown[]) => { assertNotRecycled(repository, args); return entry.repository[method].apply(entry.repository, args); } };
 }
 
 export function snapshotForPrincipal(principal: VerifiedPrincipal): Record<string, unknown> {

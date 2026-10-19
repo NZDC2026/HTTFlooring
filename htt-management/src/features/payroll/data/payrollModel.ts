@@ -1,0 +1,38 @@
+import { taxScales, frequencies } from './australianTax';
+import { z } from 'zod';
+export const id = z.string().trim().min(1).max(200), date = z.string().refine(v => /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v, 'Use a valid date.'), reason = z.string().trim().min(3).max(2000);
+export const moneyValue = z.number().finite().min(0).max(1e9).refine(n => Math.abs(n * 100 - Math.round(n * 100)) < 0.00001, 'Use whole cents.');
+export const hours = z.number().finite().min(0).max(100000).refine(n => Math.abs(n * 10000 - Math.round(n * 10000)) < 0.000001, 'Use at most four decimal places.');
+export const audit = z.object({ actorId: id, at: z.iso.datetime(), action: id, reason, revision: z.number().int().positive() }).strict();
+export const meta = { id, revision: z.number().int().positive(), history: z.array(audit).min(1) };
+export const employeeFields = z.object({ code: z.string().trim().min(1).max(40), name: id, position: z.string().trim().max(200), email: z.email().or(z.literal('')), startDate: date, endDate: date.or(z.literal('')), status: z.enum(['Active', 'Inactive']), basis: z.enum(['Hourly', 'Salary']), rate: moneyValue, earningItemId: id, taxScale: z.enum(taxScales).default('Manual'), standardTaxConfirmed: z.boolean().default(false), superFund: z.string().trim().max(200).default(''), superMemberId: z.string().trim().max(100).default(''), bankAccount: z.string().trim().max(100), taxIdentifier: z.string().trim().max(100), annualOpening: hours, personalOpening: hours }).strict();
+export const employeeSchema = employeeFields.extend(meta).strict();
+export type Employee = z.infer<typeof employeeSchema>;
+export const itemFields = z.object({ code: z.string().trim().min(1).max(40), name: id, category: z.enum(['Earnings', 'Allowance', 'Deduction', 'Tax', 'Employer contribution']), method: z.enum(['Hourly', 'Fixed', 'Percentage']), rate: moneyValue, taxable: z.boolean(), accountId: id, liabilityAccountId: z.string().trim().max(200), active: z.boolean() }).strict();
+export const itemSchema = itemFields.extend(meta).strict();
+export type PayItem = z.infer<typeof itemSchema>;
+export const settingsFields = z.object({ netAccountId: id, taxItemId: id, currency: z.string().regex(/^[A-Z]{3}$/), region: z.literal('Australia'), frequency: z.enum(frequencies).default('Fortnightly'), superItemId: id, employerName: id, employerIdentifier: z.string().trim().max(100) }).strict();
+export const settingsSchema = settingsFields.extend(meta).strict();
+export const timeFields = z.object({ employeeId: id, itemId: id, date, hours: hours.refine(n => n > 0), notes: z.string().trim().max(1000) }).strict();
+export const timeSchema = timeFields.extend({ ...meta, status: z.enum(['Draft', 'Submitted', 'Approved']) }).strict();
+export type TimeRow = z.infer<typeof timeSchema>;
+export const leaveFields = z.object({ employeeId: id, type: z.enum(['Annual', 'Personal', 'Unpaid']), start: date, end: date, hours: hours.refine(n => n > 0), notes: z.string().trim().max(1000) }).strict();
+export const leaveSchema = leaveFields.extend({ ...meta, status: z.enum(['Pending', 'Approved', 'Declined', 'Cancelled']) }).strict();
+export type LeaveRow = z.infer<typeof leaveSchema>;
+export const adjustment = z.object({ employeeId: id, itemId: id, quantity: hours.refine(n => n > 0), rate: moneyValue }).strict();
+export const runFields = z.object({ name: id, start: date, end: date, payDate: date, employeeInputs: z.array(z.object({ employeeId: id, withholding: moneyValue, additionalWithholding: moneyValue.default(0), superMethod: z.enum(['Reviewed amount', '12% reviewed QE']).default('Reviewed amount'), superBase: moneyValue.default(0), superAmount: moneyValue.default(0), salaryOverride: moneyValue.optional(), annualAccrual: hours, personalAccrual: hours }).strict()).min(1).max(500), adjustments: z.array(adjustment).max(2000), taxReviewed: z.boolean(), reviewReference: z.string().trim().max(500) }).strict();
+export const lineSchema = z.object({ item: itemSchema, quantity: hours, rate: moneyValue, amount: moneyValue, source: z.string().max(200) }).strict();
+export const totalsSchema = z.object({ gross: moneyValue, taxable: moneyValue, deductions: moneyValue, net: moneyValue, employerCost: moneyValue, withholding: moneyValue }).strict();
+export const slipSchema = z.object({ employee: employeeSchema, lines: z.array(lineSchema).min(1), timeIds: z.array(id), leaveIds: z.array(id), annualAccrual: hours, personalAccrual: hours, totals: totalsSchema }).strict();
+export const runSchema = runFields.extend({ ...meta, status: z.enum(['Draft', 'Approved', 'Posted', 'Reversed', 'Cancelled']), slips: z.array(slipSchema).min(1), totals: totalsSchema, settings: settingsSchema, sourceToken: id, journalId: id.optional(), reversalJournalId: id.optional(), reversalDate: date.optional() }).strict();
+export type PayRun = z.infer<typeof runSchema>;
+export type Slip = z.infer<typeof slipSchema>;
+export const paymentSchema = z.object({ ...meta, operationId: id, runId: id, accountId: id, bankAccountId: id, date, amount: moneyValue.refine(n => n > 0), reference: z.string().trim().max(200), status: z.enum(['Posted', 'Reversed']), journalId: id, reversalJournalId: id.optional(), reversalDate: date.optional() }).strict();
+export const filingSchema = z.object({ ...meta, runId: id, status: z.enum(['Prepared', 'External reference recorded', 'Correction needed']), reference: z.string().trim().max(200), notes: z.string().trim().max(1000), runRevision: z.number().int().positive() }).strict();
+export const entities = ['employees', 'items', 'timesheets', 'leave', 'runs', 'payments', 'filings', 'settings'] as const;
+export const stateSchema = z.object({ employees: z.array(employeeSchema), items: z.array(itemSchema), timesheets: z.array(timeSchema), leave: z.array(leaveSchema), runs: z.array(runSchema), payments: z.array(paymentSchema), filings: z.array(filingSchema), settings: z.array(settingsSchema).max(1), receipts: z.array(z.object({ operationId: id, fingerprint: z.string().regex(/^[a-f0-9]{64}$/), input: z.record(z.string(), z.unknown()), actorId: id, entity: z.enum(entities), recordId: id, revision: z.number().int().positive() }).strict()) }).strict();
+export type PayrollState = z.infer<typeof stateSchema>;
+export const emptyPayroll = (): PayrollState => ({ employees: [], items: [], timesheets: [], leave: [], runs: [], payments: [], filings: [], settings: [], receipts: [] });
+export const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+export function calculateTotals(lines: Slip['lines']) { const sum = (fn: (l: Slip['lines'][number]) => boolean) => round(lines.filter(fn).reduce((s, l) => s + l.amount, 0)), earning = (l: Slip['lines'][number]) => ['Earnings', 'Allowance'].includes(l.item.category), gross = sum(earning), deductions = sum(l => ['Deduction', 'Tax'].includes(l.item.category)); return totalsSchema.parse({ gross, taxable: sum(l => earning(l) && l.item.taxable), deductions, net: round(gross - deductions), employerCost: sum(l => l.item.category === 'Employer contribution'), withholding: sum(l => l.item.category === 'Tax') }); }
+export function sumSlips(slips: Slip[]) { return totalsSchema.parse(Object.fromEntries(Object.keys(totalsSchema.shape).map(k => [k, round(slips.reduce((n, s) => n + s.totals[k as keyof Slip['totals']], 0))]))); }

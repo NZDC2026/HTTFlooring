@@ -1,3 +1,4 @@
+import { visibleDocuments, isRecycled } from '../document-recycle/recycleState';
 import { validateLineItemType } from '../inventory/data/itemTypes';
 import { salesRecipient, validateRecipientSnapshot } from '../sales/data/salesRecipients';
 import { validateAreaSnapshot } from '../sales/data/areaPacks';
@@ -91,7 +92,7 @@ export const getExpenseAccountOptions = () => expenseOptions;
 let salesDrafts: ManagedDraft[] = [], billDrafts: ManagedDraft[] = [], version = 0;
 const listeners = new Set<() => void>();
 const emit = () => { version++; listeners.forEach(f => f()); };
-export function useManagedDrafts(kind: 'sales' | 'expense') { useSyncExternalStore(f => { listeners.add(f); return () => { listeners.delete(f); }; }, () => version, () => version); return kind === 'sales' ? salesDrafts : billDrafts; }
+export function useManagedDrafts(kind: 'sales' | 'expense') { useSyncExternalStore(f => { listeners.add(f); return () => { listeners.delete(f); }; }, () => version, () => version); return visibleDocuments(kind === 'sales' ? salesDrafts : billDrafts); }
 const money = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 function history(action: string, reason?: string) { return { action, actorId: trustedAuthorization.current()?.userId ?? 'local-test', at: new Date().toISOString(), ...(reason ? { reason } : {}) }; }
 function taxAccounts(lines: ManagedDraft['lines']) {
@@ -158,8 +159,8 @@ function repo(kind: 'sales' | 'expense') {
     }
     const get = (id: string) => {
         const row = rows().find(d => d.id === id);
-        if (!row)
-            throw new Error('Draft not found.');
+        if (!row || isRecycled(row.id))
+            throw new Error('Draft not found or is in the recycle bin.');
         return row;
     };
     function expected(row: ManagedDraft, revision: number) {
@@ -169,7 +170,7 @@ function repo(kind: 'sales' | 'expense') {
     function change(row: ManagedDraft, action: string, extra: Partial<ManagedDraft> = {}, reason?: string) { return saveRow({ ...row, ...extra, revision: row.revision + 1, updatedAt: new Date().toISOString(), history: [...row.history, history(action, reason)] }); }
     const repositorySave=(operationId:string,payload:ExpensePayload)=> expenseDraftRepository.save({operationId,payload});
     return {
-        getAll: rows,
+        getAll: () => visibleDocuments(rows()),
         reviewCapture(raw:unknown){trustedAuthorization.require('purchases.bill');if(kind!=='expense')throw new Error('Capture is only available for expense bills.');return reviewCaptureInput(captureSchema.parse(raw));},
         capture(raw:unknown){trustedAuthorization.require('purchases.bill');if(kind!=='expense')throw new Error('Capture is only available for expense bills.');const input=captureSchema.parse(raw);if(!input.reviewed)throw new Error('Confirm that the supplier document has been reviewed.');const payload=capturePayload(input),prior=rows().find(d=>d.operationId===input.operationId);if(prior)return repositorySave(input.operationId,payload);const review=reviewCaptureInput(input);if(!review.matches)throw new Error(review.issues.join(' '));return repositorySave(input.operationId,payload);},
         save(raw: {
@@ -182,6 +183,7 @@ function repo(kind: 'sales' | 'expense') {
             if (!input.id) {
                 const prior = rows().find(d => d.operationId === input.operationId);
                 if (prior) {
+                    if (isRecycled(prior.id)) throw new Error('Recover the existing draft from the recycle bin.');
                     if (prior.creationFingerprint !== fingerprint)
                         throw new Error('Operation ID was used for different draft data.');
                     return prior;

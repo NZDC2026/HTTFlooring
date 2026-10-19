@@ -1,3 +1,15 @@
+## Australian local payroll lifecycle — 2026-10-19
+
+Payroll pages now operate on persisted employees, pay items, approved hours/leave, reviewed AU PAYG/SG, calculation snapshots, payroll journals, recorded bank payments and reversals. Payslips, payroll summary and external filing review use real saved data under schema 17 and payroll-specific permissions. See [AU-PAYROLL.md](AU-PAYROLL.md) for supported calculation cases and external STP/SuperStream boundaries.
+
+## Recoverable business document lifecycle — 2026-10-19
+
+The document recycle bin now handles five real draft types with scoped access, reference checks, batch recycle/recovery, original-data retention, stale-command protection and persistent audit under schema 16. See [DOCUMENT-RECYCLE-BIN.md](DOCUMENT-RECYCLE-BIN.md).
+
+## Master-data CSV import and export — 2026-10-19
+
+Five master datasets now support mapped CSV intake, resolved-field previews, atomic commits, external-ID retry protection, token-checked updates, complete export and persistent audit receipts under schema 15. See [DATA-IMPORT-EXPORT.md](DATA-IMPORT-EXPORT.md) for limits, permissions and verification.
+
 ## Business attachments and real file versions — 2026-10-18
 
 Attachments now persist real local file contents with object-scoped access, immutable versions, old-version restore, preview/export, recoverable recycle lifecycle and schema 14 backup migration. See [BUSINESS-ATTACHMENTS.md](BUSINESS-ATTACHMENTS.md) for file limits, permission inheritance and acceptance evidence.

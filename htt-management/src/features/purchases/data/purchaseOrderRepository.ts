@@ -1,3 +1,4 @@
+import { visibleDocuments } from '../../document-recycle/recycleState';
 import { configuredNumber, businessSettings, taxSnapshot, exclusivePrice } from '../../business-workspace/configurationState';
 import { assertProductQuantity } from '../../business-workspace/productRules';
 import { activeTaxRate } from '../../business-workspace/configurationState';
@@ -266,18 +267,18 @@ export const purchaseOrderRepository =
 
     getSnapshot():
         PurchaseOrder[] {
-        return purchaseOrders;
+        return visibleDocuments(purchaseOrders);
     },
 
     getAll():
         PurchaseOrder[] {
-        return purchaseOrders;
+        return visibleDocuments(purchaseOrders);
     },
 
     getById(
         purchaseOrderId: string,
     ) {
-        return purchaseOrders.find(
+        return visibleDocuments(purchaseOrders).find(
             (
                 purchaseOrder,
             ) =>
@@ -289,7 +290,7 @@ export const purchaseOrderRepository =
     getBySupplier(
         supplierId: string,
     ) {
-        return purchaseOrders.filter(
+        return visibleDocuments(purchaseOrders).filter(
             (
                 purchaseOrder,
             ) =>

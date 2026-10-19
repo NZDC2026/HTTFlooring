@@ -1,3 +1,4 @@
+import { visibleDocuments } from '../../document-recycle/recycleState';
 import { validateLineItemType } from '../../inventory/data/itemTypes';
 import { validateAreaSnapshot } from './areaPacks';
 import { validateRecipientSnapshot } from './salesRecipients';
@@ -178,12 +179,12 @@ export const salesRepository = {
 
     getSnapshot():
         SalesDocument[] {
-        return snapshot;
+        return visibleDocuments(snapshot);
     },
 
     getAll():
         SalesDocument[] {
-        return snapshot;
+        return visibleDocuments(snapshot);
     },
 
     getById(
@@ -191,7 +192,7 @@ export const salesRepository = {
     ):
         | SalesDocument
         | undefined {
-        return snapshot.find(
+        return visibleDocuments(snapshot).find(
             (document) =>
                 document.id ===
                 documentId,
@@ -201,7 +202,7 @@ export const salesRepository = {
     getByCustomer(
         customerId: string,
     ): SalesDocument[] {
-        return snapshot.filter(
+        return visibleDocuments(snapshot).filter(
             (document) =>
                 document.customerId ===
                 customerId,
@@ -211,7 +212,7 @@ export const salesRepository = {
     getQuotesByCustomer(
         customerId: string,
     ): Quote[] {
-        return quotes.filter(
+        return visibleDocuments(quotes).filter(
             (quote) =>
                 quote.customerId ===
                 customerId,
