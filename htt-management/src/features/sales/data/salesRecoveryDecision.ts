@@ -46,7 +46,7 @@ export function assessSalesRecovery(
     if (blockingFindings.length) reasons.push('Unresolved financial findings require manual reconciliation.');
     // Intentionally fail closed even with all checkboxes ticked: no trusted atomic
     // proof exists that business records and GL were corrected together.
-    reasons.push('Manual recovery approval and durable audited closure are not implemented.');
+    reasons.push('This checklist cannot authorize closure. Use the financial recovery workbench for live verification and independent approval.');
     return { operationId: evidence.operationId, canCloseReview: false, reasons, blockingFindings, automaticRepairAllowed: false };
 }
 

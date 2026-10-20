@@ -1,3 +1,5 @@
+import { calculatePrepaymentReconciliation } from '../../src/features/supplier-prepayments/prepaymentReconciliation';
+import { calculateDepositReconciliation } from '../../src/features/customer-deposits/depositReconciliation';
 import { trustedAuthorization } from '../../src/features/security/trustedAuthorization';
 import { hasPermission } from '../../src/features/security/rbac';
 import { snapshotRepositories } from '../../src/features/security/repositoryHost';
@@ -46,6 +48,10 @@ export function periodCloseChecks(period: AccountingPeriod): CloseCheck {
         ['AP', () => calculateAccountsPayableGlReconciliation({ ...common, suppliers: s.suppliers.suppliers, bills: s.supplierBills.supplierBills, payments: s.supplierPayments.supplierPayments, credits: s.supplierCredits.supplierCredits, creditAllocations: s.supplierCredits.allocations })],
         ['INVENTORY', () => calculateInventoryGlReconciliation({ ...common, costMovements: s.costMovements.movements })],
     ] as const;
+    try { const deposits=calculateDepositReconciliation({deposits:s.customerDeposits,accounts:s.accounts.accounts,journals:s.journals.journalEntries,banks:s.bankAccounts.bankAccounts,customers:s.customers.customers,asOfDate:period.endDate});
+      if(!deposits.reconciled)add('CUSTOMER_DEPOSIT_DIFFERENCE',`Customer deposits require review at ${period.endDate}: difference ${deposits.difference}; ${deposits.issues.length} integrity issue(s).`,'/accounting/reconciliation/deposits?asOf='+encodeURIComponent(period.endDate));
+    }catch(error){add('CUSTOMER_DEPOSIT_CHECK_FAILED',error instanceof Error?error.message:String(error),'/accounting/reconciliation/deposits?asOf='+encodeURIComponent(period.endDate));}
+    try {const r=calculatePrepaymentReconciliation({prepayments:s.supplierPrepayments,accounts:s.accounts.accounts,journals:s.journals.journalEntries,banks:s.bankAccounts.bankAccounts,suppliers:s.suppliers.suppliers,asOfDate:period.endDate});if(!r.reconciled)add('SUPPLIER_PREPAYMENT_DIFFERENCE',`Supplier prepayments require review at ${period.endDate}: difference ${r.difference}; ${r.issues.length} integrity issue(s).`,'/accounting/reconciliation/prepayments?asOf='+encodeURIComponent(period.endDate));}catch(error){add('SUPPLIER_PREPAYMENT_CHECK_FAILED',error instanceof Error?error.message:String(error),'/accounting/reconciliation/prepayments?asOf='+encodeURIComponent(period.endDate));}
     for (const [name, check] of reconciliations) {
         try { const result = check(); if (!result.reconciled || !Number.isFinite(result.difference)) add(`${name}_DIFFERENCE`, `${name} to GL difference at ${period.endDate}: ${result.difference}.`); }
         catch (error) { add(`${name}_CHECK_FAILED`, error instanceof Error ? error.message : String(error)); }

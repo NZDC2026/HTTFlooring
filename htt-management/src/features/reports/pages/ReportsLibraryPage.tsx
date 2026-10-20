@@ -2,6 +2,9 @@ import { Link } from 'react-router-dom';
 import { useSecurity } from '../../security/securityClient';
 import { hasPermission, type Permission } from '../../security/rbac';
 const reports: { name: string; group: string; description: string; path: string; permission: Permission }[] = [
+ {name:'Financial recovery workbench',group:'Controls',description:'Interrupted operations, reconciliation evidence and independently verified Sales, bank and reconciliation closure history.',path:'/accounting/financial-recovery',permission:'audit.read'},
+ {name:'Supplier prepayments to GL',group:'Controls',description:'Supplier advances, dated asset balances and source-integrity checks.',path:'/accounting/reconciliation/prepayments',permission:'accounting.read'},
+ {name:'Customer deposits to GL',group:'Controls',description:'Dated customer funds held, liability balances, source integrity and close blockers.',path:'/accounting/reconciliation/deposits',permission:'accounting.read'},
  { name: 'Cash flow · bank ledger', group: 'Banking', description: 'Dated cash movements, source groups and opening-to-closing reconciliation.', path: '/reports/cash-flow', permission: 'accounting.read' },
  { name: 'Net sales document analysis', group: 'Sales & purchases', description: 'Sales invoices less credits, with dated void corrections and customer summaries.', path: '/reports/sales-analysis', permission: 'sales.read' },
  { name: 'Net purchase document analysis', group: 'Sales & purchases', description: 'Supplier bills less credits, with dated void corrections and supplier summaries.', path: '/reports/purchase-analysis', permission: 'purchases.read' },

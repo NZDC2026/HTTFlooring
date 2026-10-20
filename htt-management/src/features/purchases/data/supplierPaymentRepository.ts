@@ -402,12 +402,25 @@ export const supplierPaymentRepository =
         return payment;
     },
 
+    recordPrepaymentSettlement(input: {id:string;prepaymentId:string;applicationId:string;supplierId:string;supplierBillId:string;paymentDate:string;bankAccountId:string;amount:number;reference:string}): SupplierPayment {
+        requireDateKey(input.paymentDate);const supplier=supplierRepository.getById(input.supplierId),bill=supplierBillRepository.getById(input.supplierBillId);
+        if(!supplier||!bill||bill.supplierId!==supplier.id||input.paymentDate<bill.billDate||!input.prepaymentId||!input.applicationId||!Number.isFinite(input.amount)||input.amount<=0)throw new Error('Invalid supplier prepayment application.');
+        if(supplierPayments.some(p=>p.id===input.id||p.prepaymentApplicationId===input.applicationId))throw new Error('Prepayment application already exists.');
+        supplierBillRepository.applyPayment(bill.id,input.amount);const now=new Date().toISOString(),payment:SupplierPayment={id:input.id,prepaymentId:input.prepaymentId,prepaymentApplicationId:input.applicationId,paymentNumber:createPaymentNumber(input.paymentDate),supplierId:supplier.id,supplierCode:supplier.code,supplierName:supplier.businessName,paymentDate:input.paymentDate,amount:input.amount,method:'OTHER',bankAccountId:input.bankAccountId,reference:input.reference,notes:'Prepayment applied; no new bank payment.',allocations:[{id:crypto.randomUUID(),supplierBillId:bill.id,billNumber:bill.billNumber,supplierInvoiceNumber:bill.supplierInvoiceNumber,amount:input.amount}],status:'POSTED',createdAt:now,updatedAt:now};supplierPayments=[payment,...supplierPayments];emitChange();return payment;
+    },
+    reversePrepaymentSettlement(paymentId:string,date:string,reason:string): SupplierPayment {
+        requireDateKey(date);const payment=supplierPayments.find(p=>p.id===paymentId);
+        if(!payment?.prepaymentApplicationId||payment.status!=='POSTED'||date<payment.paymentDate||reason.trim().length<3)throw new Error('Invalid supplier prepayment reversal.');
+        for(const a of payment.allocations)supplierBillRepository.reversePayment(a.supplierBillId,a.amount);
+        const updated={...payment,status:'REVERSED' as const,reversedAt:date,reversalReason:reason,updatedAt:new Date().toISOString()};supplierPayments=supplierPayments.map(p=>p.id===paymentId?updated:p);emitChange();return updated;
+    },
     reverse(
         supplierPaymentId:
             string,
         reason: string,
     ): SupplierPayment {
         assertSourceNotReconciled('SUPPLIER_PAYMENT',supplierPaymentId);
+        if (supplierPayments.find(p=>p.id===supplierPaymentId)?.prepaymentApplicationId) throw new Error('Reverse this settlement through supplier prepayments.');
         const payment =
             supplierPayments.find(
                 (item) =>
@@ -631,7 +644,7 @@ supplierPaymentRepository.reverse = function (...args: Parameters<typeof reverse
 
 registerRepository("supplierPayments", {
     repository: supplierPaymentRepository, read: "purchases.read",
-    commands: {"create": "purchases.payment", "reverse": "purchases.payment", "return": null, "assertCurrentCrossModuleWriteSafe": null},
+    commands: {"recordPrepaymentSettlement":null,"reversePrepaymentSettlement":null,"create": "purchases.payment", "reverse": "purchases.payment", "return": null, "assertCurrentCrossModuleWriteSafe": null},
     snapshot: () => ({ supplierPayments }),
     restore: value => { supplierPayments = value.supplierPayments;  },
     publish: () => listeners.forEach(listener => listener()),

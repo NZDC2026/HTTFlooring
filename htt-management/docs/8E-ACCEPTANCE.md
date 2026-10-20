@@ -1,3 +1,15 @@
+## Operator-led Sales recovery closure — 2026-10-20
+
+The financial recovery workbench now makes the existing review/independent verified-closure path operable. Closing a verified operation removes its unresolved-intent close blocker without changing financial records. Other blockers remain. Current unresolved operations or a journal inspection failure also fail the finance dashboard's recovery control. See [FINANCIAL-RECOVERY-WORKBENCH.md](FINANCIAL-RECOVERY-WORKBENCH.md).
+
+## Supplier prepayment asset control — 2026-10-20
+
+Period close now runs the dated supplier-prepayment subledger/GL and source-integrity checks. Differences and integrity exceptions block closing, including exceptions with zero net difference. Review links retain period end. See [SUPPLIER-PREPAYMENTS.md](SUPPLIER-PREPAYMENTS.md).
+
+## Customer deposit liability close control — 2026-10-20
+
+Close preflight now compares customer deposit balances and each dedicated liability GL account at period end, using the same dated calculation as the deposit reconciliation report and finance-control dashboard. Source-integrity errors block closure even if the net monetary difference is zero. Error and review links preserve the period-end date. No schema change or automatic balancing entry is added.
+
 ## Cross-module close readiness follow-up — 2026-10-20
 
 Close preflight now lists approved direct invoice/expense drafts dated through the period end, plus imported statement lines that are unprocessed, stale or not cleared. Unapproved drafts, sales orders, cancelled records and later-period documents do not add these blockers. Statement blockers are grouped by bank. Existing payroll/payment-batch blockers and the new document blockers include local review links; payroll names and links are withheld from users without payroll access.

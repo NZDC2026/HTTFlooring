@@ -1,5 +1,6 @@
 import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
+import { financialOperationJournal } from "../../../lib/persistence/financialOperationJournal";
 import { requireDateKey } from "../../../lib/businessDate";
 import { financialStateStorage } from "../../../lib/persistence/financialStateStorage";
 import type {
@@ -197,6 +198,7 @@ export const bankReconciliationRepository =
     complete(
         input:
             CompleteBankReconciliationInput,
+        operationId?: string,
     ): BankReconciliation {
         validateDate(input.statementDate);
         requireDateKey(input.statementDate, "Statement date");
@@ -319,10 +321,16 @@ export const bankReconciliationRepository =
             );
         }
 
+        const resultId = createId();
+        if(operationId){
+            const attempt=financialOperationJournal.begin(operationId,"BANK_RECONCILIATION",JSON.stringify(input));
+            if(attempt.status!=="started")throw new Error("Bank reconciliation requires manual review before retry.");
+            financialOperationJournal.bindResult(operationId,resultId);
+        }
         const reconciliation:
             BankReconciliation = {
             id:
-                createId(),
+                resultId,
 
             reconciliationNumber:
                 createNumber(
@@ -380,9 +388,27 @@ export const bankReconciliationRepository =
     },
 };
 const completeUnit = bankReconciliationRepository.complete;
-bankReconciliationRepository.complete = function (input) {
+bankReconciliationRepository.complete = function (input, operationId) {
+    const key=operationId?.trim() ?? `bankrec-operation-${createId()}`;
+    if(operationId!==undefined&&!key)throw new Error('Operation ID cannot be empty.');
+    if(key){
+        const previous=financialOperationJournal.list().find(o=>o.operationId===key);
+        if(previous){
+            if(previous.kind!=='BANK_RECONCILIATION'||previous.fingerprint!==JSON.stringify(input))throw new Error('Operation ID reused with different business data.');
+            const result=reconciliations.find(r=>r.id===previous.resultId);
+            if(previous.state==='COMPLETED'&&result&&reconciliations.filter(r=>r.id===result.id).length===1&&result.status==='COMPLETED'&&result.bankAccountId===input.bankAccountId&&result.statementDate===input.statementDate&&result.statementBalance===roundCurrency(input.statementBalance))return result;
+            throw new Error('Bank reconciliation requires manual review before retry.');
+        }
+    }
     assertCurrentCrossModuleWriteSafe();
-    return financialStateStorage.transaction(() => completeUnit.call(bankReconciliationRepository, input));
+    try{
+        const result=financialStateStorage.transaction(() => completeUnit.call(bankReconciliationRepository, input, key));
+        if(key)financialOperationJournal.complete(key,result.id);
+        return result;
+    }catch(error){
+        if(key){const op=financialOperationJournal.list().find(o=>o.operationId===key);if(op&&op.state!=='COMPLETED'){try{financialOperationJournal.flagForReview(key,'Reconciliation outcome uncertain; inspect the saved statement and cleared ledger rows before retry.');}catch{/* Preserve original failure. */}}}
+        throw error;
+    }
 };
 
 registerRepository("bankReconciliations", {

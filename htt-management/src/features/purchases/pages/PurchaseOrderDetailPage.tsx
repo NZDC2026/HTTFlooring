@@ -1,3 +1,4 @@
+import {Link} from 'react-router-dom';
 import { businessSettings } from '../../business-workspace/configurationState';
 import { feedback } from "../../../components/ui/feedback";
 import {
@@ -130,7 +131,7 @@ export function PurchaseOrderDetailPage() {
     }
 
     return (
-        <div className="pb-8">
+        <div className="pb-8"><Link className="mb-4 inline-block underline" to={"/documents/purchase-output?kind=PURCHASE_ORDER&sourceId="+encodeURIComponent(purchaseOrder.id)}>Prepare purchase order document</Link>
             <button
                 type="button"
                 onClick={() =>

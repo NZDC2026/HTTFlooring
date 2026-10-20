@@ -27,7 +27,7 @@ export function inspectFinancialOperationsAfterRestart(): FinancialRecoveryFindi
         operation.state === 'PENDING' || operation.state === 'MANUAL_REVIEW'
     ).map(operation => {
         const { kind, resultId } = operation;
-        const supported = kind === 'CUSTOMER_PAYMENT' || kind === 'BANK_TRANSACTION' || kind === 'BANK_TRANSFER';
+        const supported = kind === 'CUSTOMER_PAYMENT' || kind === 'BANK_TRANSACTION' || kind === 'BANK_TRANSFER' || kind === 'BANK_RECONCILIATION';
         const businessRecordCount = resultId ? countBusiness(snapshot, kind, resultId) : 0;
         const journals = resultId && supported
             ? snapshot.journals.filter(j => j.sourceType === kind && j.sourceId === resultId)
@@ -40,6 +40,7 @@ export function inspectFinancialOperationsAfterRestart(): FinancialRecoveryFindi
         const finding: FinancialRecoveryFinding['finding'] = !supported ? 'UNSUPPORTED_OPERATION'
             : !resultId ? 'RESULT_ID_MISSING'
                 : businessRecordCount !== 1 ? (journals.length > 0 ? 'ORPHAN_JOURNAL' : 'NO_MATCHING_RECORD')
+                    : kind === 'BANK_RECONCILIATION' ? 'CONSISTENT_BUT_UNCONFIRMED'
                     : journals.length === 0 ? 'MISSING_JOURNAL'
                         : journals.length > 1 ? 'DUPLICATE_JOURNAL'
                             : linkedJournalId !== undefined && linkedJournalId !== journals[0].id ? 'JOURNAL_LINK_MISMATCH'
@@ -59,6 +60,7 @@ function countBusiness(snapshot: FinancialSnapshot, kind: FinancialOperationKind
     if (kind === 'CUSTOMER_PAYMENT') return snapshot.payments.filter(v => v.id === resultId).length;
     if (kind === 'BANK_TRANSACTION') return snapshot.transactions.filter(v => v.id === resultId).length;
     if (kind === 'BANK_TRANSFER') return snapshot.transfers.filter(v => v.id === resultId).length;
+    if (kind === 'BANK_RECONCILIATION') return snapshot.reconciliations.filter(v => v.id === resultId).length;
     return 0;
 }
 

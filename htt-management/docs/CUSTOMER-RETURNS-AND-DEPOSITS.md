@@ -25,3 +25,11 @@ Writes require `sales.payment` (ADMIN / FINANCE_ADMIN). Return cost reads requir
 Automated coverage includes source limits, partial/fractional costs, original-cost reversal, existing credits, settlement locks, failure rollback, combined deposit-funded sale/return/refund, historical liability balances, no duplicate cash receipts, permissions, closed periods, bank reconciliation locks, restart retries, schema-17 migration and corrupted backup rejection.
 
 Native desktop acceptance uses a separate synthetic profile: return register/detail, new return submission and reversal, deposit register/detail, invoice application and unused-funds refund. No production business data is used in these UI checks.
+
+## Deposit liability control follow-up — 2026-10-20
+
+The report library, deposit register and finance controls now link to `/accounting/reconciliation/deposits`. This read-only, date-selectable report compares each dedicated liability account with receipt/application/refund balances, preserves dated reversals and provides receipt/source drill-downs. It checks original and reversing journal identity, account movements, source ownership, missing receipts/configuration/customers and historical overdrafts. Unexpected offsetting liability entries cannot pass merely because their net difference is zero.
+
+Finance-control totals and overall status include this check. Period close runs the same calculation in the trusted process at period end and blocks on either a monetary difference or source-integrity exceptions. Review links retain the reporting date. No balancing journal or automatic correction is generated, and schema 18 remains unchanged.
+
+Focused tests cover dated originals/reversals, no-activity profiles, equal-total wrong accounts, zero-difference source corruption, missing configuration, orphan events/journals, historical overdrafts, non-finite inputs and the close/dashboard failure paths. Native acceptance used an isolated synthetic profile: report-library navigation, matching 75.00 balances, historical 200.00 balances, receipt detail and dated finance-control review links.

@@ -48,8 +48,8 @@ describe('Sales operator review / restart acceptance', () => {
         begin(); financialOperationJournal.complete('void-1', 'invoice-1');
         expect(() => recordSalesManualReview(valid)).toThrow(/Completed/);
     });
-    it('rejects non-sales operations', () => {
-        financialOperationJournal.begin('void-1', 'BANK_TRANSFER', 'bank-1');
+    it('rejects unsupported recovery operations', () => {
+        financialOperationJournal.begin('void-1', 'PAYMENT_REVERSAL', 'bank-1');
         expect(() => recordSalesManualReview(valid)).toThrow(/Sales operation not found/);
     });
     it('requires named operator', () => { begin(); expect(() => recordSalesManualReview({ ...valid, operator: '' })).toThrow(); });

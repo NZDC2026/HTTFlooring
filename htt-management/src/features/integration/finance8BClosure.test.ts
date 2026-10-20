@@ -169,14 +169,18 @@ describe('8B bank and recovery boundaries', () => {
         expect(() => m.reconciliations.complete(input)).toThrow(/after/);
         expect(m.reconciliations.getAll()).toHaveLength(1);
     });
-    it('does not clear or publish a reconciliation whose persistence failed', () => {
+    it.each(['intent', 'snapshot'] as const)('does not clear or publish a reconciliation when %s persistence fails', async phase => {
         const bank = m.banks.getAll()[0];
         const before = m.state.read(); const notify = vi.fn(); m.reconciliations.subscribe(notify);
-        vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('quota'); });
-        expect(() => m.reconciliations.complete({ bankAccountId: bank.id, statementDate: '2026-10-10', statementBalance: 0, clearedTransactionIds: [] })).toThrow(/write failed/);
+        const save=localStorage.setItem.bind(localStorage);
+        vi.spyOn(localStorage, 'setItem').mockImplementation((key,value) => { if(key === (phase==='intent'?'htt:financial-operations:v1':'htt:financial-snapshot:v1'))throw new Error('quota');save(key,value); });
+        expect(() => m.reconciliations.complete({ bankAccountId: bank.id, statementDate: '2026-10-10', statementBalance: 0, clearedTransactionIds: [] })).toThrow(phase==='intent'?/could not be saved/:/write failed/);
         expect(m.reconciliations.getAll()).toEqual([]);
         expect(m.state.read()).toEqual(before);
         expect(notify).not.toHaveBeenCalled();
+        const {financialOperationJournal}=await import('../../lib/persistence/financialOperationJournal');
+        expect(financialOperationJournal.getUnresolved()).toHaveLength(phase==='intent'?0:1);
+        if(phase==='snapshot')expect(financialOperationJournal.getUnresolved()[0].state).toBe('MANUAL_REVIEW');
     });
     it('blocks AP and bank posting while another financial operation remains unresolved', async () => {
         const b = bill();

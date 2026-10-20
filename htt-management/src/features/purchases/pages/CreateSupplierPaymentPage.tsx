@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
@@ -1032,10 +1033,7 @@ export function CreateSupplierPaymentPage() {
                             equals the sum
                             of bill
                             allocations.
-                            Unallocated
-                            supplier
-                            prepayments are
-                            not supported.
+                            <Link className="underline" to="/purchases/prepayments">Supplier prepayments without bill allocations</Link>
                         </p>
                     </div>
                 </div>

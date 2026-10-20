@@ -104,7 +104,7 @@ describe('8E upgrade and failure durability', () => {
         const v2 = { ...body, checksum: createHash('sha256').update(JSON.stringify(body)).digest('hex') }; writeFileSync(file, JSON.stringify(v2));
         await restart(); expect((host.view().repositories.accountingPeriods as any).periods).toEqual([]);
         const backups = readdirSync(root).filter(name => name.startsWith('pre-migration-v2-')); expect(backups).toHaveLength(1);
-        expect(JSON.parse(readFileSync(join(root, backups[0]), 'utf8'))).toEqual(v2); expect(JSON.parse(readFileSync(file, 'utf8')).schemaVersion).toBe(18);
+        expect(JSON.parse(readFileSync(join(root, backups[0]), 'utf8'))).toEqual(v2); expect(JSON.parse(readFileSync(file, 'utf8')).schemaVersion).toBe(20);
     });
     it('rolls back the closed flag and history if the business commit fails', async () => {
         const p = createPeriod(), before = readFileSync(join(root, 'business.json'), 'utf8');

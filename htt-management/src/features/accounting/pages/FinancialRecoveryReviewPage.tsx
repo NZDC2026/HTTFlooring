@@ -1,38 +1,25 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { inspectFinancialOperationsAfterRestart, markFinancialOperationForManualReview, type FinancialRecoveryFinding } from '../../../lib/persistence/financialRestartInspection';
-
-/** Read-only recovery queue with an explicit flag-for-review action. Never auto-posts. */
+import {RecoveryGuide} from './RecoveryGuide';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { BusinessFrame } from '../../business-workspace/MasterDataPages';
+import { Panel, Field, fieldClass, buttonClass } from '../../prototype/PrototypeUI';
+import { usePermission } from '../../security/usePermission';
+import { useSecurity } from '../../security/securityClient';
+import { inspectRecovery, type RecoveryWorkbench, type RecoveryWorkbenchRow } from '../../sales/data/recoveryWorkbench';
+import { recordSalesManualReview } from '../../sales/data/salesManualReviewService';
+import { closeVerifiedSalesReview } from '../../sales/data/salesVerifiedRecoveryClosure';
+import { markFinancialOperationForManualReview } from '../../../lib/persistence/financialRestartInspection';
+function ReviewRecord({row,actor,canWrite,run}:{row:RecoveryWorkbenchRow;actor:string;canWrite:boolean;run:(fn:()=>unknown)=>void}) {
+ const [reference,setReference]=useState(''),[summary,setSummary]=useState(''),[approval,setApproval]=useState(''),[independent,setIndependent]=useState(false),[checks,setChecks]=useState([false,false,false,false]);
+ const fields=['Business record and status verified','Original journal verified','Reversal journal verified, or confirmed not applicable','Amounts, allocations and balances reconciled'];
+ return <Panel title={row.kind+' · '+row.state}><div className="space-y-2 text-sm"><p className="break-all">Operation: {row.operationId}</p><p className="break-all">Bound result: {row.resultId??'Missing · cannot infer effects'}</p><p>Created {row.createdAt} · Updated {row.updatedAt}</p>{row.note&&<p>{row.note}</p>}<div className="flex flex-wrap gap-4">{row.links.map(l=><Link key={l.path} className="underline" to={l.path}>{l.label}</Link>)}</div></div>{row.state!=='COMPLETED'&&<><RecoveryGuide row={row}/><div className="rounded-lg border p-3 text-sm" role="status"><p className="font-semibold">{row.canApprove?'Existing financial result verified · independent approval available':'Closure remains blocked'}</p><ul className="ml-5 list-disc">{row.closureReasons.map((reason,n)=><li key={n}>{reason}</li>)}</ul></div>{row.supported&&canWrite&&<form className="space-y-3" onSubmit={e=>{e.preventDefault();run(()=>recordSalesManualReview({operationId:row.operationId,operator:actor,reference,summary,businessRecordChecked:checks[0],originalGlChecked:checks[1],reversalGlChecked:checks[2],balancesChecked:checks[3]}));}}><h3 className="font-semibold">Record reconciliation evidence</h3><p className="text-sm">Evidence records your authenticated account. It does not repair data or release the write block. A different authorized account must approve.</p>{fields.map((label,n)=><label key={label} className="flex gap-2 text-sm"><input type="checkbox" required checked={checks[n]} onChange={e=>setChecks(checks.map((v,i)=>i===n?e.target.checked:v))}/>{label}</label>)}<Field label="Evidence reference"><input required minLength={3} maxLength={500} className={fieldClass} value={reference} onChange={e=>setReference(e.target.value)}/></Field><Field label="Reconciliation summary"><textarea required minLength={3} maxLength={4000} className={fieldClass} value={summary} onChange={e=>setSummary(e.target.value)}/></Field><button className={buttonClass}>Save review evidence</button></form>}{row.canApprove&&canWrite&&<form className="space-y-3 rounded-lg border p-4" onSubmit={e=>{e.preventDefault();run(()=>closeVerifiedSalesReview({operationId:row.operationId,approver:actor,approvalReference:approval,expectedRevision:row.revision}));}}><h3 className="font-semibold">Independent approval and closure</h3><p className="text-sm">This closes the interrupted operation only. No financial transaction is replayed, posted or reversed. Live checks run again on submission.</p><label className="flex gap-2 text-sm"><input type="checkbox" required checked={independent} onChange={e=>setIndependent(e.target.checked)}/>I independently inspected the business result, journals and recorded evidence.</label><Field label="Approval reference"><input required minLength={3} maxLength={500} className={fieldClass} value={approval} onChange={e=>setApproval(e.target.value)}/></Field><button className={buttonClass}>Approve verified closure</button></form>}{!row.supported&&row.state==='PENDING'&&canWrite&&<form className="space-y-3" onSubmit={e=>{e.preventDefault();run(()=>markFinancialOperationForManualReview(row.operationId,summary));}}><Field label="Manual review reason"><textarea required minLength={3} maxLength={4000} className={fieldClass} value={summary} onChange={e=>setSummary(e.target.value)}/></Field><button className={buttonClass}>Flag for manual review</button></form>}</>}{!!row.reviewHistory?.length&&<div className="space-y-3"><h3 className="font-semibold">Durable review history</h3>{row.reviewHistory.map((h,n)=><div key={n} className="rounded-lg border p-3 text-sm"><p>{h.reference} · {h.recordedAt}</p><p className="break-all">Authenticated operator: {h.operator}</p><p>{h.summary}</p></div>)}</div>}</Panel>;
+}
+/** Main-process proof is refreshed explicitly; renderer checkboxes never authorize closure. */
 export function FinancialRecoveryReviewPage() {
-    const navigate = useNavigate();
-    const [revision, setRevision] = useState(0);
-    const [reason, setReason] = useState('Unresolved financial operation after restart; manual reconciliation required.');
-    const [error, setError] = useState<string | null>(null);
-    let findings: FinancialRecoveryFinding[] = [];
-    let inspectionError: string | null = null;
-    try { findings = inspectFinancialOperationsAfterRestart(); }
-    catch (e) { inspectionError = e instanceof Error ? e.message : String(e); }
-    const displayedError = inspectionError ?? error;
-    const flag = (id: string) => {
-        try { markFinancialOperationForManualReview(id, reason); setError(null); setRevision(v => v + 1); }
-        catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-    };
-    return <main className="p-6 space-y-5" data-revision={revision}>
-        <button className="text-sm underline" onClick={() => navigate('/accounting/finance-controls')}>← Finance Controls</button>
-        <h1 className="text-2xl font-semibold">Financial Recovery Review</h1>
-        <p className="text-sm">Unresolved operations are never replayed or automatically completed. Check bank statements, payment records and GL entries before any manual correction.</p>
-        {displayedError && <div role="alert" className="rounded border border-red-500 p-3">Storage or review error: {displayedError}. Financial actions are blocked until resolved.</div>}
-        {!displayedError && findings.length === 0 && <p>No unresolved financial operations.</p>}
-        {findings.map(item => <section key={item.operationId} className="rounded border p-4 space-y-2">
-            <h2 className="font-semibold">{item.kind} — {item.state}</h2>
-            <p className="text-sm break-all">Operation: {item.operationId}</p>
-            <p className="text-sm">Created: {item.createdAt} · Result: {item.resultId ?? 'Unknown'}</p>
-            <p className="text-sm">Snapshot evidence: {item.businessRecordCount} business record(s), {item.journalCount} GL journal(s)</p>
-            <p className="text-sm break-all">GL IDs: {item.journalIds.join(', ') || 'None'} · Linked GL: {item.linkedJournalId ?? 'Unknown'}</p>
-            <p className="text-sm font-medium">Finding: {item.finding}</p>
-            {item.note && <p className="text-sm">Note: {item.note}</p>}
-            {item.state === 'PENDING' && <button className="rounded border px-3 py-2 text-sm" disabled={!reason.trim()} onClick={() => flag(item.operationId)}>Flag for manual review</button>}
-        </section>)}
-        {findings.some(item => item.state === 'PENDING') && <label className="block text-sm">Review reason <input className="block w-full rounded border p-2" value={reason} onChange={e => setReason(e.target.value)} /></label>}
-    </main>;
+ const canWrite=usePermission('accounting.recover'),{session}=useSecurity(),[data,setData]=useState<RecoveryWorkbench>(),[error,setError]=useState(''),[tab,setTab]=useState<'queue'|'history'>('queue'),[query,setQuery]=useState(''),[revision,setRevision]=useState(0);
+ const refresh=()=>{try{setData(inspectRecovery());setError('');setRevision(n=>n+1);}catch(e){setData(undefined);setError((e as Error).message);}};
+ useEffect(()=>{refresh();},[]);
+ const run=(fn:()=>unknown)=>{try{fn();refresh();}catch(e){setError((e as Error).message);}};
+ const rows=(tab==='queue'?data?.queue:data?.history)?.filter(r=>[r.operationId,r.resultId,r.kind,r.note,...(r.reviewHistory??[]).map(h=>h.reference)].some(v=>v?.toLowerCase().includes(query.trim().toLowerCase())))??[];
+ return <BusinessFrame title="Financial recovery workbench" actions={<><Link className={buttonClass} to="/accounting/finance-controls">Finance controls</Link><Link className={buttonClass} to="/accounting/periods">Accounting periods</Link><button className={buttonClass} onClick={refresh}>Refresh live checks</button></>}><p className="text-sm">Reconcile interrupted financial operations against their existing business and GL results. Supported Sales, bank receipt/payment, bank transfer and completed bank reconciliation cases can be reviewed and independently closed. Bank closure requires an existing result matching its saved intent; reconciliation totals and cleared rows are recalculated. Other operation kinds remain blocked for their own recovery procedure. This workbench never retries transactions or creates balancing entries.</p>{error&&<p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4">{error}</p>}{error&&<Link className={buttonClass} to="/settings/security">Open data protection and validated backup restore</Link>}{!canWrite&&<p className="text-sm">Read-only inspection. Recovery actions require an authorized finance administrator.</p>}<div className="flex flex-wrap items-center gap-3"><button className={buttonClass} aria-pressed={tab==='queue'} onClick={()=>setTab('queue')}>Unresolved ({data?.unresolvedCount??'—'})</button><button className={buttonClass} aria-pressed={tab==='history'} onClick={()=>setTab('history')}>Reviewed closure history ({data?.history.length??'—'})</button><input aria-label="Search recovery records" className={fieldClass+' max-w-md'} placeholder="Operation, result or evidence reference" value={query} onChange={e=>setQuery(e.target.value)}/></div>{data&&<p className="text-xs">Live inspection: {data.inspectedAt}. Closing one review does not release any other unresolved operation.</p>}{data&&!rows.length&&<Panel title={tab==='queue'?'No matching unresolved operations':'No matching reviewed closures'}><p>{query?'Change the search to show other records.':tab==='queue'?'No unresolved financial operations found.':'Ordinary successful transactions are excluded from this review history.'}</p></Panel>}{rows.map(row=><ReviewRecord key={row.operationId+':'+revision} row={row} actor={session?.user.id??''} canWrite={canWrite} run={run}/>)}</BusinessFrame>;
 }

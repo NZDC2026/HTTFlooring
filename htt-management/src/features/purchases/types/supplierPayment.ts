@@ -21,6 +21,8 @@ export interface SupplierPaymentAllocation {
 }
 
 export interface SupplierPayment {
+    prepaymentId?: string;
+    prepaymentApplicationId?: string;
     operationId?: string;
     requestFingerprint?: string;
     id: string;

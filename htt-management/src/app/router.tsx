@@ -1,3 +1,4 @@
+import { PurchaseOutputPage } from '../features/document-output/PurchaseOutputPage';
 import { additionalRoutes } from '../features/page-previews/previewRoutes';
 import { WorkspaceSearchPage, HelpPage, NotificationsPage } from '../layouts/WorkspaceUtilityPages';
 import { EmployeesPage, EmployeeDetailPage, EmployeeFormPage, PayRunsPage, PayRunFormPage, PayRunDetailPage, PayslipPage, TimesheetsPage, LeavePage } from '../features/payroll/pages/PayrollWorkspacePages';
@@ -178,6 +179,10 @@ export const router = createHashRouter([
                 element: (
                     <PurchaseOrderFormPage mode="edit" />
                 ),
+            },
+            {
+                path: "documents/purchase-output",
+                element: <PurchaseOutputPage />,
             },
             {
                 path: "purchases/payments/new",

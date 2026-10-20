@@ -36,8 +36,10 @@ function category(entry: JournalEntry): CashCategory {
         case 'CUSTOMER_PAYMENT_REVERSAL': return cashCategories[0];
         case 'CUSTOMER_DEPOSIT_REFUND':
         case 'CUSTOMER_REFUND': return cashCategories[1];
+        case 'SUPPLIER_PREPAYMENT':
         case 'SUPPLIER_PAYMENT':
         case 'SUPPLIER_PAYMENT_REVERSAL': return cashCategories[2];
+        case 'SUPPLIER_PREPAYMENT_REFUND':
         case 'SUPPLIER_REFUND': return cashCategories[3];
         case 'OPENING_BALANCE': return cashCategories[4];
         case 'BANK_TRANSFER': return cashCategories[5];

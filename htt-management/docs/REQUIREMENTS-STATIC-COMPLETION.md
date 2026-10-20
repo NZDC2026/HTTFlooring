@@ -1,3 +1,19 @@
+## Purchase document output and complex exception guidance
+
+Purchase orders and supplier remittance advice now support immutable local versions, templates, HTML/print/PDF preparation and scoped access under schema 20. The recovery workbench includes diagnostic steps and existing administrator backup/restore navigation. See [PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md](PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md) for exact scope and limitations.
+
+## Financial recovery workbench — 2026-10-20
+
+The existing recovery page now connects trusted live inspection, Sales reconciliation evidence, independent approval, verified closure and persistent history. Unresolved operation counts also affect finance-control status. No financial replay, automatic repair or schema change is introduced. See [FINANCIAL-RECOVERY-WORKBENCH.md](FINANCIAL-RECOVERY-WORKBENCH.md) for supported operations and remaining boundaries.
+
+## Supplier advances and prepayments — 2026-10-20
+
+Added connected advance-payment, bill-application, unused-funds-return and reversal flows, with dated asset reconciliation, finance-control status, bank locks and period-close checks. Schema 19 migrates earlier profiles with an empty register. See [SUPPLIER-PREPAYMENTS.md](SUPPLIER-PREPAYMENTS.md).
+
+## Customer deposit liability reconciliation — 2026-10-20
+
+Added a connected dated report, per-receipt and liability-account balances, source integrity exceptions, finance-control totals and trusted period-close blockers. Report and close review links preserve the selected date. See [CUSTOMER-RETURNS-AND-DEPOSITS.md](CUSTOMER-RETURNS-AND-DEPOSITS.md).
+
 ## Customer physical returns and deposits — 2026-10-20
 
 Both workflows now have connected local registers, receipt forms, details, reversal, accounting, audit and persistence under schema 18. Customer returns restore original dispatched stock and cost, with a new or linked credit. Deposits remain liabilities until applied to invoices or refunded; applications do not create duplicate bank cash. See [CUSTOMER-RETURNS-AND-DEPOSITS.md](CUSTOMER-RETURNS-AND-DEPOSITS.md) for controls and supported scope.

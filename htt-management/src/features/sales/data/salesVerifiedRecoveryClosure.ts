@@ -1,3 +1,11 @@
+import { verifyReconciliationClosureEvidence } from '../../banking/data/reconciliationRecoveryEvidence';
+import { isBankRecoveryKind, verifyBankClosureEvidence } from '../../banking/data/bankRecoveryEvidence';
+import {accountRepository} from '../../accounting/data/accountRepository';
+import {bankAccountRepository} from '../../banking/data/bankAccountRepository';
+import {customerRepository} from '../../contacts/data/customerRepository';
+import {calculateAccountsReceivableGlReconciliation} from '../../accounting/data/accountsReceivableGlReconciliationService';
+import {snapshotRepositories} from '../../security/repositoryHost';
+import { runFinancialConsistencyAudit } from '../../../lib/persistence/runFinancialConsistencyAudit';
 import { nativeRequest, hydrateBusiness } from "../../security/repositoryHost";
 import type { BusinessView } from "../../security/securityContract";
 /** Audited closure of an interrupted operation whose financial effects ALREADY exist.
@@ -18,8 +26,12 @@ export type VerifiedClosureRequest = {
     operationId: string;
     approver: string;
     approvalReference: string;
+    expectedRevision: string;
 };
 
+export function salesReviewRevision(operation: ReturnType<typeof financialOperationJournal.list>[number]): string {
+    return JSON.stringify([operation.operationId,operation.kind,operation.state,operation.resultId,operation.updatedAt,operation.reviewHistory??[]]);
+}
 const salesKinds = new Set(['CUSTOMER_PAYMENT', 'SALES_INVOICE_VOID', 'SALES_CREDIT_APPLY',
     'SALES_CREDIT_REVERSAL', 'SALES_PAYMENT_REVERSAL']);
 
@@ -98,6 +110,22 @@ function liveInput(): SalesAuditInput {
     };
 }
 
+/** Live account checks complement lifecycle proof; equal journal totals are insufficient. */
+export function verifyCurrentRecoveryAccounting(operationId:string):string[] {
+ const reasons:string[]=[],data=liveInput(),op=financialOperationJournal.list().find(o=>o.operationId===operationId),payment=data.payments.find(p=>p.id===op?.resultId);
+ const amount=(n:number)=>Math.round(n*100),net=(lines:typeof data.journals[number]['lines'])=>{const map=new Map<string,number>();for(const l of lines)map.set(l.accountId,(map.get(l.accountId)??0)+amount(l.debit)-amount(l.credit));return JSON.stringify([...map].filter(([,v])=>v).sort(([a],[b])=>a.localeCompare(b)));};
+ if(payment&&['CUSTOMER_PAYMENT','SALES_PAYMENT_REVERSAL'].includes(op!.kind)){
+  const original=data.journals.find(j=>j.sourceType==='CUSTOMER_PAYMENT'&&j.sourceId===payment.id&&!j.reversedJournalEntryId),ar=accountRepository.getAll().find(a=>a.systemRole==='ACCOUNTS_RECEIVABLE');
+  let debitAccount=bankAccountRepository.getById(payment.bankAccountId)?.glAccountId;
+  if(payment.depositApplicationId){const s=snapshotRepositories().customerDeposits as {deposits:{id:string;liabilityAccountId:string}[];applications:{id:string;paymentId:string;depositId:string}[]};const a=s.applications.find(a=>a.id===payment.depositApplicationId&&a.paymentId===payment.id);debitAccount=a?s.deposits.find(d=>d.id===a.depositId)?.liabilityAccountId:undefined;}
+  if(!original||!ar||!debitAccount||original.lines.length!==2||!original.lines.some(l=>l.accountId===debitAccount&&amount(l.debit)===amount(payment.amount)&&amount(l.credit)===0)||!original.lines.some(l=>l.accountId===ar.id&&amount(l.credit)===amount(payment.amount)&&amount(l.debit)===0))reasons.push('Payment journal bank/deposit and receivables accounts do not match the bound payment.');
+ }
+ const originals=data.journals.filter(j=>!j.reversedJournalEntryId&&j.sourceId===op?.resultId&&((op?.kind==='SALES_INVOICE_VOID'&&j.sourceType==='CUSTOMER_INVOICE')||(op?.kind==='SALES_PAYMENT_REVERSAL'&&j.sourceType==='CUSTOMER_PAYMENT')));
+ for(const j of originals){const rev=data.journals.find(r=>r.id===j.reversalJournalEntryId);if(!rev||net(rev.lines)!==net(j.lines.map(l=>({...l,debit:l.credit,credit:l.debit}))))reasons.push('Reversal journal accounts do not exactly reverse the original.');}
+ try{const asOfDate=[...data.journals.map(j=>j.journalDate),...data.invoices.map(i=>i.documentDate),...data.creditNotes.map(c=>c.creditDate),...data.payments.map(p=>p.paymentDate)].sort().at(-1)??'1970-01-01';const r=calculateAccountsReceivableGlReconciliation({accounts:accountRepository.getAll(),journalEntries:[...data.journals],asOfDate,customers:customerRepository.getAll(),documents:[...data.quotes,...data.salesOrders,...data.invoices],payments:[...data.payments],creditNotes:[...data.creditNotes],creditAllocations:[...data.allocations]});if(!r.reconciled||!Number.isFinite(r.difference))reasons.push('Current receivables subledger and GL do not reconcile.');}catch(e){reasons.push('Receivables reconciliation failed: '+(e as Error).message);}
+ return reasons;
+}
+
 /** Explicit operator action, not a startup hook. Requires a second approver. */
 export function closeVerifiedSalesReview(request: VerifiedClosureRequest) {
     if ((globalThis as Record<string, unknown>).__HTT_MAIN_HOST__ !== true && import.meta.env?.MODE !== 'test') {
@@ -105,9 +133,14 @@ export function closeVerifiedSalesReview(request: VerifiedClosureRequest) {
         hydrateBusiness(reply.view); return reply.result;
     }
 
+    if(typeof request.approvalReference!=='string'||request.approvalReference.length>500)throw new Error('Provide an approval reference of 3–500 characters.');
     const operations = financialOperationJournal.list();
-    const reasons = verifySalesClosureEvidence(liveInput(), operations, request.operationId);
-    if (reasons.length) throw new Error(`Sales recovery remains blocked: ${reasons.join(' ')}`);
+    const current=operations.find(o=>o.operationId===request.operationId);
+    if(!current || !request.expectedRevision || salesReviewRevision(current)!==request.expectedRevision)throw new Error('Recovery evidence changed. Refresh and review before approval.');
+    const reasons = current.kind==='BANK_RECONCILIATION' ? verifyReconciliationClosureEvidence(request.operationId) : isBankRecoveryKind(current.kind) ? verifyBankClosureEvidence(request.operationId) : verifySalesClosureEvidence(liveInput(), operations, request.operationId);
+    if(current.kind!=='BANK_RECONCILIATION'&&!isBankRecoveryKind(current.kind)) reasons.push(...verifyCurrentRecoveryAccounting(request.operationId));
+    const integrity=runFinancialConsistencyAudit();if(integrity.length)reasons.push('Financial consistency checks failed: '+integrity.map(i=>i.code).join(', '));
+    if (reasons.length) throw new Error(`Financial recovery remains blocked: ${reasons.join(' ')}`);
     const operation = operations.find(v => v.operationId === request.operationId)!;
     // A second durable read is performed by closeReviewed; if persistence fails,
     // no closure is acknowledged. No financial records are changed here.

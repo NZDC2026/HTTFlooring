@@ -1,14 +1,14 @@
 import { nativeRequest, hydrateBusiness } from "../../security/repositoryHost";
 import type { BusinessView } from "../../security/securityContract";
-/** Operator evidence collection for interrupted Sales financial operations.
+/** Operator evidence collection for supported interrupted financial operations.
  * Does not post, reverse, repair or release the financial write gate.
  */
 import { financialOperationJournal } from '../../../lib/persistence/financialOperationJournal';
 import { assertNoUnresolvedSalesOperations } from './salesWriteSafetyGate';
 
-const SALES_KINDS = new Set([
+const REVIEW_KINDS = new Set([
     'CUSTOMER_PAYMENT', 'SALES_INVOICE_VOID', 'SALES_CREDIT_APPLY',
-    'SALES_CREDIT_REVERSAL', 'SALES_PAYMENT_REVERSAL',
+    'SALES_CREDIT_REVERSAL', 'SALES_PAYMENT_REVERSAL', 'BANK_TRANSACTION', 'BANK_TRANSFER', 'BANK_RECONCILIATION',
 ]);
 
 export type SalesReviewSubmission = {
@@ -31,12 +31,13 @@ export function recordSalesManualReview(input: SalesReviewSubmission) {
         hydrateBusiness(reply.view); return reply.result;
     }
 
-    if (!input.businessRecordChecked || !input.originalGlChecked ||
-        !input.reversalGlChecked || !input.balancesChecked)
+    if (input.businessRecordChecked !== true || input.originalGlChecked !== true ||
+        input.reversalGlChecked !== true || input.balancesChecked !== true)
         throw new Error('Business, original/reversal GL and balances must all be inspected.');
+    if(typeof input.reference!=='string'||input.reference.length>500||typeof input.summary!=='string'||input.summary.length>4000)throw new Error('Recovery evidence reference or summary exceeds the allowed length.');
     const operations = financialOperationJournal.list();
     const operation = operations.find(v => v.operationId === input.operationId);
-    if (!operation || !SALES_KINDS.has(operation.kind))
+    if (!operation || !REVIEW_KINDS.has(operation.kind))
         throw new Error('Sales operation not found.');
     if (operation.state === 'COMPLETED')
         throw new Error('Completed operation cannot be reviewed again.');

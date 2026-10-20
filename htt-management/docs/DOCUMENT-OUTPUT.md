@@ -1,3 +1,5 @@
+> Purchase-order and remittance output is now connected through a separate register; see [PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md](PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md). Earlier supplier-output exclusions below describe the previous baseline.
+
 > Follow-up: [Physical supplier returns](SUPPLIER-RETURNS.md) now connects confirmed credits to inventory dispatch and atomic reversal.
 
 # Sales document output — local preparation

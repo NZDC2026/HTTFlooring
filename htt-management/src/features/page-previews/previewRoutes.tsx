@@ -1,3 +1,6 @@
+import { SupplierPrepaymentsPage } from '../supplier-prepayments/SupplierPrepaymentsPage';
+import { PrepaymentReconciliationPage } from '../supplier-prepayments/PrepaymentReconciliationPage';
+import { DepositReconciliationPage } from '../customer-deposits/DepositReconciliationPage';
 import { CustomerReturnsPage } from '../customer-returns/CustomerReturnsPage';
 import { CustomerDepositsPage } from '../customer-deposits/CustomerDepositsPage';
 import { PayItemsPage, PayrollSettingsPage, PayrollFilingPage, PayrollSummaryPage } from '../payroll/pages/PayrollPages';
@@ -78,7 +81,11 @@ function FlowRoute({ id }: { id: string }) {
 function ManagedDetail({kind,permission}:{kind:'ORDER'|'INVOICE'|'EXPENSE';permission:Permission}){const {previewId}=useParams();return <PreviewAccess permission={permission}><ManagedDocumentPage key={previewId} kind={kind} mode="detail" id={previewId}/></PreviewAccess>;}
 function CustomerReturnRoute() { const {id}=useParams(); return <PreviewAccess permission="inventory.cost.read"><CustomerReturnsPage key={id??'list'}/></PreviewAccess>; }
 function CustomerDepositRoute() { const {id}=useParams(); return <PreviewAccess permission="sales.read"><CustomerDepositsPage key={id??'list'}/></PreviewAccess>; }
+function SupplierPrepaymentRoute(){const {id}=useParams();return <PreviewAccess permission="purchases.read"><SupplierPrepaymentsPage key={id??'list'}/></PreviewAccess>;}
 export const additionalRoutes: RouteObject[] = [
+ ...['purchases/prepayments','purchases/prepayments/:id'].map(path=>({path,element:<SupplierPrepaymentRoute/>})),
+ {path:'accounting/reconciliation/prepayments',element:<PreviewAccess permission="accounting.read"><PrepaymentReconciliationPage/></PreviewAccess>},
+ {path:"accounting/reconciliation/deposits",element:<PreviewAccess permission="accounting.read"><DepositReconciliationPage/></PreviewAccess>},
  ...['sales/customer-returns','sales/customer-returns/:id'].map(path=>({path,element:<CustomerReturnRoute/>})),
  ...['sales/customer-deposits','sales/customer-deposits/:id'].map(path=>({path,element:<CustomerDepositRoute/>})),
  {path:"purchases/supplier-returns",element:<PreviewAccess permission="purchases.return.read"><SupplierReturnsPage/></PreviewAccess>},

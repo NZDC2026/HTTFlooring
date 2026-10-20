@@ -2,6 +2,7 @@ import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
+    useRef,
     useState,
     useSyncExternalStore,
 } from "react";
@@ -57,6 +58,8 @@ export function BankReconciliationPage() {
         bankAccountId,
     } = useParams();
 
+    const operationIdRef = useRef<string | null>(null);
+    const submittingRef = useRef(false);
     const reconciliations =
         useSyncExternalStore(
             bankReconciliationRepository
@@ -290,6 +293,9 @@ export function BankReconciliationPage() {
     }
 
     function handleComplete() {
+        if(submittingRef.current)return;
+        submittingRef.current=true;
+        operationIdRef.current ??= crypto.randomUUID();
         setError(
             null,
         );
@@ -327,7 +333,9 @@ export function BankReconciliationPage() {
                                     selectedIds,
                                 ),
                         },
+                        operationIdRef.current,
                     );
+            operationIdRef.current=null;
 
             setSelectedIds(
                 new Set(),
@@ -344,7 +352,7 @@ export function BankReconciliationPage() {
                 : "Unable to complete bank reconciliation.";
             setError(message);
             feedback.error(message);
-        }
+        } finally { submittingRef.current=false; }
     }
 
     return (

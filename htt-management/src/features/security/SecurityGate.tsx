@@ -46,7 +46,7 @@ export function SecurityGate({ children }: { children: ReactNode }) {
 }
 export function RouteAccess({ children }: { children: ReactNode }) {
     const { pathname } = useLocation(), { session } = useSecurity();
-    const checks: [string, Permission][] = [['/contacts/review', 'sales.read'],['/payroll', 'payroll.read'], ['/dashboard', 'accounting.read'], ['/demo', 'sales.read'], ['/accounting/financial-recovery', 'accounting.recover'], ['/accounting', 'accounting.read'], ['/banking', 'banking.read'], ['/purchases', 'purchases.read'], ['/sales', 'sales.read'], ['/inventory', 'inventory.read'], ['/contacts', 'contacts.write'], ['/reports/purchase', 'purchases.read'], ['/reports/grni', 'purchases.read'], ['/reports/aged-payables', 'purchases.read'], ['/reports', 'sales.read']];
+    const checks: [string, Permission][] = [['/documents/purchase-output', 'purchases.read'], ['/contacts/review', 'sales.read'],['/payroll', 'payroll.read'], ['/dashboard', 'accounting.read'], ['/demo', 'sales.read'], ['/accounting/financial-recovery', 'audit.read'], ['/accounting', 'accounting.read'], ['/banking', 'banking.read'], ['/purchases', 'purchases.read'], ['/sales', 'sales.read'], ['/inventory', 'inventory.read'], ['/contacts', 'contacts.write'], ['/reports/purchase', 'purchases.read'], ['/reports/grni', 'purchases.read'], ['/reports/aged-payables', 'purchases.read'], ['/reports', 'sales.read']];
     const required = checks.find(([prefix]) => pathname.startsWith(prefix))?.[1];
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     if (pathname === '/settings/security') return children;
