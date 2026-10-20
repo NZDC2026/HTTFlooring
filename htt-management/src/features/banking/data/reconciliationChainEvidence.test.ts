@@ -1,0 +1,12 @@
+import {it,expect} from 'vitest';
+import type {JournalEntry} from '../../accounting/types/journalEntry';
+import {bankJournalPostedAsAt} from './reconciliationChainEvidence';
+function fixture(){
+ const now='2026-10-20T00:00:00.000Z',j:JournalEntry={id:'original',journalNumber:'J-1',journalDate:'2026-10-10',description:'Original bank posting',sourceType:'MANUAL_JOURNAL',status:'REVERSED',lines:[{id:'l1',accountId:'bank',accountCode:'1000',accountName:'Bank',debit:10,credit:0},{id:'l2',accountId:'expense',accountCode:'5300',accountName:'Expense',debit:0,credit:10}],totalDebit:10,totalCredit:10,createdAt:now,updatedAt:now,postedAt:now,reversedAt:now,reversalReason:'Later reversal',reversalJournalEntryId:'offset'};
+ const r:JournalEntry={...structuredClone(j),id:'offset',journalNumber:'J-2',journalDate:'2026-10-19',status:'POSTED',lines:j.lines.map(l=>({...l,debit:l.credit,credit:l.debit})),reversedAt:undefined,reversalJournalEntryId:undefined,reversedJournalEntryId:j.id};return {j,r,all:[j,r]};
+}
+it('uses the exact financial reversal date rather than current status for an earlier statement',()=>{const {j,all}=fixture();expect(bankJournalPostedAsAt(j,all,'2026-10-09')).toBe(false);expect(bankJournalPostedAsAt(j,all,'2026-10-10')).toBe(true);expect(bankJournalPostedAsAt(j,all,'2026-10-18')).toBe(true);expect(bankJournalPostedAsAt(j,all,'2026-10-19')).toBe(false);});
+it.each(['missing','multiple','wrong-link','wrong-amount','wrong-account','wrong-total','offset-reversed','original-no-reason','invalid-date','same-date','reversal-of-reversal'])('does not reinterpret %s reversal evidence as an earlier posted bank row',mode=>{
+ const {j,r,all}=fixture();if(mode==='missing')all.pop();if(mode==='multiple')all.push({...r});if(mode==='wrong-link')r.reversedJournalEntryId='another';if(mode==='wrong-amount')r.lines[0].credit=11;if(mode==='wrong-account')r.lines[0].accountId='other';if(mode==='wrong-total')r.totalDebit=11;if(mode==='offset-reversed')r.status='REVERSED';if(mode==='original-no-reason')j.reversalReason='';if(mode==='invalid-date')r.journalDate='2026-02-30';if(mode==='same-date')r.journalDate=j.journalDate;if(mode==='reversal-of-reversal')j.reversedJournalEntryId='previous';expect(bankJournalPostedAsAt(j,all,'2026-10-18')).toBe(false);
+});
+it('rejects a purported POSTED original with reversal lifecycle fields',()=>{const {j,all}=fixture();j.status='POSTED';expect(bankJournalPostedAsAt(j,all,'2026-10-18')).toBe(false);});

@@ -1,3 +1,4 @@
+import {validFinancialOperations,validRepairProposal} from './financialOperationValidation';
 import { registerRepository } from "../../features/security/repositoryHost";
 /**
  * Durable, fail-closed operation intent registry for the local Mock environment.
@@ -9,7 +10,11 @@ import { canWriteMockRepository, readMockRepository, writeMockRepository } from 
 
 export type FinancialOperationKind = 'CUSTOMER_PAYMENT' | 'PAYMENT_REVERSAL' | 'BANK_TRANSACTION' | 'BANK_TRANSFER' | 'BANK_RECONCILIATION' | 'SALES_INVOICE_VOID' | 'SALES_CREDIT_APPLY' | 'SALES_CREDIT_REVERSAL' | 'SALES_PAYMENT_REVERSAL';
 export type FinancialOperationState = 'PENDING' | 'COMPLETED' | 'MANUAL_REVIEW';
+export type FinancialRepairAction = 'CANCEL_NO_EFFECT' | 'RESTORE_BANK_RECORD' | 'RESTORE_BANK_JOURNAL' | 'RESTORE_BANK_JOURNAL_LINK' | 'REVERSE_BANK_DUPLICATE';
+export type FinancialRepairProposal = { id:string; action:FinancialRepairAction; evidenceDigest:string; planJson:string; reviewer:string; reference:string; summary:string; proposedAt:string; status:'PROPOSED'|'EXECUTED'; approver?:string; approvalReference?:string; executedAt?:string; afterDigest?:string; resultJournalId?:string };
 export type FinancialOperation = {
+  repairProposal?: FinancialRepairProposal;
+  resolution?: 'CANCELLED_NO_EFFECT' | 'BANK_RECORD_RESTORED' | 'BANK_JOURNAL_RESTORED' | 'BANK_JOURNAL_LINK_RESTORED' | 'BANK_DUPLICATE_REVERSED';
   operationId: string;
   kind: FinancialOperationKind;
   fingerprint: string;
@@ -24,27 +29,8 @@ export type BeginOperationResult = { status: 'started'; operation: FinancialOper
 
 const KEY = 'htt:financial-operations:v1';
 const kinds: readonly string[] = ['CUSTOMER_PAYMENT', 'PAYMENT_REVERSAL', 'BANK_TRANSACTION', 'BANK_TRANSFER', 'BANK_RECONCILIATION', 'SALES_INVOICE_VOID', 'SALES_CREDIT_APPLY', 'SALES_CREDIT_REVERSAL', 'SALES_PAYMENT_REVERSAL'];
-const states: readonly string[] = ['PENDING', 'COMPLETED', 'MANUAL_REVIEW'];
-const valid = (value: unknown): value is FinancialOperation[] =>
-  Array.isArray(value) && value.every((v: unknown) => {
-    if (!v || typeof v !== 'object') return false;
-    const o = v as Record<string, unknown>;
-    return typeof o.operationId === 'string' && o.operationId.length > 0 &&
-      kinds.includes(String(o.kind)) && typeof o.fingerprint === 'string' && o.fingerprint.length > 0 &&
-      states.includes(String(o.state)) && typeof o.createdAt === 'string' && typeof o.updatedAt === 'string' &&
-      (o.resultId === undefined || typeof o.resultId === 'string') &&
-      (o.note === undefined || typeof o.note === 'string') &&
-      (o.reviewHistory === undefined || (Array.isArray(o.reviewHistory) && o.reviewHistory.every((entry: unknown) => {
-        if (!entry || typeof entry !== 'object') return false;
-        const e = entry as Record<string, unknown>;
-        return typeof e.reference === 'string' && e.reference.length >= 3 &&
-          typeof e.operator === 'string' && e.operator.length >= 2 &&
-          typeof e.recordedAt === 'string' && typeof e.summary === 'string' && e.summary.length >= 3;
-      }))); 
-  }) && new Set(value.map(v => v.operationId)).size === value.length;
-
 function load(): FinancialOperation[] {
-  const result = readMockRepository(KEY, valid);
+  const result = readMockRepository(KEY, validFinancialOperations);
   if (result.status === 'ok') return result.data;
   if (result.status === 'empty') return [];
   throw new Error(`Financial operation journal is ${result.status}; writes are blocked to protect financial data.`);
@@ -60,6 +46,7 @@ export const financialOperationJournal = {
     const records = load();
     const existing = records.find(v => v.operationId === operationId);
     if (existing) {
+      if(existing.resolution==='CANCELLED_NO_EFFECT')throw new Error('Operation ID was retired after verified no-effect cancellation. Use a new operation ID for a new transaction.');
       if (existing.kind !== kind || existing.fingerprint !== fingerprint)
         throw new Error('Operation ID reused with different business data.');
       return { status: existing.state === 'COMPLETED' ? 'already_completed' : 'needs_review', operation: { ...existing } };
@@ -91,6 +78,7 @@ export const financialOperationJournal = {
     const record = records.find(v => v.operationId === operationId);
     if (!record) throw new Error('Operation not found.');
     if (record.resultId && record.resultId !== resultId) throw new Error('Operation result ID cannot be changed.');
+    if(record.resolution==='CANCELLED_NO_EFFECT')throw new Error('Cancelled operation ID cannot complete or replay.');
     if (record.state === 'COMPLETED') {
       if (record.resultId !== resultId) throw new Error('Operation already completed with a different result.');
       return { ...record };
@@ -159,12 +147,28 @@ export const financialOperationJournal = {
     save(records.map(v => v.operationId === operationId ? updated : v));
     return { ...updated, reviewHistory: updated.reviewHistory?.map(v => ({ ...v })) };
   },
+  /** Internal proposal metadata; financial effects are owned by the targeted repair service. */
+  attachRepairProposal(operationId:string,proposal:FinancialRepairProposal):FinancialOperation {
+    const records=load(),record=records.find(r=>r.operationId===operationId);
+    if(!record||record.state!=='MANUAL_REVIEW'||!validRepairProposal(proposal)||proposal.status!=='PROPOSED'||!record.reviewHistory?.some(h=>h.reference===proposal.reference&&h.operator===proposal.reviewer))throw new Error('Repair proposal has no trusted review evidence.');
+    const updated={...record,repairProposal:structuredClone(proposal)};save(records.map(r=>r.operationId===operationId?updated:r));return structuredClone(updated);
+  },
+  finishRepair(operationId:string,proposalId:string,approver:string,reference:string,afterDigest:string,resultJournalId?:string):FinancialOperation {
+    const records=load(),record=records.find(r=>r.operationId===operationId),proposal=record?.repairProposal;
+    if(!record||record.state!=='MANUAL_REVIEW'||!record.resultId||!proposal||proposal.id!==proposalId||proposal.status!=='PROPOSED')throw new Error('Current proposed repair is required.');
+    if(!approver.trim()||reference.trim().length<3||reference.length>500||!/^[a-f0-9]{64}$/.test(afterDigest))throw new Error('Valid repair approval and post-repair digest are required.');
+    if(proposal.reviewer.toLowerCase()===approver.toLowerCase()||record.reviewHistory?.some(h=>h.operator.toLowerCase()===approver.toLowerCase()))throw new Error('Repair approval requires a different operator.');
+    if(record.reviewHistory?.some(h=>h.reference===reference.trim()))throw new Error('Approval reference must differ from review evidence.');
+    const now=new Date().toISOString(),resolution=proposal.action==='CANCEL_NO_EFFECT'?'CANCELLED_NO_EFFECT' as const:proposal.action==='RESTORE_BANK_RECORD'?'BANK_RECORD_RESTORED' as const:proposal.action==='REVERSE_BANK_DUPLICATE'?'BANK_DUPLICATE_REVERSED' as const:proposal.action==='RESTORE_BANK_JOURNAL_LINK'?'BANK_JOURNAL_LINK_RESTORED' as const:'BANK_JOURNAL_RESTORED' as const;
+    const updated:FinancialOperation={...record,state:'COMPLETED',resolution,updatedAt:now,note:`Targeted repair ${resolution} approved by ${approver} (${reference.trim()}). Original operation ID retained.`,repairProposal:{...proposal,status:'EXECUTED',approver,approvalReference:reference.trim(),executedAt:now,afterDigest,resultJournalId},reviewHistory:[...(record.reviewHistory??[]),{reference:reference.trim(),operator:approver,recordedAt:now,summary:`Independent approval and execution: ${resolution}; proposal ${proposal.id}; post-repair digest ${afterDigest}`} ]};
+    save(records.map(r=>r.operationId===operationId?updated:r));return structuredClone(updated);
+  },
   /** Read-only startup inspection: pending work must be reconciled manually. */
   getUnresolved(): readonly FinancialOperation[] { return load().filter(v => v.state !== 'COMPLETED').map(v => ({ ...v })); },
 };
 
 registerRepository("financialOperations", {
     repository: financialOperationJournal, read: "audit.read",
-    commands: { begin: null, bindResult: null, complete: null, flagForReview: "accounting.recover", recordManualReview: null, closeReviewed: null },
+    commands: { begin: null, bindResult: null, complete: null, flagForReview: "accounting.recover", recordManualReview: null, closeReviewed: null, attachRepairProposal:null, finishRepair:null },
     snapshot: () => [], restore: () => {}, publish: () => {},
 });

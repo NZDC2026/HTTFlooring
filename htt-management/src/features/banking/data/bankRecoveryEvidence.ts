@@ -1,3 +1,6 @@
+import {bankDuplicateCorrections} from '../../accounting/data/bankDuplicateCorrection';
+import type {BankTransaction,BankTransfer} from '../types/bankTransaction';
+import type {JournalEntry} from '../../accounting/types/journalEntry';
 import { financialOperationJournal } from '../../../lib/persistence/financialOperationJournal';
 import { bankTransactionRepository } from './bankTransactionRepository';
 import { bankAccountRepository } from './bankAccountRepository';
@@ -7,21 +10,23 @@ import { requireDateKey } from '../../../lib/businessDate';
 
 export const isBankRecoveryKind = (kind:string) => kind==='BANK_TRANSACTION'||kind==='BANK_TRANSFER';
 /** Verify only already-posted effects. An intent, checklist or balanced total alone is insufficient. */
-export function verifyBankClosureEvidence(operationId:string):string[] {
+export function verifyBankClosureEvidence(operationId:string, projected?:{transactions?:BankTransaction[];transfers?:BankTransfer[];journals?:JournalEntry[]}, requireReview=true):string[] {
  const operations=financialOperationJournal.list(),matches=operations.filter(o=>o.operationId===operationId);
  if(matches.length!==1)return ['Bank operation identity is missing or duplicated.'];
  const op=matches[0],reasons:string[]=[];
- if(!isBankRecoveryKind(op.kind)||op.state!=='MANUAL_REVIEW')reasons.push('Operation is not an unresolved bank review.');
+ if(!isBankRecoveryKind(op.kind)||(requireReview?op.state!=='MANUAL_REVIEW':op.state==='COMPLETED'))reasons.push('Operation is not an unresolved bank review.');
  if(!op.resultId)reasons.push('Operation has no durable bound result; cannot infer effects.');
- if(!op.reviewHistory?.length)reasons.push('Operator reconciliation evidence is missing.');
+ if(requireReview&&!op.reviewHistory?.length)reasons.push('Operator reconciliation evidence is missing.');
  if(reasons.length)return reasons;
- const transactions=bankTransactionRepository.getTransactions(),transfers=bankTransactionRepository.getTransfers(),journals=journalEntryRepository.getAll();
+ const transactions=projected?.transactions??bankTransactionRepository.getTransactions(),transfers=projected?.transfers??bankTransactionRepository.getTransfers(),journals=projected?.journals??journalEntryRepository.getAll();
  const records=op.kind==='BANK_TRANSACTION'?transactions:transfers;
  if(records.filter(r=>r.id===op.resultId).length!==1)return ['Bank business result is missing or duplicated.'];
  const t=transactions.find(t=>t.id===op.resultId),f=transfers.find(t=>t.id===op.resultId),record=records.find(r=>r.id===op.resultId)!;
  const unique=(ids:string[])=>new Set(ids).size===ids.length;
  if(!unique(journals.map(j=>j.id))||!unique(records.map(r=>r.id)))return ['Duplicate bank or GL identity; evidence is ambiguous.'];
- const originals=journals.filter(j=>j.sourceType===op.kind&&j.sourceId===op.resultId);
+ const corrections=bankDuplicateCorrections(journals);
+ if(corrections.invalid.length)return ['Invalid duplicate-correction evidence.'];
+ const originals=journals.filter(j=>j.sourceType===op.kind&&j.sourceId===op.resultId&&!corrections.originals.has(j.id));
  if(originals.length!==1)return ['Bank result must have exactly one source journal.'];
  const j=originals[0];
  if(j.id!==record.journalEntryId||j.status!=='POSTED'||j.reversedJournalEntryId||j.reversalJournalEntryId||j.reversedAt||journals.some(r=>r.reversedJournalEntryId===j.id))reasons.push('Bank journal link or posted lifecycle is not verified; reversed effects require separate repair.');

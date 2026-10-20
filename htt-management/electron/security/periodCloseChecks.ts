@@ -1,3 +1,5 @@
+import {bankDuplicateCorrections} from '../../src/features/accounting/data/bankDuplicateCorrection';
+import {verifyReconciliationChain,bankJournalPostedAsAt} from '../../src/features/banking/data/reconciliationChainEvidence';
 import { calculatePrepaymentReconciliation } from '../../src/features/supplier-prepayments/prepaymentReconciliation';
 import { calculateDepositReconciliation } from '../../src/features/customer-deposits/depositReconciliation';
 import { trustedAuthorization } from '../../src/features/security/trustedAuthorization';
@@ -29,14 +31,21 @@ export function periodCloseChecks(period: AccountingPeriod): CloseCheck {
         if (draft.kind === kind && draft.status === 'APPROVED' && draft.payload.documentDate <= period.endDate)
             add(code, `Post, reopen or cancel approved ${kind === 'INVOICE' ? 'invoice' : 'expense bill'} dated ${draft.payload.documentDate} (${draft.id}).`, path + encodeURIComponent(draft.id));
     }
+    for(const row of s.bankReconciliations.reconciliations)if(!s.bankAccounts.bankAccounts.some((b:any)=>b.id===row.bankAccountId))add('BANK_RECONCILIATION_INVALID','A saved reconciliation references a missing bank account.','/banking/workbench');
+    for(const bank of s.bankAccounts.bankAccounts){
+        try{const chain=s.bankReconciliations.reconciliations.filter((r:any)=>r.bankAccountId===bank.id),cover=chain.filter((r:any)=>r.statementDate>=period.endDate).sort((a:any,b:any)=>a.statementDate.localeCompare(b.statementDate))[0];
+        for(const message of verifyReconciliationChain({bank,journals:s.journals.journalEntries,reconciliations:s.bankReconciliations.reconciliations,throughDate:cover?.statementDate??period.endDate,statements:s.bankStatements?.lines??[]}))add('BANK_RECONCILIATION_INVALID',`${bank.name??bank.id}: ${message}`,'/banking/workbench');}
+        catch{add('BANK_RECONCILIATION_INVALID',`${bank.name??bank.id}: saved bank reconciliation evidence could not be verified.`,'/banking/workbench');}
+    }
     const completed = s.bankReconciliations.reconciliations.filter((r: any) => r.status === 'COMPLETED');
     const cleared = new Set<string>(completed.flatMap((r: any) => r.clearedTransactionIds));
-    const journalRows = new Map<string, { status: string }>((s.journals.journalEntries as JournalEntry[]).flatMap(j => j.lines.map(l => [j.id + ':' + l.id, { status: j.status }] as [string, { status: string }])));
+    const proofJournals=s.journals.journalEntries as JournalEntry[],corrections=bankDuplicateCorrections(proofJournals),correctionIds=new Set([...corrections.originals,...corrections.offsets]);
+    const journalRows = new Map(proofJournals.flatMap(j=>j.lines.map(l=>[j.id+':'+l.id,j] as const))); 
     for (const account of s.bankAccounts.bankAccounts) {
         const rows = (s.bankStatements?.lines ?? []).filter((l: any) => l.bankAccountId === account.id && l.date <= period.endDate);
         const unmatched = rows.filter((l: any) => l.status === 'UNMATCHED').length;
         const processed = rows.filter((l: any) => l.status === 'MATCHED' || l.status === 'POSTED');
-        const stale = processed.filter((l: any) => l.ledgerIds.some((id: string) => journalRows.get(id)?.status !== 'POSTED')).length;
+        const stale = processed.filter((l: any) => l.ledgerIds.some((id: string) => !journalRows.has(id)||correctionIds.has(journalRows.get(id)!.id)||!bankJournalPostedAsAt(journalRows.get(id)!,proofJournals,l.date))).length;
         const uncleared = processed.filter((l: any) => l.ledgerIds.some((id: string) => !cleared.has(id))).length;
         if (unmatched) add('BANK_STATEMENT_UNPROCESSED', `Process or exclude with a reason ${unmatched} imported statement lines for ${account.name ?? account.id} through ${period.endDate}.`, '/banking/workbench');
         if (stale) add('BANK_STATEMENT_STALE', `Repair ${stale} stale statement matches for ${account.name ?? account.id} before closing.`, '/banking/workbench');

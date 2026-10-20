@@ -120,7 +120,7 @@ export const bankStatementRepository = {
     candidates(input: {
         bankAccountId: string;
         asOfDate: string;
-    }) { requireDateKey(input.asOfDate, 'As-of date'); return ledger(input.bankAccountId, input.asOfDate).filter(r => r.journalStatus === 'POSTED' && !lines.some(l => l.ledgerIds.includes(r.id))); },
+    }) { requireDateKey(input.asOfDate, 'As-of date'); return ledger(input.bankAccountId, input.asOfDate).filter(r => r.journalStatus === 'POSTED' && !r.correctionOnly && !lines.some(l => l.ledgerIds.includes(r.id))); },
     match(input: {
         id: string;
         ledgerIds: string[];

@@ -1,3 +1,4 @@
+import {bankDuplicateCorrections} from './bankDuplicateCorrection';
 import { assertBankPostingDate, assertJournalNotStatementMatched } from '../../banking/data/reconciliationLock';
 import { assertPostingPeriod } from './accountingPeriodRepository';
 import { registerRepository } from "../../security/repositoryHost";
@@ -344,6 +345,7 @@ function findSourceJournal(
     sourceId:
         string,
 ) {
+    const corrected=bankDuplicateCorrections(journalEntries).originals;
     return journalEntries.find(
         (entry) =>
             entry.sourceType ===
@@ -351,7 +353,7 @@ function findSourceJournal(
             entry.sourceId ===
             sourceId &&
             !entry
-                .reversedJournalEntryId,
+                .reversedJournalEntryId && !corrected.has(entry.id),
     );
 }
 
@@ -707,6 +709,14 @@ export const journalEntryRepository =
         return reversal;
     },
 };
+/** Main-owned recovery primitive. Not part of the public repository/IPC command surface. */
+export function reverseDuplicateBankJournal(journalId:string,canonicalJournalId:string,operationId:string,reason:string):JournalEntry {
+ const original=journalEntries.find(j=>j.id===journalId);if(!original)throw new Error('Duplicate journal no longer exists.');
+ const reversal=journalEntryRepository.reverse({journalEntryId:journalId,reversalDate:original.journalDate,reason});
+ const next=journalEntries.map(j=>j.id===journalId?{...j,bankDuplicateCorrection:{canonicalJournalId,operationId}}:j);
+ const proof=bankDuplicateCorrections(next);if(proof.invalid.length||!proof.originals.has(journalId))throw new Error('Duplicate correction failed exact-pair verification.');
+ financialStateStorage.update('journals',next);journalEntries=next;emitChange();return reversal;
+}
 registerRepository("journals", {
     repository: journalEntryRepository, read: "accounting.read",
     commands: {"if": null, "validateDate": null, "for": null, "post": "accounting.post", "reverse": "accounting.post"},

@@ -54,7 +54,7 @@ export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBil
         const register = calculateBankRegister(bank, journals, today);
         const last = reconciliations.filter(r => r.bankAccountId === bank.id && r.statementDate <= today).sort((a, b) => b.statementDate.localeCompare(a.statementDate))[0];
         const cleared = new Set(reconciliations.filter(r => r.bankAccountId === bank.id && r.statementDate <= today).flatMap(r => r.clearedTransactionIds));
-        const outstanding = register.transactions.filter(t => !cleared.has(t.id)).length;
+        const outstanding = register.transactions.filter(t => !t.correctionOnly && !cleared.has(t.id)).length;
         return { id: bank.id, name: bank.name, balance: register.closingBalance, lastReconciled: last?.statementDate, outstanding };
     });
     return { receivables, overdueInvoiceCount: overdueInvoices.length, overdueReceivables: money(overdueInvoices.reduce((s, i) => s + i.amountDue, 0)), ageing, payables, dueThisWeek, overduePayables, bankStatus, unreconciledCount: bankStatus.reduce((s, b) => s + b.outstanding, 0) };

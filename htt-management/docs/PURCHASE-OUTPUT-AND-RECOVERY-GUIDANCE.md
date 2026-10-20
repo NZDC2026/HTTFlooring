@@ -1,3 +1,5 @@
+> Follow-up: [TARGETED-FINANCIAL-REPAIR.md](TARGETED-FINANCIAL-REPAIR.md) adds executable isolated bank repairs. Earlier guidance-only limits below describe the prior baseline.
+
 # Purchase output and guided recovery
 
 ## Purchase orders and remittance advice

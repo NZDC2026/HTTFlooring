@@ -9,12 +9,12 @@ import { paymentRepository } from '../../features/sales/data/paymentRepository';
 import { journalEntryRepository } from '../../features/accounting/data/journalEntryRepository';
 
 /** Diagnostic only: never automatically re-post or erase entries. */
-export function runFinancialConsistencyAudit() {
+export function runFinancialConsistencyAudit(projected?:{transactions?:ReturnType<typeof bankTransactionRepository.getTransactions>;transfers?:ReturnType<typeof bankTransactionRepository.getTransfers>;journals?:ReturnType<typeof journalEntryRepository.getAll>}) {
   return auditFinancialConsistency({
-    transactions: bankTransactionRepository.getTransactions(),
-    transfers: bankTransactionRepository.getTransfers(),
+    transactions: projected?.transactions??bankTransactionRepository.getTransactions(),
+    transfers: projected?.transfers??bankTransactionRepository.getTransfers(),
     payments: paymentRepository.getAll(),
-    journals: journalEntryRepository.getAll(),
+    journals: projected?.journals??journalEntryRepository.getAll(),
     invoices: salesRepository.getAll().filter(document => document.type === 'INVOICE'),
     creditNotes: creditNoteRepository.getAll(),
     supplierBills: supplierBillRepository.getAll(),

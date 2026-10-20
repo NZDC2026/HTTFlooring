@@ -108,6 +108,7 @@ export function JournalEntryDetailPage() {
                         </Badge>
                     </div>
 
+                    {resolvedEntry.bankDuplicateCorrection&&<p className="mt-2 text-sm">Duplicate corrected against {resolvedEntry.bankDuplicateCorrection.canonicalJournalId} · Recovery operation {resolvedEntry.bankDuplicateCorrection.operationId}</p>}
                     <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                         {
                             resolvedEntry

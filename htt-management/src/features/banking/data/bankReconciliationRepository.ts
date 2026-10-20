@@ -1,3 +1,4 @@
+import {verifyReconciliationChain,bankJournalPostedAsAt} from './reconciliationChainEvidence';
 import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import { assertCurrentCrossModuleWriteSafe } from "../../integration/crossModuleWriteGate";
 import { financialOperationJournal } from "../../../lib/persistence/financialOperationJournal";
@@ -221,6 +222,9 @@ export const bankReconciliationRepository =
 
         if (!bankAccount.active) throw new Error("The selected bank account is inactive.");
         if (input.statementDate < bankAccount.openingBalanceDate) throw new Error("Statement date cannot precede the bank opening balance date.");
+        const proofJournals=journalEntryRepository.getAll(),proofJournalById=new Map(proofJournals.map(j=>[j.id,j]));
+        const historyProof=verifyReconciliationChain({bank:bankAccount,journals:proofJournals,reconciliations,throughDate:input.statementDate});
+        if(historyProof.length)throw new Error('Existing bank reconciliation evidence is invalid: '+historyProof.join(' '));
         const latest =
             this.getLatestByBankAccount(
                 bankAccount.id,
@@ -246,7 +250,7 @@ export const bankReconciliationRepository =
 
         const availableIds =
             new Set(
-                register.transactions.map(
+                register.transactions.filter(t=>!t.correctionOnly&&bankJournalPostedAsAt(proofJournalById.get(t.journalEntryId)!,proofJournals,input.statementDate)).map(
                     (
                         transaction,
                     ) =>
@@ -296,7 +300,7 @@ export const bankReconciliationRepository =
         if (imported.some(l => l.status === 'UNMATCHED')) throw new Error('Process every imported statement line before completing reconciliation.');
         const registerById = new Map(register.transactions.map(r => [r.id, r]));
         for (const line of imported.filter(l => l.status === 'MATCHED' || l.status === 'POSTED')) {
-            if (line.ledgerIds.some(id => registerById.get(id)?.journalStatus !== 'POSTED')) throw new Error('Repair stale imported statement matches before completing reconciliation.');
+            if (line.ledgerIds.some(id => !registerById.has(id) || registerById.get(id)?.correctionOnly || !bankJournalPostedAsAt(proofJournalById.get(registerById.get(id)!.journalEntryId)!,proofJournals,line.date))) throw new Error('Repair stale imported statement matches before completing reconciliation.');
             if (line.ledgerIds.some(id => !allClearedForCalculation.has(id))) throw new Error('Include every processed imported statement entry in reconciliation.');
         }
 

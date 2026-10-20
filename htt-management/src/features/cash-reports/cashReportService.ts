@@ -93,7 +93,10 @@ export function calculateCashReport(input: {
             moneyIn += Math.max(value, 0);
             moneyOut += Math.max(-value, 0);
         }
+        const correctionCount=register.transactions.filter(r=>r.correctionOnly&&r.transactionDate>=input.from).length;
+        if(correctionCount)warnings.push(`${bank.name}: ${correctionCount} internal duplicate correction lines remain visible in the bank register and are excluded from cash movement totals.`);
         for (const row of register.transactions) {
+            if(row.correctionOnly)continue;
             if (row.transactionDate < input.from) {
                 opening += cents(row.moneyIn) - cents(row.moneyOut);
                 continue;

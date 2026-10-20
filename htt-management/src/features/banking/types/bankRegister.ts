@@ -4,6 +4,7 @@ import type {
 } from "../../accounting/types/journalEntry";
 
 export interface BankRegisterTransaction {
+    correctionOnly?: boolean;
     id: string;
 
     bankAccountId: string;

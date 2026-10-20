@@ -30,7 +30,7 @@ export type VerifiedClosureRequest = {
 };
 
 export function salesReviewRevision(operation: ReturnType<typeof financialOperationJournal.list>[number]): string {
-    return JSON.stringify([operation.operationId,operation.kind,operation.state,operation.resultId,operation.updatedAt,operation.reviewHistory??[]]);
+    return JSON.stringify([operation.operationId,operation.kind,operation.state,operation.resultId,operation.updatedAt,operation.reviewHistory??[],operation.fingerprint,operation.repairProposal,operation.resolution]);
 }
 const salesKinds = new Set(['CUSTOMER_PAYMENT', 'SALES_INVOICE_VOID', 'SALES_CREDIT_APPLY',
     'SALES_CREDIT_REVERSAL', 'SALES_PAYMENT_REVERSAL']);

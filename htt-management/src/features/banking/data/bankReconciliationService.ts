@@ -63,6 +63,7 @@ export function calculateBankReconciliation(
         const transaction
         of register.transactions
     ) {
+        if(transaction.correctionOnly)continue;
         if (
             clearedIds.has(
                 transaction.id,

@@ -344,6 +344,7 @@ export function BankAccountDetailPage() {
                                                                 transaction.journalNumber
                                                             }
                                                         </button>
+                                                        {transaction.correctionOnly&&<p className="text-xs text-[var(--color-text-secondary)]">Duplicate correction · internal offset</p>}
                                                     </td>
 
                                                     <td className="min-w-64 px-4 py-3 text-sm text-[var(--color-text-primary)]">

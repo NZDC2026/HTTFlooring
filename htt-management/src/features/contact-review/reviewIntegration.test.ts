@@ -88,7 +88,7 @@ it('migrates schema 11 without losing existing customers, visits, tasks or finan
     before.checksum = createHash('sha256').update(JSON.stringify(before)).digest('hex');
     writeFileSync(join(root, 'business.json'), JSON.stringify(before));
     await restart();
-    expect(host.exportBackup().schemaVersion).toBe(20);
+    expect(host.exportBackup().schemaVersion).toBe(23);
     expect(state('contactReviews')).toEqual({ drafts: [] });
     for (const key of ['customers', 'salesVisits', 'workspace_tasks', 'journals', 'sales'])
         expect(state(key)).toEqual(before.repositories[key]);

@@ -1,3 +1,7 @@
+## Executable targeted bank repair
+
+The recovery workbench now supports reviewed no-effect cancellation and isolated missing bank record/journal repair, with saved proposals, independent execution, rollback and schema-21 evidence. See [TARGETED-FINANCIAL-REPAIR.md](TARGETED-FINANCIAL-REPAIR.md) for supported cases and remaining limits.
+
 ## Purchase document output and complex exception guidance
 
 Purchase orders and supplier remittance advice now support immutable local versions, templates, HTML/print/PDF preparation and scoped access under schema 20. The recovery workbench includes diagnostic steps and existing administrator backup/restore navigation. See [PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md](PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md) for exact scope and limitations.

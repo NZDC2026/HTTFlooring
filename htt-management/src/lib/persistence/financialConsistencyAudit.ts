@@ -1,3 +1,4 @@
+import {bankDuplicateCorrections} from '../../features/accounting/data/bankDuplicateCorrection';
 import type { Invoice } from '../../features/sales/types/salesDocument';
 import type { CreditNote } from '../../features/sales/types/creditNote';
 import type { SupplierBill } from '../../features/purchases/types/supplierBill';
@@ -27,9 +28,11 @@ export function auditFinancialConsistency(input: {
 }): FinancialConsistencyIssue[] {
   const issues: FinancialConsistencyIssue[] = [];
   const journalById = new Map(input.journals.map(entry => [entry.id, entry]));
+  const corrections=bankDuplicateCorrections(input.journals);
+  for(const id of corrections.invalid)issues.push({code:'REVERSAL_MISMATCH',entityId:id,message:'Invalid bank duplicate correction pair.'});
   const seen = new Map<string, string>();
   for (const entry of input.journals) {
-    if (!entry.sourceId) continue;
+    if (!entry.sourceId || corrections.originals.has(entry.id)) continue;
     const key = `${entry.sourceType}:${entry.sourceId}`;
     const prior = seen.get(key);
     if (prior) issues.push({ code: 'DUPLICATE_SOURCE', entityId: entry.id, message: `Journal source ${key} also used by ${prior}` });
@@ -53,7 +56,7 @@ export function auditFinancialConsistency(input: {
   }
   const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
   const checkSource = (id: string, type: JournalEntry['sourceType'], amount: number, reversed: boolean) => {
-    const originals = input.journals.filter(j => j.sourceType === type && j.sourceId === id && !j.reversedJournalEntryId);
+    const originals = input.journals.filter(j => j.sourceType === type && j.sourceId === id && !j.reversedJournalEntryId && !corrections.originals.has(j.id));
     if (!originals.length) { issues.push({ code: 'MISSING_JOURNAL', entityId: id, message: `${type} has no original GL journal` }); return; }
     const journal = originals[0];
     if (round(journal.totalDebit) !== round(amount) || round(journal.totalCredit) !== round(amount))

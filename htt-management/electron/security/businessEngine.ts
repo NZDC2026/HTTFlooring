@@ -1,3 +1,4 @@
+import {previewTargetedRepair,proposeTargetedRepair,executeTargetedRepair} from './targetedFinancialRepair';
 import '../../src/features/document-output/purchaseOutputRepository';
 import {inspectRecovery} from '../../src/features/sales/data/recoveryWorkbench';
 import '../../src/features/supplier-prepayments/supplierPrepaymentRepository';
@@ -44,8 +45,8 @@ import { closeVerifiedSalesReview } from '../../src/features/sales/data/salesVer
 import { snapshotRepositories } from '../../src/features/security/repositoryHost';
 import { registerRepository } from '../../src/features/security/repositoryHost';
 registerRepository('salesRecovery', {
-    repository: { inspectRecovery, recordSalesManualReview, closeVerifiedSalesReview }, read: 'audit.read',
-    commands: { inspectRecovery:'audit.read', recordSalesManualReview: 'accounting.recover', closeVerifiedSalesReview: 'accounting.recover' },
+    repository: { inspectRecovery, recordSalesManualReview, closeVerifiedSalesReview, previewTargetedRepair,proposeTargetedRepair,executeTargetedRepair }, read: 'audit.read',
+    commands: { previewTargetedRepair:'audit.read',proposeTargetedRepair:'accounting.recover',executeTargetedRepair:'accounting.recover',inspectRecovery:'audit.read', recordSalesManualReview: 'accounting.recover', closeVerifiedSalesReview: 'accounting.recover' },
     snapshot: () => [], restore: () => {}, publish: () => {},
 });
 export const workspaceDefaults = snapshotRepositories();

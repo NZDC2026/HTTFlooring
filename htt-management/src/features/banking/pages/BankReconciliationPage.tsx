@@ -1,3 +1,5 @@
+import {bankJournalPostedAsAt} from '../data/reconciliationChainEvidence';
+import {useJournalEntries} from '../../accounting/data/useAccounting';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
@@ -51,6 +53,7 @@ import {
 } from "../data/bankReconciliationService";
 
 export function BankReconciliationPage() {
+    const proofJournals=useJournalEntries(),proofJournalById=new Map(proofJournals.map(j=>[j.id,j]));
     const navigate =
         useNavigate();
 
@@ -247,7 +250,7 @@ export function BankReconciliationPage() {
     const availableTransactions =
         register.transactions.filter(
             (transaction) =>
-                !previouslyClearedIds.has(
+                !transaction.correctionOnly && bankJournalPostedAsAt(proofJournalById.get(transaction.journalEntryId)!,proofJournals,statementDate) && !previouslyClearedIds.has(
                     transaction.id,
                 ),
         );

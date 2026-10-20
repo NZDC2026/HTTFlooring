@@ -705,6 +705,21 @@ bankTransactionRepository.createTransfer = function (input, operationId) {
     }
 };
 
+/** Internal targeted recovery: caller proves the exact intended record/journal first.
+ * Does not create or reverse GL. Existing registered main-host rollback covers these slices. */
+export function restoreInterruptedBankRecord(record:BankTransaction|BankTransfer):void {
+    if(bankTransactions.some(r=>r.id===record.id)||bankTransfers.some(r=>r.id===record.id))throw new Error('Bank result already exists; restoration cannot duplicate it.');
+    if('transactionNumber' in record){bankTransactions=[structuredClone(record),...bankTransactions];financialStateStorage.update('transactions',bankTransactions);}
+    else {bankTransfers=[structuredClone(record),...bankTransfers];financialStateStorage.update('transfers',bankTransfers);}
+    emitChange();
+}
+export function relinkInterruptedBankJournal(resultId:string,previousJournalId:string,newJournalId:string):void {
+    const matches=[...bankTransactions,...bankTransfers].filter(r=>r.id===resultId&&r.journalEntryId===previousJournalId);
+    if(matches.length!==1)throw new Error('Bank result changed before journal repair.');
+    bankTransactions=bankTransactions.map(r=>r.id===resultId?{...r,journalEntryId:newJournalId}:r);
+    bankTransfers=bankTransfers.map(r=>r.id===resultId?{...r,journalEntryId:newJournalId}:r);
+    financialStateStorage.update('transactions',bankTransactions);financialStateStorage.update('transfers',bankTransfers);emitChange();
+}
 registerRepository("bankTransactions", {
     repository: bankTransactionRepository, read: "banking.read",
     commands: {"if": null, "createTransaction": "banking.write", "createTransfer": "banking.write", "assertCurrentCrossModuleWriteSafe": null},

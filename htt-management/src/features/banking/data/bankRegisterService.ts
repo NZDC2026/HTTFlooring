@@ -1,3 +1,4 @@
+import {bankDuplicateCorrections} from '../../accounting/data/bankDuplicateCorrection';
 import { requireDateKey } from "../../../lib/businessDate";
 import type {
     JournalEntry,
@@ -54,6 +55,8 @@ export function calculateBankRegister(
         "As-at date",
     );
 
+    const correction=bankDuplicateCorrections(journalEntries);
+    const correctionIds=new Set([...correction.originals,...correction.offsets]);
     const relevantRows =
         journalEntries
             .filter(
@@ -173,6 +176,7 @@ export function calculateBankRegister(
                     bankAccountId:
                         bankAccount.id,
 
+                    correctionOnly: correctionIds.has(entry.id) || undefined,
                     journalEntryId:
                         entry.id,
 

@@ -29,3 +29,5 @@ Bank receipt/payment and transfer recovery is now supported; see BANK-RECOVERY-A
 Completed bank reconciliation recovery and stable completion identities are covered in RECONCILIATION-RECOVERY-ACCEPTANCE.md.
 
 Complex exception diagnostic guidance, case export and existing administrator restore navigation are documented in PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md. Guidance does not automatically repair missing financial effects.
+
+Executable targeted bank repair now covers no-effect cancellation and isolated missing bank records/journals. See TARGETED-FINANCIAL-REPAIR.md. Other complex defects remain fail-closed.

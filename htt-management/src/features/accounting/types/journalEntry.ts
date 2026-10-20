@@ -48,6 +48,7 @@ export interface JournalLine {
 }
 
 export interface JournalEntry {
+    bankDuplicateCorrection?: { canonicalJournalId: string; operationId: string };
     id: string;
 
     journalNumber: string;
