@@ -250,7 +250,7 @@ export function BankReconciliationPage() {
     const availableTransactions =
         register.transactions.filter(
             (transaction) =>
-                !transaction.correctionOnly && bankJournalPostedAsAt(proofJournalById.get(transaction.journalEntryId)!,proofJournals,statementDate) && !previouslyClearedIds.has(
+                !transaction.correctionOnly && !transaction.correctionIssue && bankJournalPostedAsAt(proofJournalById.get(transaction.journalEntryId)!,proofJournals,statementDate) && !previouslyClearedIds.has(
                     transaction.id,
                 ),
         );

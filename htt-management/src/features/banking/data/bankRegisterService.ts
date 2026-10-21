@@ -1,3 +1,5 @@
+import {bankJournalLifecycleIssues} from './bankJournalEvidence';
+import {statementCorrectionEvidence} from './statementCorrectionEvidence';
 import {bankDuplicateCorrections} from '../../accounting/data/bankDuplicateCorrection';
 import { requireDateKey } from "../../../lib/businessDate";
 import type {
@@ -56,7 +58,9 @@ export function calculateBankRegister(
     );
 
     const correction=bankDuplicateCorrections(journalEntries);
-    const correctionIds=new Set([...correction.originals,...correction.offsets]);
+    const lifecycleIssues=bankJournalLifecycleIssues(journalEntries);
+    const statementCorrections=statementCorrectionEvidence(journalEntries);
+    const correctionIds=new Set([...correction.originals,...correction.offsets,...statementCorrections.verifiedIds].filter(id=>!lifecycleIssues.has(id)));
     const relevantRows =
         journalEntries
             .filter(
@@ -177,6 +181,7 @@ export function calculateBankRegister(
                         bankAccount.id,
 
                     correctionOnly: correctionIds.has(entry.id) || undefined,
+                    correctionIssue: statementCorrections.reviewIds.has(entry.id)?'Bank categorisation correction requires review':lifecycleIssues.has(entry.id)?'Bank journal reversal requires review':undefined,
                     journalEntryId:
                         entry.id,
 

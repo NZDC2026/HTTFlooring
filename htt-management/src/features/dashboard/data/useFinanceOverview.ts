@@ -1,3 +1,4 @@
+import {useStatementLines} from '../../finance-closure/bankStatementRepository';
 import { paymentRepository } from "../../sales/data/paymentRepository";
 import { creditNoteRepository } from "../../sales/data/creditNoteRepository";
 import { supplierPaymentRepository } from "../../purchases/data/supplierPaymentRepository";
@@ -18,7 +19,8 @@ export function useFinanceOverview(today: string) {
     const creditAllocations = useSyncExternalStore(creditNoteRepository.subscribe, creditNoteRepository.getAllocationSnapshot, creditNoteRepository.getAllocationSnapshot);
     const supplierPayments = useSyncExternalStore(supplierPaymentRepository.subscribe, supplierPaymentRepository.getSnapshot, supplierPaymentRepository.getSnapshot);
     const supplierCreditAllocations = useSyncExternalStore(supplierCreditRepository.subscribe, supplierCreditRepository.getAllocationSnapshot, supplierCreditRepository.getAllocationSnapshot);
+    const statements = useStatementLines();
     const banks = useBankAccounts();
     const journals = useJournalEntries();
-    return useMemo(() => calculateFinanceOverview(documents.filter(d => d.type === "INVOICE"), bills, banks, journals, reconciliations, today, { payments, creditAllocations, supplierPayments, supplierCreditAllocations }), [documents, bills, banks, journals, reconciliations, today, payments, creditAllocations, supplierPayments, supplierCreditAllocations]);
+    return useMemo(() => calculateFinanceOverview(documents.filter(d => d.type === "INVOICE"), bills, banks, journals, reconciliations, today, { payments, creditAllocations, supplierPayments, supplierCreditAllocations }, statements), [statements, documents, bills, banks, journals, reconciliations, today, payments, creditAllocations, supplierPayments, supplierCreditAllocations]);
 }

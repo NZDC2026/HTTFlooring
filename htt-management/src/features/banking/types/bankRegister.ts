@@ -5,6 +5,7 @@ import type {
 
 export interface BankRegisterTransaction {
     correctionOnly?: boolean;
+    correctionIssue?: string;
     id: string;
 
     bankAccountId: string;

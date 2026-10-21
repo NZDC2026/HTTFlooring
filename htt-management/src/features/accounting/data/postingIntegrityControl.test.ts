@@ -1,0 +1,11 @@
+import {expect,it} from 'vitest';
+import {includePostingIntegrityControl,includeRecoveryControl} from './recoveryControl';
+import type {FinanceControlsSummary} from '../types/financeControls';
+const base=():FinanceControlsSummary=>({asOfDate:'2026-09-30',controls:[],bankControls:[],totalControlCount:0,passedControlCount:0,failedControlCount:0,allPassed:true});
+it('includes current audit issues in the overall status even when dated balances pass',()=>{
+ const source=includeRecoveryControl(base(),0),before=structuredClone(source),report=includePostingIntegrityControl(source,2);expect(report).toMatchObject({asOfDate:'2026-09-30',totalControlCount:2,passedControlCount:1,failedControlCount:1,allPassed:false});expect(report.controls.find(c=>c.id==='posting-integrity')).toMatchObject({leftValue:2,rightValue:0,difference:2,status:'FAIL'});expect(source).toEqual(before);
+});
+it.each(['Cannot read restored journals',''])('fails closed when audit inspection throws %s despite a zero issue count',error=>{const report=includePostingIntegrityControl(base(),0,error);expect(report).toMatchObject({allPassed:false,totalControlCount:1,failedControlCount:1});expect(report.controls[0]).toMatchObject({difference:0,status:'FAIL'});expect(report.controls[0].description).toContain('could not be checked');});
+it('returns to passing only after a refreshed audit succeeds and does not duplicate its control',()=>{const failed=includePostingIntegrityControl(base(),3),cleared=includePostingIntegrityControl(failed,0);expect(cleared).toMatchObject({allPassed:true,totalControlCount:1,passedControlCount:1,failedControlCount:0});expect(failed.controls[0].status).toBe('FAIL');});
+it('retains other recovery and bank failures when the posting audit passes',()=>{const source=includeRecoveryControl(base(),1);source.bankControls=[{bankAccountId:'bank',bankAccountName:'Bank',glAccountId:'gl',registerBalance:10,glBalance:10,difference:0,status:'FAIL',reviewRowCount:2}];const report=includePostingIntegrityControl(source,0);expect(report).toMatchObject({allPassed:false,totalControlCount:3,passedControlCount:1,failedControlCount:2});expect(report.bankControls[0].difference).toBe(0);});
+it.each([-1,0.5,NaN,Infinity])('rejects invalid issue count %s',count=>{expect(()=>includePostingIntegrityControl(base(),count)).toThrow(/Invalid/);});

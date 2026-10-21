@@ -7,7 +7,7 @@ let root: string, security: InstanceType<typeof import('../../../electron/securi
 const admin = { username: 'documents.admin', displayName: 'Document acceptance', password: 'Documents-test-password-4821' };
 async function restart() { vi.resetModules(); const { LocalSecurity } = await import('../../../electron/security/localSecurity'); const { BusinessHost } = await import('../../../electron/security/businessHost'); security = new LocalSecurity(join(root, 'security.json')); security.login(admin); host = new BusinessHost(join(root, 'business.json'), security); await host.initialize(); }
 beforeEach(async () => { vi.resetModules(); vi.stubGlobal('__HTT_MAIN_HOST__', true); vi.stubGlobal('window', undefined); vi.stubGlobal('localStorage', undefined); root = mkdtempSync(join(tmpdir(), 'htt-direct-docs-')); const { LocalSecurity } = await import('../../../electron/security/localSecurity'); const { BusinessHost } = await import('../../../electron/security/businessHost'); security = new LocalSecurity(join(root, 'security.json')); security.setup(admin); host = new BusinessHost(join(root, 'business.json'), security); await host.initialize(); });
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); });
 const cmd = (repository: string, method: string, ...args: unknown[]) => host.command({ repository, method, args }).result as any;
 const state = (key: string) => host.view().repositories[key] as any;
 const raw = () => host.exportBackup().repositories as any;
@@ -58,4 +58,13 @@ it('rejects return receipts and reversals in a closed period',async()=>{
 
 it('restores exact original cents across fractional partial returns and rejects dates before dispatch',async()=>{
  const f=await fixture();expect(()=>cmd('physicalCustomerReturns','create',request(f,{returnDate:'2026-10-10'}))).toThrow(/precedes dispatch/);for(const quantity of [.3333,.3333,1.3334])cmd('physicalCustomerReturns','create',request(f,{lines:[{costMovementId:f.source.costMovementId,invoiceLineId:f.source.invoiceLineId,quantity}]}));expect(state('physicalCustomerReturns').returns.reduce((n:number,r:any)=>n+r.inventoryValue,0)).toBe(20);expect(state('stock').balances.find((b:any)=>b.siteId===f.site.id&&b.productId===f.product.id).quantityOnHand).toBe(10);expect(host.prepareRestore(JSON.stringify(host.exportBackup())).token).toBeTruthy();
+});
+
+it('uses the financial allocation date for historical return checks and preserves the actual undo date',async()=>{
+ vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-25T01:00:00.000Z'));security.login(admin);
+ const f=await fixture(),r=cmd('physicalCustomerReturns','create',request(f)),allocation=cmd('sales','applyCreditToInvoice',{creditNoteId:r.creditNoteId,invoiceId:f.invoice.id,allocationDate:'2026-10-12',amount:110}),before=structuredClone(raw());
+ expect(allocation.allocationDate).toBe('2026-10-12');expect(allocation.createdAt).toMatch(/^2026-10-25/);
+ expect(()=>cmd('physicalCustomerReturns','reverse',{id:r.id,reversalDate:'2026-10-20',reason:'Active allocations still block this historical reversal'})).toThrow(/allocations/);expect(raw()).toEqual(before);
+ cmd('sales','reverseCreditAllocation',{allocationId:allocation.id,reason:'Release credit before undoing physical return'});const released=structuredClone(raw());expect(()=>cmd('physicalCustomerReturns','reverse',{id:r.id,reversalDate:'2026-10-20',reason:'Cannot predate the actual allocation undo'})).toThrow(/later credit settlement/);expect(raw()).toEqual(released);
+ expect(cmd('physicalCustomerReturns','reverse',{id:r.id,reversalDate:'2026-10-25',reason:'Undo return after its allocation was released'}).status).toBe('REVERSED');expect(state('customerCredits').creditNotes.find((c:any)=>c.id===r.creditNoteId).status).toBe('VOID');
 });

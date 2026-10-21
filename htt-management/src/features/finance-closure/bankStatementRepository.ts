@@ -1,3 +1,5 @@
+import {statementCorrectionEvidence} from '../banking/data/statementCorrectionEvidence';
+import {bankJournalPostedAsAt,bankRowClearedBeforeLine} from '../banking/data/reconciliationChainEvidence';
 import { assertCurrentCrossModuleWriteSafe } from '../integration/crossModuleWriteGate';
 import { assertPostingPeriod } from '../accounting/data/accountingPeriodRepository';
 import { useSyncExternalStore } from 'react';
@@ -47,6 +49,7 @@ function unmatched(l: StatementLine) { if (l.status !== 'UNMATCHED')
 function save(l: StatementLine) { lines = lines.map(r => r.id === l.id ? l : r); emit(); return l; }
 const ledger = (bankAccountId: string, date: string) => calculateBankRegister(bank(bankAccountId), journalEntryRepository.getAll(), date).transactions;
 function assertCurrentStatementBankDate(l: StatementLine) { if (l.date < bank(l.bankAccountId).openingBalanceDate) throw new Error('Statement predates the current bank opening date.'); }
+function assertPriorCategorisationCorrections(lineId:string){const journals=journalEntryRepository.getAll(),proof=statementCorrectionEvidence(journals);if(journals.some(j=>j.sourceType==='BANK_STATEMENT'&&j.sourceId?.startsWith(lineId+':')&&proof.reviewIds.has(j.id)))throw new Error('Earlier categorisation correction requires reviewed recovery before changing this line again.');}
 const inputRow = z.object({ date: id, description: z.string().trim().min(1).max(1000), amount: z.number().finite().refine(n => n !== 0 && money(n) === n, 'Enter a non-zero amount in cents'), reference: z.string().max(500).default(''), externalId: z.string().max(200).default('') }).strict();
 export const bankStatementRepository = {
     importRows(raw: {
@@ -120,12 +123,12 @@ export const bankStatementRepository = {
     candidates(input: {
         bankAccountId: string;
         asOfDate: string;
-    }) { requireDateKey(input.asOfDate, 'As-of date'); return ledger(input.bankAccountId, input.asOfDate).filter(r => r.journalStatus === 'POSTED' && !r.correctionOnly && !lines.some(l => l.ledgerIds.includes(r.id))); },
+    }) { requireDateKey(input.asOfDate, 'As-of date'); const cleared=bankReconciliationRepository.getClearedTransactionIds(input.bankAccountId),journals=journalEntryRepository.getAll(),byId=new Map(journals.map(j=>[j.id,j])); return ledger(input.bankAccountId, input.asOfDate).filter(r => bankJournalPostedAsAt(byId.get(r.journalEntryId)!,journals,input.asOfDate) && !r.correctionOnly && !r.correctionIssue && !cleared.has(r.id) && !lines.some(l => l.ledgerIds.includes(r.id))); },
     match(input: {
         id: string;
         ledgerIds: string[];
     }) { const l = line(input.id); unmatched(l); assertCurrentStatementBankDate(l); if (!Array.isArray(input.ledgerIds) || !input.ledgerIds.length || new Set(input.ledgerIds).size !== input.ledgerIds.length)
-        throw new Error('Select unique ledger entries.'); const candidates = bankStatementRepository.candidates({ bankAccountId: l.bankAccountId, asOfDate: l.date }); const selected = input.ledgerIds.map(id => candidates.find(r => r.id === id)); if (selected.some(r => !r) || money(selected.reduce((s, r) => s + r!.moneyIn - r!.moneyOut, 0)) !== l.amount)
+        throw new Error('Select unique ledger entries.'); const cleared=bankReconciliationRepository.getClearedTransactionIds(l.bankAccountId); if(input.ledgerIds.some(id=>cleared.has(id)))throw new Error('Selected bank entries were already cleared by a completed reconciliation. Use the genuine source of this new statement line.'); const candidates = bankStatementRepository.candidates({ bankAccountId: l.bankAccountId, asOfDate: l.date }); const selected = input.ledgerIds.map(id => candidates.find(r => r.id === id)); if (selected.some(r => !r) || money(selected.reduce((s, r) => s + r!.moneyIn - r!.moneyOut, 0)) !== l.amount)
         throw new Error('Selected bank entries must match this signed statement amount exactly.'); return save({ ...l, status: 'MATCHED', ledgerIds: [...input.ledgerIds], history: [...l.history, { action: 'Matched', date: new Date().toISOString() }] }); },
     suggestions(input: {
         id: string;
@@ -141,7 +144,7 @@ export const bankStatementRepository = {
         if (l.fingerprint !== fingerprint)
             throw new Error('Line was already posted with different categorisation.');
         return l;
-    } unmatched(l); assertCurrentStatementBankDate(l); const splits = z.array(z.object({ accountId: id, amount: z.number().finite().positive().refine(n => money(n) === n), taxCode: id }).strict()).min(1).max(100).parse(input.splits); if (money(splits.reduce((s, p) => s + p.amount, 0)) !== Math.abs(l.amount))
+    } unmatched(l); assertCurrentStatementBankDate(l); assertPriorCategorisationCorrections(l.id); const splits = z.array(z.object({ accountId: id, amount: z.number().finite().positive().refine(n => money(n) === n), taxCode: id }).strict()).min(1).max(100).parse(input.splits); if (money(splits.reduce((s, p) => s + p.amount, 0)) !== Math.abs(l.amount))
         throw new Error('Split amounts must equal the statement total.'); const b = bank(l.bankAccountId), out = l.amount < 0; const offset = splits.flatMap(s => { const a = accountRepository.requireById(s.accountId); if (!a.active || !a.allowManualPosting || !['EXPENSE', 'REVENUE'].includes(a.type))
         throw new Error('Use an active manual expense/revenue account. Payments against AR/AP must be matched to their source documents.'); const rate = activeTaxRate(s.taxCode), net = money(s.amount / (1 + rate)), tax = money(s.amount - net); return [{ accountId: a.id, debit: out ? net : 0, credit: out ? 0 : net }, ...(tax ? [{ accountId: (out?taxSnapshot(s.taxCode).taxPaidAccountId:taxSnapshot(s.taxCode).taxCollectedAccountId)||accountRepository.requireBySystemRole(out ? 'GST_RECEIVABLE' : 'GST_PAYABLE').id, debit: out ? tax : 0, credit: out ? 0 : tax }] : [])]; }); const j = journalEntryRepository.post({ journalDate: l.date, description: l.description, reference: l.reference, sourceType: 'BANK_STATEMENT', sourceId: l.id + ':' + l.history.filter(h => h.action === 'Posted').length, lines: [{ accountId: b.glAccountId, debit: out ? 0 : l.amount, credit: out ? -l.amount : 0 }, ...offset] }); const ledgerIds = j.lines.filter(r => r.accountId === b.glAccountId).map(r => j.id + ':' + r.id); return save({ ...l, status: 'POSTED', journalEntryId: j.id, ledgerIds, fingerprint, history: [...l.history, { action: 'Posted', date: new Date().toISOString() }] }); },
     ignore(input: {
@@ -155,10 +158,14 @@ export const bankStatementRepository = {
         reason: string;
     }) { assertCurrentCrossModuleWriteSafe(); const l = line(input.id); requireDateKey(input.reversalDate, 'Reversal date'); if (input.reason?.trim().length < 3 || input.reversalDate < l.date)
         throw new Error('Enter a reason and a reversal date on or after the statement line.'); if (l.status === 'UNMATCHED')
-        throw new Error('Line is already unmatched.'); for (const ledgerId of l.ledgerIds)
-        assertJournalUncleared(ledgerId.split(':')[0]); const latest = bankReconciliationRepository.getLatestByBankAccount(l.bankAccountId); if (latest && l.date <= latest.statementDate)
-        throw new Error('Reconciled statement lines cannot be reverted.'); if (l.status === 'POSTED' && l.journalEntryId)
-        journalEntryRepository.reverse({ journalEntryId: l.journalEntryId, reversalDate: input.reversalDate, reason: input.reason }); return save({ ...l, status: 'UNMATCHED', ledgerIds: [], journalEntryId: undefined, fingerprint: undefined, history: [...l.history, { action: 'Reverted', date: input.reversalDate, reason: input.reason }] }); },
+        throw new Error('Line is already unmatched.'); const latest = bankReconciliationRepository.getLatestByBankAccount(l.bankAccountId); if (latest && l.date <= latest.statementDate)
+        throw new Error('Reconciled statement lines cannot be reverted.');
+        // Unmatching an unreconciled line changes only its association. Its old source may
+        // already have been cleared manually; never reverse or release that historical clearing.
+        if(l.status==='POSTED')assertPriorCategorisationCorrections(l.id);
+        if(l.status==='POSTED'&&input.reversalDate!==l.date)throw new Error('Categorisation correction must reverse on the original statement date in an open period. It does not reverse an external payment.');
+        if(l.status==='POSTED')for(const ledgerId of l.ledgerIds)assertJournalUncleared(ledgerId.split(':')[0]); if (l.status === 'POSTED' && l.journalEntryId)
+        journalEntryRepository.reverse({ journalEntryId: l.journalEntryId, reversalDate: input.reversalDate, reason: input.reason }); return save({ ...l, status: 'UNMATCHED', ledgerIds: [], journalEntryId: undefined, fingerprint: undefined, history: [...l.history, { action: 'Reverted', date: input.reversalDate, reason: l.status==='MATCHED'?input.reason+' · Previous matched ledger rows: '+l.ledgerIds.join(', '):input.reason }] }); },
     reconcile(input: {
         bankAccountId: string;
         statementDate: string;
@@ -166,10 +173,11 @@ export const bankStatementRepository = {
     }) { assertPostingPeriod(input.statementDate); assertCurrentCrossModuleWriteSafe(); requireDateKey(input.statementDate, 'Statement date'); if (!lines.some(l => l.bankAccountId === input.bankAccountId && l.date <= input.statementDate))
         throw new Error('Import the statement first.'); if (lines.some(l => l.bankAccountId === input.bankAccountId && l.date <= input.statementDate && l.status === 'UNMATCHED'))
         throw new Error('Process every statement line before completing reconciliation.'); const processed = lines.filter(l => l.bankAccountId === input.bankAccountId && l.date <= input.statementDate);
-        const entries = ledger(input.bankAccountId, input.statementDate);
+        const entries = ledger(input.bankAccountId, input.statementDate),journals=journalEntryRepository.getAll(),byId=new Map(journals.map(j=>[j.id,j]));
         for (const row of processed.filter(l => l.status === 'MATCHED' || l.status === 'POSTED')) {
+            if(row.ledgerIds.some(id=>bankRowClearedBeforeLine(bankReconciliationRepository.getAll(),input.bankAccountId,id,row.date)))throw new Error('Statement match reuses a ledger row already cleared in an earlier statement. Unmatch this unreconciled line and select its genuine source.');
             const matched = row.ledgerIds.map(id => entries.find(e => e.id === id));
-            if (!matched.length || matched.some(e => !e || e.journalStatus !== 'POSTED') || money(matched.reduce((n, e) => n + e!.moneyIn - e!.moneyOut, 0)) !== row.amount)
+            if (!matched.length || matched.some(e => !e || !bankJournalPostedAsAt(byId.get(e.journalEntryId)!,journals,row.date) || e.correctionOnly || e.correctionIssue) || money(matched.reduce((n, e) => n + e!.moneyIn - e!.moneyOut, 0)) !== row.amount)
                 throw new Error('Statement match is stale. Revert the statement line and review its ledger sources before reconciling.');
         }
         const cleared = processed.flatMap(l => l.ledgerIds); return bankReconciliationRepository.complete({ ...input, clearedTransactionIds: [...new Set([...bankReconciliationRepository.getClearedTransactionIds(input.bankAccountId), ...cleared])] }); }

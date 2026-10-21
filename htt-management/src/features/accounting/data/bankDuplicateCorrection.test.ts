@@ -20,3 +20,13 @@ it.each(['canonical-link','operation','missing-offset','offset-date','offset-amo
  const proof=bankDuplicateCorrections(j);expect(proof.invalid).toContain(o.id);expect(proof.originals.size).toBe(0);expect(proof.offsets.size).toBe(0);
  const issues=auditFinancialConsistency({transactions:[],transfers:[],payments:[],journals:j});expect(issues.some(i=>i.code==='DUPLICATE_SOURCE')).toBe(true);expect(issues.some(i=>i.code==='REVERSAL_MISMATCH')).toBe(true);
 });
+it.each(['shared-offset-owner','canonical-offset-claim','invalid-stamp','offset-line-identity','invalid-financial-date'])('keeps %s visible to global duplicate-source and reversal auditing',mode=>{
+ const {canonical:c,original:o,offset:r,journals}=fixture();
+ if(mode==='shared-offset-owner')journals.push({...structuredClone(o),id:'foreign-owner',sourceType:'MANUAL_JOURNAL',sourceId:undefined,bankDuplicateCorrection:undefined});
+ if(mode==='canonical-offset-claim')journals.push({...structuredClone(o),id:'foreign-owner',sourceType:'MANUAL_JOURNAL',sourceId:undefined,bankDuplicateCorrection:undefined,reversalJournalEntryId:c.id});
+ if(mode==='invalid-stamp'){o.reversedAt='invalid';r.postedAt='invalid';}
+ if(mode==='offset-line-identity')r.lines[1].id=r.lines[0].id;
+ if(mode==='invalid-financial-date')journals.forEach(j=>j.journalDate='2026-02-30');
+ const before=structuredClone(journals),proof=bankDuplicateCorrections(journals);expect(proof.invalid).toContain(o.id);expect(proof.originals.size).toBe(0);expect(proof.offsets.size).toBe(0);
+ const issues=auditFinancialConsistency({transactions:[],transfers:[],payments:[],journals});expect(issues.some(i=>i.code==='DUPLICATE_SOURCE')).toBe(true);expect(issues.some(i=>i.code==='REVERSAL_MISMATCH'&&i.entityId===o.id)).toBe(true);expect(journals).toEqual(before);
+});

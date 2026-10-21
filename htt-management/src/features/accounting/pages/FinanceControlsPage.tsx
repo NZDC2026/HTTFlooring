@@ -1,5 +1,5 @@
 import {financialOperationJournal} from '../../../lib/persistence/financialOperationJournal';
-import {includeRecoveryControl} from '../data/recoveryControl';
+import {includeRecoveryControl,includePostingIntegrityControl} from '../data/recoveryControl';
 import {usePermission} from '../../security/usePermission';
 import { Link } from 'react-router-dom';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -69,11 +69,11 @@ export function FinanceControlsPage() {
 
     let unresolvedCount=0,recoveryError:string|undefined;
     try{unresolvedCount=financialOperationJournal.getUnresolved().length;}catch(e){recoveryError=(e as Error).message;}
-    const report=includeRecoveryControl(baseReport,unresolvedCount,recoveryError);
     let auditIssues: ReturnType<typeof runFinancialConsistencyAudit> = [];
     let auditError: string | undefined;
     try { auditIssues = runFinancialConsistencyAudit(); }
     catch (error) { auditError = error instanceof Error ? error.message : String(error); }
+    const report=includePostingIntegrityControl(includeRecoveryControl(baseReport,unresolvedCount,recoveryError),auditIssues.length,auditError);
     return (
         <div className="pb-8">{canInspectRecovery&&<Link className="mb-4 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/accounting/financial-recovery">Financial recovery workbench</Link>}
             <section className="mb-5 rounded-lg border p-4" aria-label="Current posting integrity">
@@ -349,6 +349,7 @@ export function FinanceControlsPage() {
                                                             }
                                                         </span>
                                                     </div>
+                                                    {!!control.reviewRowCount&&<p className="mt-1 text-xs text-amber-800">{control.reviewRowCount} bank ledger row(s) require evidence review, even if the balance difference is zero.</p>}
                                                 </td>
 
                                                 <MoneyCell

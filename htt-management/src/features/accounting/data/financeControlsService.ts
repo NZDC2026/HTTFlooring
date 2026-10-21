@@ -404,7 +404,9 @@ export function calculateFinanceControls({
                             glBalance,
                         );
 
+                    const reviewRowCount=register.transactions.filter(row=>row.correctionIssue).length;
                     return {
+                        reviewRowCount,
                         bankAccountId:
                             bankAccount.id,
 
@@ -422,7 +424,7 @@ export function calculateFinanceControls({
 
                         status:
                             difference ===
-                                0
+                                0 && reviewRowCount === 0
                                 ? "PASS"
                                 : "FAIL",
                     };

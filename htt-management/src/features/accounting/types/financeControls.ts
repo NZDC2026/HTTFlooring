@@ -24,6 +24,7 @@ export interface FinanceControl {
 }
 
 export interface BankFinanceControl {
+    reviewRowCount?: number;
     bankAccountId: string;
 
     bankAccountName: string;

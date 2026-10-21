@@ -1,3 +1,5 @@
+import {verifyReconciliationChain} from '../../banking/data/reconciliationChainEvidence';
+import type {StatementLine} from '../../finance-closure/bankStatementRepository';
 import { calculateInvoiceBalanceAsAt } from "../../sales/data/invoiceBalanceAsAtService";
 import { calculateSupplierBillBalanceAsAt } from "../../purchases/data/supplierBillBalanceAsAtService";
 import type { Payment } from "../../sales/types/payment";
@@ -24,7 +26,7 @@ export interface FinanceOverviewActivity {
     supplierPayments: SupplierPayment[];
     supplierCreditAllocations: SupplierCreditAllocation[];
 }
-export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBill[], banks: BankAccount[], journals: JournalEntry[], reconciliations: BankReconciliation[], today: string, activity?: FinanceOverviewActivity) {
+export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBill[], banks: BankAccount[], journals: JournalEntry[], reconciliations: BankReconciliation[], today: string, activity?: FinanceOverviewActivity, statements: StatementLine[] = []) {
     requireDateKey(today, "Dashboard date");
     if (activity) {
         invoices = invoices.map(invoice => ({ ...invoice, amountDue: calculateInvoiceBalanceAsAt(invoice, activity.payments, activity.creditAllocations, today).amountDue }));
@@ -52,10 +54,20 @@ export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBil
     const overduePayables = money(openBills.filter(b => b.dueDate < today).reduce((s, b) => s + b.totals.amountDue, 0));
     const bankStatus = banks.filter(b => b.active && b.openingBalanceDate <= today).map(bank => {
         const register = calculateBankRegister(bank, journals, today);
-        const last = reconciliations.filter(r => r.bankAccountId === bank.id && r.statementDate <= today).sort((a, b) => b.statementDate.localeCompare(a.statementDate))[0];
-        const cleared = new Set(reconciliations.filter(r => r.bankAccountId === bank.id && r.statementDate <= today).flatMap(r => r.clearedTransactionIds));
+        let reviewReasons: string[];
+        try {
+            reviewReasons = verifyReconciliationChain({bank,journals,reconciliations,throughDate:today,statements});
+        } catch {
+            reviewReasons = ['Saved bank reconciliation evidence could not be verified.'];
+        }
+        const requiresReview = reviewReasons.length > 0;
+        // A broken chain cannot prove any of its cumulative clearing. Keep real ledger
+        // amounts, but label its rows as unverified rather than claiming they are cleared.
+        const verified = requiresReview ? [] : reconciliations.filter(r => r.bankAccountId === bank.id && r.statementDate <= today);
+        const last = [...verified].sort((a,b)=>b.statementDate.localeCompare(a.statementDate))[0];
+        const cleared = new Set(verified.flatMap(r=>r.clearedTransactionIds));
         const outstanding = register.transactions.filter(t => !t.correctionOnly && !cleared.has(t.id)).length;
-        return { id: bank.id, name: bank.name, balance: register.closingBalance, lastReconciled: last?.statementDate, outstanding };
+        return { id: bank.id, name: bank.name, balance: register.closingBalance, lastReconciled: last?.statementDate, outstanding, requiresReview, reviewReasons };
     });
-    return { receivables, overdueInvoiceCount: overdueInvoices.length, overdueReceivables: money(overdueInvoices.reduce((s, i) => s + i.amountDue, 0)), ageing, payables, dueThisWeek, overduePayables, bankStatus, unreconciledCount: bankStatus.reduce((s, b) => s + b.outstanding, 0) };
+    return { bankReviewCount: bankStatus.filter(b=>b.requiresReview).length, receivables, overdueInvoiceCount: overdueInvoices.length, overdueReceivables: money(overdueInvoices.reduce((s, i) => s + i.amountDue, 0)), ageing, payables, dueThisWeek, overduePayables, bankStatus, unreconciledCount: bankStatus.reduce((s, b) => s + b.outstanding, 0) };
 }

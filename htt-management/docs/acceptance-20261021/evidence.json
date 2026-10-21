@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-21",
+  "projectVersion": "0.1.0",
+  "databaseSchema": 23,
+  "sourceWorkbook": {
+    "path": "/Users/chandler/Documents/HTTFlooring/完整系统功能需求与开发周期评估.xlsx",
+    "sha256": "c03cf90f0eb92d0e4cb13d7b926d365226529747ac2e8e193566dd7788a82ff1",
+    "sheet": "管理财务端需求",
+    "rows": "2:55"
+  },
+  "requirementsByStatus": {
+    "本地范围已验证": 31,
+    "部分实现": 20,
+    "外部接口未接入": 1,
+    "交付验收未完成": 2
+  },
+  "testFiles": 122,
+  "tests": 1550,
+  "failed": 0,
+  "skipped": 0,
+  "testSeconds": 170.17,
+  "testGroups": 199,
+  "build": "TypeScript + Vite renderer/main/preload passed; existing chunk warning",
+  "sourceChangedDuringAudit": [],
+  "baselineSourceManifestSha256": "0810078aaa6c6d6b08f2e04c85d4652265ccaff96dd4814dc0162dc74945b61e",
+  "native": {
+    "profile": "isolated synthetic copy; production profile untouched",
+    "customer": {
+      "draftId": "c5235020-4cac-4def-a3ce-571bf126567e",
+      "customerId": "cus_bd62dedd-0929-4732-98a5-f3641fb9b2a4",
+      "name": "Workflow Acceptance Customer 20261021",
+      "observed": "Pending -> duplicate review -> Approved -> customer CUST-0006 -> retained after native restart"
+    },
+    "period": {
+      "name": "Acceptance October 2026",
+      "dates": [
+        "2026-10-01",
+        "2026-10-20"
+      ],
+      "observed": "BANK_NOT_RECONCILED -> complete BREC-2026-0001 -> no blockers -> CLOSED -> OPEN -> history 3 after restart",
+      "debit": 8873.75,
+      "credit": 8873.75
+    },
+    "bank": {
+      "balance": 3010,
+      "clearedRealRows": 2,
+      "internalOffsetRowsVisibleButNotSelectable": 2,
+      "difference": 0,
+      "dashboardAfterRestart": "0 uncleared; last reconciliation 2026-10-20"
+    },
+    "journalsUnchanged": true,
+    "newScreenshotsReviewed": [
+      "Accounting periods at native desktop size",
+      "Packaged application Dashboard at native desktop size"
+    ],
+    "scopeLimit": "Other workflows use the freshly executed automated suites and source review; no exhaustive fresh native route/role/state certification."
+  },
+  "reproducedFindings": {
+    "dashboard": {
+      "proofReasons": [
+        "Saved reconciliation totals do not match the current dated bank ledger: BREC-INVALID"
+      ],
+      "displayed": {
+        "id": "bank",
+        "name": "Audit bank",
+        "balance": 10,
+        "lastReconciled": "2026-10-20",
+        "outstanding": 0
+      },
+      "expected": "Mark this saved reconciliation as requiring review; do not present its clearing as verified."
+    },
+    "promotion": {
+      "dateOnly": {
+        "price": 50
+      },
+      "timestamp": {
+        "price": 45,
+        "promotionId": "intraday"
+      },
+      "expected": "Specify and persist pricing instant/timezone so intraday promotions work in actual document entry, preserving historical snapshots."
+    }
+  },
+  "macArm64DirectoryPackage": "created unsigned; native packaged-app launch, login, dashboard 3010 / zero uncleared and period OPEN / history 3 verified; one CUA call took 110 seconds including UI automation, so startup performance was not independently measured",
+  "unverifiedRelease": [
+    "macOS Intel",
+    "signed/notarized DMG",
+    "Windows installer and upgrade",
+    "CI/CD",
+    "complete cross-role native acceptance"
+  ],
+  "commands": {
+    "test": "node --no-maglev ./node_modules/vitest/vitest.mjs run --pool=forks --maxWorkers=2 --execArgv=--no-maglev --reporter=default --reporter=json --outputFile=/private/tmp/htt-workflow-acceptance-tests.json",
+    "build": "tsc -b && vite build",
+    "package": "electron-builder --dir --mac --arm64 --publish never --config.directories.output=/private/tmp/htt-workflow-packaging"
+  },
+  "buildLogTail": [
+    "",
+    "✓ built in 62ms",
+    "vite v8.3.2 building client environment for production...",
+    "transforming...",
+    "✓ 2 modules transformed.",
+    "rendering chunks...",
+    "computing gzip size...",
+    "dist-electron/index.mjs  0.28 kB │ gzip: 0.19 kB",
+    "",
+    "✓ built in 7ms"
+  ],
+  "diagnosticReproductions": {
+    "cases": 2,
+    "passedObservedBehavior": 2,
+    "meaning": "These assert and record existing gaps; they are not fixes or part of the 1550 normal suite."
+  }
+}

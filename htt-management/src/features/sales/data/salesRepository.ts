@@ -1611,7 +1611,7 @@ export const salesRepository = {
             );
         }
 
-        if (input.voidDate && ((creditNote.refundEvents ?? []).some(e => (e.reversalDate ?? e.date) > input.voidDate!) || creditNoteRepository.getAllocationsByCreditNote(creditNote.id).some(a => businessDateKey(a.reversedAt ?? a.createdAt) > input.voidDate!))) throw new Error('Credit reversal precedes later settlement activity.');
+        if (input.voidDate && ((creditNote.refundEvents ?? []).some(e => (e.reversalDate ?? e.date) > input.voidDate!) || creditNoteRepository.getAllocationsByCreditNote(creditNote.id).some(a => (a.reversedAt ? businessDateKey(a.reversedAt) : a.allocationDate) > input.voidDate!))) throw new Error('Credit reversal precedes later settlement activity.');
         if (input.voidDate && input.voidDate < creditNote.creditDate) throw new Error('Credit reversal date precedes credit date.');
         if ((creditNote.amountRefunded ?? 0) > 0) throw new Error('Reverse customer refunds before voiding the credit.');
         const reason =
