@@ -1,3 +1,4 @@
+import type { PurchaseDefaults } from '../../purchase-settings/purchaseDefaults';
 export type SupplierBillStatus =
     | "OPEN"
     | "PARTIALLY_PAID"
@@ -43,6 +44,7 @@ export interface SupplierBillTotals {
 }
 
 export interface SupplierBill {
+    purchaseDefaults?: PurchaseDefaults;
     kind?: "STOCK"|"EXPENSE";
     managedDraftId?: string;
     openingBalanceImportId?: string;

@@ -4,6 +4,7 @@ import type { ConfigRow } from '../business-workspace/configurationState';
 import { requireDateKey } from '../../lib/businessDate';
 export type Split = {
     jobId: string;
+    jobName?: string;
     amount: number;
 };
 export type Allocation = {
@@ -47,7 +48,7 @@ export function calculateJobCosting(journals: JournalEntry[], accounts: Account[
     const rows = lines.flatMap(line => {
         const allocation = allocations.find(a => a.journalId === line.rootJournalId && a.lineId === line.rootLineId), sign = line.amount < 0 ? -1 : 1;
         let remainder = cents(line.capacity);
-        const splits = (allocation?.splits ?? []).map(s => { const n = cents(s.amount); remainder -= n; return { ...line, jobId: s.jobId, jobName: jobs.find(j => j.id === s.jobId)?.name ?? s.jobId, allocated: sign * n / 100 }; });
+        const splits = (allocation?.splits ?? []).map(s => { const n = cents(s.amount); remainder -= n; return { ...line, jobId: s.jobId, jobName: s.jobName ?? jobs.find(j => j.id === s.jobId)?.name ?? s.jobId, allocated: sign * n / 100 }; });
         if (remainder < 0)
             throw new Error('Project allocation exceeds source amount.');
         return [...splits, ...(remainder ? [{ ...line, jobId: '', jobName: 'Unallocated', allocated: sign * remainder / 100 }] : [])];

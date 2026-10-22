@@ -1,3 +1,4 @@
+import './brandingRepository';
 export { assertBankInstructionCommand } from './bankInstructionRepository';
 export { classifyImportedBankLines } from './bankRuleRepository';
 export { dueRecurringCandidates, prepareRecurringFailure } from '../../src/features/recurring/recurringAutomationRepository';

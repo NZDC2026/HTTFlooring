@@ -1,3 +1,4 @@
+import { reportPresentationSchema } from '../report-settings/reportPresentation';
 import { parseRuleConditions } from '../bank-rules/ruleConditions';
 import { runSavedReport } from '../saved-reports/savedReportCommand';
 import { parseSavedReportConfiguration } from '../saved-reports/savedReportService';
@@ -31,7 +32,7 @@ export const workspaceDomains: Record<string, {
     templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
     'report-packs': { read: 'accounting.read', write: 'accounting.post', required: ['periodStart', 'periodEnd', 'reports'], fields: ['periodStart', 'periodEnd', 'reports', 'cover', 'introduction'] },
-    settings: { read: 'inventory.read', write: 'accounting.post', required: ['section'], fields: ['section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase', 'billPrefix', 'supplierCreditPrefix', 'nextBill', 'nextSupplierCredit', 'tradingName', 'identifier', 'email', 'phone', 'address'] },
+    settings: { read: 'inventory.read', write: 'accounting.post', required: ['section'], fields: ['reportDefaults', 'termsPolicy', 'paymentMethod', 'section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase', 'billPrefix', 'supplierCreditPrefix', 'nextBill', 'nextSupplierCredit', 'tradingName', 'identifier', 'email', 'phone', 'address'] },
 };
 const listeners = new Set<() => void>();
 let revision = 0;
@@ -149,6 +150,17 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
         throw new Error('Invalid report period.');
     if (domain === 'settings') {
         if (rows.some(r=>r.id!==input.id&&r.section===input.section)) throw new Error('One record per settings section is allowed.');
+        if(input.section==='reports' && input.reportDefaults!==undefined){
+            if(input.reportDefaults!=='Yes'||input.status!=='Active')throw new Error('Report defaults must remain active.');
+            if(!/^[234]$/.test(input.precision))throw new Error('Amount precision must be 2, 3 or 4.');
+            reportPresentationSchema.parse({header:input.header,precision:Number(input.precision),basis:input.basis,currency:input.currency});
+        }
+        if(input.section==='purchases' && (input.termsPolicy!==undefined || input.paymentMethod!==undefined)) {
+            if(input.status!=='Active')throw new Error('Purchase settings must remain active.');
+            if(!/^\d+$/.test(input.terms)||Number(input.terms)>365)throw new Error('Purchase terms must be 0–365 days.');
+            if(!['SUPPLIER','PURCHASE_SETTINGS'].includes(input.termsPolicy))throw new Error('Invalid purchase terms policy.');
+            if(!['BANK_TRANSFER','CARD','CASH','CHEQUE','OTHER'].includes(input.paymentMethod))throw new Error('Invalid preferred payment method.');
+        }
         if(input.section==='business') {
             for(const field of ['companyName','currency','timezone','yearEnd','gstCode','basis','terms'])requiredText(input[field],field);
             if(input.status!=='Active')throw new Error('Business settings must remain active.');
@@ -167,7 +179,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
 
         if (!['business', 'sales', 'purchases', 'payroll', 'reports'].includes(input.section))
             throw new Error('Unknown settings section.');
-        if (input.currency && !['NZD', 'AUD'].includes(input.currency))
+        if (input.currency && !(input.section==='reports'?['BASE','NZD','AUD']:['NZD', 'AUD']).includes(input.currency))
             throw new Error('Unsupported currency.');
         if (input.timezone) {
             try {

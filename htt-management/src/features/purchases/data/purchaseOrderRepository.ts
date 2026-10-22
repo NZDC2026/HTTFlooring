@@ -1,3 +1,4 @@
+import { purchaseDefaults, purchaseDefaultsSchema } from '../../purchase-settings/purchaseDefaults';
 import { visibleDocuments } from '../../document-recycle/recycleState';
 import { configuredNumber, businessSettings, taxSnapshot, exclusivePrice } from '../../business-workspace/configurationState';
 import { assertProductQuantity } from '../../business-workspace/productRules';
@@ -327,6 +328,7 @@ export const purchaseOrderRepository =
                     "po",
                 ),
 
+            purchaseDefaults: purchaseDefaults(supplier),
             purchaseOrderNumber:
                 createPurchaseOrderNumber(
                     draft.orderDate,
@@ -1220,10 +1222,11 @@ function roundQuantity(
     );
 }
 registerRepository("purchaseOrders", {
+    validate: value => { for(const row of (value as {purchaseOrders:PurchaseOrder[]}).purchaseOrders) if(row.purchaseDefaults!==undefined) purchaseDefaultsSchema.parse(row.purchaseDefaults); },
     repository: purchaseOrderRepository, read: "purchases.read",
     commands: {"catch": null, "if": null, "create": "purchases.write", "updateDraft": "purchases.write", "approve": "purchases.write", "send": "purchases.write", "recordGoodsReceipt": null, "recordSupplierBill": null, "reverseSupplierBill": null, "emitChange": null, "return": null, "cancel": "purchases.write"},
     snapshot: () => ({ purchaseOrders }),
-    restore: value => { purchaseOrders = value.purchaseOrders;  },
+    restore: value => { purchaseOrders = (value as {purchaseOrders:PurchaseOrder[]}).purchaseOrders;  },
     publish: () => listeners.forEach(listener => listener()),
 });
 

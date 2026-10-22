@@ -1,3 +1,4 @@
+import { orderDefaults, purchaseDueDate } from '../../purchase-settings/purchaseDefaults';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
@@ -68,7 +69,7 @@ export function CreateSupplierBillPage() {
     const [
         dueDate,
         setDueDate,
-    ] = useState("");
+    ] = useState(() => purchaseOrder ? purchaseDueDate(getToday(),orderDefaults(purchaseOrder)) : "");
 
     const [
         notes,
@@ -310,10 +311,7 @@ export function CreateSupplierBillPage() {
         }
 
         setDueDate(
-            addDays(
-                value,
-                30,
-            ),
+            purchaseDueDate(value,orderDefaults(purchaseOrder)),
         );
     }
 
@@ -1127,44 +1125,3 @@ function getToday() {
     return businessDateKey(new Date().toISOString());
 }
 
-function addDays(
-    date: string,
-    days: number,
-) {
-    const [
-        year,
-        month,
-        day,
-    ] = date
-        .split("-")
-        .map(Number);
-
-    const result =
-        new Date(
-            year,
-            month - 1,
-            day,
-        );
-
-    result.setDate(
-        result.getDate() +
-        days,
-    );
-
-    return [
-        result.getFullYear(),
-        String(
-            result.getMonth() +
-            1,
-        ).padStart(
-            2,
-            "0",
-        ),
-        String(
-            result.getDate(),
-        ).padStart(
-            2,
-            "0",
-        ),
-    ].join("-");
-}

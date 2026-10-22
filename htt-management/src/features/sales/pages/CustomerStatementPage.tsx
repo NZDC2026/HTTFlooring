@@ -1,5 +1,6 @@
+import { ReportContext } from '../../report-settings/ReportContext';
+import { reportMoney } from '../../report-settings/reportPresentation';
 import {businessDateKey} from '../../../lib/businessDate';
-import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useState,
 } from "react";
@@ -175,7 +176,7 @@ export function CustomerStatementPage() {
         customer.locations[0];
 
     return (
-        <div className="mx-auto w-full max-w-[1400px]">
+        <div className="mx-auto w-full max-w-[1400px]"><ReportContext basis="Accrual"/>
             <div className="print:hidden">
                 <button
                     type="button"
@@ -764,16 +765,7 @@ function StatementSummaryRow({
 
 function formatMoney(
     value: number,
-) {
-    return value.toLocaleString(
-        "en-AU",
-        {
-            style: "currency",
-            currency: businessSettings().currency,
-            minimumFractionDigits: 2,
-        },
-    );
-}
+) { return reportMoney(value); }
 
 function formatDate(
     value: string,

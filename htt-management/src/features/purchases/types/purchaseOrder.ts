@@ -1,3 +1,4 @@
+import type { PurchaseDefaults } from '../../purchase-settings/purchaseDefaults';
 export type PurchaseOrderStatus =
     | "DRAFT"
     | "APPROVED"
@@ -46,6 +47,7 @@ export interface PurchaseOrderTotals {
 }
 
 export interface PurchaseOrder {
+    purchaseDefaults?: PurchaseDefaults;
     id: string;
 
     purchaseOrderNumber: string;

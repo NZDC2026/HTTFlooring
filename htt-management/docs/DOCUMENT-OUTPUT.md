@@ -1,3 +1,5 @@
+> G09 follow-up: [Company branding images](G09-BRANDING.md) now embeds immutable, validated local PNG snapshots in sales/purchase HTML/PDF and report outputs. Earlier branding-image exclusions below describe the previous baseline; arbitrary HTML and remote resources remain blocked.
+
 > Purchase-order and remittance output is now connected through a separate register; see [PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md](PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md). Earlier supplier-output exclusions below describe the previous baseline.
 
 > Follow-up: [Physical supplier returns](SUPPLIER-RETURNS.md) now connects confirmed credits to inventory dispatch and atomic reversal.

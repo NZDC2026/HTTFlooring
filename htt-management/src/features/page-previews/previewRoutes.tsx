@@ -1,3 +1,5 @@
+import { ReportSettingsPage } from '../report-settings/ReportSettingsPage';
+import { PurchaseSettingsPage } from '../purchase-settings/PurchaseSettingsPage';
 import { BankInstructionPage } from '../bank-instructions/BankInstructionPage';
 import { BankRulesPage } from '../bank-rules/BankRulesPage';
 import { SupplierPrepaymentsPage } from '../supplier-prepayments/SupplierPrepaymentsPage';
@@ -104,5 +106,5 @@ export const additionalRoutes: RouteObject[] = [
   { path: `${m.path.slice(1)}/:previewId/edit`, element: <ModuleRoute moduleId={m.id} mode="edit" /> },
  ]),
  ...flowPages.map(f => ({ path: f[1].slice(1), element: <FlowRoute id={f[0]} /> })),
- ...Object.keys(settingsForms).map(section => ({ path: `settings/${section === 'business' ? 'financial' : section}`, element: <PreviewAccess permission={section==='payroll'?'payroll.read':'accounting.read'}>{section==='payroll'?<PayrollSettingsPage/>:['business','sales','purchases','reports'].includes(section)?<FinancialSettingsPage key={section}/>:<SettingsPreview key={section} section={section} />}</PreviewAccess> })),
+ ...Object.keys(settingsForms).map(section => ({ path: `settings/${section === 'business' ? 'financial' : section}`, element: <PreviewAccess permission={section==='payroll'?'payroll.read':section==='purchases'?'purchases.read':'accounting.read'}>{section==='reports'?<ReportSettingsPage/>:section==='purchases'?<PurchaseSettingsPage/>:section==='payroll'?<PayrollSettingsPage/>:['business','sales','purchases','reports'].includes(section)?<FinancialSettingsPage key={section}/>:<SettingsPreview key={section} section={section} />}</PreviewAccess> })),
 ];

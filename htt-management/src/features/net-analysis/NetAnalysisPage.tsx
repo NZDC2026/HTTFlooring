@@ -1,3 +1,6 @@
+import { reportSettings } from '../report-settings/reportPresentation';
+import { reportNumber } from '../report-settings/reportPresentation';
+import { ReportContext } from '../report-settings/ReportContext';
 import { useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 import { salesRepository } from '../sales/data/salesRepository';
@@ -33,20 +36,20 @@ export function NetAnalysisPage({ purchases = false }: {
         error = e instanceof Error ? e.message : 'Report could not be calculated.';
     }
     const current = Math.min(page, Math.max(0, Math.ceil((report?.events.length ?? 0) / 50) - 1)), last = Math.max(0, Math.ceil((report?.events.length ?? 0) / 50) - 1);
-    const money = (n: number) => `${currency} ${n.toFixed(2)}`;
+    const money = (n: number) => `${currency} ${reportNumber(n)}`;
     const exportReport = () => {
         if (!report)
             return;
         downloadSample(`${purchases ? 'net-purchases' : 'net-sales'}-${from}-${to}.csv`, csvText([
-            [purchases ? 'Net purchase documents' : 'Net sales documents', from, to, currency], ['Contact ID', partyId || 'All'], ['Search', query], ['Activity', event],
-            ['Filtered totals', report.totals.subtotal.toFixed(2), report.totals.tax.toFixed(2), report.totals.total.toFixed(2)],
-            ['Activity', 'Count', 'Before tax', 'Tax', 'Gross'], ...report.movements.map(m => [labels[m.type], String(m.count), m.subtotal.toFixed(2), m.tax.toFixed(2), m.total.toFixed(2)]),
-            ['Contact summary'], ['Contact ID', 'Contact', 'Source documents', 'Events', 'Before tax', 'Tax', 'Gross'], ...report.parties.map(p => [p.id, p.name, String(p.documents), String(p.events), p.subtotal.toFixed(2), p.tax.toFixed(2), p.total.toFixed(2)]),
-            ['All filtered detail pages'], ['Date', 'Activity', 'Document type', 'Document', 'Contact ID', 'Contact', 'Current source status', 'Before tax', 'Tax', 'Gross'], ...report.events.map(e => [e.date, labels[e.event], e.kind, e.number, e.partyId, e.partyName, e.status, e.subtotal.toFixed(2), e.tax.toFixed(2), e.total.toFixed(2)]),
+            ['Report header',reportSettings().header], ['Basis','Accrual'], [purchases ? 'Net purchase documents' : 'Net sales documents', from, to, currency], ['Contact ID', partyId || 'All'], ['Search', query], ['Activity', event],
+            ['Filtered totals', reportNumber(report.totals.subtotal), reportNumber(report.totals.tax), reportNumber(report.totals.total)],
+            ['Activity', 'Count', 'Before tax', 'Tax', 'Gross'], ...report.movements.map(m => [labels[m.type], String(m.count), reportNumber(m.subtotal), reportNumber(m.tax), reportNumber(m.total)]),
+            ['Contact summary'], ['Contact ID', 'Contact', 'Source documents', 'Events', 'Before tax', 'Tax', 'Gross'], ...report.parties.map(p => [p.id, p.name, String(p.documents), String(p.events), reportNumber(p.subtotal), reportNumber(p.tax), reportNumber(p.total)]),
+            ['All filtered detail pages'], ['Date', 'Activity', 'Document type', 'Document', 'Contact ID', 'Contact', 'Current source status', 'Before tax', 'Tax', 'Gross'], ...report.events.map(e => [e.date, labels[e.event], e.kind, e.number, e.partyId, e.partyName, e.status, reportNumber(e.subtotal), reportNumber(e.tax), reportNumber(e.total)]),
             ['Accrual document activity; original saved totals, dated credits and void reversals. Opening balances, cash settlements and non-document GL journals are excluded. Void timestamps follow the business timezone.'],
         ]));
     };
-    return <BusinessFrame title={purchases ? 'Net purchase document analysis' : 'Net sales document analysis'}>
+    return <BusinessFrame title={purchases ? 'Net purchase document analysis' : 'Net sales document analysis'}><ReportContext basis="Accrual"/>
         <p className="rounded-lg border bg-slate-50 p-3 text-sm">Original {purchases ? 'supplier bills' : 'issued sales invoices'} less credits, plus dated void corrections. Saved net, tax and gross amounts are retained; payment and credit allocation status do not change document activity. Opening balances and drafts are excluded. This is document activity, rather than {purchases ? 'recognized expenses' : 'profit'}, cash flow or AR/AP outstanding.</p>
         <Panel title="Report filters"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="From"><input className={fieldClass} type="date" required value={from} onChange={e => { setFrom(e.target.value); setPage(0); }}/></Field>

@@ -322,6 +322,8 @@ export function SupplierBillDetailPage() {
                     }
                 />
 
+                {bill.purchaseDefaults && <Summary label="Preferred Payment" value={bill.purchaseDefaults.paymentMethod.replaceAll("_"," ")} />}
+
                 <Summary
                     label="Amount Due"
                     value={formatMoney(

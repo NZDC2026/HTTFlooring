@@ -1,3 +1,5 @@
+import { supplierBillRepository } from '../data/supplierBillRepository';
+import { purchaseDefaults } from '../../purchase-settings/purchaseDefaults';
 import { Link } from 'react-router-dom';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
@@ -101,7 +103,7 @@ export function CreateSupplierPaymentPage() {
         setMethod,
     ] =
         useState<SupplierPaymentMethod>(
-            "BANK_TRANSFER",
+            supplierBillRepository.getById(requestedBillId)?.purchaseDefaults?.paymentMethod ?? purchaseDefaults().paymentMethod,
         );
 
     const [

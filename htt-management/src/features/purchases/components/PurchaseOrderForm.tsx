@@ -1,3 +1,4 @@
+import { purchaseDefaults, orderDefaults } from '../../purchase-settings/purchaseDefaults';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import { activeTaxRate, exclusivePrice } from '../../business-workspace/configurationState';
@@ -497,7 +498,7 @@ export function PurchaseOrderForm({
     }
 
     return (
-        <div className="space-y-5"><p className="text-sm text-slate-600">New unit costs: {businessSettings().basis} tax. Existing orders retain net cost snapshots.</p>
+        <div className="space-y-5"><p className="text-sm text-slate-600">Purchase terms: {(purchaseOrder ? orderDefaults(purchaseOrder) : purchaseDefaults(suppliers.find(s=>s.id===supplierId))).termsDays} days · Payment preference: {(purchaseOrder ? orderDefaults(purchaseOrder) : purchaseDefaults(suppliers.find(s=>s.id===supplierId))).paymentMethod.replaceAll("_"," ")}</p><p className="text-sm text-slate-600">New unit costs: {businessSettings().basis} tax. Existing orders retain net cost snapshots.</p>
             {error && (
                 <div className="flex items-start gap-3 rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
                     <AlertCircle

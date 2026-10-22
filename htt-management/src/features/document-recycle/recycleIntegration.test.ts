@@ -138,7 +138,7 @@ it('migrates schema 15 without deleting any original document', async () => {
     old.checksum = createHash('sha256').update(JSON.stringify(old)).digest('hex');
     writeFileSync(join(root, 'business.json'), JSON.stringify(old));
     await restart();
-    expect(host.exportBackup().schemaVersion).toBe(28);
+    expect(host.exportBackup().schemaVersion).toBe(30);
     expect(state('documentRecycle').history).toEqual([]);
     expect(list().some(r => r.recordId === d.id)).toBe(true);
 });

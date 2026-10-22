@@ -1,4 +1,4 @@
-import { A as e, D as t, F as n, G as r, I as i, M as a, O as o, P as s, U as c, a as l, i as u, j as d, k as f, n as p, r as m, t as h } from "./businessSnapshot-DD80y9gF.js";
+import { A as e, D as t, F as n, G as r, I as i, M as a, O as o, P as s, U as c, a as l, i as u, j as d, k as f, n as p, r as m, t as h } from "./businessSnapshot-BYySNXvh.js";
 import { BrowserWindow as g, app as _, dialog as v, ipcMain as y, nativeImage as ee } from "electron";
 import { closeSync as b, existsSync as x, fsyncSync as S, mkdirSync as C, openSync as w, readFileSync as T, realpathSync as E, renameSync as te, statSync as ne, writeFileSync as D } from "node:fs";
 import { createHash as O, createHmac as k, randomBytes as A, randomUUID as j, scryptSync as re, timingSafeEqual as M } from "node:crypto";
@@ -253,7 +253,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 		if (this.initialized) return;
 		if (!this.security.principal()) throw Error("Login required.");
 		let n, r;
-		if (x(this.path)) r = m(T(this.path, "utf8")), r.schemaVersion !== 28 && (n = structuredClone(r), h(r)), this.values = r.storage;
+		if (x(this.path)) r = m(T(this.path, "utf8")), r.schemaVersion !== 30 && (n = structuredClone(r), h(r)), this.values = r.storage;
 		else {
 			if (this.security.require("users.manage"), !t || typeof t != "object" || Object.keys(t).length > 1e3) throw Error("Invalid legacy local data.");
 			for (let [e, n] of Object.entries(t)) if (!e.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
@@ -290,7 +290,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			configurable: !0,
 			value: { localStorage: i }
 		});
-		let c = await import("./businessEngine-DIxq_Htp.js");
+		let c = await import("./businessEngine-slcXYhv_.js");
 		this.workspaceDefaults = c.workspaceDefaults, r && (p(r, this.workspaceDefaults), l(r.repositories, e()), d(r.repositories), o(r.repositories), this.lastCommandId = r.lastCommandId), c.initialize(() => this.security.principal()), this.automationEngine = c, this.assertPeriod = c.assertPostingPeriod, a(() => {
 			if (!this.security.require("users.manage").roles.includes("ADMIN") || !this.initialized || this.blocked) throw Error("Permanent purge requires a healthy ADMIN desktop session.");
 			let t = e();
@@ -418,7 +418,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 				value: { localStorage: t }
 			});
 		}
-		let i = await import("./businessEngine-DIxq_Htp.js");
+		let i = await import("./businessEngine-slcXYhv_.js");
 		if (p(r.database, i.workspaceDefaults), l(r.database.repositories, e()), d(r.database.repositories), this.security.require("users.manage").userId !== n.userId) throw Error("Restore session changed.");
 		let a = this.security.pendingBusinessCommands();
 		if (a.length) {

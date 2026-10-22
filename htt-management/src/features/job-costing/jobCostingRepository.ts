@@ -1,6 +1,8 @@
+import { payrollProjectAllocations } from '../payroll/data/payrollProjects';
+import type { PayRun } from '../payroll/data/payrollModel';
 import { z } from 'zod';
 import { useSyncExternalStore } from 'react';
-import { registerRepository } from '../security/repositoryHost';
+import { registerRepository, snapshotRepositories } from '../security/repositoryHost';
 import { trustedAuthorization } from '../security/trustedAuthorization';
 import { journalEntryRepository } from '../accounting/data/journalEntryRepository';
 import { accountRepository } from '../accounting/data/accountRepository';
@@ -33,9 +35,10 @@ function checkSplits(splits: z.infer<typeof split>[], capacity: number, jobs: Co
     if (splits.reduce((n, s) => n + cents(s.amount), 0) > cents(capacity))
         throw new Error('Project splits exceed the source amount.');
 }
+function automatic(){return payrollProjectAllocations(((snapshotRepositories().payroll as {runs:PayRun[]}|undefined)?.runs??[]),journalEntryRepository.getAll());}
 export const jobCostingRepository = { subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }, getSnapshot: () => allocations,
-    review() { trustedAuthorization.require('accounting.read'); return { lines: costingLines(journalEntryRepository.getAll(), accountRepository.getAll()), allocations: structuredClone(allocations), history: structuredClone(history) }; },
-    report(raw: unknown) { trustedAuthorization.require('accounting.read'); const input = z.object({ from: z.string(), to: z.string() }).strict().parse(raw); return calculateJobCosting(journalEntryRepository.getAll(), accountRepository.getAll(), configurationRows.jobs, allocations, input.from, input.to); },
+    review() { trustedAuthorization.require('accounting.read'); const auto=automatic();return { lines: costingLines(journalEntryRepository.getAll(), accountRepository.getAll()).map(l=>({...l,payrollManaged:auto.some(a=>a.journalId===l.rootJournalId&&a.lineId===l.rootLineId)})), allocations: structuredClone([...allocations,...auto]), history: structuredClone(history) }; },
+    report(raw: unknown) { trustedAuthorization.require('accounting.read'); const input = z.object({ from: z.string(), to: z.string() }).strict().parse(raw); return calculateJobCosting(journalEntryRepository.getAll(), accountRepository.getAll(), configurationRows.jobs, [...allocations,...automatic()], input.from, input.to); },
     save(raw: unknown) {
         const actor = trustedAuthorization.require('accounting.post'), input = saveSchema.parse(raw), fingerprint = JSON.stringify(input), prior = history.find(h => h.operationId === input.operationId);
         if (prior) {
@@ -50,6 +53,7 @@ export const jobCostingRepository = { subscribe(fn: () => void) { listeners.add(
             throw new Error('Allocate the original line; reversal entries inherit its splits.');
         if (input.expectedSource !== line.signature)
             throw new Error('Source journal changed. Refresh before allocating.');
+        if(automatic().some(a=>a.journalId===line.journalId&&a.lineId===line.lineId))throw new Error('Frozen payroll project costs are managed through payroll; reverse and replace the source to correct them.');
         const old = allocations.find(a => a.journalId === line.journalId && a.lineId === line.lineId);
         if ((old?.revision ?? 0) !== input.expectedRevision)
             throw new Error('Allocation changed. Refresh before saving.');
@@ -78,7 +82,9 @@ registerRepository('jobCosting', { repository: jobCostingRepository, read: 'acco
         }).journalEntries, (snapshots.accounts as {
             accounts: Account[];
         }).accounts), keys = new Set<string>(), operations = new Set<string>();
+        const auto=payrollProjectAllocations((snapshots.payroll as {runs:PayRun[]})?.runs??[],(snapshots.journals as {journalEntries:JournalEntry[]}).journalEntries);
         for (const row of data.allocations) {
+            if(auto.some(a=>a.journalId===row.journalId&&a.lineId===row.lineId))throw new Error('Manual allocation duplicates frozen payroll project costs.');
             const line = lines.find(l => l.journalId === row.journalId && l.lineId === row.lineId), key = row.journalId + ':' + row.lineId;
             if (!line || line.reversal || keys.has(key))
                 throw new Error('Invalid project source reference.');

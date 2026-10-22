@@ -224,5 +224,197 @@
     "native": "Disposable htt-g07-native: supplier 10 AUD and net wages 900 AUD source/preview, leading-zero bank details and SHA, approved/prepared snapshots and readable history. Creator approval remains disabled after entering reason. No UI payment or posting; persisted repositories and storage exactly equal seed snapshot. Native app closed after inspection.",
     "pendingLocalWorkPackages": 10,
     "externalBoundaries": 3
+  },
+  "g08FollowUp": {
+    "date": "2026-10-22",
+    "status": "completed within local payroll project costing scope",
+    "databaseSchema": 29,
+    "document": "docs/G08-PAYROLL-PROJECTS.md",
+    "scope": [
+      "authorized active project selection and frozen identity/version on timesheets",
+      "separate same-day project rows with total day-hour controls",
+      "hourly wages and recorded-hour salary allocation with explicit unallocated leave/hours",
+      "employer contributions allocated by project wage share with deterministic cent rounding",
+      "frozen time/leave/project/cost evidence in pay runs, payslips and exports",
+      "derived GL-based project report allocations, inherited reversal dates and manual duplicate protection",
+      "historical names, restart/retry/rollback and migration/restore integrity"
+    ],
+    "boundary": "Salary allocation uses approved recorded hours plus leave as its denominator; payroll reviewers must confirm completeness. Missing hours are not inferred. Net-wage payments, PAYG and deductions do not add project costs. Legacy unallocated payroll is not retrospectively assigned.",
+    "tests": {
+      "files": 137,
+      "passed": 1812,
+      "failed": 0,
+      "durationSeconds": 228.05,
+      "newMainHostCasesFinal": 19,
+      "newRolePageCases": 1,
+      "finalTargetedPassed": 151,
+      "finalTargetedSeconds": 17.97,
+      "finalTypeScript": "passed",
+      "note": "One final corruption case was added after the full run; included in the final 151-case targeted run."
+    },
+    "build": "TypeScript + Vite renderer + Electron main/preload passed; existing large-chunk advisory",
+    "native": {
+      "profile": "/private/tmp/htt-g08-native",
+      "timesheetHours": {
+        "Project A": 4,
+        "Project B": 3,
+        "Unallocated": 1,
+        "Leave": 8
+      },
+      "projectCostAUD": {
+        "Project A": 134.4,
+        "Project B": 100.8,
+        "Unallocated": 302.4,
+        "GL": 537.6
+      },
+      "checks": "Timesheet frozen version columns, expanded pay-run wage/contribution snapshots, GL-reconciled project report and readable screenshots. Read-only navigation/reporting; persisted repositories and storage exactly match seed. No UI posting/payment/reversal. App closed."
+    },
+    "pendingLocalWorkPackages": 9,
+    "externalBoundaries": 3
+  },
+  "g09FollowUp": {
+    "date": "2026-10-22",
+    "status": "completed within local static PNG branding scope",
+    "databaseSchema": 30,
+    "document": "docs/G09-BRANDING.md",
+    "scope": [
+      "bounded PNG pixel validation and RGBA re-encoding; metadata removed",
+      "immutable deduplicated bytes, financial-settings permissions and audited selection",
+      "sales/purchase image and position snapshots in HTML/PDF",
+      "report-pack and saved-report branding; printable saved reports",
+      "atomic rollback, retry, migration and restore integrity"
+    ],
+    "formats": "Static non-interlaced 8-bit RGB/RGBA/grayscale PNG; 1024x1024, 1 MB input, 256 KB normalized; 20 retained images / 4 MB. No indexed PNG, JPEG, SVG, animation or remote URLs. CSV remains data-only.",
+    "tests": {
+      "files": 139,
+      "passed": 1857,
+      "failed": 0,
+      "durationSeconds": 228.14,
+      "newPngCases": 24,
+      "newMainHostCases": 19,
+      "newRolePageCases": 1,
+      "finalTargetedPassed": 196,
+      "finalTargetedSeconds": 7.56
+    },
+    "build": "Final TypeScript + Vite renderer + Electron main/preload passed; existing large-chunk advisory",
+    "native": {
+      "profile": "/private/tmp/htt-g09-native",
+      "checks": "Current orange and retained green logos, prior invoice green, newly generated report pack orange. Two print-dialog PDFs saved and all four pages rendered/visually checked. No app chrome. Repositories/storage unchanged from seed; no financial mutation or email. App closed.",
+      "pdfEvidence": {
+        "invoice": {
+          "pages": 1,
+          "imagesPerPage": [
+            1
+          ],
+          "sha256": "e92c01a01cde59a952e4e2afbf6d863da0f1a367d34b598c78dff71cc29ad0a3",
+          "appChromeAbsent": true
+        },
+        "report": {
+          "pages": 3,
+          "imagesPerPage": [
+            1,
+            0,
+            0
+          ],
+          "sha256": "ff54793c6a12b272810aaa342f240bfb8fb0d2d4046f8a5ab4b6b6bcdc2e196f",
+          "appChromeAbsent": true
+        }
+      }
+    },
+    "pendingLocalWorkPackages": 8,
+    "externalBoundaries": 3
+  },
+  "g10FollowUp": {
+    "date": "2026-10-22",
+    "status": "本地范围已关闭",
+    "databaseSchema": 30,
+    "scope": "Independent purchase terms and payment preference settings; main-host capture on purchase orders and expense drafts; stock-bill source inheritance; manual due dates and legacy source history retained.",
+    "permissions": "purchases.read page; accounting.post maintenance; main boundary rejects PURCHASING/AUDITOR/SALES/WAREHOUSE changes; ACCOUNTANT/FINANCE_ADMIN/ADMIN supported.",
+    "testFiles": 140,
+    "tests": 1882,
+    "failed": 0,
+    "skipped": 0,
+    "testSeconds": 237.24,
+    "build": "Actual project TypeScript + Vite renderer/main/preload passed; existing chunk-size warning.",
+    "targetedValidation": "24 new main-host tests plus 1 new route test; full suite includes 134 preview route tests.",
+    "recovery": "Settings/audit rollback on failed persistence, stale revisions, retained audit and document snapshots after restart, rejected corrupted retained defaults.",
+    "native": {
+      "profile": "/private/tmp/htt-g10-native (isolated synthetic data)",
+      "observed": "Purchase settings shows 21 days / CHEQUE and history revision 1; new expense bill date 2026-10-22 yields due date 2026-11-12; layout checked.",
+      "writes": "No business command through UI; repositories/storage unchanged against seed evidence; application closed."
+    },
+    "boundaries": [
+      "Preference does not authorize or execute a bank payment.",
+      "Numbering and tax/price basis remain in financial settings.",
+      "Legacy source orders without a defaults snapshot retain the former 30-day stock-bill path.",
+      "No independent backend or external service connected."
+    ],
+    "documentation": "docs/G10-PURCHASE-SETTINGS.md",
+    "remainingLocalPackages": "G11–G17 (7)",
+    "remainingExternalBoundaries": 3
+  },
+  "g11FollowUp": {
+    "date": "2026-10-22",
+    "status": "本地支持范围已关闭",
+    "databaseSchema": 30,
+    "scope": "Independent report settings; preferred compatible report basis and available bank currency, custom header and 2–4 amount decimals; report-page and HTML/CSV/PDF presentation; frozen generated copies.",
+    "permissions": "accounting.read page; accounting.post maintenance. Main boundary rejects SALES/WAREHOUSE/PURCHASING/AUDITOR writes; ADMIN/ACCOUNTANT/FINANCE_ADMIN supported.",
+    "testFiles": 142,
+    "tests": 1928,
+    "failed": 0,
+    "skipped": 0,
+    "testSeconds": 239.41,
+    "newTests": 46,
+    "finalTargetedFiles": 4,
+    "finalTargetedTests": 66,
+    "finalTargetedSeconds": 11.81,
+    "build": "Final actual project TypeScript + Vite renderer/main/preload passed; existing chunk-size warning.",
+    "basis": "Accrual statements and document reports remain Accrual. Banking remains Cash. Cash preference selects Banking for new saved definitions and Cash flow for new packs, never relabels accrual calculations. Payroll summary is explicitly operational by posted pay date.",
+    "currency": "Available bank currencies only; explicit saved filters take precedence; statements and packs remain business base currency. No FX conversion; payroll summary filters one run currency.",
+    "snapshots": "New generated saved reports and packs capture optional presentation metadata. Old copies without it retain fixed two-decimal presentation. Existing definitions and document amounts stay unchanged.",
+    "recovery": "Trusted revision/audit, stale-edit rejection, durable restart, failed-commit rollback, invalid-backup rejection.",
+    "pageCoverage": [
+      "Profit & loss",
+      "Balance sheet",
+      "Trial balance",
+      "General ledger",
+      "AR/AP ageing",
+      "Customer/supplier statements",
+      "Inventory valuation/GL",
+      "GRNI",
+      "Purchase reconciliation/posting audit",
+      "AR/AP to GL and finance controls",
+      "Supplier-prepayment/customer-deposit reconciliations",
+      "Cash flow/banking summary",
+      "Net sales/purchases",
+      "Document tax",
+      "Payroll summary",
+      "Saved reports",
+      "Management report packs"
+    ],
+    "native": {
+      "profile": "/private/tmp/htt-g11-native (isolated synthetic data)",
+      "observed": "Report settings shows custom header, Cash and 4 decimals. Library prefers Cash flow. Generated pack retains Accrual P&L and Cash bank ledger labels.",
+      "pdf": {
+        "pages": 3,
+        "sha256": "3feacd566c8dd7b5e72ca685eb924f4ffbae4ca56d53ded4d165e185b734f780",
+        "headers": 3,
+        "fourDecimalSource": true,
+        "accrualLabel": true,
+        "cashLabel": true,
+        "noAppNavigation": true,
+        "renderedPagesInspected": [
+          1,
+          2,
+          3
+        ],
+        "visual": "No clipping, overlap, app chrome or unreadable amounts."
+      },
+      "writes": "Viewing, generating and printing retained seed repositories/storage exactly; no posting or payment through UI; app closed."
+    },
+    "baselineSourceManifestSha256": "3948cfc1acf41b4bd4dff8b5c3e6dfdf51f3273ab7645d3e46ca41f72681d143",
+    "documentation": "docs/G11-REPORT-SETTINGS.md",
+    "remainingLocalPackages": "G12–G17 (6)",
+    "remainingExternalBoundaries": 3
   }
 }

@@ -1,3 +1,7 @@
+import { reportSettings } from '../report-settings/reportPresentation';
+import { preferredReportCurrency } from '../report-settings/reportPresentation';
+import { reportNumber } from '../report-settings/reportPresentation';
+import { ReportContext } from '../report-settings/ReportContext';
 import { useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 import { bankAccountRepository } from '../banking/data/bankAccountRepository';
@@ -16,7 +20,7 @@ export function CashReportsPage({ banking = false }: {
     const today = businessDateKey(new Date().toISOString());
     const [from, setFrom] = useState(fiscalYearStart(today)), [to, setTo] = useState(today);
     const currencies = [...new Set(banks.map(b => b.currency))].sort();
-    const [currency, setCurrency] = useState(() => currencies.includes(businessSettings().currency) ? businessSettings().currency : currencies[0] ?? businessSettings().currency);
+    const [currency, setCurrency] = useState(() => preferredReportCurrency(businessSettings().currency,currencies));
     const [bankId, setBankId] = useState(''), [page, setPage] = useState(0);
     let report: ReturnType<typeof calculateCashReport> | undefined, error = '';
     try {
@@ -26,25 +30,25 @@ export function CashReportsPage({ banking = false }: {
         error = e instanceof Error ? e.message : 'Report could not be calculated.';
     }
     const count = report?.details.length ?? 0, lastPage = Math.max(0, Math.ceil(count / 50) - 1), currentPage = Math.min(page, lastPage);
-    const money = (n: number) => `${currency} ${n.toFixed(2)}`;
+    const money = (n: number) => `${currency} ${reportNumber(n)}`;
     const exportReport = () => {
         if (!report)
             return;
         const r = report;
         downloadSample(`${banking ? 'banking-summary' : 'cash-flow'}-${from}-${to}.csv`, csvText([
-            ['Bank ledger report', from, to, currency, bankId ? banks.find(b => b.id === bankId)!.name : 'All accounts in currency'],
-            ['Opening', r.opening.toFixed(2)], ['Net movement', r.net.toFixed(2)], ['Closing', r.closing.toFixed(2)], ['Reconciliation difference', r.difference.toFixed(2)],
+            ['Report header', reportSettings().header], ['Basis','Cash'], ['Bank ledger report', from, to, currency, bankId ? banks.find(b => b.id === bankId)!.name : 'All accounts in currency'],
+            ['Opening', reportNumber(r.opening)], ['Net movement', reportNumber(r.net)], ['Closing', reportNumber(r.closing)], ['Reconciliation difference', reportNumber(r.difference)],
             ['Activity groups (internal selected-bank transfers netted per journal)'], ['Activity', 'Money in', 'Money out', 'Net'],
-            ...r.groups.map(g => [g.category, g.moneyIn.toFixed(2), g.moneyOut.toFixed(2), g.net.toFixed(2)]),
+            ...r.groups.map(g => [g.category, reportNumber(g.moneyIn), reportNumber(g.moneyOut), reportNumber(g.net)]),
             ['Account balances (gross movements include transfers and setup adjustments)'], ['Account', 'Active', 'Opening', 'Money in', 'Money out', 'Closing', 'Difference'],
-            ...r.accounts.map(a => [a.name, a.active ? 'Yes' : 'No', a.opening.toFixed(2), a.moneyIn.toFixed(2), a.moneyOut.toFixed(2), a.closing.toFixed(2), a.difference.toFixed(2)]),
+            ...r.accounts.map(a => [a.name, a.active ? 'Yes' : 'No', reportNumber(a.opening), reportNumber(a.moneyIn), reportNumber(a.moneyOut), reportNumber(a.closing), reportNumber(a.difference)]),
             ['Ledger detail (all pages, gross bank lines)'], ['Date', 'Account', 'Journal', 'Source', 'Activity', 'Description', 'Money in', 'Money out'],
-            ...r.details.map(d => [d.date, d.bankName, d.journalNumber ?? 'Bank setup', d.sourceType, d.category, d.description, d.moneyIn.toFixed(2), d.moneyOut.toFixed(2)]),
+            ...r.details.map(d => [d.date, d.bankName, d.journalNumber ?? 'Bank setup', d.sourceType, d.category, d.description, reportNumber(d.moneyIn), reportNumber(d.moneyOut)]),
             ['Review notes'], ...r.warnings.map(w => [w]),
             ['Bank ledger working paper. Opening adjustments are not cash receipts. No statutory activity classification is inferred.'],
         ]));
     };
-    return <BusinessFrame title={banking ? 'Banking summary' : 'Cash flow · bank ledger'}>
+    return <BusinessFrame title={banking ? 'Banking summary' : 'Cash flow · bank ledger'}><ReportContext basis="Cash" currency={currency}/>
         <p className="rounded-lg border bg-slate-50 p-3 text-sm">Dated bank ledger movements, including receipts, payments, refunds, statement categorisations, manual journals and reversals. Opening adjustments are shown separately. Activity groups follow document sources; other movements require review. This working paper covers configured bank accounts in the selected currency.</p>
         <Panel title="Report filters"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="From"><input className={fieldClass} type="date" required value={from} onChange={e => { setFrom(e.target.value); setPage(0); }}/></Field>

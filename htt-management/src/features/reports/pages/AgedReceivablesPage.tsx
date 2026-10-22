@@ -1,5 +1,6 @@
+import { ReportContext } from '../../report-settings/ReportContext';
+import { reportMoney } from '../../report-settings/reportPresentation';
 import {businessDateKey} from '../../../lib/businessDate';
-import { businessSettings } from '../../business-workspace/configurationState';
 import {
     AlertTriangle,
     ArrowUpRight,
@@ -114,7 +115,7 @@ export function AgedReceivablesPage() {
             : "0.0";
 
     return (
-        <div className="mx-auto w-full max-w-[1600px]">
+        <div className="mx-auto w-full max-w-[1600px]"><ReportContext basis="Accrual"/>
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
                 <div>
                     <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-accent)]">
@@ -768,16 +769,7 @@ function sumRows(
 
 function formatMoney(
     value: number,
-) {
-    return value.toLocaleString(
-        "en-AU",
-        {
-            style: "currency",
-            currency: businessSettings().currency,
-            minimumFractionDigits: 2,
-        },
-    );
-}
+) { return reportMoney(value); }
 
 function getToday() {
     return businessDateKey(new Date().toISOString());

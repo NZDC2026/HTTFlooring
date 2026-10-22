@@ -1,3 +1,4 @@
+import { ReportContext } from '../../report-settings/ReportContext';
 import { feedback } from "../../../components/ui/feedback";
 import { useMemo, useSyncExternalStore, useState } from "react";
 import { Link } from "react-router-dom";
@@ -26,7 +27,7 @@ export function PurchasePostingAuditPage() {
   const selected = rows.find(row => row.key === selectedKey);
   const attention = rows.filter(row => row.needsAttention).length;
 
-  return <div className="space-y-6 p-6">
+  return <div className="space-y-6 p-6"><ReportContext basis="Accrual"/>
     <div><h1 className="text-2xl font-semibold">Purchase Accounting Audit & Recovery</h1>
       <p className="mt-1 text-sm text-gray-500">Posting metadata is saved in the local desktop profile. Recovery handlers are available only in the current app session.</p></div>
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

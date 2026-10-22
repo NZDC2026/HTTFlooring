@@ -1,5 +1,6 @@
+import { reportMoney } from '../../report-settings/reportPresentation';
+import { ReportContext } from '../../report-settings/ReportContext';
 import {businessDateKey} from '../../../lib/businessDate';
-import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useState,
 } from "react";
@@ -86,7 +87,7 @@ export function GeneralLedgerReportPage() {
         );
 
     return (
-        <div className="pb-8">
+        <div className="pb-8"><ReportContext basis="Accrual"/>
             <Button
                 variant="ghost"
                 size="sm"
@@ -642,20 +643,7 @@ function TotalCell({
 function formatMoney(
     value:
         number,
-) {
-    return new Intl.NumberFormat(
-        "en-AU",
-        {
-            style:
-                "currency",
-
-            currency:
-                businessSettings().currency,
-        },
-    ).format(
-        value,
-    );
-}
+) { return reportMoney(value); }
 
 function formatBalance(
     value:

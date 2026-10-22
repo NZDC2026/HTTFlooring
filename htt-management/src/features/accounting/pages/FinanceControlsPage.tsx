@@ -1,9 +1,10 @@
+import { reportMoney } from '../../report-settings/reportPresentation';
+import { ReportContext } from '../../report-settings/ReportContext';
 import {financialOperationJournal} from '../../../lib/persistence/financialOperationJournal';
 import {includeRecoveryControl,includePostingIntegrityControl} from '../data/recoveryControl';
 import {usePermission} from '../../security/usePermission';
 import { Link } from 'react-router-dom';
 import {businessDateKey} from '../../../lib/businessDate';
-import { businessSettings } from '../../business-workspace/configurationState';
 import { runFinancialConsistencyAudit } from "../../../lib/persistence/runFinancialConsistencyAudit";
 import {
     useState,
@@ -75,7 +76,7 @@ export function FinanceControlsPage() {
     catch (error) { auditError = error instanceof Error ? error.message : String(error); }
     const report=includePostingIntegrityControl(includeRecoveryControl(baseReport,unresolvedCount,recoveryError),auditIssues.length,auditError);
     return (
-        <div className="pb-8">{canInspectRecovery&&<Link className="mb-4 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/accounting/financial-recovery">Financial recovery workbench</Link>}
+        <div className="pb-8"><ReportContext basis="Accrual"/>{canInspectRecovery&&<Link className="mb-4 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/accounting/financial-recovery">Financial recovery workbench</Link>}
             <section className="mb-5 rounded-lg border p-4" aria-label="Current posting integrity">
                 <h2 className="font-semibold">Current posting integrity</h2>
                 <p className="text-sm">{auditError ?? (auditIssues.length ? `${auditIssues.length} posting issue(s) require review.` : "Business records and GL source links checked.")}</p>
@@ -643,40 +644,7 @@ function MoneyCell({
 function formatMoney(
     value:
         number,
-) {
-    if (
-        value <
-        0
-    ) {
-        return `(${new Intl.NumberFormat(
-            "en-AU",
-            {
-                style:
-                    "currency",
-
-                currency:
-                    businessSettings().currency,
-            },
-        ).format(
-            Math.abs(
-                value,
-            ),
-        )})`;
-    }
-
-    return new Intl.NumberFormat(
-        "en-AU",
-        {
-            style:
-                "currency",
-
-            currency:
-                businessSettings().currency,
-        },
-    ).format(
-        value,
-    );
-}
+) { return reportMoney(value); }
 
 function getToday() {
     return businessDateKey(new Date().toISOString());

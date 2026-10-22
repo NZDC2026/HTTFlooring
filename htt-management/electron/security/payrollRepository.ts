@@ -8,7 +8,8 @@ import { journalEntryRepository } from '../../src/features/accounting/data/journ
 import { bankAccountRepository } from '../../src/features/banking/data/bankAccountRepository';
 import { assertSourceNotReconciled } from '../../src/features/banking/data/reconciliationLock';
 import { assertCurrentCrossModuleWriteSafe } from '../../src/features/integration/crossModuleWriteGate';
-import { businessSettings } from '../../src/features/business-workspace/configurationState';
+import { projectCosts } from '../../src/features/payroll/data/payrollProjects';
+import { businessSettings, configurationRows } from '../../src/features/business-workspace/configurationState';
 import { encodeCsv } from '../../src/features/data-transfer/transferModel';
 import { id, date, reason, moneyValue, employeeFields, itemFields, settingsFields, timeFields, leaveFields, runFields, stateSchema, emptyPayroll, calculateTotals, sumSlips, round, type PayrollState, type Employee, type PayItem, type PayRun, type Slip, type TimeRow, type LeaveRow, type entities } from '../../src/features/payroll/data/payrollModel';
 let state: PayrollState = emptyPayroll();
@@ -73,7 +74,12 @@ function employment(e: Employee, from: string, to = from) {
     if (from < e.startDate || (e.endDate && to > e.endDate))
         throw new Error('Dates must be within the employment period.');
 }
-function validateTimeSource(t: z.infer<typeof timeFields>) {
+function reviewedProject(projectId:string){
+ trustedAuthorization.require('accounting.read');const job=configurationRows.jobs.find(j=>j.id===projectId);if(!job||job.status!=='Active')throw new Error('Select an authorized active project.');return {id:job.id,code:job.code??'',name:job.name,revision:job.revision};
+}
+function validateTimeSource(t: z.infer<typeof timeFields> & {project?:TimeRow['project']}) {
+ if(t.projectId){const project=reviewedProject(t.projectId);if(t.project&&hash(t.project)!==hash(project))throw new Error('Project changed. Reopen and review the timesheet project.');}
+
     const e = employeeFor(t.employeeId);
     employment(e, t.date);
     const i = row('items', t.itemId) as PayItem;
@@ -231,7 +237,8 @@ function build(input: z.infer<typeof runFields>, except?: string) {
         const superAmount = entry.superMethod === '12% reviewed QE' ? round(entry.superBase * .12) : entry.superAmount;
         add(row('items', config.superItemId) as PayItem, 1, superAmount, entry.superMethod === '12% reviewed QE' ? 'SG 12% reviewed QE' : 'Reviewed SG amount');
         const totals = calculateTotals(lines);
-        slips.push({ employee: structuredClone(e), lines, timeIds: times.map(t => t.id), leaveIds: leaves.map(l => l.id), annualAccrual: entry.annualAccrual, personalAccrual: entry.personalAccrual, totals });
+        const projectAllocation=times.some(t=>t.project)?{times:structuredClone(times),leaves:structuredClone(leaves),leaveHours:leaves.reduce((n,l)=>n+l.hours,0),costs:projectCosts(e.basis,times,leaves.reduce((n,l)=>n+l.hours,0),lines)}:undefined;
+        slips.push({ ...(projectAllocation?{projectAllocation}:{}), employee: structuredClone(e), lines, timeIds: times.map(t => t.id), leaveIds: leaves.map(l => l.id), annualAccrual: entry.annualAccrual, personalAccrual: entry.personalAccrual, totals });
     }
     if (input.adjustments.some(a => !seen.has(a.employeeId)))
         throw new Error('Adjustment employee is not included in this run.');
@@ -348,9 +355,9 @@ export const payrollRepository = {
             const e = employeeFor(input.values.employeeId), i = row('items', input.values.itemId) as PayItem;
             if (state.timesheets.filter(t => t.id !== old?.id && t.employeeId === e.id && t.date === input.values.date).reduce((n, t) => n + t.hours, 0) + input.values.hours > 24)
                 throw new Error('Total timesheet hours cannot exceed 24 for one employee/day.');
-            if (state.timesheets.some(t => t.id !== old?.id && t.employeeId === e.id && t.itemId === i.id && t.date === input.values.date))
+            if (state.timesheets.some(t => t.id !== old?.id && t.employeeId === e.id && t.itemId === i.id && t.date === input.values.date && t.projectId === input.values.projectId))
                 throw new Error('A timesheet already exists for this employee, day and item.');
-            return put('timesheets', { ...input.values, ...meta(old, old ? 'Edited' : 'Created', input.reason), status: 'Draft' });
+            return put('timesheets', { ...input.values, ...(input.values.projectId?{project:reviewedProject(input.values.projectId)}:{}), ...meta(old, old ? 'Edited' : 'Created', input.reason), status: 'Draft' });
         });
     },
     changeTime(raw: unknown) {
@@ -511,12 +518,15 @@ export const payrollRepository = {
         const input = z.object({ runId: id, employeeId: id }).strict().parse(raw), r = row('runs', input.runId) as PayRun, s = r.slips.find(s => s.employee.id === input.employeeId);
         if (!s)
             throw new Error('Payslip was not found.');
-        return { name: 'Payslip-' + r.id + '-' + s.employee.code.replace(/[^A-Za-z0-9_-]/g, '_') + '.txt', text: [r.settings.employerName, 'Employer ABN: ' + (r.settings.employerIdentifier || 'Not recorded'), 'PAYSLIP · ' + r.status, r.name, `${r.start} to ${r.end} · Pay date ${r.payDate} · ${r.settings.currency}`, s.employee.code + ' · ' + s.employee.name, 'Super fund: ' + (s.employee.superFund || 'Not recorded') + ' · Member: ' + (s.employee.superMemberId || 'Not recorded'), ...s.lines.map(l => `${l.item.name}: ${l.quantity} × ${l.rate} = ${l.amount.toFixed(2)}`), `Gross ${s.totals.gross.toFixed(2)} · Withholding ${s.totals.withholding.toFixed(2)} · Deductions ${s.totals.deductions.toFixed(2)} · Net ${s.totals.net.toFixed(2)} · Employer contributions ${s.totals.employerCost.toFixed(2)}`, 'Withholding review: ' + r.reviewReference, 'Accrued payroll; payment completion is recorded separately.'].join('\n') };
+        return { name: 'Payslip-' + r.id + '-' + s.employee.code.replace(/[^A-Za-z0-9_-]/g, '_') + '.txt', text: [r.settings.employerName, 'Employer ABN: ' + (r.settings.employerIdentifier || 'Not recorded'), 'PAYSLIP · ' + r.status, r.name, `${r.start} to ${r.end} · Pay date ${r.payDate} · ${r.settings.currency}`, s.employee.code + ' · ' + s.employee.name, 'Super fund: ' + (s.employee.superFund || 'Not recorded') + ' · Member: ' + (s.employee.superMemberId || 'Not recorded'), ...s.lines.map(l => `${l.item.name}: ${l.quantity} × ${l.rate} = ${l.amount.toFixed(2)}`), `Gross ${s.totals.gross.toFixed(2)} · Withholding ${s.totals.withholding.toFixed(2)} · Deductions ${s.totals.deductions.toFixed(2)} · Net ${s.totals.net.toFixed(2)} · Employer contributions ${s.totals.employerCost.toFixed(2)}`, 'Withholding review: ' + r.reviewReference, ...(s.projectAllocation?.costs.map(c=>`Project cost ${c.project.code} / ${c.project.name} v${c.project.revision} / ${s.lines[c.lineIndex].item.name}: ${c.amount.toFixed(2)}`)??[]), 'Accrued payroll; payment completion is recorded separately.'].join('\n') };
     },
-    exportRun(runId: string) { principal('payroll.read'); const r = row('runs', id.parse(runId)) as PayRun; const rows = [['Employer', 'ABN', 'Frequency', 'TFN', 'Super fund', 'Super member', 'Run', 'Status', 'Period start', 'Period end', 'Pay date', 'Currency', 'Employee code', 'Name', 'Gross', 'Taxable gross', 'Withholding', 'Other deductions', 'Net', 'Employer contributions', 'Review reference'], ...r.slips.map(s => [r.settings.employerName, r.settings.employerIdentifier, r.settings.frequency, s.employee.taxIdentifier, s.employee.superFund, s.employee.superMemberId, r.name, r.status, r.start, r.end, r.payDate, r.settings.currency, s.employee.code, s.employee.name, String(s.totals.gross), String(s.totals.taxable), String(s.totals.withholding), String(round(s.totals.deductions - s.totals.withholding)), String(s.totals.net), String(s.totals.employerCost), r.reviewReference])]; return { name: 'Payroll-review-' + r.id + '.csv', csv: encodeCsv(rows) }; }
+    exportRun(runId: string) { principal('payroll.read'); const r = row('runs', id.parse(runId)) as PayRun; const rows = [['Employer', 'ABN', 'Frequency', 'TFN', 'Super fund', 'Super member', 'Run', 'Status', 'Period start', 'Period end', 'Pay date', 'Currency', 'Employee code', 'Name', 'Gross', 'Taxable gross', 'Withholding', 'Other deductions', 'Net', 'Employer contributions', 'Review reference','Frozen project costs'], ...r.slips.map(s => [r.settings.employerName, r.settings.employerIdentifier, r.settings.frequency, s.employee.taxIdentifier, s.employee.superFund, s.employee.superMemberId, r.name, r.status, r.start, r.end, r.payDate, r.settings.currency, s.employee.code, s.employee.name, String(s.totals.gross), String(s.totals.taxable), String(s.totals.withholding), String(round(s.totals.deductions - s.totals.withholding)), String(s.totals.net), String(s.totals.employerCost), r.reviewReference, (s.projectAllocation?.costs.map(c=>`${c.project.code} / ${c.project.name} v${c.project.revision}: ${c.amount.toFixed(2)}`).join('; ')??'Unallocated')])]; return { name: 'Payroll-review-' + r.id + '.csv', csv: encodeCsv(rows) }; }
 };
 registerRepository('payroll', { repository: payrollRepository, read: 'payroll.read', commands: { balances: 'payroll.read', obligations: 'payroll.read', setupDefaults: 'payroll.manage', saveEmployee: 'payroll.manage', saveItem: 'payroll.manage', saveSettings: 'payroll.manage', saveTime: 'payroll.manage', changeTime: 'payroll.manage', saveLeave: 'payroll.manage', changeLeave: 'payroll.manage', saveRun: 'payroll.manage', changeRun: 'payroll.manage', recordPayment: 'payroll.post', reversePayment: 'payroll.post', recordFiling: 'payroll.manage', exportRun: 'payroll.read', exportSlip: 'payroll.read' }, snapshot: () => state, restore: v => { state = v; }, publish: () => { }, validate: (value, snapshots) => {
         const s = stateSchema.parse(value), all = snapshots as Record<string, any>, accounts = all.accounts.accounts, journals = all.journals.journalEntries, banks = all.bankAccounts.bankAccounts;
+        function checkProject(t:TimeRow){if(!!t.projectId!==!!t.project||t.projectId&&t.projectId!==t.project?.id)throw new Error('Invalid timesheet project binding.');if(t.project){const versions=[...all.workspace_jobs.records,...all.workspace_jobs.history.map((h:any)=>JSON.parse(h.after))];if(!versions.some((j:any)=>j.id===t.project!.id&&j.code===t.project!.code&&j.name===t.project!.name&&j.revision===t.project!.revision))throw new Error('Invalid historical payroll project snapshot.');}}
+        s.timesheets.forEach(checkProject);
+
         const exists = (entity: Entity, recordId: string) => {
             const r = (s[entity] as any[]).find(r => r.id === recordId);
             if (!r)
@@ -600,6 +610,8 @@ registerRepository('payroll', { repository: payrollRepository, read: 'payroll.re
                 const current = exists('employees', slip.employee.id), input = r.employeeInputs.find(e => e.employeeId === slip.employee.id);
                 if (!input || slip.employee.revision > current.revision || input.annualAccrual !== slip.annualAccrual || input.personalAccrual !== slip.personalAccrual)
                     throw new Error('Invalid payroll employee snapshot.');
+                if(slip.projectAllocation){const a=slip.projectAllocation;if(!a.times.some(t=>t.project)||new Set(a.leaves.map(l=>l.id)).size!==a.leaves.length||a.leaves.length!==slip.leaveIds.length||a.leaves.some(l=>!slip.leaveIds.includes(l.id)||l.employeeId!==slip.employee.id||l.status!=='Approved'||l.start<r.start||l.end>r.end)||a.leaveHours!==a.leaves.reduce((n,l)=>n+l.hours,0)||new Set(a.times.map(t=>t.id)).size!==a.times.length||a.times.length!==slip.timeIds.length||a.times.some(t=>!slip.timeIds.includes(t.id)||t.employeeId!==slip.employee.id||t.status!=='Approved'||t.date<r.start||t.date>r.end))throw new Error('Invalid frozen project hours.');a.times.forEach(checkProject);if(slip.employee.basis==='Hourly'&&a.times.some(t=>{const lines=slip.lines.filter(l=>l.source==='Time:'+t.id);return lines.length!==1||lines[0].quantity!==t.hours||lines[0].item.id!==t.itemId;}))throw new Error('Frozen project hours differ from payroll earnings.');if(hash(a.costs)!==hash(projectCosts(slip.employee.basis,a.times,a.leaveHours,slip.lines)))throw new Error('Payroll project costs differ from frozen hours.');if(live(r)&&(a.times.some(t=>hash(t)!==hash(s.timesheets.find(x=>x.id===t.id)))||a.leaves.some(l=>hash(l)!==hash(s.leave.find(x=>x.id===l.id)))||a.leaveHours!==s.leave.filter(l=>slip.leaveIds.includes(l.id)).reduce((n,l)=>n+l.hours,0)))throw new Error('Payroll project source changed.');}
+                else if(live(r)&&s.timesheets.some(t=>slip.timeIds.includes(t.id)&&t.project))throw new Error('Payroll project cost snapshot is missing.');
                 const gross = round(slip.lines.filter(l => ['Earnings', 'Allowance'].includes(l.item.category)).reduce((n, l) => n + l.amount, 0));
                 for (const l of slip.lines) {
                     exists('items', l.item.id);

@@ -1,3 +1,5 @@
+import { reportNumber, legacyReportPresentation, type ReportPresentation } from '../report-settings/reportPresentation';
+import type {BrandLogo} from '../branding/brandingState';
 import { z } from 'zod';
 import { requireDateKey } from '../../lib/businessDate';
 import { analysisEvents } from '../net-analysis/netAnalysisService';
@@ -66,6 +68,8 @@ export type SavedReportResult = {
     filters: SavedReportFilters;
     currency: string;
     company: string;
+    presentation?:ReportPresentation;
+    logo?:BrandLogo;
     generatedAt: string;
     generatedBy: string;
     sourceSignature: string;
@@ -126,9 +130,9 @@ export function buildSavedReport(config: {
     }
     rows = rows.filter(r => Object.values(r.values).join(' ').toLowerCase().includes(query)).sort((a, b) => String(a.values.date).localeCompare(String(b.values.date)) || a.id.localeCompare(b.id));
     totals = (dataset === 'Sales' || dataset === 'Purchases' ? [['Net', 'net'], ['Tax', 'tax'], ['Gross', 'gross']] : dataset === 'Banking' ? [['Money in', 'moneyIn'], ['Money out', 'moneyOut'], ['Net movement', 'net']] : [['Debit', 'debit'], ['Credit', 'credit']]).map(([label, key]) => ({ label, value: sum(rows, key) }));
-    return structuredClone({ ...context, configId: config.id, configRevision: config.revision, name: config.name, dataset, basis: config.basis, filters, currency, company: sources.company.name, sourceSignature: reportSourceSignature(sources), columns, rows: rows.map(r => ({ id: r.id, path: r.path, cells: columns.map(c => r.values[c.key]) })), totals, notes });
+    return structuredClone({ ...context, configId: config.id, configRevision: config.revision, name: config.name, dataset, basis: config.basis, filters, currency, company: sources.company.name, ...(sources.company.presentation?{presentation:sources.company.presentation}:{}), ...(sources.company.logo?{logo:sources.company.logo}:{}), sourceSignature: reportSourceSignature(sources), columns, rows: rows.map(r => ({ id: r.id, path: r.path, cells: columns.map(c => r.values[c.key]) })), totals, notes });
 }
-export function savedReportCsv(report: SavedReportResult): string { return numericSafeCsv([['Saved report', report.name], ['Company', report.company], ['Dataset', report.dataset], ['Basis', report.basis], ['Currency', report.currency], ['From', report.filters.from], ['To', report.filters.to], ['Query', report.filters.query], ['Contact ID', report.filters.partyId ?? ''], ['Bank ID', report.filters.bankId ?? ''], ['GL account ID', report.filters.accountId ?? ''], ['Generated', report.generatedAt], ['Actor', report.generatedBy], ['Configuration', report.configId, report.configRevision], ['Version', report.id], ...report.notes.map(n => ['Basis note', n]), [], report.columns.map(c => c.label), ...report.rows.map(r => r.cells.map((v, i) => report.columns[i].numeric ? Number(v) : String(v))), [], ['Filtered totals'], ...report.totals.map(t => [t.label, t.value])]); }
-function numericSafeCsv(rows: (string | number)[][]): string { return rows.map(row => row.map(cell => { if (typeof cell === 'string')
+export function savedReportCsv(report: SavedReportResult): string { return numericSafeCsv([['Saved report', report.name], ['Company', report.company], ...(report.presentation?[['Report header',report.presentation.header],['Amount decimals',String(report.presentation.precision)]]:[]), ['Dataset', report.dataset], ['Basis', report.basis], ['Currency', report.currency], ['From', report.filters.from], ['To', report.filters.to], ['Query', report.filters.query], ['Contact ID', report.filters.partyId ?? ''], ['Bank ID', report.filters.bankId ?? ''], ['GL account ID', report.filters.accountId ?? ''], ['Generated', report.generatedAt], ['Actor', report.generatedBy], ['Configuration', report.configId, report.configRevision], ['Version', report.id], ...report.notes.map(n => ['Basis note', n]), [], report.columns.map(c => c.label), ...report.rows.map(r => r.cells.map((v, i) => report.columns[i].numeric ? Number(v) : String(v))), [], ['Filtered totals'], ...report.totals.map(t => [t.label, t.value])],report.presentation??legacyReportPresentation); }
+function numericSafeCsv(rows: (string | number)[][],presentation:ReportPresentation): string { return rows.map(row => row.map(cell => { if (typeof cell === 'string')
     return csvText([[cell]]); if (!Number.isFinite(cell))
-    throw new Error('Cannot export an invalid report amount.'); return `"${cell.toFixed(2)}"`; }).join(',')).join('\r\n'); }
+    throw new Error('Cannot export an invalid report amount.'); return `"${reportNumber(cell,presentation)}"`; }).join(',')).join('\r\n'); }

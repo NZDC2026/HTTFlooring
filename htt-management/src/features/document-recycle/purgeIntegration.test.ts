@@ -128,7 +128,7 @@ it('returns the persisted receipt after a durable commit with an uncertain ackno
  const result=cmd('documentRecycle','purge',input);expect(result[0].action).toBe('Purged');expect(list().some(r=>r.recordId===row.id)).toBe(false);expect(readdirSync(join(root,'recycle-backups'))).toHaveLength(1);
 });
 it('rejects purge evidence relabelled as an older schema and migrates schema 24 without losing drafts',async()=>{
- const row=draft('Quote');change(row.id);const before=host.exportBackup() as any;before.schemaVersion=24;delete before.checksum;before.checksum=createHash('sha256').update(JSON.stringify(before)).digest('hex');writeFileSync(join(root,'business.json'),JSON.stringify(before));await restart();expect(host.exportBackup().schemaVersion).toBe(28);expect(list().find(r=>r.recordId===row.id).deleted).toBe(true);
+ const row=draft('Quote');change(row.id);const before=host.exportBackup() as any;before.schemaVersion=24;delete before.checksum;before.checksum=createHash('sha256').update(JSON.stringify(before)).digest('hex');writeFileSync(join(root,'business.json'),JSON.stringify(before));await restart();expect(host.exportBackup().schemaVersion).toBe(30);expect(list().find(r=>r.recordId===row.id).deleted).toBe(true);
  purge(preview([row.id]));const after=host.exportBackup() as any;after.schemaVersion=24;delete after.checksum;after.checksum=createHash('sha256').update(JSON.stringify(after)).digest('hex');expect(()=>host.prepareRestore(JSON.stringify(after))).toThrow(/schema 25/);
 });
 it('also blocks permanently clearing a source whose attachment is in attachment trash',()=>{

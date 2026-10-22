@@ -575,6 +575,7 @@ export function PurchaseOrderDetailPage() {
                 </div>
             </div>
 
+            {purchaseOrder.purchaseDefaults && <p className="rounded-lg border p-4 text-sm">Captured purchase terms: {purchaseOrder.purchaseDefaults.termsDays} days · Preferred payment: {purchaseOrder.purchaseDefaults.paymentMethod.replaceAll("_"," ")} · {purchaseOrder.purchaseDefaults.termsSource}</p>}
             {purchaseOrder.notes && (
                 <div className="mt-5 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
                     <h2 className="font-display text-xl">

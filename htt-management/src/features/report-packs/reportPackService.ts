@@ -1,3 +1,5 @@
+import type { ReportPresentation } from '../report-settings/reportPresentation';
+import type {BrandLogo} from '../branding/brandingState';
 import { requireDateKey } from '../../lib/businessDate';
 import { calculateProfitAndLoss } from '../accounting/data/profitAndLossService';
 import { calculateBalanceSheet } from '../accounting/data/balanceSheetService';
@@ -38,6 +40,8 @@ export type ReportPackSources = {
     bills: SupplierBill[];
     supplierCredits: SupplierCredit[];
     company: {
+        presentation?:ReportPresentation;
+        logo?:BrandLogo;
         name: string;
         currency: string;
         timezone: string;
@@ -101,12 +105,12 @@ export function buildReportPack(config: {
         }
         if (title === 'Trial balance') {
             const r = calculateTrialBalance(sources.accounts, sources.journals, from, to);
-            return { title, description: `Opening balances and period movements from ${from} to ${to}.`, path: '/accounting/trial-balance', columns: ['Code', 'Account', 'Opening Dr', 'Opening Cr', 'Period Dr', 'Period Cr', 'Closing Dr', 'Closing Cr'], rows: r.rows.map(a => [a.accountCode, a.accountName, a.openingDebit, a.openingCredit, a.periodDebit, a.periodCredit, a.closingDebit, a.closingCredit]), totals: [{ label: 'Opening debit', value: r.totalOpeningDebit }, { label: 'Opening credit', value: r.totalOpeningCredit }, { label: 'Period debit', value: r.totalPeriodDebit }, { label: 'Period credit', value: r.totalPeriodCredit }, { label: 'Closing debit', value: r.totalClosingDebit }, { label: 'Closing credit', value: r.totalClosingCredit }, { label: 'Difference', value: r.difference }], warnings: r.balanced ? [] : ['Trial balance has a difference. Review the general ledger before using this pack.'] };
+            return { title, description: `Accrual opening balances and period movements from ${from} to ${to}.`, path: '/accounting/trial-balance', columns: ['Code', 'Account', 'Opening Dr', 'Opening Cr', 'Period Dr', 'Period Cr', 'Closing Dr', 'Closing Cr'], rows: r.rows.map(a => [a.accountCode, a.accountName, a.openingDebit, a.openingCredit, a.periodDebit, a.periodCredit, a.closingDebit, a.closingCredit]), totals: [{ label: 'Opening debit', value: r.totalOpeningDebit }, { label: 'Opening credit', value: r.totalOpeningCredit }, { label: 'Period debit', value: r.totalPeriodDebit }, { label: 'Period credit', value: r.totalPeriodCredit }, { label: 'Closing debit', value: r.totalClosingDebit }, { label: 'Closing credit', value: r.totalClosingCredit }, { label: 'Difference', value: r.difference }], warnings: r.balanced ? [] : ['Trial balance has a difference. Review the general ledger before using this pack.'] };
         }
         if (title === 'Cash flow') {
             const r = calculateCashReport({ bankAccounts: sources.banks, journalEntries: sources.journals, from, to, currency: sources.company.currency });
             const foreign = [...new Set(sources.banks.filter(b => b.currency !== sources.company.currency).map(b => b.currency))];
-            return { title, description: `Bank ledger working paper in ${sources.company.currency}. Selected-bank transfers are netted per journal. Opening adjustments are included separately. Operating/investing/financing classification requires accountant review.`, path: '/reports/cash-flow', columns: ['Activity', 'Money in', 'Money out', 'Net'], rows: r.groups.map(g => [g.category, g.moneyIn, g.moneyOut, g.net]), totals: [{ label: 'Opening', value: r.opening }, { label: 'Net movement', value: r.net }, { label: 'Closing', value: r.closing }, { label: 'Reconciliation difference', value: r.difference }], warnings: [...r.warnings, ...(foreign.length ? [`Other bank currencies excluded (no FX conversion): ${foreign.join(', ')}.`] : []), ...(r.difference !== 0 ? ['Bank cash movement does not reconcile.'] : [])] };
+            return { title, description: `Cash basis · bank ledger working paper in ${sources.company.currency}. Selected-bank transfers are netted per journal. Opening adjustments are included separately. Operating/investing/financing classification requires accountant review.`, path: '/reports/cash-flow', columns: ['Activity', 'Money in', 'Money out', 'Net'], rows: r.groups.map(g => [g.category, g.moneyIn, g.moneyOut, g.net]), totals: [{ label: 'Opening', value: r.opening }, { label: 'Net movement', value: r.net }, { label: 'Closing', value: r.closing }, { label: 'Reconciliation difference', value: r.difference }], warnings: [...r.warnings, ...(foreign.length ? [`Other bank currencies excluded (no FX conversion): ${foreign.join(', ')}.`] : []), ...(r.difference !== 0 ? ['Bank cash movement does not reconcile.'] : [])] };
         }
         const purchasing = title === 'Net purchases', sourcesForReport = purchasing ? purchaseAnalysisSources(sources.bills, sources.supplierCredits) : salesAnalysisSources(sources.documents, sources.customerCredits, sources.customers), r = calculateNetAnalysis(sourcesForReport, { from, to });
         return { title, description: 'Accrual document activity: original invoices/bills less credits and dated void corrections. Opening balances, settlements and manual GL adjustments are excluded. This is not profit, recognized inventory expense or outstanding AR/AP.', path: purchasing ? '/reports/purchase-analysis' : '/reports/sales-analysis', columns: ['Contact ID', 'Contact', 'Before tax', 'Tax', 'Gross'], rows: r.parties.map(p => [p.id, p.name, p.subtotal, p.tax, p.total]), totals: [{ label: 'Before tax', value: r.totals.subtotal }, { label: 'Tax', value: r.totals.tax }, { label: 'Gross', value: r.totals.total }], warnings: [] };

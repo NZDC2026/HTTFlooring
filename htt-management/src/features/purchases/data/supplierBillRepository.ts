@@ -1,3 +1,5 @@
+import { orderDefaults, purchaseDueDate, purchaseDefaultsSchema } from '../../purchase-settings/purchaseDefaults';
+import { requireDateKey } from '../../../lib/businessDate';
 import { configuredNumber } from '../../business-workspace/configurationState';
 import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import { businessDateKey } from "../../../lib/businessDate";
@@ -692,6 +694,8 @@ export const supplierBillRepository =
             );
         }
 
+        draft={...draft,dueDate:draft.dueDate || purchaseDueDate(draft.billDate,orderDefaults(purchaseOrder))};
+        requireDateKey(draft.billDate,"Bill date"); requireDateKey(draft.dueDate,"Due date");
         if (
             !draft.billDate
         ) {
@@ -895,6 +899,7 @@ export const supplierBillRepository =
             billDate:
                 draft.billDate,
 
+            purchaseDefaults: structuredClone(orderDefaults(purchaseOrder)),
             dueDate:
                 draft.dueDate,
 
@@ -997,6 +1002,10 @@ function roundCurrency(
     );
 }
 registerRepository("supplierBills", {
+    validate: (value,snapshots) => { for(const row of (value as {supplierBills:SupplierBill[]}).supplierBills) if(row.purchaseDefaults!==undefined) {
+        purchaseDefaultsSchema.parse(row.purchaseDefaults);
+        if(row.purchaseOrderId){const order=(snapshots.purchaseOrders as {purchaseOrders:import('../types/purchaseOrder').PurchaseOrder[]}).purchaseOrders.find(p=>p.id===row.purchaseOrderId);if(!order||JSON.stringify(orderDefaults(order))!==JSON.stringify(row.purchaseDefaults))throw new Error('Bill purchase defaults do not match the source order.');}
+    } },
     repository: supplierBillRepository, read: "purchases.read",
     commands: {"insertExpenseBill":null,"catch": null, "applyPayment": null, "reversePayment": null, "applyCredit": null, "reverseCredit": null, "markVoid": "purchases.void", "create": "purchases.bill", "return": null},
     snapshot: () => ({ supplierBills }),

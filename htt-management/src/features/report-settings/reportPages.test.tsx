@@ -1,0 +1,25 @@
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {createMemoryRouter,RouterProvider} from 'react-router-dom';
+const identity=vi.hoisted(()=>({roles:['ADMIN']}));
+vi.mock('../security/securityClient',()=>({useSecurity:()=>({session:{user:{id:'g11-ui',roles:identity.roles}}})}));
+import {configurationRows,type ConfigRow} from '../business-workspace/configurationState';
+import {configurationHistory} from '../business-workspace/workspaceRepository';
+import {additionalRoutes} from '../page-previews/previewRoutes';
+import {ProfitAndLossPage} from '../accounting/pages/ProfitAndLossPage';
+import {BalanceSheetPage} from '../accounting/pages/BalanceSheetPage';
+import {TrialBalancePage} from '../accounting/pages/TrialBalancePage';
+import {GeneralLedgerReportPage} from '../accounting/pages/GeneralLedgerReportPage';
+import {AgedReceivablesPage} from '../reports/pages/AgedReceivablesPage';
+import {AgedPayablesPage} from '../reports/pages/AgedPayablesPage';
+import {InventoryValuationPage} from '../inventory/pages/InventoryValuationPage';
+import {GrniOutstandingReportPage} from '../purchases/pages/GrniOutstandingReportPage';
+let old:ConfigRow[],history:ConfigRow[];
+beforeEach(()=>{old=configurationRows.settings;history=configurationHistory.settings;configurationRows.settings=[{id:'g11-settings',name:'Report defaults',section:'reports',status:'Active',revision:'1',createdAt:'2026-10-22T00:00:00Z',updatedAt:'2026-10-22T00:00:00Z',reportDefaults:'Yes',header:'Board <review>',precision:'4',basis:'Cash',currency:'NZD'}];configurationHistory.settings=[];});
+afterEach(()=>{configurationRows.settings=old;configurationHistory.settings=history;identity.roles=['ADMIN'];});
+function render(path:string,element?:React.ReactNode){const r=createMemoryRouter(element?[{path,element}]:additionalRoutes,{initialEntries:[path]});try{return renderToStaticMarkup(<RouterProvider router={r}/>);}finally{r.dispose();}}
+it('renders a dedicated settings form with accountant maintenance and auditor read-only controls',()=>{identity.roles=['ACCOUNTANT'];const html=render('/settings/reports');expect(html).toContain('Save report settings');expect(html).toContain('Amount decimal places');expect(html).not.toContain('Save financial settings');identity.roles=['AUDITOR'];expect(render('/settings/reports')).not.toContain('Save report settings');identity.roles=['PURCHASING'];expect(render('/settings/reports')).toContain('Your role does not have access');});
+it('uses Cash preference for new Banking saved definitions while retaining their explicit Cash basis',()=>{const html=render('/reports/saved/new');expect(html).toMatch(/<option[^>]*selected=""[^>]*>Banking<\/option>/);expect(html).toContain('Cash');expect(html).not.toContain('Unexpected Application Error');});
+it('uses Cash preference to select only Cash flow for a new pack',()=>{const html=render('/reports/packs/new');expect((html.match(/checked=""/g)??[])).toHaveLength(1);expect(html).toMatch(/checked=""[^>]*\/>Cash flow/);});
+it.each([['P&L',<ProfitAndLossPage/>],['Balance sheet',<BalanceSheetPage/>],['Trial balance',<TrialBalancePage/>],['GL',<GeneralLedgerReportPage/>],['AR ageing',<AgedReceivablesPage/>],['AP ageing',<AgedPayablesPage/>],['Inventory value',<InventoryValuationPage/>],['GRNI',<GrniOutstandingReportPage/>]] as const)('labels %s as actual Accrual despite Cash/NZD preference',(_,element)=>{const html=render('/test',element);expect(html).toContain('Board &lt;review&gt;');expect(html).toContain('AUD');expect(html).toContain('Accrual');expect(html).toContain('Amounts shown to 4 decimals');expect(html).toContain('does not convert its figures');expect(html).not.toContain('Unexpected Application Error');});
+it.each(['/reports/cash-flow','/reports/banking-summary','/reports/sales-analysis','/reports/purchase-analysis','/reports/tax-summary','/reports/payroll-summary','/accounting/reconciliation/prepayments','/accounting/reconciliation/deposits'])('applies presentation and states actual currency/basis on %s',path=>{const html=render(path);expect(html).toContain('Board &lt;review&gt;');expect(html).toContain('Amounts shown to 4 decimals');expect(html).not.toContain('Unexpected Application Error');});

@@ -1,3 +1,5 @@
+import { reportMoney } from '../../report-settings/reportPresentation';
+import { ReportContext } from '../../report-settings/ReportContext';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
@@ -45,26 +47,7 @@ function getToday() {
 function formatMoney(
     value:
         number,
-) {
-    return new Intl.NumberFormat(
-        "en-AU",
-        {
-            style:
-                "currency",
-
-            currency:
-                businessSettings().currency,
-
-            minimumFractionDigits:
-                2,
-
-            maximumFractionDigits:
-                2,
-        },
-    ).format(
-        value,
-    );
-}
+) { return reportMoney(value); }
 
 function formatQuantity(
     value:
@@ -188,7 +171,7 @@ export function InventoryValuationPage() {
         );
 
     return (
-        <div className="pb-8">
+        <div className="pb-8"><ReportContext basis="Accrual"/>
             <Button
                 variant="ghost"
                 size="sm"

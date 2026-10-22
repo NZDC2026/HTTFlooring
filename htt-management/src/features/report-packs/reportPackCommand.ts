@@ -1,3 +1,5 @@
+import { reportSettings } from '../report-settings/reportPresentation';
+import {currentLogo} from '../branding/brandingState';
 import { z } from 'zod';
 import { accountRepository } from '../accounting/data/accountRepository';
 import { journalEntryRepository } from '../accounting/data/journalEntryRepository';
@@ -12,7 +14,7 @@ import { trustedAuthorization } from '../security/trustedAuthorization';
 import { buildReportPack, type ReportPackSources } from './reportPackService';
 export function reportPackSources(): ReportPackSources {
     const company = businessSettings();
-    return { accounts: accountRepository.getAll(), journals: journalEntryRepository.getAll(), banks: bankAccountRepository.getAll(), documents: salesRepository.getAll(), customerCredits: creditNoteRepository.getAll(), customers: customerRepository.getAll().map(c => ({ id: c.id, businessName: c.businessName })), bills: supplierBillRepository.getAll(), supplierCredits: supplierCreditRepository.getAll(), company: { name: company.companyName, currency: company.currency, timezone: company.timezone } };
+    return { accounts: accountRepository.getAll(), journals: journalEntryRepository.getAll(), banks: bankAccountRepository.getAll(), documents: salesRepository.getAll(), customerCredits: creditNoteRepository.getAll(), customers: customerRepository.getAll().map(c => ({ id: c.id, businessName: c.businessName })), bills: supplierBillRepository.getAll(), supplierCredits: supplierCreditRepository.getAll(), company: { presentation:reportSettings(), name: company.companyName, currency: company.currency, timezone: company.timezone, ...(currentLogo()?{logo:currentLogo()}:{}) } };
 }
 export function generateSavedReportPack(raw: unknown) {
     const actor = trustedAuthorization.require('accounting.read');

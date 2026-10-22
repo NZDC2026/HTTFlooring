@@ -1,3 +1,4 @@
+import { reportSettings } from '../report-settings/reportPresentation';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { workspaceRepositories, useWorkspaceRecords, configurationHistory } from '../business-workspace/workspaceRepository';
@@ -40,7 +41,7 @@ export function ReportPacksPage({ mode, id }: {
     const [expected] = useState(row?.revision), [query, setQuery] = useState(''), [error, setError] = useState(''), [pack, setPack] = useState<PreparedReportPack>(), [frameReady, setFrameReady] = useState(false);
     const [draft, setDraft] = useState(() => ({ name: row?.name ?? '', periodStart: row?.periodStart ?? fiscalYearStart(today), periodEnd: row?.periodEnd ?? today, cover: row?.cover ?? '', introduction: row?.introduction ?? '' }));
     const [selected, setSelected] = useState<ReportPackTitle[]>(() => { try {
-        return row ? parseReportSelection(row.reports) : ['Profit & loss', 'Balance sheet', 'Trial balance', 'Cash flow'];
+        return row ? parseReportSelection(row.reports) : reportSettings().basis==='Cash'?['Cash flow']:['Profit & loss', 'Balance sheet', 'Trial balance', 'Cash flow'];
     }
     catch {
         return [];
