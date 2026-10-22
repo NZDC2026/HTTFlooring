@@ -1,76 +1,76 @@
-import { A as e, C as t, D as n, E as r, L as i, O as a, T as o, a as s, i as c, k as l, t as u, w as d, z as f } from "./accountingPeriodValidation-BanyVM6p.js";
-import { BrowserWindow as p, app as m, dialog as h, ipcMain as g, nativeImage as ee } from "electron";
-import { closeSync as _, existsSync as v, fsyncSync as y, mkdirSync as b, openSync as x, readFileSync as S, realpathSync as C, renameSync as te, statSync as ne, writeFileSync as w } from "node:fs";
-import { createHash as T, createHmac as E, randomBytes as D, randomUUID as O, scryptSync as re, timingSafeEqual as k } from "node:crypto";
-import A, { basename as j, dirname as M, isAbsolute as N, join as P, relative as F, sep as I } from "node:path";
-import { writeFile as ie } from "node:fs/promises";
-import { fileURLToPath as ae } from "node:url";
+import { A as e, D as t, F as n, G as r, I as i, M as a, O as o, P as s, U as c, a as l, i as u, j as d, k as f, n as p, r as m, t as h } from "./businessSnapshot-DD80y9gF.js";
+import { BrowserWindow as g, app as _, dialog as v, ipcMain as y, nativeImage as ee } from "electron";
+import { closeSync as b, existsSync as x, fsyncSync as S, mkdirSync as C, openSync as w, readFileSync as T, realpathSync as E, renameSync as te, statSync as ne, writeFileSync as D } from "node:fs";
+import { createHash as O, createHmac as k, randomBytes as A, randomUUID as j, scryptSync as re, timingSafeEqual as M } from "node:crypto";
+import N, { basename as P, dirname as F, isAbsolute as I, join as L, relative as R, sep as z } from "node:path";
+import { writeFile as B } from "node:fs/promises";
+import { fileURLToPath as V } from "node:url";
 //#region electron/security/localSecurity.ts
-function L(e, t) {
-	b(M(e), {
+function H(e, t) {
+	C(F(e), {
 		recursive: !0,
 		mode: 448
 	});
-	let n = `${e}.${O()}.tmp`, r = x(n, "wx", 384);
+	let n = `${e}.${j()}.tmp`, r = w(n, "wx", 384);
 	try {
-		w(r, JSON.stringify(t)), y(r);
+		D(r, JSON.stringify(t)), S(r);
 	} finally {
-		_(r);
+		b(r);
 	}
 	te(n, e);
-	let i = x(M(e), "r");
+	let i = w(F(e), "r");
 	try {
-		y(i);
+		S(i);
 	} finally {
-		_(i);
+		b(i);
 	}
 }
-var R = ({ id: e, username: t, displayName: n, roles: r, active: i }) => ({
+var U = ({ id: e, username: t, displayName: n, roles: r, active: i }) => ({
 	id: e,
 	username: t,
 	displayName: n,
 	roles: [...r],
 	active: i
 });
-function z(e) {
+function W(e) {
 	if (typeof e != "string" || !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(e.trim().toLowerCase())) throw Error("Username must contain 3–64 letters, numbers, dots, underscores or hyphens.");
 	return e.trim().toLowerCase();
 }
-function B(e) {
+function G(e) {
 	if (typeof e != "string" || e.length < 12 || e.length > 256) throw Error("Password must contain 12–256 characters.");
 	return e;
 }
-function V(e) {
-	if (!Array.isArray(e) || !e.length || !e.every((e) => f.includes(e))) throw Error("Choose at least one valid role.");
+function K(e) {
+	if (!Array.isArray(e) || !e.length || !e.every((e) => r.includes(e))) throw Error("Choose at least one valid role.");
 	return [...new Set(e)];
 }
-var H = (e, t) => re(e, t, 64).toString("hex"), oe = class {
+var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 	state;
 	session = null;
 	poisoned = !1;
 	path;
 	save;
 	now;
-	constructor(e, t = L, n = () => Date.now()) {
-		if (this.path = e, this.save = t, this.now = n, v(e)) {
-			let t = JSON.parse(S(e, "utf8"));
+	constructor(e, t = H, n = () => Date.now()) {
+		if (this.path = e, this.save = t, this.now = n, x(e)) {
+			let t = JSON.parse(T(e, "utf8"));
 			if (t?.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(t.auditKey) || !Array.isArray(t.users) || !Array.isArray(t.audit)) throw Error("Invalid local security database; access blocked.");
 			let n = /* @__PURE__ */ new Set(), r = /* @__PURE__ */ new Set();
 			for (let e of t.users) {
-				if (!e.id || n.has(e.id) || r.has(e.username) || z(e.username) !== e.username || typeof e.displayName != "string" || typeof e.active != "boolean" || !Number.isFinite(e.failures) || !Number.isFinite(e.lockedUntil) || !/^[a-f0-9]{32}$/.test(e.salt) || !/^[a-f0-9]{128}$/.test(e.passwordHash)) throw Error("Invalid local user data; access blocked.");
-				V(e.roles), n.add(e.id), r.add(e.username);
+				if (!e.id || n.has(e.id) || r.has(e.username) || W(e.username) !== e.username || typeof e.displayName != "string" || typeof e.active != "boolean" || !Number.isFinite(e.failures) || !Number.isFinite(e.lockedUntil) || !/^[a-f0-9]{32}$/.test(e.salt) || !/^[a-f0-9]{128}$/.test(e.passwordHash)) throw Error("Invalid local user data; access blocked.");
+				K(e.roles), n.add(e.id), r.add(e.username);
 			}
 			if (t.users.length && !t.users.some((e) => e.active && e.roles.includes("ADMIN"))) throw Error("No active administrator; access blocked.");
 			let i = "";
 			for (let e of t.audit) {
 				let { hash: n, ...r } = e;
-				if (e.previousHash !== i || n !== E("sha256", t.auditKey).update(JSON.stringify(r)).digest("hex")) throw Error("Local audit integrity check failed; access blocked.");
+				if (e.previousHash !== i || n !== k("sha256", t.auditKey).update(JSON.stringify(r)).digest("hex")) throw Error("Local audit integrity check failed; access blocked.");
 				i = n;
 			}
 			this.state = t;
 		} else this.state = {
 			schemaVersion: 1,
-			auditKey: D(32).toString("hex"),
+			auditKey: A(32).toString("hex"),
 			users: [],
 			audit: []
 		};
@@ -85,7 +85,7 @@ var H = (e, t) => re(e, t, 64).toString("hex"), oe = class {
 	}
 	audit(e, t, n, r, i, a = this.principal()?.userId ?? "UNAUTHENTICATED") {
 		let o = {
-			id: O(),
+			id: j(),
 			timestamp: new Date(this.now()).toISOString(),
 			actorId: a,
 			action: e,
@@ -96,7 +96,7 @@ var H = (e, t) => re(e, t, 64).toString("hex"), oe = class {
 			previousHash: this.state.audit.at(-1)?.hash ?? ""
 		}, s = JSON.parse(JSON.stringify(o)), c = {
 			...s,
-			hash: E("sha256", this.state.auditKey).update(JSON.stringify(s)).digest("hex")
+			hash: k("sha256", this.state.auditKey).update(JSON.stringify(s)).digest("hex")
 		};
 		this.commit({
 			...this.state,
@@ -114,12 +114,12 @@ var H = (e, t) => re(e, t, 64).toString("hex"), oe = class {
 	}
 	require(e) {
 		let t = this.principal();
-		if (!i(t, e)) throw this.audit("permission.denied", e, "DENIED", e), Error(`Permission denied: ${e}`);
+		if (!c(t, e)) throw this.audit("permission.denied", e, "DENIED", e), Error(`Permission denied: ${e}`);
 		return this.session.idleUntil = Math.min(this.now() + 18e5, this.session.absoluteUntil), t;
 	}
 	status() {
 		let e = this.principal(), t = e && this.state.users.find((t) => t.id === e.userId), n = t ? {
-			user: R(t),
+			user: U(t),
 			expiresAt: new Date(Math.min(this.session.idleUntil, this.session.absoluteUntil)).toISOString()
 		} : null;
 		return {
@@ -132,33 +132,33 @@ var H = (e, t) => re(e, t, 64).toString("hex"), oe = class {
 		return this.addUser(e, ["ADMIN"]), this.login(e);
 	}
 	addUser(e, t) {
-		let n = z(e.username), r = B(e.password);
+		let n = W(e.username), r = G(e.password);
 		if (!e.displayName?.trim() || e.displayName.trim().length > 100) throw Error("Display name is required (maximum 100 characters).");
 		if (this.state.users.some((e) => e.username === n)) throw Error("Username already exists.");
-		let i = D(16).toString("hex"), a = {
-			id: O(),
+		let i = A(16).toString("hex"), a = {
+			id: j(),
 			username: n,
 			displayName: e.displayName.trim(),
-			roles: V(t),
+			roles: K(t),
 			active: !0,
 			salt: i,
-			passwordHash: H(r, i),
+			passwordHash: q(r, i),
 			failures: 0,
 			lockedUntil: 0
 		};
 		return this.commit({
 			...this.state,
 			users: [...this.state.users, a]
-		}), this.audit("user.created", a.id, "SUCCESS", "users.manage", void 0, this.principal()?.userId ?? a.id), R(a);
+		}), this.audit("user.created", a.id, "SUCCESS", "users.manage", void 0, this.principal()?.userId ?? a.id), U(a);
 	}
 	login(e) {
 		this.session = null;
-		let t = z(e.username);
+		let t = W(e.username);
 		if (typeof e.password != "string" || e.password.length > 256) throw Error("Invalid username or password.");
 		let n = this.state.users.find((e) => e.username === t);
 		if (n && n.lockedUntil > this.now()) throw Error("Too many login attempts; try again later.");
-		let r = Buffer.from(H(e.password, n?.salt ?? "unavailable-account"), "hex"), i = n ? Buffer.from(n.passwordHash, "hex") : Buffer.alloc(64);
-		if (!n?.active || !k(r, i)) throw n && this.commit({
+		let r = Buffer.from(q(e.password, n?.salt ?? "unavailable-account"), "hex"), i = n ? Buffer.from(n.passwordHash, "hex") : Buffer.alloc(64);
+		if (!n?.active || !M(r, i)) throw n && this.commit({
 			...this.state,
 			users: this.state.users.map((e) => e.id === n.id ? {
 				...e,
@@ -183,13 +183,13 @@ var H = (e, t) => re(e, t, 64).toString("hex"), oe = class {
 		return this.audit("session.logout", this.principal()?.userId ?? "", "SUCCESS"), this.session = null, this.status();
 	}
 	listUsers() {
-		return this.require("users.manage"), this.state.users.map(R);
+		return this.require("users.manage"), this.state.users.map(U);
 	}
 	createUser(e) {
 		return this.require("users.manage"), this.addUser(e, e.roles);
 	}
 	updateUser(e) {
-		let t = this.require("users.manage"), n = V(e.roles);
+		let t = this.require("users.manage"), n = K(e.roles);
 		if (typeof e.active != "boolean" || !this.state.users.some((t) => t.id === e.id)) throw Error("User was not found or active flag is invalid.");
 		let r = this.state.users.map((t) => t.id === e.id ? {
 			...t,
@@ -206,14 +206,14 @@ var H = (e, t) => re(e, t, 64).toString("hex"), oe = class {
 		let t = this.principal();
 		if (!t) throw Error("Login required.");
 		let n = this.state.users.find((e) => e.id === t.userId);
-		if (typeof e.currentPassword != "string" || e.currentPassword.length > 256 || !k(Buffer.from(H(e.currentPassword, n.salt), "hex"), Buffer.from(n.passwordHash, "hex"))) throw Error("Current password is incorrect.");
-		let r = B(e.password), i = D(16).toString("hex");
+		if (typeof e.currentPassword != "string" || e.currentPassword.length > 256 || !M(Buffer.from(q(e.currentPassword, n.salt), "hex"), Buffer.from(n.passwordHash, "hex"))) throw Error("Current password is incorrect.");
+		let r = G(e.password), i = A(16).toString("hex");
 		this.audit("user.password", n.id, "INTENT"), this.commit({
 			...this.state,
 			users: this.state.users.map((e) => e.id === n.id ? {
 				...e,
 				salt: i,
-				passwordHash: H(r, i)
+				passwordHash: q(r, i)
 			} : e)
 		}), this.audit("user.password", n.id, "SUCCESS"), this.session = null;
 	}
@@ -231,107 +231,11 @@ var H = (e, t) => re(e, t, 64).toString("hex"), oe = class {
 			rows: [...i].reverse().slice(t, t + n)
 		};
 	}
-}, U = (e) => !!e && typeof e == "object" && !Array.isArray(e);
-function W(e) {
-	let t = {
-		schemaVersion: 23,
-		savedAt: (/* @__PURE__ */ new Date()).toISOString(),
-		storage: e.storage,
-		repositories: e.repositories,
-		...e.lastCommandId === void 0 ? {} : { lastCommandId: e.lastCommandId }
-	};
-	return {
-		...t,
-		checksum: T("sha256").update(JSON.stringify(t)).digest("hex")
-	};
-}
-function G(e) {
-	if (Buffer.byteLength(e) > 25e7) throw Error("Business snapshot exceeds 250 MB.");
-	let t = JSON.parse(e);
-	if (!U(t) || ![
-		1,
-		2,
-		3,
-		4,
-		5,
-		6,
-		7,
-		8,
-		9,
-		10,
-		11,
-		12,
-		13,
-		14,
-		15,
-		16,
-		17,
-		18,
-		19,
-		20,
-		21,
-		22,
-		23
-	].includes(t.schemaVersion)) throw Error("Unsupported business snapshot version.");
-	if (!U(t.storage) || !Object.entries(t.storage).every(([e, t]) => e.startsWith("htt") && typeof t == "string") || !U(t.repositories) || t.lastCommandId !== void 0 && typeof t.lastCommandId != "string") throw Error("Invalid business snapshot structure.");
-	if (t.schemaVersion === 2 || t.schemaVersion === 3 || t.schemaVersion === 4 || t.schemaVersion === 5 || t.schemaVersion === 6 || t.schemaVersion === 7 || t.schemaVersion === 8 || t.schemaVersion === 9 || t.schemaVersion === 10 || t.schemaVersion === 11 || t.schemaVersion === 12 || t.schemaVersion === 13 || t.schemaVersion === 14 || t.schemaVersion === 15 || t.schemaVersion === 16 || t.schemaVersion === 17 || t.schemaVersion === 18 || t.schemaVersion === 19 || t.schemaVersion === 20 || t.schemaVersion === 21 || t.schemaVersion === 22 || t.schemaVersion === 23) {
-		let { checksum: e, ...n } = t;
-		if (typeof t.savedAt != "string" || !Number.isFinite(Date.parse(t.savedAt)) || e !== T("sha256").update(JSON.stringify(n)).digest("hex")) throw Error("Business snapshot checksum failed.");
-	}
-	c(t.storage);
-	let n = t.repositories.journals?.journalEntries;
-	if (Array.isArray(n) && n.some((e) => e.bankDuplicateCorrection !== void 0)) {
-		let e = t.repositories.financialCache?.journals;
-		if (JSON.stringify(e) !== JSON.stringify(n)) throw Error("Bank duplicate correction cache differs from source journals.");
-		if (s(n).invalid.length) throw Error("Invalid saved bank duplicate correction pair.");
-		let r = t.storage["htt:financial-operations:v1"], i = r ? JSON.parse(r).data : [];
-		for (let e of n.filter((e) => e.bankDuplicateCorrection)) {
-			let t = e.bankDuplicateCorrection, n = i.find((e) => e.operationId === t.operationId), r = n?.repairProposal, a = r && JSON.parse(r.planJson);
-			if (n?.resolution !== "BANK_DUPLICATE_REVERSED" || r?.status !== "EXECUTED" || r.action !== "REVERSE_BANK_DUPLICATE" || r.resultJournalId !== e.reversalJournalEntryId || a.duplicateJournalId !== e.id || a.existingJournalId !== t.canonicalJournalId || n.resultId !== e.sourceId) throw Error("Bank duplicate correction approval evidence is invalid.");
-		}
-	}
-	return t;
-}
-function K(e, t) {
-	if (JSON.stringify(Object.keys(e).sort()) !== JSON.stringify(Object.keys(t).sort())) throw Error("Business repository schema mismatch; migration required.");
-	for (let [n, r] of Object.entries(t)) {
-		let t = e[n];
-		if (Array.isArray(r)) {
-			if (!Array.isArray(t)) throw Error(`Invalid ${n} snapshot.`);
-		} else if (!U(t) || JSON.stringify(Object.keys(t).sort()) !== JSON.stringify(Object.keys(r).sort()) || !Object.values(t).every(Array.isArray)) throw Error(`Invalid ${n} snapshot.`);
-	}
-	e.accountingPeriods && u(e.accountingPeriods.periods);
-	for (let t of Object.values(e)) {
-		let e = Array.isArray(t) ? [t] : Object.values(t);
-		for (let t of e) {
-			let e = /* @__PURE__ */ new Set();
-			for (let n of t) {
-				if (!U(n)) throw Error("Invalid business record.");
-				if ("id" in n) {
-					if (typeof n.id != "string" || !n.id || e.has(n.id)) throw Error("Invalid or duplicate business record ID.");
-					e.add(n.id);
-				}
-			}
-		}
-	}
-}
-function q(e) {
-	return e.schemaVersion === 3 || e.schemaVersion === 4 || e.schemaVersion === 5 || e.schemaVersion === 6 || e.schemaVersion === 7 || e.schemaVersion === 8 || e.schemaVersion === 9 || e.schemaVersion === 10 || e.schemaVersion === 11 || e.schemaVersion === 12 || e.schemaVersion === 13 || e.schemaVersion === 14 || e.schemaVersion === 15 || e.schemaVersion === 16 || e.schemaVersion === 17 || e.schemaVersion === 18 || e.schemaVersion === 19 || e.schemaVersion === 20 || e.schemaVersion === 21 || e.schemaVersion === 22 || e.schemaVersion === 23 ? !1 : (Object.hasOwn(e.repositories, "accountingPeriods") || (e.repositories.accountingPeriods = { periods: [] }), !0);
-}
-var se = /* @__PURE__ */ "products.workspace_tax_codes.workspace_linked_accounts.workspace_promotions.workspace_jobs.workspace_tasks.workspace_bank_rules.workspace_templates.workspace_custom_reports.workspace_report_packs.workspace_settings.customerSettlements.supplierRefunds.bankStatements.paymentBatches.openingBalances.managedSalesDocuments.expenseBillDrafts.salesDispatch.preparedSalesOutputs.physicalSupplierReturns.recurringInvoices.recurringExpenses.salesVisits.contactReviews.jobCosting.attachments.dataTransfers.documentRecycle.payroll.physicalCustomerReturns.customerDeposits.supplierPrepayments.preparedPurchaseOutputs".split(".");
-function J(e, t) {
-	if (e.schemaVersion === 23) return !1;
-	for (let n of se) if (!Object.hasOwn(e.repositories, n)) {
-		if (!Object.hasOwn(t, n)) throw Error("Workspace contracts are not initialized.");
-		e.repositories[n] = structuredClone(t[n]);
-	}
-	return !0;
-}
-//#endregion
-//#region electron/security/businessHost.ts
-var ce = class {
+}, ae = class {
 	values = {};
 	initialized = !1;
+	automationEngine;
+	scanningRecurring = !1;
 	workspaceDefaults = {};
 	blocked = !1;
 	lastCommandId;
@@ -344,25 +248,25 @@ var ce = class {
 	constructor(e, t) {
 		this.path = e, this.security = t;
 	}
-	async initialize(e = {}) {
+	async initialize(t = {}) {
 		if (this.blocked) throw Error("Restart the desktop application before reopening business data.");
 		if (this.initialized) return;
 		if (!this.security.principal()) throw Error("Login required.");
-		let t, i;
-		if (v(this.path)) i = G(S(this.path, "utf8")), i.schemaVersion !== 23 && (t = structuredClone(i), q(i)), this.values = i.storage;
+		let n, r;
+		if (x(this.path)) r = m(T(this.path, "utf8")), r.schemaVersion !== 28 && (n = structuredClone(r), h(r)), this.values = r.storage;
 		else {
-			if (this.security.require("users.manage"), !e || typeof e != "object" || Object.keys(e).length > 1e3) throw Error("Invalid legacy local data.");
-			for (let [t, n] of Object.entries(e)) if (!t.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
-			let t = P(M(this.path), "legacy-profile-backup-v1.json");
-			v(t) || L(t, {
+			if (this.security.require("users.manage"), !t || typeof t != "object" || Object.keys(t).length > 1e3) throw Error("Invalid legacy local data.");
+			for (let [e, n] of Object.entries(t)) if (!e.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
+			let e = L(F(this.path), "legacy-profile-backup-v1.json");
+			x(e) || H(e, {
 				schemaVersion: 1,
 				capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
-				storage: e
-			}), this.values = { ...e }, this.security.audit("business.import", "local-desktop-profile", "INTENT", "users.manage");
+				storage: t
+			}), this.values = { ...t }, this.security.audit("business.import", "local-desktop-profile", "INTENT", "users.manage");
 		}
-		let a = {
+		let i = {
 			get length() {
-				return Object.keys(o.values).length;
+				return Object.keys(s.values).length;
 			},
 			key: (e) => Object.keys(this.values)[e] ?? null,
 			getItem: (e) => this.values[e] ?? null,
@@ -375,62 +279,127 @@ var ce = class {
 			clear: () => {
 				this.values = {};
 			}
-		}, o = this;
+		}, s = this;
 		Object.defineProperty(globalThis, "__HTT_MAIN_HOST__", {
 			configurable: !0,
 			value: !0
 		}), Object.defineProperty(globalThis, "localStorage", {
 			configurable: !0,
-			value: a
+			value: i
 		}), Object.defineProperty(globalThis, "window", {
 			configurable: !0,
-			value: { localStorage: a }
+			value: { localStorage: i }
 		});
-		let s = await import("./businessEngine-C8SDbMdY.js");
-		this.workspaceDefaults = s.workspaceDefaults, i && (J(i, this.workspaceDefaults), K(i.repositories, r()), n(i.repositories), d(i.repositories), this.lastCommandId = i.lastCommandId), s.initialize(() => this.security.principal()), this.assertPeriod = s.assertPostingPeriod, t && (L(P(M(this.path), `pre-migration-v${i.schemaVersion}-${O()}.json`), t), this.persist(), this.security.audit("business.migrate.v9", "local-desktop-profile", "SUCCESS", "users.manage")), i || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
+		let c = await import("./businessEngine-DIxq_Htp.js");
+		this.workspaceDefaults = c.workspaceDefaults, r && (p(r, this.workspaceDefaults), l(r.repositories, e()), d(r.repositories), o(r.repositories), this.lastCommandId = r.lastCommandId), c.initialize(() => this.security.principal()), this.automationEngine = c, this.assertPeriod = c.assertPostingPeriod, a(() => {
+			if (!this.security.require("users.manage").roles.includes("ADMIN") || !this.initialized || this.blocked) throw Error("Permanent purge requires a healthy ADMIN desktop session.");
+			let t = e();
+			d(t);
+			let n = u({
+				storage: structuredClone(this.values),
+				repositories: t,
+				lastCommandId: this.lastCommandId
+			}), r = L(F(this.path), "recycle-backups"), i = j(), a = `pre-purge-${i}.json`;
+			C(r, {
+				recursive: !0,
+				mode: 448
+			});
+			let o = L(r, a);
+			H(o, n);
+			let s = T(o, "utf8"), c = m(s);
+			if (l(c.repositories, t), d(c.repositories), JSON.stringify(c) !== JSON.stringify(n)) throw Error("Pre-purge backup verification failed.");
+			return {
+				id: i,
+				fileName: a,
+				sha256: O("sha256").update(s).digest("hex"),
+				createdAt: (/* @__PURE__ */ new Date()).toISOString()
+			};
+		}), n && (H(L(F(this.path), `pre-migration-v${r.schemaVersion}-${j()}.json`), n), this.persist(), this.security.audit("business.migrate.v9", "local-desktop-profile", "SUCCESS", "users.manage")), r || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
 		for (let e of this.security.pendingBusinessCommands()) this.security.audit(`recovery.${e.action}`, e.resourceId, e.commandId === this.lastCommandId ? "SUCCESS" : "FAILED", e.permission, e.commandId);
 		this.initialized = !0;
 	}
-	persist(e = this.lastCommandId) {
-		L(this.path, W({
+	scanRecurringDue() {
+		let e = {
+			processed: 0,
+			generated: 0,
+			failed: 0,
+			remaining: 0
+		}, t = this.security.principal(), n = this.automationEngine;
+		if (this.blocked) throw Error("Business writes blocked; restart and inspect local audit.");
+		if (!this.initialized || !t || !n || this.scanningRecurring) return e;
+		this.scanningRecurring = !0;
+		try {
+			for (let r = 0; r < 20; r++) {
+				let r = n.dueRecurringCandidates(t)[0];
+				if (!r) break;
+				let i = r.kind;
+				e.processed++;
+				try {
+					this.command({
+						repository: "recurringAutomation",
+						method: "execute",
+						args: [{
+							kind: i,
+							id: r.id,
+							expectedRevision: r.revision,
+							date: r.nextDate
+						}]
+					}), e.generated++;
+				} catch (t) {
+					if (this.blocked) throw t;
+					let a = n.prepareRecurringFailure(i, r.id, r.nextDate, t instanceof Error ? t.message : "Generation failed.");
+					this.command({
+						repository: "recurringAutomation",
+						method: "recordFailure",
+						args: [{ ticket: a }]
+					}), e.failed++;
+				}
+			}
+			return e.remaining = n.dueRecurringCandidates(t).length, e;
+		} finally {
+			this.scanningRecurring = !1;
+		}
+	}
+	persist(t = this.lastCommandId) {
+		H(this.path, u({
 			storage: this.values,
-			repositories: r(),
-			lastCommandId: e
-		})), this.lastCommandId = e;
+			repositories: e(),
+			lastCommandId: t
+		})), this.lastCommandId = t;
 	}
 	exportBackup() {
 		if (this.security.require("users.manage"), !this.initialized || this.blocked) throw Error("Backup requires healthy initialized business data.");
-		let e = G(S(this.path, "utf8"));
-		return K(e.repositories, r()), n(e.repositories), W({
-			storage: e.storage,
-			repositories: e.repositories,
-			lastCommandId: e.lastCommandId
+		let t = m(T(this.path, "utf8"));
+		return l(t.repositories, e()), d(t.repositories), u({
+			storage: t.storage,
+			repositories: t.repositories,
+			lastCommandId: t.lastCommandId
 		});
 	}
-	prepareRestore(e) {
-		let t = this.security.require("users.manage");
+	prepareRestore(t) {
+		let n = this.security.require("users.manage");
 		this.prepared = void 0;
-		let i = G(e);
-		q(i), this.initialized && (J(i, this.workspaceDefaults), K(i.repositories, r()), n(i.repositories));
-		let a = O();
+		let r = m(t);
+		h(r), this.initialized && (p(r, this.workspaceDefaults), l(r.repositories, e()), d(r.repositories));
+		let i = j();
 		this.prepared = {
-			token: a,
-			actor: t.userId,
-			database: i,
+			token: i,
+			actor: n.userId,
+			database: r,
 			revision: this.lastCommandId,
 			expires: Date.now() + 3e5
 		};
-		let o = Object.fromEntries(Object.entries(i.repositories).map(([e, t]) => [e, Array.isArray(t) ? t.length : Object.values(t).reduce((e, t) => e + (Array.isArray(t) ? t.length : 0), 0)]));
+		let a = Object.fromEntries(Object.entries(r.repositories).map(([e, t]) => [e, Array.isArray(t) ? t.length : Object.values(t).reduce((e, t) => e + (Array.isArray(t) ? t.length : 0), 0)]));
 		return {
-			token: a,
-			schemaVersion: i.schemaVersion,
-			savedAt: i.schemaVersion === 1 ? "Legacy v1" : i.savedAt,
-			counts: o
+			token: i,
+			schemaVersion: r.schemaVersion,
+			savedAt: r.schemaVersion === 1 ? "Legacy v1" : r.savedAt,
+			counts: a
 		};
 	}
-	async restoreBackup(e) {
-		let t = this.security.require("users.manage"), i = this.prepared;
-		if (this.prepared = void 0, !i || i.token !== e || i.actor !== t.userId || i.revision !== this.lastCommandId || i.expires < Date.now()) throw Error("Restore preview expired; select the backup again.");
+	async restoreBackup(t) {
+		let n = this.security.require("users.manage"), r = this.prepared;
+		if (this.prepared = void 0, !r || r.token !== t || r.actor !== n.userId || r.revision !== this.lastCommandId || r.expires < Date.now()) throw Error("Restore preview expired; select the backup again.");
 		if (Object.defineProperty(globalThis, "__HTT_MAIN_HOST__", {
 			configurable: !0,
 			value: !0
@@ -449,66 +418,66 @@ var ce = class {
 				value: { localStorage: t }
 			});
 		}
-		let a = await import("./businessEngine-C8SDbMdY.js");
-		if (J(i.database, a.workspaceDefaults), K(i.database.repositories, r()), n(i.database.repositories), this.security.require("users.manage").userId !== t.userId) throw Error("Restore session changed.");
-		let o = this.security.pendingBusinessCommands();
-		if (o.length) {
-			let e = G(S(this.path, "utf8"));
-			for (let t of o) this.security.audit(`recovery.${t.action}`, t.resourceId, t.commandId === e.lastCommandId ? "SUCCESS" : "FAILED", t.permission, t.commandId);
+		let i = await import("./businessEngine-DIxq_Htp.js");
+		if (p(r.database, i.workspaceDefaults), l(r.database.repositories, e()), d(r.database.repositories), this.security.require("users.manage").userId !== n.userId) throw Error("Restore session changed.");
+		let a = this.security.pendingBusinessCommands();
+		if (a.length) {
+			let e = m(T(this.path, "utf8"));
+			for (let t of a) this.security.audit(`recovery.${t.action}`, t.resourceId, t.commandId === e.lastCommandId ? "SUCCESS" : "FAILED", t.permission, t.commandId);
 		}
-		let s = O();
-		if (this.security.audit("business.restore", "business-data-only", "INTENT", "users.manage", s), v(this.path)) {
-			let e = P(M(this.path), "recovery-backups");
-			b(e, {
+		let o = j();
+		if (this.security.audit("business.restore", "business-data-only", "INTENT", "users.manage", o), x(this.path)) {
+			let e = L(F(this.path), "recovery-backups");
+			C(e, {
 				recursive: !0,
 				mode: 448
 			});
-			let t = x(P(e, `before-restore-${s}.json`), "wx", 384);
+			let t = w(L(e, `before-restore-${o}.json`), "wx", 384);
 			try {
-				w(t, S(this.path)), y(t);
+				D(t, T(this.path)), S(t);
 			} finally {
-				_(t);
+				b(t);
 			}
-			let n = x(e, "r");
+			let n = w(e, "r");
 			try {
-				y(n);
+				S(n);
 			} finally {
-				_(n);
+				b(n);
 			}
 		}
-		let c = W({
-			storage: i.database.storage,
-			repositories: i.database.repositories,
-			lastCommandId: s
+		let s = u({
+			storage: r.database.storage,
+			repositories: r.database.repositories,
+			lastCommandId: o
 		});
 		this.blocked = !0;
 		try {
-			L(this.path, c);
+			H(this.path, s);
 		} catch {
 			throw Error("Restore commit could not be confirmed. Restart and inspect before retry.");
 		}
-		this.security.audit("business.restore", "business-data-only", "SUCCESS", "users.manage", s);
+		this.security.audit("business.restore", "business-data-only", "SUCCESS", "users.manage", o);
 	}
 	view() {
 		let e = this.security.principal();
 		if (!e || !this.initialized) throw Error("Login and desktop data initialization required.");
-		let t = i(e, "audit.read") ? Object.fromEntries(Object.entries(this.values).filter(([e]) => e === "htt:financial-operations:v1" || e.startsWith("htt.purchasePosting."))) : {};
+		let t = c(e, "audit.read") ? Object.fromEntries(Object.entries(this.values).filter(([e]) => e === "htt:financial-operations:v1" || e.startsWith("htt.purchasePosting."))) : {};
 		return {
-			repositories: o(e),
+			repositories: f(e),
 			storage: t
 		};
 	}
-	command(e) {
+	command(n) {
 		if (this.blocked || !this.initialized) throw Error("Business writes blocked; restart and inspect local audit.");
-		if (!e || typeof e.repository != "string" || typeof e.method != "string" || !Array.isArray(e.args) || e.args.length > 20) throw Error("Invalid business command.");
-		let n;
+		if (!n || typeof n.repository != "string" || typeof n.method != "string" || !Array.isArray(n.args) || n.args.length > 20) throw Error("Invalid business command.");
+		let r;
 		try {
-			n = t(e.repository, e.method);
-		} catch (t) {
-			throw this.security.audit("command.denied", `${e.repository}.${e.method}`.slice(0, 200), "DENIED"), t;
+			r = t(n.repository, n.method);
+		} catch (e) {
+			throw this.security.audit("command.denied", `${n.repository}.${n.method}`.slice(0, 200), "DENIED"), e;
 		}
-		let i = this.security.require(n.permission), a = structuredClone(e.args);
-		if ([
+		let i = this.security.require(r.permission), a = structuredClone(n.args);
+		if (this.automationEngine?.assertBankInstructionCommand(n.repository, n.method, a), [
 			"sales",
 			"fulfilments",
 			"goodsReceipts",
@@ -517,8 +486,8 @@ var ce = class {
 			"supplierCredits",
 			"bankTransactions",
 			"bankReconciliations"
-		].includes(e.repository) && a[0] && typeof a[0] == "object") {
-			let t = [
+		].includes(n.repository) && a[0] && typeof a[0] == "object") {
+			let e = [
 				"paymentDate",
 				"creditDate",
 				"allocationDate",
@@ -530,26 +499,26 @@ var ce = class {
 				"transactionDate",
 				"transferDate",
 				"statementDate"
-			], r = a[0];
+			], t = a[0];
 			try {
-				for (let e of t) if (r[e] !== void 0) {
-					if (typeof r[e] != "string") throw Error("Invalid posting date.");
-					this.assertPeriod(r[e]);
+				for (let n of e) if (t[n] !== void 0) {
+					if (typeof t[n] != "string") throw Error("Invalid posting date.");
+					this.assertPeriod(t[n]);
 				}
-			} catch (t) {
-				throw this.security.audit("period.denied", `${e.repository}.${e.method}`, "DENIED", n.permission), t;
+			} catch (e) {
+				throw this.security.audit("period.denied", `${n.repository}.${n.method}`, "DENIED", r.permission), e;
 			}
 		}
-		if (e.repository === "journals") {
+		if (n.repository === "journals") {
 			let t = a[0];
-			if (e.method === "post" && (t?.sourceType !== "MANUAL_JOURNAL" || t.sourceId)) throw Error("System journals must be posted through their business source.");
-			if (e.method === "reverse" && r().journals.journalEntries.find((e) => e.id === t?.journalEntryId)?.sourceType !== "MANUAL_JOURNAL") throw Error("System journals must be reversed through their business source.");
+			if (n.method === "post" && (t?.sourceType !== "MANUAL_JOURNAL" || t.sourceId)) throw Error("System journals must be posted through their business source.");
+			if (n.method === "reverse" && e().journals.journalEntries.find((e) => e.id === t?.journalEntryId)?.sourceType !== "MANUAL_JOURNAL") throw Error("System journals must be reversed through their business source.");
 		}
-		if (e.repository === "supplierPayments" && e.method === "reverse" && r().paymentBatches.batches.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this supplier payment through its payment batch.");
-		if (e.repository === "sales" && e.method === "reverseInvoicePayment" && r().customerSettlements.receipts.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this payment through its grouped customer receipt.");
-		if (e.repository === "salesRecovery" && a[0] && typeof a[0] == "object") {
-			let t = a[0];
-			e.method === "recordSalesManualReview" && (t.operator = i.userId), e.method === "closeVerifiedSalesReview" && (t.approver = i.userId);
+		if (n.repository === "supplierPayments" && n.method === "reverse" && e().paymentBatches.batches.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this supplier payment through its payment batch.");
+		if (n.repository === "sales" && n.method === "reverseInvoicePayment" && e().customerSettlements.receipts.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this payment through its grouped customer receipt.");
+		if (n.repository === "salesRecovery" && a[0] && typeof a[0] == "object") {
+			let e = a[0];
+			n.method === "recordSalesManualReview" && (e.operator = i.userId), n.method === "closeVerifiedSalesReview" && (e.approver = i.userId);
 		}
 		if ([
 			"voidInvoice",
@@ -557,36 +526,40 @@ var ce = class {
 			"void",
 			"markVoid",
 			"voidCredit"
-		].includes(e.method) && [
+		].includes(n.method) && [
 			"sales",
 			"supplierBills",
 			"supplierCredits"
-		].includes(e.repository)) {
-			let e = r(), t = typeof a[0] == "string" ? a[0] : a[0]?.invoiceId ?? a[0]?.creditNoteId ?? a[0]?.supplierCreditId ?? a[0]?.supplierBillId;
+		].includes(n.repository)) {
+			let t = e(), n = typeof a[0] == "string" ? a[0] : a[0]?.invoiceId ?? a[0]?.creditNoteId ?? a[0]?.supplierCreditId ?? a[0]?.supplierBillId;
 			if ([
-				...e.sales.invoices,
-				...e.customerCredits.creditNotes,
-				...e.supplierBills.supplierBills,
-				...e.supplierCredits.supplierCredits
-			].some((e) => e.id === t && e.openingBalanceImportId)) throw Error("Historical opening documents must be corrected through the opening batch reversal.");
+				...t.sales.invoices,
+				...t.customerCredits.creditNotes,
+				...t.supplierBills.supplierBills,
+				...t.supplierCredits.supplierCredits
+			].some((e) => e.id === n && e.openingBalanceImportId)) throw Error("Historical opening documents must be corrected through the opening batch reversal.");
 		}
-		let o = O(), s = `${e.repository}.${e.method}`, c = typeof a[0] == "string" ? a[0].slice(0, 200) : String(a[0]?.id ?? a[0]?.invoiceId ?? e.repository).slice(0, 200);
-		this.security.audit(s, c, "INTENT", n.permission, o);
-		let l = r(), u = structuredClone(this.values), f;
+		let s = j(), c = `${n.repository}.${n.method}`, l = typeof a[0] == "string" ? a[0].slice(0, 200) : String(a[0]?.id ?? a[0]?.invoiceId ?? n.repository).slice(0, 200);
+		this.security.audit(c, l, "INTENT", r.permission, s);
+		let u = e(), d = structuredClone(this.values), f;
 		try {
-			if (f = n.execute(a), e.repository === "sales" && e.method === "createInvoiceFromOrder" && this.assertPeriod(f.documentDate), f instanceof Promise) throw Error("Business commands must be synchronous.");
+			if (f = r.execute(a), n.repository === "bankStatements" && ["importRows", "importCsv"].includes(n.method)) {
+				let t = new Set(u.bankStatements.lines.map((e) => e.id)), n = e().bankStatements.lines.filter((e) => !t.has(e.id)).map((e) => e.id);
+				this.automationEngine?.classifyImportedBankLines(n, s);
+			}
+			if (n.repository === "sales" && n.method === "createInvoiceFromOrder" && this.assertPeriod(f.documentDate), f instanceof Promise) throw Error("Business commands must be synchronous.");
 		} catch (e) {
-			throw this.values = u, d(l), this.security.audit(s, c, "FAILED", n.permission, o), e;
+			throw this.values = d, o(u), this.security.audit(c, l, "FAILED", r.permission, s), e;
 		}
 		try {
-			this.persist(o);
+			this.persist(s);
 		} catch (e) {
-			throw this.values = u, d(l), this.blocked = !0, Error(`Business commit ${o} could not be confirmed: ${e instanceof Error ? e.message : String(e)}. Restart and review before retry.`);
+			throw this.values = d, o(u), this.blocked = !0, Error(`Business commit ${s} could not be confirmed: ${e instanceof Error ? e.message : String(e)}. Restart and review before retry.`);
 		}
 		try {
-			this.security.audit(s, c, "SUCCESS", n.permission, o);
+			this.security.audit(c, l, "SUCCESS", r.permission, s);
 		} catch {
-			throw this.blocked = !0, Error(`Business command ${o} committed, but final audit confirmation failed. Do not repeat it; restart and review.`);
+			throw this.blocked = !0, Error(`Business command ${s} committed, but final audit confirmation failed. Do not repeat it; restart and review.`);
 		}
 		return {
 			result: f,
@@ -596,19 +569,19 @@ var ce = class {
 };
 //#endregion
 //#region electron/security/registerSecurityIpc.ts
-function le(t, n) {
-	let r = new oe(P(t, "security-v1.json")), i = new ce(P(t, "business-v1.json"), r), o = !1;
-	return g.on("security:request", async (s, c, u) => {
-		let d = n();
-		if (!d || s.sender !== d.webContents || s.senderFrame !== d.webContents.mainFrame) {
-			s.returnValue = {
+function oe(e, t) {
+	let r = new ie(L(e, "security-v1.json")), a = new ae(L(e, "business-v1.json"), r), o = !1;
+	y.on("security:request", async (c, l, u) => {
+		let d = t();
+		if (!d || c.sender !== d.webContents || c.senderFrame !== d.webContents.mainFrame) {
+			c.returnValue = {
 				ok: !1,
 				error: "Untrusted desktop sender."
 			};
 			return;
 		}
 		if (o) {
-			s.returnValue = {
+			c.returnValue = {
 				ok: !1,
 				error: "A desktop operation is already running."
 			};
@@ -616,17 +589,17 @@ function le(t, n) {
 		}
 		o = !0;
 		try {
-			if (typeof c != "string" || JSON.stringify(u ?? null).length > 6e7) throw Error("Invalid desktop request.");
-			let n = u ?? {}, o;
-			switch (c) {
+			if (typeof l != "string" || JSON.stringify(u ?? null).length > 6e7) throw Error("Invalid desktop request.");
+			let t = u ?? {}, o;
+			switch (l) {
 				case "status":
 					o = r.status();
 					break;
 				case "setup":
-					o = r.setup(n);
+					o = r.setup(t);
 					break;
 				case "login":
-					o = r.login(n);
+					o = r.login(t);
 					break;
 				case "logout":
 					o = r.logout();
@@ -635,23 +608,23 @@ function le(t, n) {
 					o = r.listUsers();
 					break;
 				case "users.create":
-					o = r.createUser(n);
+					o = r.createUser(t);
 					break;
 				case "users.update":
-					o = r.updateUser(n);
+					o = r.updateUser(t);
 					break;
 				case "password.change":
-					o = r.changePassword(n);
+					o = r.changePassword(t);
 					break;
 				case "audit.list":
-					o = r.listAudit(n);
+					o = r.listAudit(t);
 					break;
 				case "business.bootstrap":
-					await i.initialize(n.legacyStorage), o = i.view();
+					await a.initialize(t.legacyStorage), a.scanRecurringDue(), o = a.view();
 					break;
 				case "business.backup.save": {
 					r.require("users.manage");
-					let e = await h.showSaveDialog(d, {
+					let t = await v.showSaveDialog(d, {
 						title: "Save business backup",
 						defaultPath: `HTT-Business-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`,
 						filters: [{
@@ -659,16 +632,16 @@ function le(t, n) {
 							extensions: ["json"]
 						}]
 					});
-					if (e.canceled || !e.filePath) {
+					if (t.canceled || !t.filePath) {
 						o = { saved: !1 };
 						break;
 					}
-					let n = F(C(t), P(C(M(e.filePath)), j(e.filePath)));
-					if (!n || !n.startsWith(".." + I) && n !== ".." && !N(n)) throw Error("Choose a backup location outside the active local data directory.");
-					let a = i.exportBackup();
+					let n = R(E(e), L(E(F(t.filePath)), P(t.filePath)));
+					if (!n || !n.startsWith(".." + z) && n !== ".." && !I(n)) throw Error("Choose a backup location outside the active local data directory.");
+					let i = a.exportBackup();
 					r.audit("business.backup", "business-data-only", "INTENT", "users.manage");
 					try {
-						L(e.filePath, a);
+						H(t.filePath, i);
 					} catch (e) {
 						throw r.audit("business.backup", "business-data-only", "FAILED", "users.manage"), e;
 					}
@@ -677,7 +650,7 @@ function le(t, n) {
 				}
 				case "business.restore.preview": {
 					r.require("users.manage");
-					let e = await h.showOpenDialog(d, {
+					let e = await v.showOpenDialog(d, {
 						title: "Select business backup",
 						properties: ["openFile"],
 						filters: [{
@@ -690,19 +663,19 @@ function le(t, n) {
 						break;
 					}
 					if (ne(e.filePaths[0]).size > 25e7) throw Error("Backup exceeds 250 MB.");
-					o = i.prepareRestore(S(e.filePaths[0], "utf8"));
+					o = a.prepareRestore(T(e.filePaths[0], "utf8"));
 					break;
 				}
 				case "business.restore.commit":
-					await i.restoreBackup(n.token), o = { restartRequired: !0 };
+					await a.restoreBackup(t.token), o = { restartRequired: !0 };
 					break;
 				case "attachments.select": {
-					r.require("inventory.read"), i.command({
+					r.require("inventory.read"), a.command({
 						repository: "attachments",
 						method: "checkTarget",
-						args: [n.target]
+						args: [t.target]
 					});
-					let t = await h.showOpenDialog(d, {
+					let e = await v.showOpenDialog(d, {
 						title: "Select attachment file (maximum 10 MB)",
 						properties: ["openFile"],
 						filters: [{
@@ -719,21 +692,21 @@ function le(t, n) {
 							]
 						}]
 					});
-					if (t.canceled || !t.filePaths[0]) {
+					if (e.canceled || !e.filePaths[0]) {
 						o = { saved: !1 };
 						break;
 					}
-					let a = e(t.filePaths[0]);
+					let n = i(e.filePaths[0]);
 					o = {
 						saved: !0,
-						...i.command({
+						...a.command({
 							repository: "attachments",
 							method: "upload",
 							args: [{
-								...n,
+								...t,
 								file: {
-									name: j(t.filePaths[0]),
-									content: a.toString("base64")
+									name: P(e.filePaths[0]),
+									content: n.toString("base64")
 								}
 							}]
 						})
@@ -742,77 +715,100 @@ function le(t, n) {
 				}
 				case "attachments.export": {
 					r.require("inventory.read");
-					let e = i.command({
+					let i = a.command({
 						repository: "attachments",
 						method: "read",
-						args: [n]
-					}).result, s = await h.showSaveDialog(d, {
+						args: [t]
+					}).result, c = await v.showSaveDialog(d, {
 						title: "Export attachment version",
-						defaultPath: e.name
+						defaultPath: i.name
 					});
-					if (s.canceled || !s.filePath) {
+					if (c.canceled || !c.filePath) {
 						o = { saved: !1 };
 						break;
 					}
-					let c = F(C(t), P(C(M(s.filePath)), j(s.filePath)));
-					if (!c || !c.startsWith(".." + I) && c !== ".." && !N(c)) throw Error("Choose an export location outside the active local data directory.");
-					r.audit("attachments.export", String(n.id) + "/" + String(n.versionId), "INTENT", "inventory.read");
+					let l = R(E(e), L(E(F(c.filePath)), P(c.filePath)));
+					if (!l || !l.startsWith(".." + z) && l !== ".." && !I(l)) throw Error("Choose an export location outside the active local data directory.");
+					r.audit("attachments.export", String(t.id) + "/" + String(t.versionId), "INTENT", "inventory.read");
 					try {
-						let e = i.command({
+						let e = a.command({
 							repository: "attachments",
 							method: "read",
-							args: [n]
+							args: [t]
 						}).result;
-						a(P(C(M(s.filePath)), j(s.filePath)), l(e));
+						s(L(E(F(c.filePath)), P(c.filePath)), n(e));
 					} catch (e) {
-						throw r.audit("attachments.export", String(n.id) + "/" + String(n.versionId), "FAILED", "inventory.read"), e;
+						throw r.audit("attachments.export", String(t.id) + "/" + String(t.versionId), "FAILED", "inventory.read"), e;
 					}
-					r.audit("attachments.export", String(n.id) + "/" + String(n.versionId), "SUCCESS", "inventory.read"), o = { saved: !0 };
+					r.audit("attachments.export", String(t.id) + "/" + String(t.versionId), "SUCCESS", "inventory.read"), o = { saved: !0 };
 					break;
 				}
+				case "business.recurring.scan":
+					if (r.require("inventory.read"), Object.keys(t).length) throw Error("Recurring scan does not accept caller dates, actors or limits.");
+					o = {
+						result: a.scanRecurringDue(),
+						view: a.view()
+					};
+					break;
 				case "business.command":
-					o = i.command(n);
+					o = a.command(t);
 					break;
 				default: throw Error("Unknown desktop security action.");
 			}
-			s.returnValue = {
+			c.returnValue = {
 				ok: !0,
 				value: o
 			};
 		} catch (e) {
-			s.returnValue = {
+			c.returnValue = {
 				ok: !1,
 				error: e instanceof Error ? e.message : "Desktop operation failed."
 			};
 		} finally {
 			o = !1;
 		}
-	}), { lock: () => {
-		try {
-			r.principal() && r.logout();
-		} catch {}
-	} };
+	});
+	let c = !1, l = setInterval(() => {
+		if (!(o || c)) {
+			o = !0;
+			try {
+				a.scanRecurringDue();
+			} catch (e) {
+				c = !0, console.error("Local recurring scan stopped:", e instanceof Error ? e.message : "Restart and inspect business data.");
+			} finally {
+				o = !1;
+			}
+		}
+	}, 6e4);
+	return l.unref(), {
+		dispose: () => clearInterval(l),
+		lock: () => {
+			try {
+				r.principal() && r.logout();
+			} catch {}
+		}
+	};
 }
 //#endregion
 //#region electron/main/index.ts
-var ue = ae(import.meta.url), Y = A.dirname(ue), X = "HTT Flooring Management System", Z = () => {}, Q = null;
-function de(...e) {
-	return A.join(Y, "..", ...e);
+var se = V(import.meta.url), J = N.dirname(se), Y = "HTT Flooring Management System", X = () => {}, Z = null;
+function ce(...e) {
+	return N.join(J, "..", ...e);
 }
-function fe() {
+function le() {
 	if (process.platform !== "darwin") return;
-	let e = de("build", "icon.png"), t = ee.createFromPath(e);
-	t.isEmpty() || m.dock?.setIcon(t);
+	let e = ce("build", "icon.png"), t = ee.createFromPath(e);
+	t.isEmpty() || _.dock?.setIcon(t);
 }
-function pe() {
-	g.handle("statement:export-pdf", async (e, t) => {
+function ue() {
+	y.handle("statement:export-pdf", async (e, t) => {
 		try {
-			let n = p.fromWebContents(e.sender);
+			let n = g.fromWebContents(e.sender);
 			if (!n) return {
 				success: !1,
 				error: "Unable to resolve the current application window."
 			};
-			let r = me(t.defaultFileName), i = await h.showSaveDialog(n, {
+			let r = de(t.defaultFileName), i = await v.showSaveDialog(n, {
 				title: "Export Customer Statement",
 				defaultPath: r,
 				filters: [{
@@ -830,7 +826,7 @@ function pe() {
 				printBackground: !0,
 				preferCSSPageSize: !0
 			});
-			return await ie(i.filePath, a), {
+			return await B(i.filePath, a), {
 				success: !0,
 				filePath: i.filePath
 			};
@@ -842,13 +838,13 @@ function pe() {
 		}
 	});
 }
-function me(e) {
+function de(e) {
 	let t = e.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-").replace(/\s+/g, " ").trim() || "Customer Statement";
 	return t.toLowerCase().endsWith(".pdf") ? t : `${t}.pdf`;
 }
-function $() {
-	Q = new p({
-		title: X,
+function Q() {
+	Z = new g({
+		title: Y,
 		width: 1440,
 		height: 900,
 		minWidth: 1100,
@@ -856,31 +852,31 @@ function $() {
 		show: !1,
 		backgroundColor: "#f4f1eb",
 		webPreferences: {
-			preload: A.join(Y, "index.mjs"),
+			preload: N.join(J, "index.mjs"),
 			contextIsolation: !0,
 			nodeIntegration: !1,
 			sandbox: !0
 		}
-	}), Q.once("ready-to-show", () => {
-		Q?.show();
-	}), process.env.VITE_DEV_SERVER_URL ? Q.loadURL(process.env.VITE_DEV_SERVER_URL) : Q.loadFile(A.join(Y, "../dist/index.html")), Q.webContents.on("did-start-navigation", (e, t, n, r) => {
-		r && !n && Z();
-	}), Q.webContents.on("render-process-gone", () => Z()), Q.webContents.setWindowOpenHandler(() => ({ action: "deny" })), Q.webContents.on("will-navigate", (e, t) => {
-		let n = new URL(t), r = new URL(Q.webContents.getURL());
+	}), Z.once("ready-to-show", () => {
+		Z?.show();
+	}), process.env.VITE_DEV_SERVER_URL ? Z.loadURL(process.env.VITE_DEV_SERVER_URL) : Z.loadFile(N.join(J, "../dist/index.html")), Z.webContents.on("did-start-navigation", (e, t, n, r) => {
+		r && !n && X();
+	}), Z.webContents.on("render-process-gone", () => X()), Z.webContents.setWindowOpenHandler(() => ({ action: "deny" })), Z.webContents.on("will-navigate", (e, t) => {
+		let n = new URL(t), r = new URL(Z.webContents.getURL());
 		(n.protocol !== r.protocol || n.host !== r.host || n.pathname !== r.pathname) && e.preventDefault();
-	}), Q.on("closed", () => {
-		Z(), Q = null;
+	}), Z.on("closed", () => {
+		X(), Z = null;
 	});
 }
-var he = m.commandLine.getSwitchValue("user-data-dir");
-he && m.setPath("userData", A.resolve(he)), m.requestSingleInstanceLock() || m.quit(), m.on("second-instance", () => {
-	Q?.show(), Q?.focus();
-}), m.setName(X), m.whenReady().then(() => {
-	fe(), pe(), Z = le(A.join(m.getPath("userData"), "local-security"), () => Q).lock, $(), m.on("activate", () => {
-		p.getAllWindows().length === 0 && $();
+var $ = _.commandLine.getSwitchValue("user-data-dir");
+$ && _.setPath("userData", N.resolve($)), _.requestSingleInstanceLock() || _.quit(), _.on("second-instance", () => {
+	Z?.show(), Z?.focus();
+}), _.setName(Y), _.whenReady().then(() => {
+	le(), ue(), X = oe(N.join(_.getPath("userData"), "local-security"), () => Z).lock, Q(), _.on("activate", () => {
+		g.getAllWindows().length === 0 && Q();
 	});
-}), m.on("window-all-closed", () => {
-	process.platform !== "darwin" && m.quit();
+}), _.on("window-all-closed", () => {
+	process.platform !== "darwin" && _.quit();
 });
 //#endregion
 export {};

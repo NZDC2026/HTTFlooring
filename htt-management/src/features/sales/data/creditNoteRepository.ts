@@ -242,3 +242,8 @@ registerRepository("customerCredits", {
     restore: value => { creditNotes = value.creditNotes; allocations = value.allocations; creditNoteSnapshot = [...creditNotes]; allocationSnapshot = [...allocations]; },
     publish: () => listeners.forEach(listener => listener()),
 });
+
+/** Internal recovery writer; allocations and original credit evidence stay intact. */
+export function applyReviewedCustomerCreditSummary(id:string, summary:Pick<CreditNote,'amountApplied'|'amountAvailable'|'status'>):void {
+    commitState(creditNotes.map(c=>c.id===id?{...c,...summary}:c),allocations);
+}

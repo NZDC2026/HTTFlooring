@@ -1,3 +1,5 @@
+import { PricingTimeFields, defaultPricingTime } from './PricingTimeFields';
+import { resolvePricingInstant } from '../data/pricingInstant';
 import { SalesDeliveryFields } from './SalesDeliveryFields';
 import { AreaPackEntry } from './AreaPackEntry';
 import { areaQuantity } from '../data/areaPacks';
@@ -5,6 +7,7 @@ import { businessSettings } from '../../business-workspace/configurationState';
 import { activeTaxRate } from '../../business-workspace/configurationState';
 import {
     useMemo,
+    useEffect,
     useState,
     type ReactNode,
 } from "react";
@@ -75,6 +78,19 @@ export function QuoteEditForm({
     ] = useState(
         quote.documentDate,
     );
+
+    const [pricingAt, setPricingAt] = useState(() => quote.lines.find(l => l.pricingAt)?.pricingAt ?? defaultPricingTime(quote.documentDate));
+    const pricingTimezone = quote.documentDate === documentDate && quote.lines.some(l => l.pricingAt === pricingAt) ? quote.lines.find(l => l.pricingAt === pricingAt)?.pricingTimezone : businessSettings().timezone;
+    useEffect(() => {
+        try {
+            const context = resolvePricingInstant(documentDate, pricingAt, pricingTimezone);
+            setLines(current => current.map(line => {
+                if (line.priceSource === "MANUAL" || !line.productId || !line.unitId) return line;
+                const price = customerPricingRepository.resolvePrice(quote.customerId, line.productId, line.unitId, documentDate, context.pricingAt);
+                return {...line, standardUnitPrice:price.basePrice, unitPrice:String(price.effectivePrice), priceSource:price.source, customerPriceId:price.customerPrice?.id};
+            }));
+        } catch { /* The pricing field and save action report invalid timestamps. */ }
+    }, [documentDate, pricingAt, pricingTimezone, quote.customerId]);
 
     const [
         expiryDate,
@@ -202,6 +218,7 @@ export function QuoteEditForm({
                 product.id,
                 unit.id,
                 documentDate,
+                pricingAt,
             );
 
         updateLine(
@@ -259,6 +276,7 @@ export function QuoteEditForm({
                 line.productId,
                 unitId,
                 documentDate,
+                pricingAt,
             );
 
         updateLine(
@@ -413,6 +431,7 @@ export function QuoteEditForm({
                 quote.id,
                 {
                     documentDate,
+                    pricingAt,
                     ...delivery,
 
                     expiryDate:
@@ -492,6 +511,7 @@ export function QuoteEditForm({
                         </div>
                     )}
 
+                    <PricingTimeFields timezone={pricingTimezone} date={documentDate} value={pricingAt} onChange={setPricingAt}/>
                     <SalesDeliveryFields customerId={quote.customerId} {...delivery} onChange={setDelivery} />
                     <div className="grid grid-cols-4 gap-4">
                         <Field label="Customer">
@@ -512,11 +532,7 @@ export function QuoteEditForm({
                                 onChange={(
                                     event,
                                 ) =>
-                                    setDocumentDate(
-                                        event
-                                            .target
-                                            .value,
-                                    )
+                                    { const date = event.target.value; setDocumentDate(date); setPricingAt(defaultPricingTime(date)); }
                                 }
                             />
                         </Field>
@@ -565,13 +581,7 @@ export function QuoteEditForm({
                                 </h2>
 
                                 <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
-                                    Existing
-                                    prices remain
-                                    unchanged
-                                    unless you
-                                    change the
-                                    product, unit
-                                    or unit price.
+                                    Automatic prices are recalculated at the selected pricing time when this draft is saved. Manual prices remain explicit overrides.
                                 </p>
                             </div>
 
@@ -1133,6 +1143,7 @@ function formatSource(
         return "Standard";
     }
 
+    if (source === "PROMOTIONAL_PRICE") return "Promotion";
     return "Manual";
 }
 

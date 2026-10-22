@@ -1,6 +1,6 @@
 # Business document recycle bin — 2026-10-19
 
-The Document recycle bin at `/sales/recycle-bin` now operates on real local records: quotes, purchase orders, direct sales-order entry drafts, direct invoice entry drafts and expense-bill entry drafts. It replaces the sample-only restore/purge page. Permanent purge is not provided.
+The Document recycle bin at `/sales/recycle-bin` now operates on real local records: quotes, purchase orders, direct sales-order entry drafts, direct invoice entry drafts and expense-bill entry drafts. It replaces the sample-only restore/purge page. G04 adds ADMIN-only permanent purge of eligible recycled drafts; see [G04 scope, backup and recovery](G04-RECYCLE-PURGE.md).
 
 ## Workflow and scope
 
@@ -29,3 +29,7 @@ Schema 16 adds documentRecycle and migrates schema 15 with empty lifecycle histo
 18 integration tests cover all five record types, unchanged financial repositories, hidden normal lists/lookups, stale-detail commands, approval/posting guards, content/lifecycle token races, atomic mixed batches, retry after restart/recovery, permissions/history redaction, recurring references, attachment byte retention and navigation, numbering, schema migration and normal/corrupt backup restore. The existing route test now verifies the connected recoverable page and absence of sample purge controls.
 
 Final actual-project verification: TypeScript and Vite production builds passed; 94 test files / 1,107 tests passed. The existing Vite large-chunk advisory remains. Disposable Electron acceptance moved real quote QU-2026-0002 into the bin, inspected deletion metadata, restarted, verified retained deletion, then recovered it. Persisted evidence retained the same quote ID, content token, DRAFT status and total 220, together with both lifecycle events. No production business profile was used.
+
+## G04 update — 2026-10-22
+
+The original recycle/recover behavior above remains. Schema 25 adds permanent purge receipts and identity reservation. ADMIN must preview, provide a reason and type the exact confirmation. Every source must be already trashed, unapproved, unposted and free of business and attachment references, including deleted attachments. A verified complete business backup is mandatory before atomic batch removal. Purged drafts require whole-profile backup restore through Data protection and restart; they cannot be recovered individually in the bin. Posted financial documents remain subject to void/reversal. Details and current verification: [G04](G04-RECYCLE-PURGE.md).

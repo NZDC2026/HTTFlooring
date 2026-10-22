@@ -1,3 +1,4 @@
+import { PricingTimeSummary } from '../components/PricingTimeFields';
 import { ItemTypeSummary } from '../components/ItemTypeSummary';
 import { Link } from 'react-router-dom';
 import { SalesDeliverySummary } from '../components/SalesDeliveryFields';
@@ -611,7 +612,7 @@ export function InvoiceDetailPage() {
                 )}
 
             <div className="mb-5 grid grid-cols-4 gap-4">
-                <div><Link className="text-sm underline" to={`/documents/delivery?kind=INVOICE&sourceId=${invoice.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={invoice.recipient}/></div>
+                <div><Link className="text-sm underline" to={`/documents/delivery?kind=INVOICE&sourceId=${invoice.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={invoice.recipient}/><PricingTimeSummary lines={invoice.lines}/></div>
                 <InfoCard
                     label="Customer"
                     value={
@@ -1661,7 +1662,7 @@ function PriceSourceBadge({
             : source ===
                 "STANDARD_PRICE"
                 ? "Standard"
-                : "Manual";
+                : source === "PROMOTIONAL_PRICE" ? "Promotion" : "Manual";
 
     return (
         <span

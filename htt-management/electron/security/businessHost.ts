@@ -1,6 +1,8 @@
+import type { AutomationKind } from '../../src/features/recurring/recurringAutomationRepository';
+import { configureDocumentPurgeBackup } from './documentPurgeBackup';
 import { dirname, join } from "node:path";
 import { existsSync, readFileSync, mkdirSync, openSync, closeSync, fsyncSync, writeFileSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { hasPermission } from '../../src/features/security/rbac';
 import { resolveCommand, validateRegisteredSnapshots, restoreRepositories, snapshotForPrincipal, snapshotRepositories } from '../../src/features/security/repositoryHost';
 import type { BusinessView } from '../../src/features/security/securityContract';
@@ -9,6 +11,8 @@ import { parseDatabase, sealDatabase, migratePeriodSnapshot, migrateWorkspaceSna
 export class BusinessHost {
     private values: Record<string, string> = {};
     private initialized = false;
+    private automationEngine?: Pick<typeof import('./businessEngine'),'dueRecurringCandidates'|'prepareRecurringFailure'|'classifyImportedBankLines'|'assertBankInstructionCommand'>;
+    private scanningRecurring = false;
     private workspaceDefaults: Record<string, unknown> = {};
     private blocked = false;
     private lastCommandId?: string;
@@ -25,7 +29,7 @@ export class BusinessHost {
         let saved: Database | LegacyDatabase | undefined;
         if (existsSync(this.path)) {
             saved = parseDatabase(readFileSync(this.path, 'utf8'));
-            if (saved.schemaVersion !== 23) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
+            if (saved.schemaVersion !== 28) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');
@@ -60,7 +64,22 @@ export class BusinessHost {
             this.lastCommandId = saved.lastCommandId;
         }
         engine.initialize(() => this.security.principal());
+        this.automationEngine = engine;
         this.assertPeriod = engine.assertPostingPeriod;
+        configureDocumentPurgeBackup(()=>{
+            const principal=this.security.require('users.manage');
+            if(!principal.roles.includes('ADMIN')||!this.initialized||this.blocked) throw new Error('Permanent purge requires a healthy ADMIN desktop session.');
+            const repositories=snapshotRepositories();
+            validateRegisteredSnapshots(repositories);
+            const database=sealDatabase({storage:structuredClone(this.values),repositories,lastCommandId:this.lastCommandId});
+            const directory=join(dirname(this.path),'recycle-backups'),id=randomUUID(),fileName=`pre-purge-${id}.json`;
+            mkdirSync(directory,{recursive:true,mode:0o700});
+            const path=join(directory,fileName); atomicJson(path,database);
+            const text=readFileSync(path,'utf8');
+            const verified=parseDatabase(text);validateRepositories(verified.repositories,repositories);validateRegisteredSnapshots(verified.repositories);
+            if(JSON.stringify(verified)!==JSON.stringify(database)) throw new Error('Pre-purge backup verification failed.');
+            return {id,fileName,sha256:createHash('sha256').update(text).digest('hex'),createdAt:new Date().toISOString()};
+        });
         if (migrationSource) {
             atomicJson(join(dirname(this.path), `pre-migration-v${saved!.schemaVersion}-${randomUUID()}.json`), migrationSource);
             this.persist();
@@ -74,6 +93,34 @@ export class BusinessHost {
             this.security.audit(`recovery.${pending.action}`, pending.resourceId, pending.commandId === this.lastCommandId ? 'SUCCESS' : 'FAILED', pending.permission, pending.commandId);
         }
         this.initialized = true;
+    }
+    // Runs only in the authenticated desktop process. Each occurrence has its own
+    // durable atomic command, so one invalid template cannot roll back other schedules.
+    scanRecurringDue() {
+        const report={processed:0,generated:0,failed:0,remaining:0};
+        const principal=this.security.principal(),engine=this.automationEngine;
+        if(this.blocked) throw new Error('Business writes blocked; restart and inspect local audit.');
+        if(!this.initialized||!principal||!engine||this.scanningRecurring) return report;
+        this.scanningRecurring=true;
+        try {
+            for(let i=0;i<20;i++) {
+                const candidate=engine.dueRecurringCandidates(principal)[0];
+                if(!candidate) break;
+                const kind=candidate.kind as AutomationKind;
+                report.processed++;
+                try {
+                    this.command({repository:'recurringAutomation',method:'execute',args:[{kind,id:candidate.id,expectedRevision:candidate.revision,date:candidate.nextDate}]});
+                    report.generated++;
+                } catch(error) {
+                    if(this.blocked) throw error;
+                    const ticket=engine.prepareRecurringFailure(kind,candidate.id,candidate.nextDate,error instanceof Error?error.message:'Generation failed.');
+                    this.command({repository:'recurringAutomation',method:'recordFailure',args:[{ticket}]});
+                    report.failed++;
+                }
+            }
+            report.remaining=engine.dueRecurringCandidates(principal).length;
+            return report;
+        } finally {this.scanningRecurring=false;}
     }
     private persist(commandId = this.lastCommandId): void {
         atomicJson(this.path, sealDatabase({ storage: this.values, repositories: snapshotRepositories(), lastCommandId: commandId }));
@@ -154,6 +201,7 @@ export class BusinessHost {
         catch (error) { this.security.audit('command.denied', `${input.repository}.${input.method}`.slice(0, 200), 'DENIED'); throw error; }
         const actor = this.security.require(command.permission);
         const args = structuredClone(input.args);
+        this.automationEngine?.assertBankInstructionCommand(input.repository,input.method,args);
         if (['sales', 'fulfilments', 'goodsReceipts', 'supplierBills', 'supplierPayments', 'supplierCredits', 'bankTransactions', 'bankReconciliations'].includes(input.repository) && args[0] && typeof args[0] === 'object') {
             // These are actual ledger/settlement dates, not quotation/order dates or due dates.
             const dates = ['paymentDate', 'creditDate', 'allocationDate', 'voidDate', 'reversalDate', 'receiptDate', 'billDate', 'fulfilmentDate', 'transactionDate', 'transferDate', 'statementDate'];
@@ -196,6 +244,11 @@ export class BusinessHost {
         let result: unknown;
         try {
             result = command.execute(args);
+            if(input.repository==='bankStatements'&&['importRows','importCsv'].includes(input.method)){
+                const previous=new Set((before.bankStatements as {lines:{id:string}[]}).lines.map(l=>l.id));
+                const added=(snapshotRepositories().bankStatements as {lines:{id:string}[]}).lines.filter(l=>!previous.has(l.id)).map(l=>l.id);
+                this.automationEngine?.classifyImportedBankLines(added,commandId);
+            }
             if (input.repository === 'sales' && input.method === 'createInvoiceFromOrder') this.assertPeriod((result as { documentDate: string }).documentDate);
             if (result instanceof Promise) throw new Error('Business commands must be synchronous.');
         } catch (error) {

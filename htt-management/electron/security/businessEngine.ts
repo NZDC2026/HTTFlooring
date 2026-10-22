@@ -1,3 +1,7 @@
+export { assertBankInstructionCommand } from './bankInstructionRepository';
+export { classifyImportedBankLines } from './bankRuleRepository';
+export { dueRecurringCandidates, prepareRecurringFailure } from '../../src/features/recurring/recurringAutomationRepository';
+import {previewSourceRepair,proposeSourceRepair,executeSourceRepair,withdrawSourceRepair} from './sourceMetadataRepair';
 import {previewTargetedRepair,proposeTargetedRepair,executeTargetedRepair} from './targetedFinancialRepair';
 import '../../src/features/document-output/purchaseOutputRepository';
 import {inspectRecovery} from '../../src/features/sales/data/recoveryWorkbench';
@@ -45,8 +49,8 @@ import { closeVerifiedSalesReview } from '../../src/features/sales/data/salesVer
 import { snapshotRepositories } from '../../src/features/security/repositoryHost';
 import { registerRepository } from '../../src/features/security/repositoryHost';
 registerRepository('salesRecovery', {
-    repository: { inspectRecovery, recordSalesManualReview, closeVerifiedSalesReview, previewTargetedRepair,proposeTargetedRepair,executeTargetedRepair }, read: 'audit.read',
-    commands: { previewTargetedRepair:'audit.read',proposeTargetedRepair:'accounting.recover',executeTargetedRepair:'accounting.recover',inspectRecovery:'audit.read', recordSalesManualReview: 'accounting.recover', closeVerifiedSalesReview: 'accounting.recover' },
+    repository: { previewSourceRepair,proposeSourceRepair,executeSourceRepair,withdrawSourceRepair, inspectRecovery, recordSalesManualReview, closeVerifiedSalesReview, previewTargetedRepair,proposeTargetedRepair,executeTargetedRepair }, read: 'audit.read',
+    commands: { withdrawSourceRepair:'accounting.recover',previewSourceRepair:'audit.read',proposeSourceRepair:'accounting.recover',executeSourceRepair:'accounting.recover',previewTargetedRepair:'audit.read',proposeTargetedRepair:'accounting.recover',executeTargetedRepair:'accounting.recover',inspectRecovery:'audit.read', recordSalesManualReview: 'accounting.recover', closeVerifiedSalesReview: 'accounting.recover' },
     snapshot: () => [], restore: () => {}, publish: () => {},
 });
 export const workspaceDefaults = snapshotRepositories();

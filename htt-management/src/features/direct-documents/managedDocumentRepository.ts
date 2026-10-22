@@ -1,4 +1,5 @@
-import { visibleDocuments, isRecycled } from '../document-recycle/recycleState';
+import { resolvePricingInstant, validatePricingSnapshot } from '../sales/data/pricingInstant';
+import { visibleDocuments, isRecycled, purgedCreationOperation } from '../document-recycle/recycleState';
 import { validateLineItemType } from '../inventory/data/itemTypes';
 import { salesRecipient, validateRecipientSnapshot } from '../sales/data/salesRecipients';
 import { validateAreaSnapshot } from '../sales/data/areaPacks';
@@ -25,7 +26,7 @@ import type { SupplierBill, SupplierBillLine } from '../purchases/types/supplier
 const text = z.string().trim().min(1).max(200), optional = z.string().trim().max(2000).optional();
 const salesLine = z.object({ requestedArea: z.number().finite().positive().max(1e9).optional(), productId: text, unitId: text, quantity: z.number().positive().finite(), unitPrice: z.number().nonnegative().finite().optional(), priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
 const expenseLine = z.object({ description: z.string().trim().min(1).max(500), accountId: text, quantity: z.number().positive().finite(), unitCost: z.number().nonnegative().finite(), taxCode: text, priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
-const salesPayload = z.object({ kind: z.enum(['ORDER', 'INVOICE']), customerId: text, locationId: text.or(z.literal('')).optional(), accountingContactId: text.or(z.literal('')).optional(), documentDate: text, dueDate: text.optional(), customerReference: optional, notes: optional, lines: z.array(salesLine).min(1).max(500) }).strict();
+const salesPayload = z.object({ kind: z.enum(['ORDER', 'INVOICE']), customerId: text, pricingAt: text.optional(), pricingTimezone: text.optional(), locationId: text.or(z.literal('')).optional(), accountingContactId: text.or(z.literal('')).optional(), documentDate: text, dueDate: text.optional(), customerReference: optional, notes: optional, lines: z.array(salesLine).min(1).max(500) }).strict();
 const billPayload = z.object({ kind: z.literal('EXPENSE'), supplierId: text, supplierInvoiceNumber: text, documentDate: text, dueDate: text, notes: optional, lines: z.array(expenseLine).min(1).max(500) }).strict();
 export const parseManagedPayload = (raw: unknown) => z.union([salesPayload, billPayload]).parse(raw);
 const captureAmount = z.number().finite().nonnegative().refine(n => Number.isSafeInteger(Math.round(n*100)) && n===Math.round(n*100)/100, 'Use an amount in whole cents within the supported range.');
@@ -141,7 +142,8 @@ function build(payload: SalesPayload | ExpensePayload) {
     }
     if (payload.kind !== 'ORDER' && !payload.dueDate)
         throw new Error('Due date is required.');
-    const lines: (SalesDocumentLine | SupplierBillLine)[] = payload.kind === 'EXPENSE' ? payload.lines.map(l => { expenseAccount(l.accountId); const tax = taxSnapshot(l.taxCode), netCost = exclusivePrice(l.unitCost, tax.taxRate, l.priceBasis), lineSubtotal = money(l.quantity * netCost), taxAmount = (l.priceBasis ?? businessSettings().basis) === 'Inclusive' ? money(l.quantity * l.unitCost - lineSubtotal) : money(lineSubtotal * tax.taxRate); return { id: crypto.randomUUID(), expenseAccountId: l.accountId, purchaseOrderLineId: '', productId: '', unitId: '', sku: 'SERVICE', description: l.description, unitSymbol: 'service', quantity: l.quantity, unitCost: netCost, ...tax, lineSubtotal, taxAmount, lineTotal: money(lineSubtotal + taxAmount) }; }) : payload.lines.map(l => buildSalesLine({ customerId: payload.customerId, documentDate: payload.documentDate, draft: l }));
+    const pricingContext = payload.kind === 'EXPENSE' ? undefined : resolvePricingInstant(payload.documentDate, payload.pricingAt, payload.pricingTimezone);
+    const lines: (SalesDocumentLine | SupplierBillLine)[] = payload.kind === 'EXPENSE' ? payload.lines.map(l => { expenseAccount(l.accountId); const tax = taxSnapshot(l.taxCode), netCost = exclusivePrice(l.unitCost, tax.taxRate, l.priceBasis), lineSubtotal = money(l.quantity * netCost), taxAmount = (l.priceBasis ?? businessSettings().basis) === 'Inclusive' ? money(l.quantity * l.unitCost - lineSubtotal) : money(lineSubtotal * tax.taxRate); return { id: crypto.randomUUID(), expenseAccountId: l.accountId, purchaseOrderLineId: '', productId: '', unitId: '', sku: 'SERVICE', description: l.description, unitSymbol: 'service', quantity: l.quantity, unitCost: netCost, ...tax, lineSubtotal, taxAmount, lineTotal: money(lineSubtotal + taxAmount) }; }) : payload.lines.map(l => buildSalesLine({ customerId: payload.customerId, documentDate: payload.documentDate, pricingContext, draft: l }));
     const totals = calculateDocumentTotals(lines as SalesDocumentLine[]);
     if (totals.total <= 0 || !Number.isFinite(totals.total))
         throw new Error('Document total must be finite and greater than zero.');
@@ -180,6 +182,7 @@ function repo(kind: 'sales' | 'expense') {
             payload: SalesPayload | ExpensePayload;
         }) {
             const input = z.object({ operationId: text, id: text.optional(), expectedRevision: z.number().int().positive().optional(), payload: kind === 'sales' ? salesPayload : billPayload }).strict().parse(raw), fingerprint = JSON.stringify(input.payload);
+            if (purgedCreationOperation(input.operationId)) throw new Error('This creation request belongs to a permanently purged draft. Use a new operation ID.');
             if (!input.id) {
                 const prior = rows().find(d => d.operationId === input.operationId);
                 if (prior) {
@@ -194,6 +197,12 @@ function repo(kind: 'sales' | 'expense') {
                 expected(old, input.expectedRevision ?? -1);
                 if (old.status !== 'DRAFT')
                     throw new Error('Only unapproved drafts can be edited. Reopen an approved draft before editing.');
+            }
+            if (input.payload.kind !== 'EXPENSE') {
+                const previous = old?.payload.kind !== 'EXPENSE' ? old?.payload : undefined;
+                const preserved = previous && previous.documentDate === input.payload.documentDate && (!input.payload.pricingAt || input.payload.pricingAt === previous.pricingAt);
+                const context = resolvePricingInstant(input.payload.documentDate, input.payload.pricingAt ?? (preserved ? previous.pricingAt : undefined), preserved ? previous.pricingTimezone : businessSettings().timezone);
+                input.payload = { ...input.payload, ...context };
             }
             const built = build(input.payload), now = new Date().toISOString(), row: ManagedDraft = { id: old?.id ?? crypto.randomUUID(), operationId: old?.operationId ?? input.operationId, creationFingerprint: old?.creationFingerprint ?? fingerprint, revision: (old?.revision ?? 0) + 1, kind: input.payload.kind, status: 'DRAFT', payload: input.payload.kind === 'EXPENSE' ? input.payload : {...input.payload,lines:input.payload.lines.map((l,i)=>({...l,quantity:built.lines[i].quantity}))}, recipient: input.payload.kind === 'EXPENSE' ? undefined : salesRecipient(input.payload.customerId,input.payload), ...built, createdAt: old?.createdAt ?? now, updatedAt: now, history: [...(old?.history ?? []), history(old ? 'Edited' : 'Created')] };
             if (old && old.kind !== row.kind)
@@ -289,6 +298,8 @@ for (const kind of ['sales', 'expense'] as const)
                     const raw = d.payload.lines[i] as any, l = line as Record<string, any>;
                     if (d.kind !== 'EXPENSE') {
                         validateAreaSnapshot(l as any);
+                        validatePricingSnapshot(l, d.payload.documentDate);
+                        if (d.payload.kind !== 'EXPENSE' && (d.payload.pricingAt !== l.pricingAt || d.payload.pricingTimezone !== l.pricingTimezone)) throw new Error('Draft pricing context mismatch.');
                         validateLineItemType(l as any,snapshotsAny.products.products.find((p:any)=>p.id===l.productId));
                         if (l.requestedArea !== raw.requestedArea) throw new Error('Draft area requirement mismatch.');
                     }
@@ -318,3 +329,9 @@ for (const kind of ['sales', 'expense'] as const)
                 }
             }
         } });
+
+// Internal main-process operation; never exposed as a desktop command.
+export function purgeManagedDraftRecords(ids: Set<string>) {
+ if ([...salesDrafts,...billDrafts].some(r=>ids.has(r.id)&&(r.status!=='DRAFT'||r.documentId))) throw new Error('Only unposted drafts may be purged.');
+ salesDrafts=salesDrafts.filter(r=>!ids.has(r.id)); billDrafts=billDrafts.filter(r=>!ids.has(r.id)); emit();
+}

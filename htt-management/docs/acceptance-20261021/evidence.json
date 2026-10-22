@@ -109,5 +109,120 @@
     "cases": 2,
     "passedObservedBehavior": 2,
     "meaning": "These assert and record existing gaps; they are not fixes or part of the 1550 normal suite."
+  },
+  "g04FollowUp": {
+    "date": "2026-10-22",
+    "status": "completed within eligible nonfinancial draft scope",
+    "databaseSchema": 25,
+    "document": "docs/G04-RECYCLE-PURGE.md",
+    "scope": [
+      "Quote",
+      "Purchase order",
+      "Sales order draft",
+      "Invoice draft",
+      "Expense bill draft"
+    ],
+    "retainedBoundary": "Posted financial documents retain void/reversal; all business and attachment references block permanent purge.",
+    "build": "TypeScript + renderer + Electron main/preload passed; existing large-chunk advisory",
+    "tests": {
+      "files": 130,
+      "passed": 1654,
+      "failed": 0,
+      "durationSeconds": 191.19,
+      "newPurgeIntegrationCases": 26,
+      "retainedRecycleIntegrationCases": 18
+    },
+    "native": "Disposable htt-g04-native profile: login, route, mixed preview, attachment blocker, disabled purge action, prior purge audit receipt and backup hash; no permanent purge through native UI. Real main-host automated tests verified execution, rollback, retry and complete pre-purge backup restoration.",
+    "pendingLocalWorkPackages": 13,
+    "externalBoundaries": 3
+  },
+  "g05FollowUp": {
+    "date": "2026-10-22",
+    "status": "completed within authenticated local desktop scope",
+    "databaseSchema": 26,
+    "document": "docs/G05-RECURRING-AUTOMATION.md",
+    "scope": [
+      "opt-in recurring invoice drafts",
+      "opt-in recurring expense drafts",
+      "bank templates and manually reviewed bank drafts",
+      "main-process minute timer and bootstrap catch-up",
+      "20-attempt chronological scans",
+      "durable failure queue and explicit retries"
+    ],
+    "automaticBoundary": "Runs only while desktop is open and current user is authorized. Default disabled; no automatic approval, posting, payment or email.",
+    "build": "TypeScript + Vite renderer + Electron main/preload passed; existing large-chunk advisory",
+    "tests": {
+      "files": 132,
+      "passed": 1688,
+      "failed": 0,
+      "durationSeconds": 198.78,
+      "newBusinessIntegrationCases": 29,
+      "newTimerIpcCases": 4,
+      "newRoleRouteCases": 1
+    },
+    "native": "Disposable htt-g05-native profile: login and recurring route, enabled policies, error/attempt evidence, bank template and DRAFT review controls. Repeated manual scan returned zero new work. Persisted repositories exactly matched seeded snapshot; no duplicate generation, retry or financial posting. UI screenshots inspected. Bank approval/posting and rollback verified by real main-host automated tests.",
+    "pendingLocalWorkPackages": 12,
+    "externalBoundaries": 3
+  },
+  "g06FollowUp": {
+    "date": "2026-10-22",
+    "status": "completed within automatic draft categorisation scope",
+    "databaseSchema": 27,
+    "document": "docs/G06-BANK-RULES.md",
+    "scope": [
+      "compound AND/OR text, payee, amount, direction and date conditions",
+      "bank scope and deterministic numeric priority",
+      "equal-priority conflict blocks classification",
+      "opt-in automatic categorisation of new imports",
+      "reviewed atomic preview/apply and withdrawal",
+      "source and rule revalidation before manual posting",
+      "durable batch and rule-change audit"
+    ],
+    "automaticBoundary": "Classifies unmatched statement lines into saved reviewable account/tax selections. Does not post journals, settle AR/AP, send payments, or clear reconciliations. Same-signed matching bank ledger amounts require human source review.",
+    "build": "Final TypeScript + renderer + Electron main/preload passed; existing large-chunk advisory",
+    "tests": {
+      "files": 134,
+      "passed": 1743,
+      "failed": 0,
+      "durationSeconds": 207.28,
+      "newConditionCases": 25,
+      "newMainHostCases": 29,
+      "newRoleRouteCase": 1,
+      "finalUiRouteRecheckPassed": 129
+    },
+    "native": "Disposable htt-g06-native: compound rule and auto-import receipt, mixed Conflict/Ready preview with reason keeps batch save disabled, workbench loads saved account/110/GST while line remains UNMATCHED. Screenshots inspected; persisted repositories exactly match seed snapshot. No UI posting; write/rollback/restart/backup tested through real main host.",
+    "pendingLocalWorkPackages": 11,
+    "externalBoundaries": 3
+  },
+  "g07FollowUp": {
+    "date": "2026-10-22",
+    "status": "completed within local bank-instruction scope",
+    "databaseSchema": 28,
+    "document": "docs/G07-BANK-INSTRUCTIONS.md",
+    "preferredBank": "CommBank / CommBiz",
+    "scope": [
+      "CBA default and optional NAB self-balanced ABA credits with mandatory contra debit",
+      "approved supplier-batch and posted fully unpaid AU payroll net-wage sources",
+      "versioned payer and beneficiary details and immutable source/file SHA snapshots",
+      "independent approval, explicit export/re-export and void evidence",
+      "operator-verified external reference followed by atomic local payment recording and controlled local reversal",
+      "reservation release for remaining supplier payable, durable retries, privacy and backup validation"
+    ],
+    "boundary": "No bank upload, payment execution or bank certification. Numeric accounts and conservative ASCII only. Partial payroll net payments require allocation review; PAYG and super remain separate.",
+    "tests": {
+      "files": 136,
+      "passed": 1793,
+      "failed": 0,
+      "durationSeconds": 219.29,
+      "newAbaCases": 20,
+      "newMainHostCases": 28,
+      "addedRouteCases": 2,
+      "finalTargetedPassed": 179,
+      "finalTargetedSeconds": 21.3
+    },
+    "build": "Final TypeScript + Vite renderer + Electron main/preload passed; existing large-chunk advisory",
+    "native": "Disposable htt-g07-native: supplier 10 AUD and net wages 900 AUD source/preview, leading-zero bank details and SHA, approved/prepared snapshots and readable history. Creator approval remains disabled after entering reason. No UI payment or posting; persisted repositories and storage exactly equal seed snapshot. Native app closed after inspection.",
+    "pendingLocalWorkPackages": 10,
+    "externalBoundaries": 3
   }
 }

@@ -1,3 +1,4 @@
+import { matchesRule } from '../bank-rules/ruleConditions';
 import {statementCorrectionEvidence} from '../banking/data/statementCorrectionEvidence';
 import {bankJournalPostedAsAt,bankRowClearedBeforeLine} from '../banking/data/reconciliationChainEvidence';
 import { assertCurrentCrossModuleWriteSafe } from '../integration/crossModuleWriteGate';
@@ -23,6 +24,7 @@ export type StatementLine = {
     date: string;
     description: string;
     reference: string;
+    payee?: string;
     amount: number;
     externalId: string;
     status: 'UNMATCHED' | 'MATCHED' | 'POSTED' | 'IGNORED';
@@ -50,7 +52,7 @@ function save(l: StatementLine) { lines = lines.map(r => r.id === l.id ? l : r);
 const ledger = (bankAccountId: string, date: string) => calculateBankRegister(bank(bankAccountId), journalEntryRepository.getAll(), date).transactions;
 function assertCurrentStatementBankDate(l: StatementLine) { if (l.date < bank(l.bankAccountId).openingBalanceDate) throw new Error('Statement predates the current bank opening date.'); }
 function assertPriorCategorisationCorrections(lineId:string){const journals=journalEntryRepository.getAll(),proof=statementCorrectionEvidence(journals);if(journals.some(j=>j.sourceType==='BANK_STATEMENT'&&j.sourceId?.startsWith(lineId+':')&&proof.reviewIds.has(j.id)))throw new Error('Earlier categorisation correction requires reviewed recovery before changing this line again.');}
-const inputRow = z.object({ date: id, description: z.string().trim().min(1).max(1000), amount: z.number().finite().refine(n => n !== 0 && money(n) === n, 'Enter a non-zero amount in cents'), reference: z.string().max(500).default(''), externalId: z.string().max(200).default('') }).strict();
+const inputRow = z.object({ date: id, description: z.string().trim().min(1).max(1000), amount: z.number().finite().refine(n => n !== 0 && money(n) === n, 'Enter a non-zero amount in cents'), reference: z.string().max(500).default(''), externalId: z.string().max(200).default(''), payee:z.string().trim().max(500).optional() }).strict();
 export const bankStatementRepository = {
     importRows(raw: {
         bankAccountId: string;
@@ -59,9 +61,9 @@ export const bankStatementRepository = {
         requireDateKey(r.date, 'Statement date');
         if (r.date < b.openingBalanceDate)
             throw new Error('Statement predates the bank opening date.');
-        const key = JSON.stringify([b.id, r.externalId || [r.date, r.amount, r.description.trim().toLowerCase(), r.reference.trim().toLowerCase()]]), previous = next.find(l => l.key === key);
+        const key = JSON.stringify([b.id, r.externalId || [r.date, r.amount, r.description.trim().toLowerCase(), r.reference.trim().toLowerCase(), ...(r.payee?[r.payee.trim().toLowerCase()]:[])]]), previous = next.find(l => l.key === key);
         if (previous) {
-            if (r.externalId && (previous.amount !== r.amount || previous.date !== r.date || previous.description !== r.description || previous.reference !== r.reference))
+            if (r.externalId && (previous.amount !== r.amount || previous.date !== r.date || previous.description !== r.description || previous.reference !== r.reference || (previous.payee??'') !== (r.payee??'')))
                 throw new Error('Bank transaction ID conflicts with an existing row.');
             duplicates++;
             continue;
@@ -76,7 +78,7 @@ export const bankStatementRepository = {
     importCsv(input: {
         bankAccountId: string;
         csv: string;
-        mapping?: Partial<Record<'date' | 'description' | 'amount' | 'reference' | 'id' | 'debit' | 'credit', string>>;
+        mapping?: Partial<Record<'date' | 'description' | 'amount' | 'reference' | 'id' | 'debit' | 'credit' | 'payee', string>>;
         dateFormat?: 'YYYY-MM-DD' | 'DD/MM/YYYY' | 'MM/DD/YYYY';
     }) {
         if (typeof input.csv !== 'string' || input.csv.length > 10000000)
@@ -86,7 +88,7 @@ export const bankStatementRepository = {
             throw new Error('Import at most 10,000 rows at a time.');
         if (new Set(headers).size !== headers.length)
             throw new Error('CSV contains duplicate headers.');
-        const defaults = { date: 'date', description: 'description', amount: 'amount', reference: 'reference', id: 'id', debit: '', credit: '' }, mapping = { ...defaults, ...input.mapping };
+        const defaults = { date: 'date', description: 'description', amount: 'amount', reference: 'reference', id: 'id', debit: '', credit: '', payee:'' }, mapping = { ...defaults, ...input.mapping };
         for (const key of ['date', 'description'] as const)
             if (!headers.includes(mapping[key].toLowerCase()))
                 throw new Error('Map the date and description columns.');
@@ -117,7 +119,7 @@ export const bankStatementRepository = {
                         throw new Error(`CSV row ${i + 2} must have one positive debit or credit.`);
                     amount = money(credit - debit);
                 }
-                return { date, description: get('description'), amount, reference: get('reference'), externalId: get('id') };
+                return { date, description: get('description'), amount, reference: get('reference'), externalId: get('id'), ...(mapping.payee?{payee:get('payee')}:{}) };
             }) });
     },
     candidates(input: {
@@ -132,7 +134,7 @@ export const bankStatementRepository = {
         throw new Error('Selected bank entries must match this signed statement amount exactly.'); return save({ ...l, status: 'MATCHED', ledgerIds: [...input.ledgerIds], history: [...l.history, { action: 'Matched', date: new Date().toISOString() }] }); },
     suggestions(input: {
         id: string;
-    }) { const l = line(input.id); return (configurationRows['bank-rules'] ?? []).filter(r => r.status === 'Active' && r.enabled !== 'No').filter(r => { const value = (r.field === 'Reference' ? l.reference : r.field === 'Description' ? l.description : '').toLowerCase(), test = r.value.toLowerCase(); return r.operator === 'Equals' ? value === test : r.operator === 'Starts with' ? value.startsWith(test) : value.includes(test); }); },
+    }) { const l = line(input.id); return (configurationRows['bank-rules'] ?? []).filter(r => r.status === 'Active' && r.enabled !== 'No').filter(r => matchesRule(r,l)).sort((a,b)=>Number(a.priority??100)-Number(b.priority??100)||a.id.localeCompare(b.id)); },
     post(input: {
         id: string;
         splits: {
@@ -182,7 +184,7 @@ export const bankStatementRepository = {
         }
         const cleared = processed.flatMap(l => l.ledgerIds); return bankReconciliationRepository.complete({ ...input, clearedTransactionIds: [...new Set([...bankReconciliationRepository.getClearedTransactionIds(input.bankAccountId), ...cleared])] }); }
 };
-const schema = z.object({ id, key: z.string(), bankAccountId: id, date: id, description: z.string(), reference: z.string(), amount: z.number().finite(), externalId: z.string(), status: z.enum(['UNMATCHED', 'MATCHED', 'POSTED', 'IGNORED']), ledgerIds: z.array(id), journalEntryId: z.string().optional(), fingerprint: z.string().optional(), history: z.array(z.object({ action: z.string(), date: z.string(), reason: z.string().optional() })) }).strict();
+const schema = z.object({ id, key: z.string(), bankAccountId: id, date: id, description: z.string(), reference: z.string(), amount: z.number().finite(), externalId: z.string(), payee:z.string().max(500).optional(), status: z.enum(['UNMATCHED', 'MATCHED', 'POSTED', 'IGNORED']), ledgerIds: z.array(id), journalEntryId: z.string().optional(), fingerprint: z.string().optional(), history: z.array(z.object({ action: z.string(), date: z.string(), reason: z.string().optional() })) }).strict();
 registerRepository('bankStatements', { repository: bankStatementRepository, read: 'banking.read', commands: { importRows: 'banking.write', importCsv: 'banking.write', candidates: 'banking.read', suggestions: 'banking.read', match: 'banking.write', post: 'banking.write', ignore: 'banking.write', revert: 'banking.write', reconcile: 'banking.reconcile' }, snapshot: () => ({ lines }), restore: v => { lines = v.lines; }, validate: (value, snapshots) => {
     const parsed = z.object({ lines: z.array(schema) }).strict().parse(value), all = snapshots as Record<string, any>;
     const banks = all.bankAccounts.bankAccounts as { id: string; glAccountId: string }[];
@@ -194,7 +196,7 @@ registerRepository('bankStatements', { repository: bankStatementRepository, read
         const account = banks.find(b => b.id === row.bankAccountId);
         if (!account) throw new Error('Bank statement account is missing.');
         try { requireDateKey(row.date); inputRow.parse({ date: row.date, description: row.description, amount: row.amount, reference: row.reference, externalId: row.externalId }); } catch { throw new Error('Invalid bank statement date, amount or metadata.'); }
-        const expectedKey = JSON.stringify([row.bankAccountId, row.externalId || [row.date, row.amount, row.description.trim().toLowerCase(), row.reference.trim().toLowerCase()]]);
+        const expectedKey = JSON.stringify([row.bankAccountId, row.externalId || [row.date, row.amount, row.description.trim().toLowerCase(), row.reference.trim().toLowerCase(), ...(row.payee?[row.payee.trim().toLowerCase()]:[])]]);
         if (row.key !== expectedKey) throw new Error('Bank statement import identity does not match its data.');
         let status: StatementLine['status'] | undefined;
         for (const event of row.history) {

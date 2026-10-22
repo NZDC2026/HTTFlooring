@@ -1,3 +1,5 @@
+import { PricingTimeFields, defaultPricingTime } from './PricingTimeFields';
+import { resolvePricingInstant } from '../data/pricingInstant';
 import { SalesDeliveryFields } from './SalesDeliveryFields';
 import { AreaPackEntry } from './AreaPackEntry';
 import { areaQuantity } from '../data/areaPacks';
@@ -92,6 +94,7 @@ export function QuoteForm({
     const [documentDate, setDocumentDate] =
         useState(getToday());
 
+    const [pricingAt, setPricingAt] = useState(() => defaultPricingTime(getToday()));
     const [expiryDate, setExpiryDate] =
         useState(
             addDays(
@@ -130,6 +133,7 @@ export function QuoteForm({
                             customerId,
                             documentDate,
                             line,
+                            pricingAt,
                         ),
                     )
                     .filter(
@@ -142,6 +146,7 @@ export function QuoteForm({
                 lines,
                 customerId,
                 documentDate,
+                pricingAt,
             ],
         );
 
@@ -316,6 +321,7 @@ export function QuoteForm({
         value: string,
     ) {
         setDocumentDate(value);
+        setPricingAt(defaultPricingTime(value));
 
         /*
          * Automatic pricing is resolved from
@@ -488,6 +494,7 @@ export function QuoteForm({
                     ...delivery,
 
                     documentDate,
+                    pricingAt,
 
                     expiryDate:
                         expiryDate ||
@@ -562,6 +569,7 @@ export function QuoteForm({
                     </div>
                 )}
 
+                <PricingTimeFields date={documentDate} value={pricingAt} onChange={setPricingAt}/>
                 <SalesDeliveryFields customerId={customerId} {...delivery} onChange={setDelivery} />
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                     <Field
@@ -645,11 +653,7 @@ export function QuoteForm({
                             </h3>
 
                             <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
-                                Prices are
-                                automatically
-                                resolved using the
-                                customer and document
-                                date.
+                                Prices use the customer, document date and selected pricing time.
                             </p>
                         </div>
 
@@ -696,7 +700,7 @@ export function QuoteForm({
 
                             {lines.map(
                                 (line) => (
-                                    <QuoteLineRow
+                                    <QuoteLineRow pricingAt={pricingAt}
                                         key={
                                             line.id
                                         }
@@ -846,6 +850,7 @@ function QuoteLineRow({
     line,
     customerId,
     documentDate,
+    pricingAt,
     onProductChange,
     onUnitChange,
     onAreaChange,
@@ -858,6 +863,7 @@ function QuoteLineRow({
 
     customerId: string;
     documentDate: string;
+    pricingAt: string;
 
     onProductChange: (
         productId: string,
@@ -897,6 +903,7 @@ function QuoteLineRow({
             customerId,
             documentDate,
             line,
+            pricingAt,
         );
 
     const automaticPrice =
@@ -1139,7 +1146,7 @@ function PriceSource({
             : source ===
                 "STANDARD_PRICE"
                 ? "Standard"
-                : "Manual";
+                : source === "PROMOTIONAL_PRICE" ? "Promotion" : "Manual";
 
     return (
         <span
@@ -1164,6 +1171,7 @@ function buildPreviewLine(
     customerId: string,
     documentDate: string,
     line: QuoteLineEditor,
+    pricingAt: string,
 ): PreviewLine | null {
     if (
         !line.productId ||
@@ -1201,6 +1209,7 @@ function buildPreviewLine(
                 product.id,
                 unit.id,
                 documentDate,
+                resolvePricingInstant(documentDate, pricingAt).pricingAt,
             );
 
         const quantityValue =

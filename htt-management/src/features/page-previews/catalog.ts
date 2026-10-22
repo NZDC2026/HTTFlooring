@@ -55,6 +55,7 @@ export const flowPages = [
  ['supplier-refund-detail', '/purchases/refunds/:previewId', 'Supplier refund detail', 'Sales & purchases', 'purchases.read'],
  ['recycle-bin', '/sales/recycle-bin', 'Document recycle bin', 'Sales & purchases', 'inventory.read'],
  ['bank-import', '/banking/import', 'Import bank statement', 'Banking', 'banking.read'],
+ ['bank-instructions', '/banking/instruction-files', 'Bank instruction files', 'Banking', 'banking.read'],
  ['bank-workbench', '/banking/workbench', 'Categorise, match & split', 'Banking', 'banking.read'],
  ['opening-balances', '/accounting/opening-balances', 'Opening balances', 'Accounting', 'accounting.read'],
  ['cash-flow', '/reports/cash-flow', 'Cash flow', 'Reports', 'accounting.read'],

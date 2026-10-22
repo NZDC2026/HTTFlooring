@@ -1,3 +1,4 @@
+import { purgedNumbers } from '../document-recycle/recycleState';
 import type { AccountSystemRole } from '../accounting/types/account';
 export type ConfigRow = {
     id: string;
@@ -44,6 +45,7 @@ export function businessSettings() {
  return {companyName:'ABC Flooring Melbourne',currency:'AUD',timezone:'Pacific/Auckland',yearEnd:'06-30',gstCode:'GST',basis:'Exclusive',terms:'30',quotePrefix:'QU',orderPrefix:'SO',invoicePrefix:'INV',creditPrefix:'CN',purchasePrefix:'PO',billPrefix:'BILL',supplierCreditPrefix:'SC',nextQuote:'1',nextOrder:'1',nextInvoice:'1',nextCredit:'1',nextPurchase:'1',nextBill:'1',nextSupplierCredit:'1',...row};
 }
 export function configuredNumber(kind: string, existing: string[], year: string) {
+ existing = [...existing, ...purgedNumbers()];
  const fields: Record<string,[string,string]> = {QU:['quotePrefix','nextQuote'],SO:['orderPrefix','nextOrder'],INV:['invoicePrefix','nextInvoice'],CN:['creditPrefix','nextCredit'],PO:['purchasePrefix','nextPurchase'],BILL:['billPrefix','nextBill'],SC:['supplierCreditPrefix','nextSupplierCredit']};
  const pair=fields[kind]; if(!pair) { const n=Math.max(0,...existing.map(s=>Number(s.match(/-(\d+)$/)?.[1]??0)))+1;return `${kind}-${year}-${String(n).padStart(4,'0')}`; }
  const settings=businessSettings() as Record<string,string>,prefix=`${settings[pair[0]]}-${year}-`;

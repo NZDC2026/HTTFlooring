@@ -1,12 +1,11 @@
+import { resolvePricingInstant, validatePricingSnapshot } from './pricingInstant';
 import { visibleDocuments } from '../../document-recycle/recycleState';
 import { validateLineItemType } from '../../inventory/data/itemTypes';
 import { validateAreaSnapshot } from './areaPacks';
 import { validateRecipientSnapshot } from './salesRecipients';
 import { salesRecipient } from './salesRecipients';
-import { areaQuantity } from './areaPacks';
 import { assertSourceNotReconciled } from '../../banking/data/reconciliationLock';
-import { assertProductQuantity } from '../../business-workspace/productRules';
-import { activeTaxRate, businessSettings, configuredNumber, taxSnapshot } from '../../business-workspace/configurationState';
+import { businessSettings, configuredNumber } from '../../business-workspace/configurationState';
 import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import { requireDateKey, businessDateKey } from "../../../lib/businessDate";
 import { assertCurrentCrossModuleWriteSafe } from '../../integration/crossModuleWriteGate';
@@ -53,13 +52,8 @@ import {
 
 import {
     calculateDocumentTotals,
-    calculateSalesLine,
 } from "./salesCalculations";
 
-import {
-    getProductById,
-    getProductUnit,
-} from "../../inventory/data/mockProducts";
 
 import { paymentRepository } from "./paymentRepository";
 
@@ -256,6 +250,7 @@ export const salesRepository = {
             );
         }
 
+        const pricingContext = resolvePricingInstant(draft.documentDate, draft.pricingAt);
         const lines =
             draft.lines.map(
                 (line) =>
@@ -266,6 +261,7 @@ export const salesRepository = {
                         documentDate:
                             draft.documentDate,
 
+                        pricingContext,
                         draft: line,
                     }),
             );
@@ -377,107 +373,14 @@ export const salesRepository = {
             );
         }
 
-        const lines:
-            SalesDocumentLine[] =
-            draft.lines.map(
-                (line) => {
-                    if (
-                        line.quantity <= 0
-                    ) {
-                        throw new Error(
-                            "Sales line quantity must be greater than zero",
-                        );
-                    }
-
-                    if (
-                        !Number.isFinite(line.standardUnitPrice) || !Number.isFinite(line.unitPrice) || line.standardUnitPrice <
-                        0 ||
-                        line.unitPrice < 0
-                    ) {
-                        throw new Error(
-                            "Sales prices cannot be negative",
-                        );
-                    }
-
-                    const area = areaQuantity(line.productId,line.unitId,line.quantity,line.requestedArea);
-                    assertProductQuantity(line.productId,line.unitId,area.quantity,'sell');
-                    const taxCode = getProductById(line.productId)?.taxCode ?? businessSettings().gstCode;
-                    const taxRate = activeTaxRate(taxCode);
-                    const calculated =
-                        calculateSalesLine({ taxRate,
-                            quantity:
-                                area.quantity,
-
-                            standardUnitPrice:
-                                line.standardUnitPrice,
-
-                            unitPrice:
-                                line.unitPrice,
-                        });
-
-                    const existingLine =
-                        existing.lines.find(
-                            (item) =>
-                                item.id ===
-                                line.lineId,
-                        );
-
-                    return {
-                        itemType:getProductById(line.productId)?.itemType??"STOCK",
-                        ...area,
-                        id:
-                            existingLine
-                                ?.id ??
-                            createId(
-                                "line",
-                            ),
-
-                        productId:
-                            line.productId,
-
-                        unitId:
-                            line.unitId,
-
-                        sku:
-                            getLineSnapshot(
-                                line.productId,
-                                line.unitId,
-                            ).sku,
-
-                        description:
-                            getLineSnapshot(
-                                line.productId,
-                                line.unitId,
-                            )
-                                .description,
-
-                        unitSymbol:
-                            getLineSnapshot(
-                                line.productId,
-                                line.unitId,
-                            )
-                                .unitSymbol,
-
-                        quantity:
-                            area.quantity,
-
-                        standardUnitPrice:
-                            line.standardUnitPrice,
-
-                        unitPrice:
-                            line.unitPrice,
-
-                        priceSource:
-                            line.priceSource,
-
-                        customerPriceId:
-                            line.customerPriceId,
-
-                        ...taxSnapshot(taxCode),
-                        ...calculated,
-                    };
-                },
-            );
+        const prior = existing.lines.find(l => l.pricingAt);
+        const pricingContext = resolvePricingInstant(draft.documentDate, draft.pricingAt ?? (draft.documentDate === existing.documentDate ? prior?.pricingAt : undefined), draft.documentDate === existing.documentDate && (!draft.pricingAt || draft.pricingAt === prior?.pricingAt) ? prior?.pricingTimezone : undefined);
+        const lines: SalesDocumentLine[] = draft.lines.map(line => {
+            const built = buildSalesLine({ customerId: existing.customerId, documentDate: draft.documentDate, pricingContext,
+                draft: { productId: line.productId, unitId: line.unitId, quantity: line.quantity, requestedArea: line.requestedArea,
+                    unitPrice: line.priceSource === 'MANUAL' ? line.unitPrice : undefined, priceBasis: 'Exclusive' } });
+            return { ...built, id: existing.lines.find(l => l.id === line.lineId)?.id ?? built.id };
+        });
 
         const updated: Quote = {
             ...existing,
@@ -2282,45 +2185,6 @@ function addDays(
     return `${resultYear}-${resultMonth}-${resultDay}`;
 }
 
-function getLineSnapshot(
-    productId: string,
-    unitId: string,
-) {
-    const product =
-        getProductById(
-            productId,
-        );
-
-    if (!product) {
-        throw new Error(
-            `Product ${productId} was not found`,
-        );
-    }
-
-    const unit =
-        getProductUnit(
-            productId,
-            unitId,
-        );
-
-    if (!unit) {
-        throw new Error(
-            `Unit ${unitId} was not found for ${product.name}`,
-        );
-    }
-
-    return {
-        sku:
-            product.sku,
-
-        description:
-            product.name,
-
-        unitSymbol:
-            unit.symbol,
-    };
-}
-
 function roundCurrency(
     value: number,
 ) {
@@ -2375,10 +2239,20 @@ registerRepository("sales", {
         const saved=value as {quotes:Quote[];salesOrders:SalesOrder[];invoices:Invoice[]};
         for (const d of [...saved.quotes,...saved.salesOrders,...saved.invoices]) {
             validateRecipientSnapshot(d.recipient);
-            for (const l of d.lines) {validateAreaSnapshot(l);validateLineItemType(l,(snapshots.products as {products:import("../../inventory/types/product").Product[]}).products.find(p=>p.id===l.productId));}
+            for (const l of d.lines) {validateAreaSnapshot(l); validatePricingSnapshot(l);validateLineItemType(l,(snapshots.products as {products:import("../../inventory/types/product").Product[]}).products.find(p=>p.id===l.productId));}
         }
     },
     snapshot: () => ({ quotes, salesOrders, invoices }),
     restore: value => { quotes = value.quotes; salesOrders = value.salesOrders; invoices = value.invoices; snapshot = buildSnapshot(); },
     publish: () => listeners.forEach(listener => listener()),
 });
+
+/** Main-owned reviewed recovery only; original lines, dates and GL remain untouched. */
+export function applyReviewedInvoiceSummary(id:string, summary:Pick<Invoice,'amountPaid'|'amountDue'|'status'>):void {
+    commitInvoices(invoices.map(i=>i.id===id?{...i,...summary}:i));
+}
+
+export function purgeQuoteRecords(ids: Set<string>) {
+ if(quotes.some(r=>ids.has(r.id)&&r.status!=='DRAFT')) throw new Error('Only draft quotes may be purged.');
+ commitQuotes(quotes.filter(r=>!ids.has(r.id)));
+}

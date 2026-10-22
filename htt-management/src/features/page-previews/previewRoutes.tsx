@@ -1,3 +1,5 @@
+import { BankInstructionPage } from '../bank-instructions/BankInstructionPage';
+import { BankRulesPage } from '../bank-rules/BankRulesPage';
 import { SupplierPrepaymentsPage } from '../supplier-prepayments/SupplierPrepaymentsPage';
 import { PrepaymentReconciliationPage } from '../supplier-prepayments/PrepaymentReconciliationPage';
 import { DepositReconciliationPage } from '../customer-deposits/DepositReconciliationPage';
@@ -46,6 +48,7 @@ function ModuleRoute({ moduleId, mode }: { moduleId: string; mode: 'list' | 'new
  if(m.id==='jobs')return <PreviewAccess permission={m.permission}><JobCostingPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='draft-review')return <PreviewAccess permission={m.permission}><ContactReviewPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='visits')return <PreviewAccess permission={m.permission}><VisitsPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
+ if(m.id==='bank-rules')return <PreviewAccess permission={m.permission}><BankRulesPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='recurring')return <PreviewAccess permission={m.permission}><RecurringPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='custom-reports')return <PreviewAccess permission={m.permission}><SavedReportsPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='report-packs')return <PreviewAccess permission={m.permission}><ReportPacksPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
@@ -58,7 +61,8 @@ function FlowRoute({ id }: { id: string }) {
  const { previewId } = useParams();
  const flow = flowPages.find(f => f[0] === id)!;
  let node: ReactNode;
- if(id==='bank-import'||id==='bank-workbench') node=<BankClosurePage key={id} importOnly={id==='bank-import'}/>;
+ if(id==='bank-instructions') node=<BankInstructionPage/>;
+ else if(id==='bank-import'||id==='bank-workbench') node=<BankClosurePage key={id} importOnly={id==='bank-import'}/>;
  else if(id.startsWith('receipt')||id.startsWith('customer-refund')||id.startsWith('supplier-refund'))node=<SettlementPage key={id+previewId} kind={id.startsWith('receipt')?'receipt':id.startsWith('customer')?'customer-refund':'supplier-refund'} mode={id.endsWith('-new')?'new':id.endsWith('-detail')?'detail':'list'} id={previewId}/>;
  else if (id==='cash-flow'||id==='banking-report') node=<CashReportsPage key={id} banking={id==='banking-report'}/>;
  else if (['sales-report','purchases-report'].includes(id)) node = <NetAnalysisPage key={id} purchases={id==='purchases-report'}/>;

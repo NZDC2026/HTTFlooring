@@ -1326,3 +1326,8 @@ registerRepository("supplierCredits", {
     restore: value => { supplierCredits = value.supplierCredits; allocations = value.allocations; supplierCreditSnapshot = [...supplierCredits]; allocationSnapshot = [...allocations]; },
     publish: () => listeners.forEach(listener => listener()),
 });
+
+/** Internal recovery writer; preserves allocations, refunds, dates and journal evidence. */
+export function applyReviewedSupplierCreditSummary(id:string, summary:Pick<SupplierCredit,'amountApplied'|'amountAvailable'|'status'>):void {
+    supplierCredits=supplierCredits.map(c=>c.id===id?{...c,...summary}:c);emitChange();
+}

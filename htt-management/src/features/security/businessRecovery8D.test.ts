@@ -33,7 +33,7 @@ async function restart() {
 describe('8D versioned business snapshots and recovery', () => {
     it('saves checksummed v2 snapshots and rejects accidental byte changes on restart', async () => {
         const file = join(root, 'business.json'); const saved = JSON.parse(readFileSync(file, 'utf8'));
-        expect(saved.schemaVersion).toBe(23); expect(saved.checksum).toMatch(/^[a-f0-9]{64}$/);
+        expect(saved.schemaVersion).toBe(28); expect(saved.checksum).toMatch(/^[a-f0-9]{64}$/);
         saved.repositories.accounts.accounts[0].name = 'damaged'; writeFileSync(file, JSON.stringify(saved));
         await expect(restart()).rejects.toThrow(/checksum/);
         expect(() => command('accounts', 'create', accountInput())).toThrow(/blocked/);

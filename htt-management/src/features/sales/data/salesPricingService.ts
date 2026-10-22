@@ -1,3 +1,4 @@
+import { resolvePricingInstant, type PricingInstant } from './pricingInstant';
 import { areaQuantity } from './areaPacks';
 import { assertProductQuantity } from '../../business-workspace/productRules';
 import { activeTaxRate, businessSettings, taxSnapshot, exclusivePrice } from '../../business-workspace/configurationState';
@@ -19,10 +20,14 @@ export function buildSalesLine({
     customerId,
     documentDate,
     draft,
+    pricingAt,
+    pricingContext,
 }: {
     customerId: string;
     documentDate: string;
     draft: SalesLineDraft;
+    pricingAt?: string;
+    pricingContext?: PricingInstant;
 }): SalesDocumentLine {
     if (draft.quantity <= 0) {
         throw new Error(
@@ -61,12 +66,14 @@ export function buildSalesLine({
         );
     }
 
+    const context = pricingContext ?? resolvePricingInstant(documentDate, pricingAt);
     const resolvedPrice =
         customerPricingRepository.resolvePrice(
             customerId,
             draft.productId,
             draft.unitId,
             documentDate,
+            context.pricingAt,
         );
 
     const hasManualPrice =
@@ -103,6 +110,7 @@ export function buildSalesLine({
 
     return {
         id: createId("line"),
+        ...context,
         itemType: product.itemType??"STOCK",
         ...area,
         ...taxSnapshot(taxCode), priceBasis:hasManualPrice?(draft.priceBasis??businessSettings().basis) as 'Inclusive'|'Exclusive':'Exclusive',grossUnitPrice:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?inputPrice:undefined, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,

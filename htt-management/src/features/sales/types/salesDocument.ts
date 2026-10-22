@@ -52,6 +52,8 @@ export interface SalesRecipientSnapshot {
     accountingEmail?: string;
 }
 export interface SalesDocumentLine {
+    pricingAt?: string;
+    pricingTimezone?: string;
     itemType?: Product["itemType"];
     requestedArea?: number;
     areaPerPack?: number;
@@ -211,6 +213,7 @@ export interface SalesLineDraft {
 }
 
 export interface SalesDocumentDraft {
+    pricingAt?: string;
     locationId?: string;
     accountingContactId?: string;
     customerId: string;
@@ -241,6 +244,7 @@ export interface QuoteLineUpdateDraft {
 }
 
 export interface QuoteUpdateDraft {
+    pricingAt?: string;
     locationId?: string;
     accountingContactId?: string;
     documentDate: string;

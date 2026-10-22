@@ -1,6 +1,6 @@
 # Local recurring invoice and expense drafts — 2026-10-18
 
-Recurring transactions now generate actual managed invoice or expense entry drafts from copied local templates. No background scheduler, bank-transaction template, automatic approval, posting, payment, email or independent backend is added.
+Recurring transactions now generate actual managed invoice or expense entry drafts from copied local templates. G05 subsequently adds opt-in desktop due scans, ordered catch-up, an error/retry queue and bank-transaction templates; automatic approval, posting, payment, email and an independent backend remain outside automation. See [G05 current behavior](G05-RECURRING-AUTOMATION.md).
 
 ## Workflow and calculation
 
@@ -23,3 +23,7 @@ Schema 10 adds the two recurring registers. Older supported profiles/backups mig
 19 new automated cases cover monthly/leap-year/DST dates, inclusive ends, future and out-of-order protection, copied prices, current tax, idempotent creation/generation, pause/resume, revisions, permissions/redaction, failed-master-data retry, post-creation rollback, cancelled generated drafts, schema 9 migration, backup validation, audit, restart and reviewable draft integration.
 
 Native Electron acceptance used a synthetic profile: Pause disabled generation, Resume restored it; generating the 2026-10-01 occurrence advanced next date to 2026-11-01, disabled future generation and created a DRAFT invoice for AUD 220.00 due 2026-10-02, reachable from run history. It was not posted.
+
+## G05 update — 2026-10-22
+
+Schema 26 adds role-scoped opt-in local due scanning for invoices, expenses and bank entry drafts while the desktop is running and an authorized user is signed in. It catches up original occurrence dates in order, up to 20 attempts per scan, with durable failures and explicit retries. Bank drafts require separate manual review/approval/posting through existing ledger rules. The original single-occurrence workflow and copied invoice/expense templates remain. Current scope and verification: [G05](G05-RECURRING-AUTOMATION.md).

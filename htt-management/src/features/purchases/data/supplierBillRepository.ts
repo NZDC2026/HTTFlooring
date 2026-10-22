@@ -1003,3 +1003,10 @@ registerRepository("supplierBills", {
     restore: value => { supplierBills = value.supplierBills;  },
     publish: () => listeners.forEach(listener => listener()),
 });
+
+/** Internal recovery writer; never invokes payment/posting steps. */
+export function applyReviewedBillSummary(id:string, summary:Pick<SupplierBillTotalsForRepair,'amountPaid'|'amountCredited'|'amountDue'> & {status:SupplierBill['status']}):void {
+    const {status,...totals}=summary;
+    supplierBills=supplierBills.map(b=>b.id===id?{...b,status,totals:{...b.totals,...totals}}:b);emitChange();
+}
+type SupplierBillTotalsForRepair=SupplierBill['totals'];

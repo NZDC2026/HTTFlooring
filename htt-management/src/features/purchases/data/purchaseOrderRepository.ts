@@ -1226,3 +1226,8 @@ registerRepository("purchaseOrders", {
     restore: value => { purchaseOrders = value.purchaseOrders;  },
     publish: () => listeners.forEach(listener => listener()),
 });
+
+export function purgePurchaseOrderRecords(ids: Set<string>) {
+ if(purchaseOrders.some(r=>ids.has(r.id)&&r.status!=='DRAFT')) throw new Error('Only draft purchase orders may be purged.');
+ purchaseOrders=purchaseOrders.filter(r=>!ids.has(r.id)); emitChange();
+}

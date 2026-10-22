@@ -29,7 +29,7 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
                 case 'users.update': value = security.updateUser(input as { id: string; roles: Role[]; active: boolean }); break;
                 case 'password.change': value = security.changePassword(input as { currentPassword: string; password: string }); break;
                 case 'audit.list': value = security.listAudit(input); break;
-                case 'business.bootstrap': await business.initialize(input.legacyStorage); value = business.view(); break;
+                case 'business.bootstrap': await business.initialize(input.legacyStorage); business.scanRecurringDue(); value = business.view(); break;
                 case 'business.backup.save': {
                     security.require('users.manage');
                     const choice = await dialog.showSaveDialog(owner, { title: 'Save business backup', defaultPath: `HTT-Business-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: 'HTT business backup', extensions: ['json'] }] });
@@ -71,6 +71,11 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
                     try{const current=business.command({repository:'attachments',method:'read',args:[input]}).result as Parameters<typeof attachmentBytes>[0];atomicAttachmentExport(join(realpathSync(dirname(choice.filePath)),basename(choice.filePath)),attachmentBytes(current));}catch(error){security.audit('attachments.export',String(input.id)+'/'+String(input.versionId),'FAILED','inventory.read');throw error;}
                     security.audit('attachments.export',String(input.id)+'/'+String(input.versionId),'SUCCESS','inventory.read');value={saved:true};break;
                 }
+                case 'business.recurring.scan': {
+                    security.require('inventory.read');
+                    if(Object.keys(input).length) throw new Error('Recurring scan does not accept caller dates, actors or limits.');
+                    const result=business.scanRecurringDue(); value={result,view:business.view()}; break;
+                }
                 case 'business.command': value = business.command(input as { repository: string; method: string; args: unknown[] }); break;
                 default: throw new Error('Unknown desktop security action.');
             }
@@ -78,6 +83,15 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
         } catch (error) { event.returnValue = { ok: false, error: error instanceof Error ? error.message : 'Desktop operation failed.' }; }
         finally { busy = false; }
     });
+    let timerStopped=false;
+    const recurringTimer=setInterval(()=>{
+        if(busy||timerStopped) return;
+        busy=true;
+        try { business.scanRecurringDue(); }
+        catch(error) { timerStopped=true; console.error('Local recurring scan stopped:',error instanceof Error?error.message:'Restart and inspect business data.'); }
+        finally { busy=false; }
+    },60_000);
+    recurringTimer.unref();
     // A reload or renderer crash drops the authenticated session. No bearer token is stored in the UI.
-    return { lock: () => { try { if (security.principal()) security.logout(); } catch { /* Storage failure already invalidates the session and blocks writes. */ } } };
+    return { dispose:()=>clearInterval(recurringTimer), lock: () => { try { if (security.principal()) security.logout(); } catch { /* Storage failure already invalidates the session and blocks writes. */ } } };
 }

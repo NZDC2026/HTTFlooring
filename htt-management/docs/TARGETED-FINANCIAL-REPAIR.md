@@ -1,4 +1,8 @@
-# Targeted bank exception repair
+# Targeted financial exception repair
+
+G03 adds reviewed compound source metadata repair beyond bank exceptions: Sales/AP/credit summary correction, uniquely proven missing Sales result bindings and completed supplier-bill posting metadata. It uses independent approval, stale-evidence rejection, full rollback/restart proof and retained proposal history under schema 24. See [G03 source repair](G03-SOURCE-REPAIR.md) for exact eligibility, desktop acceptance and deliberate blockers. The bank procedures below remain available; they do not authorize arbitrary source reconstruction.
+
+## Existing bank procedures
 
 The financial recovery workbench now includes an executable main-process repair preview, durable proposal, independent approval, execution and post-repair verification. This phase supports BANK_TRANSACTION and BANK_TRANSFER under existing accounting.recover authority. No independent backend, payment service or broad system-journal edit command is added.
 

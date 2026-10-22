@@ -1,3 +1,4 @@
+import { parseRuleConditions } from '../bank-rules/ruleConditions';
 import { runSavedReport } from '../saved-reports/savedReportCommand';
 import { parseSavedReportConfiguration } from '../saved-reports/savedReportService';
 import { generateSavedReportPack } from '../report-packs/reportPackCommand';
@@ -26,7 +27,7 @@ export const workspaceDomains: Record<string, {
     promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
     jobs: { read: 'accounting.read', write: 'accounting.post', required: ['code', 'customerId', 'starts', 'ends', 'budget', 'costBudget'], fields: ['code', 'customerId', 'owner', 'starts', 'ends', 'budget', 'costBudget'] },
     tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'completedAt', 'completedBy'] },
-    'bank-rules': { read: 'banking.read', write: 'banking.write', required: ['field', 'operator', 'value', 'accountId', 'taxCode'], fields: ['field', 'operator', 'value', 'accountId', 'taxCode', 'enabled'] },
+    'bank-rules': { read: 'banking.read', write: 'banking.write', required: ['field', 'operator', 'value', 'accountId', 'taxCode'], fields: ['field', 'operator', 'value', 'accountId', 'taxCode', 'enabled', 'conditions', 'match', 'priority', 'automatic', 'bankAccountId'] },
     templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
     'report-packs': { read: 'accounting.read', write: 'accounting.post', required: ['periodStart', 'periodEnd', 'reports'], fields: ['periodStart', 'periodEnd', 'reports', 'cover', 'introduction'] },
@@ -68,7 +69,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             const prior=rows.find(r=>r.id===input.id),snap=snapshotRepositories() as Record<string,any>;
             const defaultCode=configurationRows.settings?.find(r=>r.section==='business'&&r.status==='Active')?.gstCode??'GST';
             if(input.status==='Inactive'&&input.code===defaultCode)throw new Error('The default tax code must remain active. Change the business default first.');
-            if(prior&&prior.code!==input.code&&(prior.code===defaultCode||snap.products.products.some((p:any)=>(p.taxCode??'GST')===prior.code)||(configurationRows['bank-rules']??[]).some(r=>r.taxCode===prior.code)))throw new Error('A referenced tax code cannot be renamed. Create a new code and update future-use references.');
+            if(prior&&prior.code!==input.code&&(prior.code===defaultCode||snap.products.products.some((p:any)=>(p.taxCode??'GST')===prior.code)||(configurationRows['bank-rules']??[]).some(r=>r.taxCode===prior.code)||((snap.bankRuleApplications as {receipts:{decision:{taxCode:string}}[]}|undefined)?.receipts??[]).some(r=>r.decision.taxCode===prior.code)))throw new Error('A referenced tax code cannot be renamed. Create a new code and update future-use references.');
         }
         if (Number(input.rate) > 100)
             throw new Error('Tax rate cannot exceed 100%.');
@@ -137,8 +138,8 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
     if (domain === 'bank-rules') {
         if (checkReferences)
             account(input.accountId);
-        if (!['Description', 'Payee', 'Reference'].includes(input.field) || !['Contains', 'Equals', 'Starts with'].includes(input.operator))
-            throw new Error('Invalid bank condition.');
+        parseRuleConditions(input);
+        if(checkReferences&&input.bankAccountId&&input.bankAccountId!=='ALL'&&!(snapshotRepositories().bankAccounts as {bankAccounts:{id:string}[]}).bankAccounts.some(b=>b.id===input.bankAccountId))throw new Error('Bank rule scope account was not found.');
         if (checkReferences && !configurationRows['tax-codes'].some(r => r.status === 'Active' && r.code === input.taxCode))
             throw new Error('Active tax code not found.');
     }
@@ -247,6 +248,7 @@ function validateConfigurationReferences(domain: string, value: unknown, snapsho
             throw new Error('Backup tax account reference is invalid.');
         if (['bank-rules', 'linked-accounts'].includes(domain) && !accounts.some(a => a.id === row.accountId))
             throw new Error('Backup linked account reference is invalid.');
+        if(domain==='bank-rules'&&row.bankAccountId&&row.bankAccountId!=='ALL'&&!(snapshots.bankAccounts as {bankAccounts:{id:string}[]}).bankAccounts.some(b=>b.id===row.bankAccountId))throw new Error('Backup bank-rule scope reference is invalid.');
         if (domain === 'bank-rules' && !taxes.some(t => t.code === row.taxCode))
             throw new Error('Backup bank-rule tax reference is invalid.');
     }
