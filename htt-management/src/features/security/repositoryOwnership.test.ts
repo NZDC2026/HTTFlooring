@@ -1,0 +1,11 @@
+import {afterEach,it,expect,vi} from 'vitest';
+afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();vi.restoreAllMocks();});
+it('retains the main implementation when production registration precedes main-host initialization',async()=>{
+ vi.resetModules();vi.stubEnv('MODE','production');vi.stubGlobal('__HTT_MAIN_HOST__',false);vi.stubGlobal('window',undefined);const {registerRepository}=await import('./repositoryHost');const implementation=vi.fn((amount:number)=>amount+1),repository={post:implementation};registerRepository('early-owned',{repository,read:'accounting.read',commands:{post:'accounting.post'},snapshot:()=>({rows:[]}),restore:()=>{},publish:()=>{}});vi.stubGlobal('__HTT_MAIN_HOST__',true);expect(repository.post(41)).toBe(42);expect(implementation).toHaveBeenCalledWith(41);
+});
+it('continues to proxy production renderer commands to the authoritative main process',async()=>{
+ vi.resetModules();vi.stubEnv('MODE','production');vi.stubGlobal('__HTT_MAIN_HOST__',false);const request=vi.fn(()=>({ok:true,value:{result:42,view:{repositories:{},storage:{}}}}));vi.stubGlobal('window',{securityBridge:{request},localStorage:{}});const {registerRepository}=await import('./repositoryHost'),implementation=vi.fn(()=>99),repository={post:implementation};registerRepository('renderer-owned',{repository,read:'accounting.read',commands:{post:'accounting.post'},snapshot:()=>({rows:[]}),restore:()=>{},publish:()=>{}});expect(repository.post()).toBe(42);expect(implementation).not.toHaveBeenCalled();expect(request).toHaveBeenCalledWith('business.command',{repository:'renderer-owned',method:'post',args:[]});
+});
+it('never falls back to a local mutation in an unconnected production renderer',async()=>{
+ vi.resetModules();vi.stubEnv('MODE','production');vi.stubGlobal('__HTT_MAIN_HOST__',false);vi.stubGlobal('window',undefined);const {registerRepository}=await import('./repositoryHost'),implementation=vi.fn(),repository={post:implementation};registerRepository('unconnected',{repository,read:'accounting.read',commands:{post:'accounting.post'},snapshot:()=>({rows:[]}),restore:()=>{},publish:()=>{}});expect(()=>repository.post()).toThrow(/secure Electron/);expect(implementation).not.toHaveBeenCalled();
+});

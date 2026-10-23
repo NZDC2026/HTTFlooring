@@ -69,6 +69,7 @@ export function calculateProfitAndLoss(
     const periodEntries =
         journalEntries.filter(
             (entry) =>
+                entry.sourceType !== "YEAR_END_CLOSE" &&
                 entry.journalDate >=
                 fromDate &&
                 entry.journalDate <=

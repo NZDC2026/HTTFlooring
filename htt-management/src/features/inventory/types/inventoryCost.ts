@@ -1,5 +1,5 @@
 export type InventoryCostingMethod =
-    "MOVING_WEIGHTED_AVERAGE";
+    "MOVING_WEIGHTED_AVERAGE" | "FIFO";
 
 export interface InventoryCostBalance {
     siteId: string;
@@ -45,6 +45,9 @@ export type InventoryCostMovementType =
     | "TRANSFER_OUT";
 
 export interface InventoryCostMovement {
+    costingMethod?: InventoryCostingMethod;
+    /** Explicit layer removal for voiding an unused physical customer return. */
+    fifoReturnLayerId?: string;
     id: string;
 
     costMovementNumber: string;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/customer_return.dart';
+import '../../../widgets/handover_fields.dart';
 import '../../../services/customer_return_service.dart';
 import '../../../theme/app_theme.dart';
 import 'create_customer_return_screen.dart';
@@ -128,6 +129,33 @@ class _CustomerReturnsScreenState extends State<CustomerReturnsScreen> {
                     item.customerName,
                     style: const TextStyle(color: AppColors.text),
                   ),
+                  if (item.handoverProof != null)
+                    TextButton.icon(
+                      icon: const Icon(Icons.draw_outlined),
+                      label: Text('Signed by ${item.handoverProof!.name}'),
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text(item.referenceNumber),
+                          content: SizedBox(
+                            width: 420,
+                            child: SingleChildScrollView(
+                              child: HandoverFields(
+                                nameLabel: 'Returner Name',
+                                signatureLabel: 'Returner Signature',
+                                proof: item.handoverProof,
+                              ),
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 5),
                   Text(
                     '${item.items.length} item(s) · ${item.totalQuantity} unit(s)',

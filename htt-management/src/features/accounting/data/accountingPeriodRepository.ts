@@ -5,6 +5,14 @@ export type PeriodCheck = { code: string; message: string; path?: string };
 export type AccountingPeriod = { id: string; name: string; startDate: string; endDate: string; status: 'OPEN' | 'CLOSED'; history: { action: 'CREATE' | 'CLOSE' | 'REOPEN'; actor: string; reason: string; at: string; checks?: { journalCount: number; debit: number; credit: number } }[] };
 export type CloseCheck = { blockers: PeriodCheck[]; journalCount: number; debit: number; credit: number };
 let periods: AccountingPeriod[] = [];
+let yearEndLock:()=>string|undefined=()=>undefined;
+let yearEndPostingDate:string|undefined;
+export function configureYearEndLock(value:()=>string|undefined){yearEndLock=value;}
+/** Main-owned synchronous year-end journal only. Never registered as an IPC command. */
+export function withYearEndPosting<T>(date:string,work:()=>T):T{
+ if((globalThis as Record<string,unknown>).__HTT_MAIN_HOST__!==true||yearEndPostingDate)throw new Error('Trusted year-end posting required.');
+ requireDateKey(date);yearEndPostingDate=date;try{return work();}finally{yearEndPostingDate=undefined;}
+}
 let inspect: ((period: AccountingPeriod) => CloseCheck) | undefined;
 let actor: (() => string) | undefined;
 const listeners = new Set<() => void>();
@@ -15,6 +23,8 @@ function find(id: string) { const period = periods.find(p => p.id === id); if (!
 function publish() { listeners.forEach(fn => fn()); }
 export function assertPostingPeriod(date: string): void {
     requireDateKey(date, 'Posting date');
+    if(yearEndPostingDate===date)return;
+    const yearThrough=yearEndLock();if(yearThrough&&date<=yearThrough)throw new Error(`Financial year is closed through ${yearThrough}. Reopen the year-end first.`);
     if (!periods.length) return; // Compatibility before an administrator configures periods.
     const closedThrough = periods.filter(p => p.status === 'CLOSED').map(p => p.endDate).sort().at(-1);
     if (closedThrough && date <= closedThrough) throw new Error(`Accounting period is closed through ${closedThrough}. Reopen it before posting.`);
@@ -46,6 +56,7 @@ export const accountingPeriodRepository = {
     },
     reopen(input: { id: string; reason: string }) {
         const user = identity(), reason = reasonText(input.reason), period = find(input.id);
+        const yearThrough=yearEndLock();if(yearThrough&&period.startDate<=yearThrough)throw new Error('Reopen the financial year-end before reopening its periods.');
         if (period.status !== 'CLOSED') throw new Error('Period is already open.');
         if (periods.some(p => p.startDate > period.startDate && p.status === 'CLOSED')) throw new Error('Reopen later closed periods first.');
         periods = periods.map(p => p.id === period.id ? { ...p, status: 'OPEN', history: [...p.history, { action: 'REOPEN', actor: user, reason, at: new Date().toISOString() }] } : p); publish(); return find(input.id);

@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/handover_proof.dart';
 
 import '../models/warehouse_order.dart';
 import '../models/warehouse_order_item.dart';
@@ -86,6 +91,30 @@ class WarehouseOrderService extends ChangeNotifier {
         ],
       ),
     ]);
+  }
+
+  late SharedPreferences _storage;
+  Future<void> load() async {
+    _storage = await SharedPreferences.getInstance();
+    final raw = _storage.getString('warehouse_orders_v1');
+    if (raw != null) {
+      final restored = (jsonDecode(raw) as List)
+          .map(
+            (v) => WarehouseOrder.fromJson(Map<String, dynamic>.from(v as Map)),
+          )
+          .toList();
+      _orders
+        ..clear()
+        ..addAll(restored);
+    }
+  }
+
+  Future<void> _save() async {
+    final saved = await _storage.setString(
+      'warehouse_orders_v1',
+      jsonEncode(_orders.map((v) => v.toJson()).toList()),
+    );
+    if (!saved) throw StateError('Could not save warehouse records.');
   }
 
   final List<WarehouseOrder> _orders = [];
@@ -189,18 +218,29 @@ class WarehouseOrderService extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool confirmPickupOrTransport(String orderId, String collectedBy) {
+  Future<bool> confirmPickupOrTransport(
+    String orderId,
+    HandoverProof proof,
+  ) async {
     final order = findOrder(orderId);
-    final name = collectedBy.trim();
+    final name = proof.name;
     if (order == null ||
         order.status != WarehouseOrderStatus.prepared ||
         name.isEmpty) {
       return false;
     }
 
+    final previous = WarehouseOrder.fromJson(order.toJson());
+    order.handoverProof = proof;
     order.collectedBy = name;
     order.pickupConfirmedAt = DateTime.now();
     order.status = WarehouseOrderStatus.readyForDispatch;
+    try {
+      await _save();
+    } catch (_) {
+      _orders[_orders.indexOf(order)] = previous;
+      rethrow;
+    }
     notifyListeners();
     return true;
   }
@@ -235,17 +275,25 @@ class WarehouseOrderService extends ChangeNotifier {
     order.dispatchNotes = notes.trim();
   }
 
-  bool markCompleted(String orderId, {String notes = ''}) {
+  Future<bool> markCompleted(String orderId, {String notes = ''}) async {
     final order = findOrder(orderId);
     if (order == null ||
         order.status != WarehouseOrderStatus.readyForDispatch ||
+        order.handoverProof == null ||
         !order.hasMinimumDispatchPhotos) {
       return false;
     }
 
+    final previous = WarehouseOrder.fromJson(order.toJson());
     order.dispatchNotes = notes.trim();
     order.completedAt = DateTime.now();
     order.status = WarehouseOrderStatus.completed;
+    try {
+      await _save();
+    } catch (_) {
+      _orders[_orders.indexOf(order)] = previous;
+      rethrow;
+    }
     notifyListeners();
     return true;
   }

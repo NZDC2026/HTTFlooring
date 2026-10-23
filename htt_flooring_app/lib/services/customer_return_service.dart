@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/handover_proof.dart';
 
 import '../models/customer_return.dart';
 import '../models/customer_return_item.dart';
@@ -7,6 +12,30 @@ class CustomerReturnService extends ChangeNotifier {
   CustomerReturnService._();
 
   static final CustomerReturnService instance = CustomerReturnService._();
+
+  late SharedPreferences _storage;
+  Future<void> load() async {
+    _storage = await SharedPreferences.getInstance();
+    final raw = _storage.getString('customer_returns_v1');
+    if (raw != null) {
+      final restored = (jsonDecode(raw) as List)
+          .map(
+            (v) => CustomerReturn.fromJson(Map<String, dynamic>.from(v as Map)),
+          )
+          .toList();
+      _returns
+        ..clear()
+        ..addAll(restored);
+    }
+  }
+
+  Future<void> _save() async {
+    final saved = await _storage.setString(
+      'customer_returns_v1',
+      jsonEncode(_returns.map((v) => v.toJson()).toList()),
+    );
+    if (!saved) throw StateError('Could not save warehouse records.');
+  }
 
   final List<CustomerReturn> _returns = [];
 
@@ -20,11 +49,12 @@ class CustomerReturnService extends ChangeNotifier {
       .where((item) => item.status == CustomerReturnStatus.processed)
       .toList(growable: false);
 
-  CustomerReturn submit({
+  Future<CustomerReturn> submit({
+    required HandoverProof handoverProof,
     required String customerId,
     required String customerName,
     required List<CustomerReturnItem> items,
-  }) {
+  }) async {
     if (items.isEmpty) {
       throw ArgumentError('At least one return item is required.');
     }
@@ -40,6 +70,7 @@ class CustomerReturnService extends ChangeNotifier {
     final now = DateTime.now();
     final sequence = (_returns.length + 1).toString().padLeft(4, '0');
     final result = CustomerReturn(
+      handoverProof: handoverProof,
       id: 'return-${now.microsecondsSinceEpoch}',
       customerId: customerId,
       customerName: customerName,
@@ -49,6 +80,12 @@ class CustomerReturnService extends ChangeNotifier {
       items: List.unmodifiable(items),
     );
     _returns.insert(0, result);
+    try {
+      await _save();
+    } catch (_) {
+      _returns.remove(result);
+      rethrow;
+    }
     notifyListeners();
     return result;
   }

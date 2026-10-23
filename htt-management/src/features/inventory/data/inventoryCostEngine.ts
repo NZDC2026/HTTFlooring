@@ -1,3 +1,4 @@
+import {fifoLayers,consumeFifo} from './fifo';
 import { isStockProduct } from './itemTypes';
 import {
     getProductById,
@@ -180,8 +181,7 @@ function requireCostingContext(
     }
 
     if (
-        policy.costingMethod !==
-        "MOVING_WEIGHTED_AVERAGE"
+        !["MOVING_WEIGHTED_AVERAGE","FIFO"].includes(policy.costingMethod)
     ) {
         throw new Error(
             "Unsupported inventory costing method.",
@@ -234,6 +234,13 @@ function requireCostingContext(
     };
 }
 
+function validateFifoContext(siteId:string,productId:string,occurredAt:string,method:string){
+ if(method!=='FIFO')return;
+ const movements=inventoryCostMovementRepository.getBySiteAndProduct(siteId,productId),layers=fifoLayers(movements),balance=inventoryCostBalanceRepository.getBalance(siteId,productId);
+ if(movements.some(m=>m.occurredAt.slice(0,10)>occurredAt.slice(0,10)))throw Error('FIFO movements cannot precede later posted inventory activity.');
+ if(balance&&(balance.costingMethod!=='FIFO'||Math.abs(layers.reduce((n,l)=>n+l.quantity,0)-balance.quantityOnHand)>0.00001||Math.abs(layers.reduce((n,l)=>n+l.value,0)-balance.inventoryValue)>0.001))throw Error('FIFO balance differs from posted layer evidence.');
+}
+
 function validateExistingBalance(
     balance:
         InventoryCostBalance,
@@ -251,8 +258,7 @@ function validateExistingBalance(
     }
 
     if (
-        balance.costingMethod !==
-        "MOVING_WEIGHTED_AVERAGE"
+        !["MOVING_WEIGHTED_AVERAGE","FIFO"].includes(balance.costingMethod)
     ) {
         throw new Error(
             "Inventory cost balance uses an unsupported costing method.",
@@ -453,6 +459,8 @@ export function receiveInventoryCost(
             input.unitId,
         );
 
+    validateFifoContext(input.siteId,input.productId,input.occurredAt,policy.costingMethod);
+
     const quantityBase =
         roundInventoryQuantity(
             input.quantity *
@@ -558,6 +566,7 @@ export function receiveInventoryCost(
     const movement =
         inventoryCostMovementRepository
             .build({
+                costingMethod: policy.costingMethod,
                 movementType:
                     input.movementType ??
                     "RECEIPT",
@@ -642,6 +651,8 @@ export function issueInventoryCost(
             input.unitId,
         );
 
+    validateFifoContext(input.siteId,input.productId,input.occurredAt,policy.costingMethod);
+
     const quantityBase =
         roundInventoryQuantity(
             input.quantity *
@@ -689,8 +700,9 @@ export function issueInventoryCost(
             existing.averageCostPerBaseUnit,
         );
 
-    const issueValue =
-        calculateInventoryIssueValue({
+    const issueValue = policy.costingMethod === 'FIFO'
+        ? consumeFifo(fifoLayers(inventoryCostMovementRepository.getBySiteAndProduct(input.siteId,input.productId)),quantityBase)
+        : calculateInventoryIssueValue({
             quantityBase,
 
             averageCostPerBaseUnit:
@@ -778,6 +790,7 @@ export function issueInventoryCost(
     const movement =
         inventoryCostMovementRepository
             .build({
+                costingMethod: policy.costingMethod,
                 movementType:
                     input.movementType ??
                     "ISSUE",
@@ -796,7 +809,7 @@ export function issueInventoryCost(
                         -quantityBase,
                     ),
 
-                unitCostBase,
+                unitCostBase: policy.costingMethod==='FIFO'?roundInventoryCost(-valueChange/quantityBase):unitCostBase,
 
                 valueChange,
 
@@ -929,8 +942,7 @@ export function restoreInventoryCost(
     }
 
     if (
-        policy.costingMethod !==
-        "MOVING_WEIGHTED_AVERAGE"
+        !["MOVING_WEIGHTED_AVERAGE","FIFO"].includes(policy.costingMethod)
     ) {
         throw new Error(
             "Unsupported inventory costing method.",
@@ -945,6 +957,8 @@ export function restoreInventoryCost(
             "Product costing base unit does not match the product base unit.",
         );
     }
+
+    validateFifoContext(input.siteId,input.productId,input.occurredAt,policy.costingMethod);
 
     const quantityBase =
         roundInventoryQuantity(
@@ -1044,6 +1058,7 @@ export function restoreInventoryCost(
     const movement =
         inventoryCostMovementRepository
             .build({
+                costingMethod: policy.costingMethod,
                 movementType:
                     "RETURN_IN",
 

@@ -48,7 +48,18 @@ export interface CustomerContact {
     isPrimary: boolean;
 }
 
+export interface CustomerNote {
+    customerId: string;
+    id: string;
+    operationId: string;
+    text: string;
+    source: 'Desktop' | 'Sales import';
+    externalId?: string;
+    actorId: string;
+    createdAt: string;
+}
 export interface Customer {
+    notes?: CustomerNote[];
     id: string;
 
     code: string;

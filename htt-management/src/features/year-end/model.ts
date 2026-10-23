@@ -1,0 +1,10 @@
+import {z} from 'zod';
+const id=z.string().min(1).max(200),digest=z.string().regex(/^[a-f0-9]{64}$/),cents=z.number().int().min(-1e14).max(1e14);
+export const closeRow=z.object({accountId:id,accountCode:id,accountName:id,accountType:z.enum(['REVENUE','EXPENSE']),balanceCents:cents,debitCents:cents.nonnegative(),creditCents:cents.nonnegative()}).strict();
+export const backupSchema=z.object({fileName:id,sha256:digest,createdAt:z.iso.datetime()}).strict();
+export const yearEndSchema=z.object({id,operationId:id,revision:z.number().int().positive(),startDate:id,endDate:id,yearEnd:z.string().length(5),retainedAccountId:id,accountTypes:z.array(z.object({id,type:z.enum(['ASSET','LIABILITY','EQUITY','REVENUE','EXPENSE']),systemRole:z.string()}).strict()).max(5000),status:z.enum(['CLOSED','REOPENED']),sourceDigest:digest,sourceJournalsDigest:digest,rows:z.array(closeRow).max(5000),profitCents:cents,journalId:id.optional(),reversalJournalId:id.optional(),history:z.array(z.object({action:z.enum(['CLOSE','REOPEN']),actorId:id,at:z.iso.datetime(),reason:z.string().min(10).max(2000),backup:backupSchema}).strict()).min(1).max(2)}).strict();
+export const yearEndState=z.object({years:z.array(yearEndSchema).max(1000),receipts:z.array(z.object({id,action:z.enum(['CLOSE','REOPEN']),recordId:id,fingerprint:digest}).strict()).max(2000)}).strict();
+export type YearEnd=z.infer<typeof yearEndSchema>;
+export type YearEndState=z.infer<typeof yearEndState>;
+export type YearEndPreview={startDate:string;endDate:string;digest:string;rows:z.infer<typeof closeRow>[];profitCents:number;retainedAccountId:string;blockers:{code:string;message:string;path?:string}[];journalCount:number};
+export const emptyYearEnds=():YearEndState=>({years:[],receipts:[]});

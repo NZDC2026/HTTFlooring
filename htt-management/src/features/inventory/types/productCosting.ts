@@ -3,6 +3,7 @@ import type {
 } from "./inventoryCost";
 
 export interface ProductCostingPolicy {
+    methodHistory?: {method:InventoryCostingMethod;actorId:string;at:string;reason:string}[];
     productId: string;
 
     costingMethod:

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'navigation/role_router.dart';
 
 import 'services/app_session.dart';
+import 'services/customer_return_service.dart';
 import 'services/customer_location_service.dart';
 import 'services/customer_note_service.dart';
 import 'services/customer_service.dart';
@@ -16,7 +17,11 @@ import 'services/warehouse_order_service.dart';
 
 import 'theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final warehouseOrders = WarehouseOrderService();
+  await warehouseOrders.load();
+  await CustomerReturnService.instance.load();
   runApp(
     MultiProvider(
       providers: [
@@ -40,7 +45,7 @@ void main() {
         // Existing Sales screens still depend on SalesSession.
         ChangeNotifierProvider(create: (_) => SalesSession()),
 
-        ChangeNotifierProvider(create: (_) => WarehouseOrderService()),
+        ChangeNotifierProvider.value(value: warehouseOrders),
       ],
       child: const HttFlooringApp(),
     ),

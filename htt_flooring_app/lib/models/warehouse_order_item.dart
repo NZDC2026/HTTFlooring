@@ -1,4 +1,24 @@
 class WarehouseOrderItem {
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'productId': productId,
+    'productName': productName,
+    'sku': sku,
+    'requiredBoxes': requiredBoxes,
+    'preparedBoxes': preparedBoxes,
+    'preparationPhotos': preparationPhotos,
+  };
+  factory WarehouseOrderItem.fromJson(Map<String, dynamic> j) =>
+      WarehouseOrderItem(
+        id: j['id'] as String,
+        productId: j['productId'] as String,
+        productName: j['productName'] as String,
+        sku: j['sku'] as String,
+        requiredBoxes: j['requiredBoxes'] as int,
+        preparedBoxes: j['preparedBoxes'] as int,
+        preparationPhotos: List<String>.from(j['preparationPhotos'] as List),
+      );
+
   WarehouseOrderItem({
     required this.id,
     required this.productId,

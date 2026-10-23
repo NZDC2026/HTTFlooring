@@ -1,3 +1,4 @@
+import {fifoLayers} from './fifo';
 import { registerRepository } from "../../security/repositoryHost";
 import type {
     InventoryCostMovement,
@@ -74,6 +75,8 @@ function createMovementNumber() {
 }
 
 export interface CreateInventoryCostMovementInput {
+    costingMethod?: InventoryCostMovement['costingMethod'];
+    fifoReturnLayerId?: string;
     movementType:
     InventoryCostMovement[
     "movementType"
@@ -341,6 +344,10 @@ export const inventoryCostMovementRepository =
 registerRepository("costMovements", {
     repository: inventoryCostMovementRepository, read: "inventory.cost.read",
     commands: {"if": null, "create": null, "replaceAll": null, "clear": null},
+    validate:value=>{
+      const rows=(value as {movements:InventoryCostMovement[]}).movements,keys=new Set(rows.filter(m=>m.costingMethod==='FIFO').map(m=>JSON.stringify([m.siteId,m.productId])));
+      for(const key of keys){const [siteId,productId]=JSON.parse(key);fifoLayers(rows.filter(m=>m.siteId===siteId&&m.productId===productId));}
+    },
     snapshot: () => ({ movements }),
     restore: value => { movements = value.movements;  },
     publish: () => listeners.forEach(listener => listener()),

@@ -384,6 +384,16 @@
     ]
   },
   {
+    "path": "docs/S01-YEAR-END.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/S02-S04-LOCAL-WORKFLOWS.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
     "path": "docs/SALES-SERVICES.md",
     "status": "dated-record",
     "followUps": [

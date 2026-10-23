@@ -8,6 +8,7 @@ import { creditNoteRepository } from '../sales/data/creditNoteRepository';
 import { stockRepository } from '../inventory/data/stockRepository';
 import { inventoryMovementRepository } from '../inventory/data/inventoryMovementRepository';
 import { inventoryCostMovementRepository } from '../inventory/data/inventoryCostMovementRepository';
+import {fifoLayers,consumeFifo} from '../inventory/data/fifo';
 import { restoreInventoryCost } from '../inventory/data/inventoryCostEngine';
 import { roundInventoryCost } from '../inventory/data/inventoryCostCalculations';
 import { inventoryCostBalanceRepository } from '../inventory/data/inventoryCostBalanceRepository';
@@ -99,11 +100,13 @@ export const customerReturnRepository = {
         rows = rows.map(r => r.id === row.id ? { ...r, status: 'REVERSED' } : r);
         if (row.ownsCredit) salesRepository.voidCreditNote({ creditNoteId: row.creditNoteId, reason: input.reason, voidDate: input.reversalDate });
         const lines = row.lines.map(l => {
+            const fifo=inventoryCostBalanceRepository.requireBalance(l.siteId,l.productId).costingMethod==='FIFO';
+            if(fifo && m(consumeFifo(fifoLayers(inventoryCostMovementRepository.getBySiteAndProduct(l.siteId,l.productId)),l.quantityBase,l.restoredCostId))!==l.inventoryValue)throw Error('Returned FIFO layer has been used; reverse subsequent issues before voiding the return.');
             stockRepository.issue({ siteId: l.siteId, productId: l.productId, baseUnitId: l.baseUnitId, quantityBase: l.quantityBase });
             const movement = inventoryMovementRepository.create({ movementType: 'RETURN_OUT', siteId: l.siteId, productId: l.productId, baseUnitId: l.baseUnitId, quantityBase: -l.quantityBase, transactionUnitId: l.unitId, transactionUnitSymbol: inventoryMovementRepository.getAll().find(m=>m.id===l.movementId)?.transactionUnitSymbol ?? '', transactionQuantity: -l.quantity, conversionToBase: l.conversionToBase, referenceType: 'CUSTOMER_RETURN_VOID', referenceId: row.id, referenceNumber: row.number, occurredAt: input.reversalDate, notes: input.reason });
             const old = inventoryCostBalanceRepository.requireBalance(l.siteId, l.productId), quantityAfter = q(old.quantityOnHand - l.quantityBase), inventoryValueAfter = m(old.inventoryValue - l.inventoryValue), averageCostAfter = quantityAfter ? roundInventoryCost(inventoryValueAfter / quantityAfter) : 0;
             inventoryCostBalanceRepository.save({ ...old, quantityOnHand: quantityAfter, inventoryValue: inventoryValueAfter, averageCostPerBaseUnit: averageCostAfter, updatedAt: new Date().toISOString() });
-            const cost = inventoryCostMovementRepository.create({ movementType: 'RETURN_OUT', siteId: l.siteId, productId: l.productId, baseUnitId: l.baseUnitId, quantityBase: -l.quantityBase, unitCostBase: l.unitCostBase, valueChange: -l.inventoryValue, quantityAfter, averageCostAfter, inventoryValueAfter, referenceType: 'CUSTOMER_RETURN_VOID', referenceId: row.id, referenceNumber: row.number, inventoryMovementId: movement.id, occurredAt: input.reversalDate, notes: input.reason });
+            const cost = inventoryCostMovementRepository.create({ ...(fifo?{costingMethod:'FIFO' as const,fifoReturnLayerId:l.restoredCostId}:{}), movementType: 'RETURN_OUT', siteId: l.siteId, productId: l.productId, baseUnitId: l.baseUnitId, quantityBase: -l.quantityBase, unitCostBase: l.unitCostBase, valueChange: -l.inventoryValue, quantityAfter, averageCostAfter, inventoryValueAfter, referenceType: 'CUSTOMER_RETURN_VOID', referenceId: row.id, referenceNumber: row.number, inventoryMovementId: movement.id, occurredAt: input.reversalDate, notes: input.reason });
             return { ...l, reversalMovementId: movement.id, reversalCostId: cost.id };
         });
         if (row.journalId) journalEntryRepository.reverse({ journalEntryId: row.journalId, reversalDate: input.reversalDate, reason: input.reason });

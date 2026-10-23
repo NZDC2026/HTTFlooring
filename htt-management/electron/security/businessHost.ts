@@ -1,3 +1,4 @@
+import {configureYearEndBackup} from './yearEndBackup';
 import type { AutomationKind } from '../../src/features/recurring/recurringAutomationRepository';
 import { configureDocumentPurgeBackup } from './documentPurgeBackup';
 import { dirname, join } from "node:path";
@@ -11,7 +12,7 @@ import { parseDatabase, sealDatabase, migratePeriodSnapshot, migrateWorkspaceSna
 export class BusinessHost {
     private values: Record<string, string> = {};
     private initialized = false;
-    private automationEngine?: Pick<typeof import('./businessEngine'),'dueRecurringCandidates'|'prepareRecurringFailure'|'classifyImportedBankLines'|'assertBankInstructionCommand'>;
+    private automationEngine?: Pick<typeof import('./businessEngine'),'dueRecurringCandidates'|'prepareRecurringFailure'|'classifyImportedBankLines'|'assertBankInstructionCommand'|'assertYearEndIntegrity'>;
     private scanningRecurring = false;
     private workspaceDefaults: Record<string, unknown> = {};
     private blocked = false;
@@ -29,7 +30,7 @@ export class BusinessHost {
         let saved: Database | LegacyDatabase | undefined;
         if (existsSync(this.path)) {
             saved = parseDatabase(readFileSync(this.path, 'utf8'));
-            if (saved.schemaVersion !== 31) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
+            if (saved.schemaVersion !== 33) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');
@@ -80,10 +81,19 @@ export class BusinessHost {
             if(JSON.stringify(verified)!==JSON.stringify(database)) throw new Error('Pre-purge backup verification failed.');
             return {id,fileName,sha256:createHash('sha256').update(text).digest('hex'),createdAt:new Date().toISOString()};
         });
+        configureYearEndBackup(action=>{
+            this.security.require(action==='CLOSE'?'accounting.periods':'accounting.reopen');
+            if(!this.initialized||this.blocked)throw new Error('Healthy desktop session required for year-end backup.');
+            const repositories=snapshotRepositories();validateRegisteredSnapshots(repositories);const snapshot=sealDatabase({storage:structuredClone(this.values),repositories,lastCommandId:this.lastCommandId}),directory=join(dirname(this.path),'year-end-backups'),fileName=`pre-year-end-${action.toLowerCase()}-${randomUUID()}.json`;
+            mkdirSync(directory,{recursive:true,mode:0o700});const target=join(directory,fileName);atomicJson(target,snapshot);
+            const text=readFileSync(target,'utf8'),verified=parseDatabase(text);validateRepositories(verified.repositories,snapshot.repositories);validateRegisteredSnapshots(verified.repositories);
+            if(JSON.stringify(snapshot)!==JSON.stringify(verified))throw new Error('Year-end backup verification failed.');
+            return {fileName,sha256:createHash('sha256').update(text).digest('hex'),createdAt:new Date().toISOString()};
+        });
         if (migrationSource) {
             atomicJson(join(dirname(this.path), `pre-migration-v${saved!.schemaVersion}-${randomUUID()}.json`), migrationSource);
             this.persist();
-            this.security.audit('business.migrate.v9', 'local-desktop-profile', 'SUCCESS', 'users.manage');
+            this.security.audit('business.migrate.v33', 'local-desktop-profile', 'SUCCESS', 'users.manage');
         }
         if (!saved) {
             this.persist();
@@ -250,6 +260,7 @@ export class BusinessHost {
                 this.automationEngine?.classifyImportedBankLines(added,commandId);
             }
             if (input.repository === 'sales' && input.method === 'createInvoiceFromOrder') this.assertPeriod((result as { documentDate: string }).documentDate);
+            this.automationEngine?.assertYearEndIntegrity();
             if (result instanceof Promise) throw new Error('Business commands must be synchronous.');
         } catch (error) {
             this.values = storedBefore; restoreRepositories(before);

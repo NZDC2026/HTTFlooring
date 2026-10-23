@@ -1,3 +1,4 @@
+import {accrualHours} from '../../src/features/payroll/data/payrollModel';
 import { australianWithholding } from '../../src/features/payroll/data/australianTax';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -120,6 +121,7 @@ function balances(employeeId: string, omitRun?: string) {
     for (const r of state.runs.filter(r => r.status === 'Posted' && r.id !== omitRun))
         for (const s of r.slips.filter(s => s.employee.id === employeeId)) {
             annual += s.annualAccrual;
+            annual -= r.employeeInputs.find(i=>i.employeeId===employeeId)?.complex?.termination?.annualHours??0;
             personal += s.personalAccrual;
             for (const lid of s.leaveIds) {
                 const l = row('leave', lid) as LeaveRow;
@@ -147,7 +149,17 @@ function build(input: z.infer<typeof runFields>, except?: string) {
         if (seen.has(entry.employeeId))
             throw new Error('Include each employee only once.');
         seen.add(entry.employeeId);
-        const e = employeeFor(entry.employeeId);
+        const e = employeeFor(entry.employeeId),complex=entry.complex;
+        if(state.runs.some(r=>r.id!==except&&live(r)&&r.employeeInputs.some(i=>i.employeeId===e.id&&i.complex?.termination)))throw Error('Employee has a final settlement; cancel or reverse it before another pay run.');
+        if(complex){
+          if(complex.specialTax==='Reviewed exception'&&(!complex.exceptionReason.trim()||e.taxScale!=='Manual'))throw Error('Exceptional tax requires the manual reviewed employee tax scale and an exception reason.');
+          if(complex.accrual&&(entry.annualAccrual!==accrualHours(complex.accrual.ordinaryHours,complex.accrual.annualWeeks)||entry.personalAccrual!==accrualHours(complex.accrual.ordinaryHours,complex.accrual.personalWeeks)))throw Error('Leave accrual differs from the configured ordinary-hours entitlement calculation.');
+          if(complex.termination){const t=complex.termination;
+            if(complex.specialTax!=='Reviewed exception'||entry.superMethod!=='Reviewed amount')throw Error('Final settlement requires exceptional manual tax and a reviewed super amount.');
+            if(e.endDate!==t.endDate||t.endDate<input.start||t.endDate>input.end||input.payDate<t.endDate)throw Error('Final settlement must match the employee end date within the pay period and be paid on or after termination.');
+            if(state.runs.some(r=>r.id!==except&&live(r)&&r.end>=input.start&&r.slips.some(s=>s.employee.id===e.id)))throw Error('Cancel later pay runs before preparing final settlement.');
+          }
+        }
         if (e.startDate > input.end || (e.endDate && e.endDate < input.start))
             throw new Error('Employment does not overlap this pay period.');
         if (e.basis === 'Salary' && (e.startDate > input.start || (e.endDate && e.endDate < input.end)) && entry.salaryOverride === undefined)
@@ -193,11 +205,24 @@ function build(input: z.infer<typeof runFields>, except?: string) {
             const i = row('items', t.itemId) as PayItem;
             if (i.category !== 'Earnings' || i.method !== 'Hourly')
                 throw new Error('Timesheet must use hourly earnings.');
-            add(i, t.hours, i.id === base.id ? e.rate : i.rate, 'Time:' + t.id);
+            const rules=complex?.awardRules.filter(rule=>rule.timeIds.includes(t.id))??[];
+            if(rules.length>1)throw Error('A timesheet cannot receive overlapping award multipliers.');
+            const rate=i.id===base.id?e.rate:i.rate;
+            add(i,t.hours,round(rate*(rules[0]?.multiplier??1)),'Time:'+t.id);
         }
         if (e.basis === 'Hourly')
             for (const l of leaves.filter(l => l.type !== 'Unpaid'))
                 add(base, l.hours, e.rate, 'Leave:' + l.id);
+        if(complex){
+            const claimed=complex.awardRules.flatMap(rule=>rule.timeIds);
+            if(new Set(claimed).size!==claimed.length||claimed.some(id=>!times.some(t=>t.id===id))||(e.basis==='Salary'&&claimed.length))throw Error('Award rules require distinct included hourly timesheets.');
+            if(complex.termination){const t=complex.termination,b=balances(e.id,except),taken=leaves.filter(l=>l.type==='Annual').reduce((n,l)=>n+l.hours,0);
+              if(Math.abs(t.annualHours-(b.annual+entry.annualAccrual-taken))>0.00001)throw Error('Final settlement must pay the exact remaining recorded annual leave balance.');
+              if(state.leave.some(l=>l.employeeId===e.id&&['Pending','Approved'].includes(l.status)&&!leaves.some(x=>x.id===l.id)))throw Error('Resolve outstanding leave before final settlement.');
+              if(t.annualHours){add(base,1,round(t.annualHours*t.annualRate),'Termination annual leave');if(t.loadingPercent)add(base,1,round(round(t.annualHours*t.annualRate)*t.loadingPercent/100),'Termination leave loading');}
+              for(const payment of t.otherPayments){const item=row('items',payment.itemId) as PayItem;if(item.category!=='Earnings'||item.method!=='Fixed')throw Error('Final settlement components require fixed earnings items.');add(item,1,payment.amount,'Termination '+payment.label);}
+            }
+        }
         const extras = input.adjustments.filter(a => a.employeeId === e.id), fixed = extras.filter(a => (row('items', a.itemId) as PayItem).method !== 'Percentage');
         for (const a of fixed) {
             const i = row('items', a.itemId) as PayItem;
@@ -446,6 +471,7 @@ export const payrollRepository = {
                     throw new Error('Only an unposted run can be cancelled.');
                 return put('runs', { ...old, ...meta(old, 'Cancelled', input.reason), status: 'Cancelled' });
             }
+            if(input.action==='Reverse'&&state.runs.some(r=>r.id!==old.id&&live(r)&&r.employeeInputs.some(i=>i.complex?.termination&&old.slips.some(s=>s.employee.id===i.employeeId))&&r.end>=old.end))throw Error('Reverse the later final settlement before changing an earlier payroll balance.');
             assertCurrentCrossModuleWriteSafe();
             if (input.action === 'Post') {
                 const journal = journalEntryRepository.post({ journalDate: old.payDate, description: 'Payroll ' + old.name, reference: old.id, sourceType: 'PAYROLL', sourceId: old.id, lines: postingLines(old) });
@@ -518,7 +544,7 @@ export const payrollRepository = {
         const input = z.object({ runId: id, employeeId: id }).strict().parse(raw), r = row('runs', input.runId) as PayRun, s = r.slips.find(s => s.employee.id === input.employeeId);
         if (!s)
             throw new Error('Payslip was not found.');
-        return { name: 'Payslip-' + r.id + '-' + s.employee.code.replace(/[^A-Za-z0-9_-]/g, '_') + '.txt', text: [r.settings.employerName, 'Employer ABN: ' + (r.settings.employerIdentifier || 'Not recorded'), 'PAYSLIP · ' + r.status, r.name, `${r.start} to ${r.end} · Pay date ${r.payDate} · ${r.settings.currency}`, s.employee.code + ' · ' + s.employee.name, 'Super fund: ' + (s.employee.superFund || 'Not recorded') + ' · Member: ' + (s.employee.superMemberId || 'Not recorded'), ...s.lines.map(l => `${l.item.name}: ${l.quantity} × ${l.rate} = ${l.amount.toFixed(2)}`), `Gross ${s.totals.gross.toFixed(2)} · Withholding ${s.totals.withholding.toFixed(2)} · Deductions ${s.totals.deductions.toFixed(2)} · Net ${s.totals.net.toFixed(2)} · Employer contributions ${s.totals.employerCost.toFixed(2)}`, 'Withholding review: ' + r.reviewReference, ...(s.projectAllocation?.costs.map(c=>`Project cost ${c.project.code} / ${c.project.name} v${c.project.revision} / ${s.lines[c.lineIndex].item.name}: ${c.amount.toFixed(2)}`)??[]), 'Accrued payroll; payment completion is recorded separately.'].join('\n') };
+        return { name: 'Payslip-' + r.id + '-' + s.employee.code.replace(/[^A-Za-z0-9_-]/g, '_') + '.txt', text: [r.settings.employerName, 'Employer ABN: ' + (r.settings.employerIdentifier || 'Not recorded'), 'PAYSLIP · ' + r.status, r.name, `${r.start} to ${r.end} · Pay date ${r.payDate} · ${r.settings.currency}`, s.employee.code + ' · ' + s.employee.name, 'Super fund: ' + (s.employee.superFund || 'Not recorded') + ' · Member: ' + (s.employee.superMemberId || 'Not recorded'), ...s.lines.map(l => `${l.item.name} [${l.source}]: ${l.quantity} × ${l.rate} = ${l.amount.toFixed(2)}`), `Gross ${s.totals.gross.toFixed(2)} · Withholding ${s.totals.withholding.toFixed(2)} · Deductions ${s.totals.deductions.toFixed(2)} · Net ${s.totals.net.toFixed(2)} · Employer contributions ${s.totals.employerCost.toFixed(2)}`, 'Withholding review: ' + r.reviewReference, ...(r.employeeInputs.find(i=>i.employeeId===s.employee.id)?.complex ? ['Complex calculation: '+JSON.stringify(r.employeeInputs.find(i=>i.employeeId===s.employee.id)!.complex)] : []), ...(s.projectAllocation?.costs.map(c=>`Project cost ${c.project.code} / ${c.project.name} v${c.project.revision} / ${s.lines[c.lineIndex].item.name}: ${c.amount.toFixed(2)}`)??[]), 'Accrued payroll; payment completion is recorded separately.'].join('\n') };
     },
     exportRun(runId: string) { principal('payroll.read'); const r = row('runs', id.parse(runId)) as PayRun; const rows = [['Employer', 'ABN', 'Frequency', 'TFN', 'Super fund', 'Super member', 'Run', 'Status', 'Period start', 'Period end', 'Pay date', 'Currency', 'Employee code', 'Name', 'Gross', 'Taxable gross', 'Withholding', 'Other deductions', 'Net', 'Employer contributions', 'Review reference','Frozen project costs'], ...r.slips.map(s => [r.settings.employerName, r.settings.employerIdentifier, r.settings.frequency, s.employee.taxIdentifier, s.employee.superFund, s.employee.superMemberId, r.name, r.status, r.start, r.end, r.payDate, r.settings.currency, s.employee.code, s.employee.name, String(s.totals.gross), String(s.totals.taxable), String(s.totals.withholding), String(round(s.totals.deductions - s.totals.withholding)), String(s.totals.net), String(s.totals.employerCost), r.reviewReference, (s.projectAllocation?.costs.map(c=>`${c.project.code} / ${c.project.name} v${c.project.revision}: ${c.amount.toFixed(2)}`).join('; ')??'Unallocated')])]; return { name: 'Payroll-review-' + r.id + '.csv', csv: encodeCsv(rows) }; }
 };
@@ -612,6 +638,15 @@ registerRepository('payroll', { repository: payrollRepository, read: 'payroll.re
                     throw new Error('Invalid payroll employee snapshot.');
                 if(slip.projectAllocation){const a=slip.projectAllocation;if(!a.times.some(t=>t.project)||new Set(a.leaves.map(l=>l.id)).size!==a.leaves.length||a.leaves.length!==slip.leaveIds.length||a.leaves.some(l=>!slip.leaveIds.includes(l.id)||l.employeeId!==slip.employee.id||l.status!=='Approved'||l.start<r.start||l.end>r.end)||a.leaveHours!==a.leaves.reduce((n,l)=>n+l.hours,0)||new Set(a.times.map(t=>t.id)).size!==a.times.length||a.times.length!==slip.timeIds.length||a.times.some(t=>!slip.timeIds.includes(t.id)||t.employeeId!==slip.employee.id||t.status!=='Approved'||t.date<r.start||t.date>r.end))throw new Error('Invalid frozen project hours.');a.times.forEach(checkProject);if(slip.employee.basis==='Hourly'&&a.times.some(t=>{const lines=slip.lines.filter(l=>l.source==='Time:'+t.id);return lines.length!==1||lines[0].quantity!==t.hours||lines[0].item.id!==t.itemId;}))throw new Error('Frozen project hours differ from payroll earnings.');if(hash(a.costs)!==hash(projectCosts(slip.employee.basis,a.times,a.leaveHours,slip.lines)))throw new Error('Payroll project costs differ from frozen hours.');if(live(r)&&(a.times.some(t=>hash(t)!==hash(s.timesheets.find(x=>x.id===t.id)))||a.leaves.some(l=>hash(l)!==hash(s.leave.find(x=>x.id===l.id)))||a.leaveHours!==s.leave.filter(l=>slip.leaveIds.includes(l.id)).reduce((n,l)=>n+l.hours,0)))throw new Error('Payroll project source changed.');}
                 else if(live(r)&&s.timesheets.some(t=>slip.timeIds.includes(t.id)&&t.project))throw new Error('Payroll project cost snapshot is missing.');
+                if(input.complex){const c=input.complex;
+                  if(c.specialTax==='Reviewed exception'&&(slip.employee.taxScale!=='Manual'||!c.exceptionReason.trim()))throw Error('Exceptional tax evidence mismatch.');
+                  if(c.accrual&&(input.annualAccrual!==accrualHours(c.accrual.ordinaryHours,c.accrual.annualWeeks)||input.personalAccrual!==accrualHours(c.accrual.ordinaryHours,c.accrual.personalWeeks)))throw Error('Configured accrual evidence mismatch.');
+                  const ids=c.awardRules.flatMap(rule=>rule.timeIds);if(new Set(ids).size!==ids.length||ids.some(id=>!slip.timeIds.includes(id)))throw Error('Award source evidence mismatch.');
+                  for(const rule of c.awardRules)for(const id of rule.timeIds){const source=s.timesheets.find(t=>t.id===id),line=slip.lines.find(l=>l.source==='Time:'+id);if(!source||!line||slip.employee.basis!=='Hourly'||line.quantity!==source.hours||line.rate!==round((line.item.id===slip.employee.earningItemId?slip.employee.rate:line.item.rate)*rule.multiplier))throw Error('Award rate evidence mismatch.');}
+                  if(c.termination){const t=c.termination;if(c.specialTax!=='Reviewed exception'||input.superMethod!=='Reviewed amount'||t.endDate!==slip.employee.endDate||t.endDate<r.start||t.endDate>r.end||r.payDate<t.endDate)throw Error('Final settlement date or review evidence mismatch.');
+                    const expected=[...(t.annualHours?[['Termination annual leave',round(t.annualHours*t.annualRate)],...(t.loadingPercent?[['Termination leave loading',round(round(t.annualHours*t.annualRate)*t.loadingPercent/100)]]:[])]:[]),...t.otherPayments.map(p=>['Termination '+p.label,p.amount])];const actual=slip.lines.filter(l=>l.source.startsWith('Termination '));if(expected.length!==actual.length||expected.some((e,i)=>actual[i].source!==e[0]||actual[i].amount!==e[1]))throw Error('Final settlement component evidence mismatch.');
+                  }
+                }
                 const gross = round(slip.lines.filter(l => ['Earnings', 'Allowance'].includes(l.item.category)).reduce((n, l) => n + l.amount, 0));
                 for (const l of slip.lines) {
                     exists('items', l.item.id);

@@ -1,3 +1,5 @@
+import 'handover_proof.dart';
+
 import 'warehouse_order_item.dart';
 
 enum WarehouseOrderStatus {
@@ -11,6 +13,52 @@ enum WarehouseOrderStatus {
 enum WarehouseFulfilmentType { pickup, transport }
 
 class WarehouseOrder {
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'number': number,
+    'customerName': customerName,
+    'status': status.name,
+    'fulfilmentType': fulfilmentType.name,
+    'fulfilmentDate': fulfilmentDate.toIso8601String(),
+    'items': items.map((v) => v.toJson()).toList(),
+    'collectedBy': collectedBy,
+    'pickupConfirmedAt': pickupConfirmedAt?.toIso8601String(),
+    'dispatchPhotos': dispatchPhotos,
+    'dispatchNotes': dispatchNotes,
+    'completedAt': completedAt?.toIso8601String(),
+    'handoverProof': handoverProof?.toJson(),
+  };
+  factory WarehouseOrder.fromJson(Map<String, dynamic> j) => WarehouseOrder(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    customerName: j['customerName'] as String,
+    status: WarehouseOrderStatus.values.byName(j['status'] as String),
+    fulfilmentType: WarehouseFulfilmentType.values.byName(
+      j['fulfilmentType'] as String,
+    ),
+    fulfilmentDate: DateTime.parse(j['fulfilmentDate'] as String),
+    items: (j['items'] as List)
+        .map(
+          (v) =>
+              WarehouseOrderItem.fromJson(Map<String, dynamic>.from(v as Map)),
+        )
+        .toList(),
+    collectedBy: j['collectedBy'] as String,
+    pickupConfirmedAt: j['pickupConfirmedAt'] == null
+        ? null
+        : DateTime.parse(j['pickupConfirmedAt'] as String),
+    dispatchPhotos: List<String>.from(j['dispatchPhotos'] as List),
+    dispatchNotes: j['dispatchNotes'] as String,
+    completedAt: j['completedAt'] == null
+        ? null
+        : DateTime.parse(j['completedAt'] as String),
+    handoverProof: j['handoverProof'] == null
+        ? null
+        : HandoverProof.fromJson(
+            Map<String, dynamic>.from(j['handoverProof'] as Map),
+          ),
+  );
+
   WarehouseOrder({
     required this.id,
     required this.number,
@@ -19,6 +67,7 @@ class WarehouseOrder {
     required this.fulfilmentType,
     required this.fulfilmentDate,
     required this.items,
+    this.handoverProof,
     this.collectedBy = '',
     this.pickupConfirmedAt,
     List<String>? dispatchPhotos,
@@ -34,6 +83,7 @@ class WarehouseOrder {
   final DateTime fulfilmentDate;
   final List<WarehouseOrderItem> items;
 
+  HandoverProof? handoverProof;
   String collectedBy;
   DateTime? pickupConfirmedAt;
   final List<String> dispatchPhotos;
@@ -74,5 +124,5 @@ class WarehouseOrder {
   String get collectedByLabel =>
       fulfilmentType == WarehouseFulfilmentType.pickup
       ? 'Customer / Collector Name'
-      : 'Driver / Transport Name';
+      : 'Driver Name';
 }

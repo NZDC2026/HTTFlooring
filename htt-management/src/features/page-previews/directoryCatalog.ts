@@ -2,6 +2,7 @@ import {previewModules,flowPages,settingsForms} from './catalog';
 import type {Permission} from '../security/rbac';
 export type DirectoryEntry={path:string;name:string;group:string;permission:Permission;description:string};
 const extras:DirectoryEntry[]=[
+ {path:'/accounting/year-end',name:'Financial year-end',group:'Accounting',permission:'accounting.read',description:'Reviewed annual profit/loss transfer to retained earnings, verified backup and controlled reopening.'},
  {path:'/payroll/transmissions',name:'Payroll transmissions',group:'Payroll',permission:'payroll.read',description:'Internal AU STP and super preparation, immutable review reports and connector recovery. Production adapter pending.'},
  {path:'/banking/feeds',name:'Bank feeds',group:'Banking',permission:'banking.read',description:'Configurable Basiq AU consent, account mapping, runtime sync and reviewed statement imports.'},
  {path:'/documents/communications',name:'Communications & online collection',group:'Documents & imports',permission:'sales.read',description:'Configurable Resend / Stripe adapters, runtime reminders and verified receipt confirmation.'},

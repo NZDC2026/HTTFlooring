@@ -33,7 +33,11 @@ export function registerRepository(name: string, entry: Entry): void {
     if (currentView && Object.hasOwn(currentView.repositories, name)) entry.restore(structuredClone(currentView.repositories[name]));
     for (const [method, permission] of Object.entries(entry.commands)) {
         if (!Object.hasOwn(entry.repository, method)) continue;
+        const original = entry.repository[method];
         entry.repository[method] = (...args: unknown[]) => {
+            // Production bundling can load shared repositories before the main storage adapter.
+            // Resolve ownership at call time too; a main service must never call renderer IPC.
+            if (mainHost()) return original.apply(entry.repository, args);
             if (!permission) throw new Error(`Internal repository method is not a desktop command: ${name}.${method}`);
             const reply = nativeRequest<{ result: unknown; view: BusinessView }>('business.command', { repository: name, method, args });
             hydrateBusiness(reply.view);

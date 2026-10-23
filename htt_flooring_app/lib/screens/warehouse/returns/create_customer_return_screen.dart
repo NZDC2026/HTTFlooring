@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../models/customer_return_item.dart';
+import '../../../widgets/handover_fields.dart';
 import '../../../services/customer_return_service.dart';
 import '../../../theme/app_theme.dart';
 import 'return_submitted_screen.dart';
@@ -29,6 +30,8 @@ class _CreateCustomerReturnScreenState
     ('aquaglow', 'AquaGlow Laminate', 'AQU-LAM'),
   ];
 
+  final _handoverKey = GlobalKey<HandoverFieldsState>();
+  bool _saving = false;
   final _picker = ImagePicker();
   final _reasonController = TextEditingController();
   String _customerId = 'abc';
@@ -77,217 +80,249 @@ class _CreateCustomerReturnScreenState
     });
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_saving) return;
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Add at least one return item.')),
       );
       return;
     }
-    final customer = _customers.firstWhere((item) => item.$1 == _customerId);
-    final result = CustomerReturnService.instance.submit(
-      customerId: customer.$1,
-      customerName: customer.$2,
-      items: _items,
-    );
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => ReturnSubmittedScreen(customerReturn: result),
-      ),
-    );
+    final proof = _handoverKey.currentState!.validateAndRead();
+    if (proof == null) return;
+    setState(() => _saving = true);
+    try {
+      final customer = _customers.firstWhere((item) => item.$1 == _customerId);
+      final result = await CustomerReturnService.instance.submit(
+        handoverProof: proof,
+        customerId: customer.$1,
+        customerName: customer.$2,
+        items: _items,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ReturnSubmittedScreen(customerReturn: result),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save return. Please retry.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Create Customer Return')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _section(
-            'Customer',
-            DropdownButtonFormField<String>(
-              initialValue: _customerId,
-              items: _customers
-                  .map((c) => DropdownMenuItem(value: c.$1, child: Text(c.$2)))
-                  .toList(),
-              onChanged: (value) =>
-                  setState(() => _customerId = value ?? _customerId),
-            ),
-          ),
-          _section(
-            'Return Item',
-            Column(
-              children: [
+    return PopScope(
+      canPop: !_saving,
+      child: AbsorbPointer(
+        absorbing: _saving,
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(title: const Text('Create Customer Return')),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _section(
+                'Customer',
                 DropdownButtonFormField<String>(
-                  initialValue: _productId,
-                  items: _products
+                  initialValue: _customerId,
+                  items: _customers
                       .map(
-                        (p) => DropdownMenuItem(
-                          value: p.$1,
-                          child: Text('${p.$2} · ${p.$3}'),
-                        ),
+                        (c) => DropdownMenuItem(value: c.$1, child: Text(c.$2)),
                       )
                       .toList(),
                   onChanged: (value) =>
-                      setState(() => _productId = value ?? _productId),
+                      setState(() => _customerId = value ?? _customerId),
                 ),
-                const SizedBox(height: 16),
-                Row(
+              ),
+              _section(
+                'Return Item',
+                Column(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Return Quantity',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                    DropdownButtonFormField<String>(
+                      initialValue: _productId,
+                      items: _products
+                          .map(
+                            (p) => DropdownMenuItem(
+                              value: p.$1,
+                              child: Text('${p.$2} · ${p.$3}'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _productId = value ?? _productId),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Return Quantity',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _quantity > 1
+                              ? () => setState(() => _quantity--)
+                              : null,
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                        Text(
+                          '$_quantity',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => setState(() => _quantity++),
+                          icon: const Icon(Icons.add_circle_outline),
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: _reasonController,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Reason for return',
                       ),
                     ),
-                    IconButton(
-                      onPressed: _quantity > 1
-                          ? () => setState(() => _quantity--)
-                          : null,
-                      icon: const Icon(Icons.remove_circle_outline),
+                    const SizedBox(height: 16),
+                    SegmentedButton<ReturnItemCondition>(
+                      segments: const [
+                        ButtonSegment(
+                          value: ReturnItemCondition.good,
+                          label: Text('Good'),
+                        ),
+                        ButtonSegment(
+                          value: ReturnItemCondition.damaged,
+                          label: Text('Damaged'),
+                        ),
+                      ],
+                      selected: {_condition},
+                      onSelectionChanged: (value) =>
+                          setState(() => _condition = value.first),
                     ),
-                    Text(
-                      '$_quantity',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Photos · minimum 2',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Text(
+                          '${_photos.length}/2',
+                          style: TextStyle(
+                            color: _photos.length >= 2
+                                ? AppColors.success
+                                : AppColors.warning,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: () => setState(() => _quantity++),
-                      icon: const Icon(Icons.add_circle_outline),
-                    ),
-                  ],
-                ),
-                TextField(
-                  controller: _reasonController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason for return',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SegmentedButton<ReturnItemCondition>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ReturnItemCondition.good,
-                      label: Text('Good'),
-                    ),
-                    ButtonSegment(
-                      value: ReturnItemCondition.damaged,
-                      label: Text('Damaged'),
-                    ),
-                  ],
-                  selected: {_condition},
-                  onSelectionChanged: (value) =>
-                      setState(() => _condition = value.first),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Photos · minimum 2',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    Text(
-                      '${_photos.length}/2',
-                      style: TextStyle(
-                        color: _photos.length >= 2
-                            ? AppColors.success
-                            : AppColors.warning,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (_photos.isNotEmpty)
-                  SizedBox(
-                    height: 82,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _photos.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) => ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(
-                          File(_photos[index]),
-                          width: 82,
-                          height: 82,
-                          fit: BoxFit.cover,
+                    const SizedBox(height: 10),
+                    if (_photos.isNotEmpty)
+                      SizedBox(
+                        height: 82,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _photos.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) => ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.file(
+                              File(_photos[index]),
+                              width: 82,
+                              height: 82,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
                         ),
                       ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _addPhoto(ImageSource.camera),
+                            icon: const Icon(Icons.camera_alt_outlined),
+                            label: const Text('Camera'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _addPhoto(ImageSource.gallery),
+                            icon: const Icon(Icons.photo_library_outlined),
+                            label: const Text('Gallery'),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _addPhoto(ImageSource.camera),
-                        icon: const Icon(Icons.camera_alt_outlined),
-                        label: const Text('Camera'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _addPhoto(ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library_outlined),
-                        label: const Text('Gallery'),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.tonal(
+                        onPressed: _addItem,
+                        child: const Text('Add Return Item'),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.tonal(
-                    onPressed: _addItem,
-                    child: const Text('Add Return Item'),
+              ),
+              if (_items.isNotEmpty)
+                _section(
+                  'Items to Submit',
+                  Column(
+                    children: _items.asMap().entries.map((entry) {
+                      final item = entry.value;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          item.productName,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          '${item.quantity} · ${item.conditionLabel} · ${item.photoPaths.length} photos',
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () =>
+                              setState(() => _items.removeAt(entry.key)),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
-              ],
-            ),
-          ),
-          if (_items.isNotEmpty)
-            _section(
-              'Items to Submit',
-              Column(
-                children: _items.asMap().entries.map((entry) {
-                  final item = entry.value;
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      item.productName,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    subtitle: Text(
-                      '${item.quantity} · ${item.conditionLabel} · ${item.photoPaths.length} photos',
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () =>
-                          setState(() => _items.removeAt(entry.key)),
-                    ),
-                  );
-                }).toList(),
+              _section(
+                'Return Handover',
+                HandoverFields(
+                  key: _handoverKey,
+                  nameLabel: 'Returner Name',
+                  signatureLabel: 'Returner Signature',
+                ),
               ),
-            ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 52,
-            child: FilledButton(
-              onPressed: _items.isEmpty ? null : _submit,
-              child: const Text('Submit to Front Desk'),
-            ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 52,
+                child: FilledButton(
+                  onPressed: _items.isEmpty || _saving ? null : _submit,
+                  child: const Text('Submit to Front Desk'),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
           ),
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
     );
   }

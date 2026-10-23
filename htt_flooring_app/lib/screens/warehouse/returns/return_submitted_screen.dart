@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/customer_return.dart';
+import '../../../widgets/handover_fields.dart';
 import '../../../theme/app_theme.dart';
 
 class ReturnSubmittedScreen extends StatelessWidget {
@@ -67,6 +68,14 @@ class ReturnSubmittedScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.muted, height: 1.45),
                 ),
+                if (customerReturn.handoverProof != null) ...[
+                  const SizedBox(height: 18),
+                  HandoverFields(
+                    nameLabel: 'Returner Name',
+                    signatureLabel: 'Returner Signature',
+                    proof: customerReturn.handoverProof,
+                  ),
+                ],
                 const SizedBox(height: 22),
                 SizedBox(
                   width: double.infinity,

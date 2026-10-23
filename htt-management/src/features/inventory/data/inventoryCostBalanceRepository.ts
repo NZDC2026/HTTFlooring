@@ -1,3 +1,4 @@
+import {fifoLayers} from './fifo';
 import { registerRepository } from "../../security/repositoryHost";
 import type {
     InventoryCostBalance,
@@ -148,6 +149,13 @@ export const inventoryCostBalanceRepository =
 registerRepository("costBalances", {
     repository: inventoryCostBalanceRepository, read: "inventory.cost.read",
     commands: {"save": null, "replaceAll": null, "clear": null},
+    validate: (value,snapshots) => {
+        for(const b of (value as {balances:InventoryCostBalance[]}).balances){if(!['FIFO','MOVING_WEIGHTED_AVERAGE'].includes(b.costingMethod))throw Error('Unsupported saved inventory method.');
+        if(b.costingMethod==='FIFO'){
+          const layers=fifoLayers((snapshots.costMovements as any).movements.filter((m:any)=>m.siteId===b.siteId&&m.productId===b.productId));
+          if(Math.abs(layers.reduce((n,l)=>n+l.quantity,0)-b.quantityOnHand)>0.00001||Math.abs(layers.reduce((n,l)=>n+l.value,0)-b.inventoryValue)>0.001)throw Error('FIFO saved balance differs from its layers.');
+        }}
+    },
     snapshot: () => ({ balances }),
     restore: value => { balances = value.balances;  },
     publish: () => listeners.forEach(listener => listener()),

@@ -21,7 +21,17 @@ export const leaveFields = z.object({ employeeId: id, type: z.enum(['Annual', 'P
 export const leaveSchema = leaveFields.extend({ ...meta, status: z.enum(['Pending', 'Approved', 'Declined', 'Cancelled']) }).strict();
 export type LeaveRow = z.infer<typeof leaveSchema>;
 export const adjustment = z.object({ employeeId: id, itemId: id, quantity: hours.refine(n => n > 0), rate: moneyValue }).strict();
-export const runFields = z.object({ name: id, start: date, end: date, payDate: date, employeeInputs: z.array(z.object({ employeeId: id, withholding: moneyValue, additionalWithholding: moneyValue.default(0), superMethod: z.enum(['Reviewed amount', '12% reviewed QE']).default('Reviewed amount'), superBase: moneyValue.default(0), superAmount: moneyValue.default(0), salaryOverride: moneyValue.optional(), annualAccrual: hours, personalAccrual: hours }).strict()).min(1).max(500), adjustments: z.array(adjustment).max(2000), taxReviewed: z.boolean(), reviewReference: z.string().trim().max(500) }).strict();
+export const complexPay = z.object({
+    reference:reason,
+    specialTax:z.enum(['Standard','Reviewed exception']),
+    exceptionReason:z.string().trim().max(1000),
+    awardRules:z.array(z.object({label:reason,agreement:reason,timeIds:z.array(id).min(1),multiplier:z.number().finite().min(1).max(10)}).strict()).max(100),
+    accrual:z.object({ordinaryHours:hours,annualWeeks:z.number().finite().min(0).max(12),personalWeeks:z.number().finite().min(0).max(12)}).strict().optional(),
+    termination:z.object({endDate:date,annualHours:hours,annualRate:moneyValue,loadingPercent:z.number().finite().min(0).max(100),otherPayments:z.array(z.object({label:z.enum(['Notice','Redundancy','Long service leave','ETP','Other']),itemId:id,amount:moneyValue.refine(n=>n>0)}).strict()).max(20),reference:reason}).strict().optional()
+}).strict();
+export type ComplexPay=z.infer<typeof complexPay>;
+export const accrualHours=(ordinaryHours:number,weeks:number)=>Math.round(ordinaryHours*weeks/52*10000)/10000;
+export const runFields = z.object({ name: id, start: date, end: date, payDate: date, employeeInputs: z.array(z.object({ employeeId: id, complex:complexPay.optional(), withholding: moneyValue, additionalWithholding: moneyValue.default(0), superMethod: z.enum(['Reviewed amount', '12% reviewed QE']).default('Reviewed amount'), superBase: moneyValue.default(0), superAmount: moneyValue.default(0), salaryOverride: moneyValue.optional(), annualAccrual: hours, personalAccrual: hours }).strict()).min(1).max(500), adjustments: z.array(adjustment).max(2000), taxReviewed: z.boolean(), reviewReference: z.string().trim().max(500) }).strict();
 export const lineSchema = z.object({ item: itemSchema, quantity: hours, rate: moneyValue, amount: moneyValue, source: z.string().max(200) }).strict();
 export const totalsSchema = z.object({ gross: moneyValue, taxable: moneyValue, deductions: moneyValue, net: moneyValue, employerCost: moneyValue, withholding: moneyValue }).strict();
 export const slipSchema = z.object({ employee: employeeSchema, lines: z.array(lineSchema).min(1), projectAllocation:z.object({times:z.array(timeSchema).min(1),leaves:z.array(leaveSchema),leaveHours:hours,costs:z.array(z.object({lineIndex:z.number().int().nonnegative(),project:projectSnapshot,amount:moneyValue.refine(n=>n>0)}).strict())}).strict().optional(), timeIds: z.array(id), leaveIds: z.array(id), annualAccrual: hours, personalAccrual: hours, totals: totalsSchema }).strict();

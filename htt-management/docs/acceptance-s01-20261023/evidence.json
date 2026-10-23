@@ -1,0 +1,162 @@
+{
+  "stage": "S01",
+  "date": "2026-10-23",
+  "status": "completed for ordinary complete configured financial years",
+  "architecture": "Trusted Electron main process, local repositories and business snapshots; no standalone backend",
+  "businessSchemaVersion": 32,
+  "baselineManifestSha256": "eee2b50a1e284c48e7a52b7a0e40626ef2d964c13c8d79789b0061711379226e",
+  "validation": {
+    "build": {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "warnings": [
+        "Existing frontend chunk size warning; no build errors"
+      ]
+    },
+    "finalFullRegression": {
+      "command": "pnpm test:ci",
+      "files": 170,
+      "passed": 3742,
+      "failed": 0,
+      "durationSeconds": 261.42,
+      "startedAt": "2026-10-23 20:24:06 Pacific/Auckland"
+    },
+    "directYearEndCases": 28,
+    "productionOwnershipCases": 3,
+    "guidanceDocuments": 67,
+    "auditedTableSurfaces": 149
+  },
+  "nativeAcceptance": {
+    "platform": "macOS arm64",
+    "window": "1100x700 compact",
+    "profile": "isolated synthetic temporary profile",
+    "screenshotsSaved": false,
+    "observations": [
+      {
+        "case": "Configured financial year and preflight",
+        "result": "2025-07-01 through 2026-06-30; one source journal; net profit AUD 700.00; no blockers; explicit reason and confirmation required."
+      },
+      {
+        "case": "Actual closing and journal detail",
+        "result": "CLOSED revision1 shown. Journal detail displayed YEAR_END_CLOSE, debit revenue1000, credit expense300, credit retained earnings700, total debit/credit1000."
+      },
+      {
+        "case": "Ordinary period reopen guard",
+        "result": "Attempted normal period reopening was rejected with Reopen the financial year-end before reopening its periods."
+      },
+      {
+        "case": "Controlled year-end reopen",
+        "result": "REOPENED revision2 shown with both original and reversal journal links. Original period stayed closed."
+      },
+      {
+        "case": "Reload and read-only role",
+        "result": "Reload required authentication. Synthetic AUDITOR saw persisted REOPENED revision2, both journal links and successful preflight; no closing reason/confirmation/submit controls."
+      }
+    ],
+    "closeFileProof": {
+      "status": "CLOSED",
+      "profitCents": 70000,
+      "journalDate": "2026-06-30",
+      "journalId": "je_1792740378579_gk321ye5",
+      "debit": 1000,
+      "credit": 1000,
+      "lines": [
+        {
+          "accountCode": "4999",
+          "debit": 1000,
+          "credit": 0
+        },
+        {
+          "accountCode": "5300",
+          "debit": 0,
+          "credit": 300
+        },
+        {
+          "accountCode": "3100",
+          "debit": 0,
+          "credit": 700
+        }
+      ],
+      "changedRepositories": [
+        "financialCache",
+        "journals",
+        "yearEnds"
+      ],
+      "backupSha256Verified": true,
+      "businessSha256": "184e930423f86443e9a0a18420a25325811c4855cd635fb47c43ac400689dc33"
+    },
+    "reopenFileProof": {
+      "status": "REOPENED",
+      "revision": 2,
+      "historyActions": [
+        "CLOSE",
+        "REOPEN"
+      ],
+      "sameDateReversal": true,
+      "reversalJournalId": "je_1792740482048_j9opcfvu",
+      "originalSourceJournalsUnchanged": true,
+      "periodsRemainClosed": true,
+      "bothRecordedBackupsVerified": true,
+      "businessSha256": "2c213ea1345d29ac9b443afcfa2b0499147e534e4be4cb89bf48f563b06a20d4"
+    },
+    "initialRuntimeIssue": {
+      "result": "Initial native commit exposed an eagerly registered journal method calling renderer IPC; no closing record or journal committed. A verified pre-operation backup remains as recovery evidence.",
+      "fix": "Repository ownership is rechecked at call time. Three production-mode tests verify early main initialization, renderer proxying and unconnected-renderer denial. Final native close and reopen both passed."
+    }
+  },
+  "sourceSha256": {
+    "scripts/year-end.config.ts": "237824c187547ac9f696513b798f2df9a08b2e1572e29544bead6ec1f3148855",
+    "scripts/year-end.fixture.ts": "54cf3ba6e490e3c2b41cf8de5879dedb9182becabe0af58ee34fdce76d909001",
+    "src/features/business-workspace/businessIntegration.test.ts": "7d3d840dd09b3f7bd6934854743c0f345d321aacad2fc5cc8b92ffedb4982f69",
+    "src/features/customer-deposits/customerDeposits.test.ts": "4552a739f3b0892c5a4e63a321d6d15c032771e74d27f19b88dcc5da790d1d37",
+    "src/features/finance-foundation/financeFoundation.test.ts": "9572ff5cbe4bf9a3e2f482b2e8c3c6d22fd749fcb8b487ae0406ea2051f1e0de",
+    "src/features/branding/brandingIntegration.test.ts": "9d1f53ffde2c7223105392bbab6583f29bf6bd3447a2d67eba640be1a8a99151",
+    "src/features/bank-instructions/instructionIntegration.test.ts": "c6eca2e4e50b2e231fdb900ad2dfaa8968e7ecefe76f34a6eef7f99bf379756f",
+    "src/features/security/repositoryOwnership.test.ts": "8c3c328b91e3ba4bf7dda2eacd6e37adde22dda184389f8ce5150f8f5a116bf0",
+    "src/features/security/repositoryHost.ts": "8ad3edca2707c02f262c4dc29d474bf5f7d1ee44f386cf9719cd109eb1ac8666",
+    "src/features/security/businessRecovery8D.test.ts": "258ea47c989d52976b1e45ee6cd2eb58d6c5f5ddbab1073ce75c3cecc09646dd",
+    "src/features/security/targetedFinancialRepair.test.ts": "00ad8233c7767b0dce60214a4d58da6511607b6370ed8ca03c24d67ded4bcc54",
+    "src/features/security/sourceMetadataRepair.test.ts": "da51959c54b3b5671e3145a25e7cb21088bc04e66e6e573ad18c75fd790f1524",
+    "src/features/security/accountingPeriods8E.test.ts": "5eb7440d0b58729db7e5a78e162d1b6d8ca17ab4a57e878fd37a330b50ce110e",
+    "src/features/security/backupIpc8D.test.ts": "d3e573b8d1c2931cf757dac0631ffcd3877f19ecdc319be2deda662af1956c84",
+    "src/features/year-end/model.ts": "abeb8f59ac92e6609be5bafdfc891269d0cb787ac1162cc536ae1b28b73d5741",
+    "src/features/year-end/yearEnd.test.ts": "4b1d7865b946d3832b65809a659c71201499072956336a00f0ff2f7aac650b59",
+    "src/features/year-end/client.ts": "fe4e61c1ac3f296c47c43e2b690ef2343a5e4519cf36c56657844c8177a9fbea",
+    "src/features/year-end/YearEndPage.tsx": "2a14e50f50e27377afb434f562c6145d53daa19a9dcaf2327e6b0bff633386f0",
+    "src/features/sales-visits/visitsIntegration.test.ts": "7556f9429c7da6dee483e0163ec54e97354a35556b4c370eb74e3f51d69570fe",
+    "src/features/bank-rules/bankRulesIntegration.test.ts": "a4a411930f972512fee5762b86eeef7aea48d653b89bfb7b49da5a6a5a32c541",
+    "src/features/document-recycle/purgeIntegration.test.ts": "6f7b41db6cfc5d53411d5bd1af7e182c0f1b26cbe0d0341276dd0daa013f8d01",
+    "src/features/document-recycle/recycleIntegration.test.ts": "675e819f77d0a2ef8c1104dc42e40d8e136702d0bf27d9e08a9ef83153184261",
+    "src/features/direct-documents/managedDocuments.test.ts": "85f37457926f0b5a349fb09ad5d1b54cfd36fbc06194ee976f8e563082219d8d",
+    "src/features/page-previews/directoryCatalog.ts": "3511951a101ab3e6c139855275c872551172f9ca0bdc50e08f7eeb6a57e11d26",
+    "src/features/page-previews/previewRoutes.tsx": "ae461fd47152ab1e9cc36a6d5a35e56ebedf10cfcf93f69fc6ac037307caba32",
+    "src/features/job-costing/jobCostingIntegration.test.ts": "e8b513c22628a17db9ed1ee8d9cca051181a5c6314cd63ff56ba8b0ec76358ee",
+    "src/features/document-output/purchaseOutput.test.ts": "e20fd2aa7c861abca6953d00aed6fcb9e9879fba107bebe36d80f45810548334",
+    "src/features/document-output/output.test.ts": "979ef5ac8a3b6e175ad3b1ef99f9a4cc90355e26fee6fec6411b7b22a761f191",
+    "src/features/finance-closure/financeClosure.test.ts": "ba6ce465c246a72c370b5d706f2b1761ee01d87b23d158f3dab3379bb62b7e82",
+    "src/features/attachments/attachmentIntegration.test.ts": "e2a0fb42cff9ec9a2f6a99bc68ffcb501a29c348b327b8aed4960e86880046b0",
+    "src/features/bill-capture/recognitionIntegration.test.ts": "56f7b1e39a007eabdbb76eac9dd513bf8b37dc8de1f0740000f76ccf3bc34ed6",
+    "src/features/supplier-returns/supplierReturns.test.ts": "4a2c86d9c56ea429496016fb9bebbc341bbf958ceda9a6bad3e50b24215383ea",
+    "src/features/supplier-prepayments/supplierPrepayments.test.ts": "c069c0f873916f622f6752bd678a62ccd09ce393c6c62652bd5e85218e54564c",
+    "src/features/contact-review/reviewIntegration.test.ts": "a807898ff3244bd4043231d0cd81adab1f5298da5c644c3e684612cc5d599f75",
+    "src/features/recurring/recurringAutomation.test.ts": "7133f257d58d93e9dd58cd071610c7a23d642df186ec7d7ab9ce9b53ebeef6b5",
+    "src/features/recurring/recurringIntegration.test.ts": "b3a47e65ce19cff23d06cf65b6d6617d8208f2f21281d8f4d84f73e1aecd613d",
+    "src/features/data-transfer/transferIntegration.test.ts": "8068bb37767009eec0cf189cb0f6ec1accf12d1d665e0c35b46d6f621e4a3d1c",
+    "src/features/payroll/data/payrollProjectsIntegration.test.ts": "9894aeeacdf5081b57c880ecc3f9c8255dfdb99c5c814d4df8cfc22d26baf308",
+    "src/features/payroll/data/payrollIntegration.test.ts": "c4e6cdb6070db0704290fe5032735440c59159e2b4a364a2d045a85707941c2e",
+    "src/features/accounting/types/journalEntry.ts": "d08b678c9ccf5d2eb576eafc88a91a1ebf95ee1b086d71e34a2336badd71fe3a",
+    "src/features/accounting/data/accountingPeriodRepository.ts": "c0775e3d5187c6d01d3aa8cd1fc992f251b149d264db74a0fa73d5813e0bf88e",
+    "src/features/accounting/data/profitAndLossService.ts": "54f502f2046e37973883a14df505e3404ccd865637b04f910fa55e005521b111",
+    "src/features/accounting/pages/AccountingPeriodsPage.tsx": "e9e7fd8c8de62ac2d04a82055335349f29c6da0aa345cd03437485bf436d252c",
+    "electron/security/businessHost.ts": "f633564eea3b58f326b1388476c766cf4718e2adb58baeb00ec279f4d5d30f9c",
+    "electron/security/yearEndBackup.ts": "5241a797d36207303177ae5917a15cecc05539825463b4fae0cce860a527fcf6",
+    "electron/security/yearEndRepository.ts": "e82fd9ba9106262655c1014a6bc724f2309967378808bfefc5c6dcd3bef4fcd9",
+    "electron/security/businessSnapshot.ts": "c72d3ef3ad61cf965d93183587fff2debcdad2c7e74094134dbf8a984bbceb19",
+    "electron/security/businessEngine.ts": "6a8be14ca9ddc29b9dcac48b39e450bd21e4cc3eb65f3690c7bca12222d048fc"
+  },
+  "boundaries": [
+    "Ordinary complete configured financial years; no short-year or fiscal-calendar-transition automation",
+    "No statutory/tax/payroll filing or external payment",
+    "Periods reopen separately after year-end reversal; all originals and audit evidence retained"
+  ]
+}

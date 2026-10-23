@@ -74,3 +74,6 @@
 
 | [E02-BANK-FEEDS.md](E02-BANK-FEEDS.md) | current | Basiq AU 配置、授权、同步和待审导入；真实银行待验收 |
 | [E03-PAYROLL-FILINGS.md](E03-PAYROLL-FILINGS.md) | current | AU 工资申报本地工作台及连接器框架；生产适配器/注册/真实回执待完成 |
+| [S01-YEAR-END.md](S01-YEAR-END.md) | current | 年度损益转留存收益、备份、年结锁与受控撤销 |
+
+| [S02-S04-LOCAL-WORKFLOWS.md](S02-S04-LOCAL-WORKFLOWS.md) | current | 复杂工资配置/结算、FIFO、客户 Notes 持久化及边界 |

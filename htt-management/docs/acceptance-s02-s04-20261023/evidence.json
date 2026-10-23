@@ -1,0 +1,145 @@
+{
+  "stage": "S02-S04",
+  "date": "2026-10-23",
+  "schemaVersion": 33,
+  "architecture": "Electron trusted main process, local repositories and full snapshots; no independent backend",
+  "scope": {
+    "S02": "Configurable reviewed payroll exceptions, hourly penalty multipliers, parameter-driven accrual, final settlement and reversal",
+    "S03": "Prospective per-product FIFO with exact layers and existing purchase, sale, return, GL and backup workflows",
+    "S04": "Append-only persistent customer notes with trusted actor, source and idempotent external provenance"
+  },
+  "boundaries": [
+    "Award coverage, employee classification and full statutory eligibility are not automatically determined; actual agreements and reviewed parameters are required.",
+    "Exceptional PAYG and termination tax/SG values are reviewed inputs; not all AU tax/ETP cases are automated.",
+    "Complex payroll is blocked from the standard local electronic-filing report until provider mapping supports it.",
+    "Sales-import note provenance is local reviewed entry, not a live independent sales-system synchronization.",
+    "No real filings, payments, customer data transmission or provider accounts were used."
+  ],
+  "validation": {
+    "build": {
+      "command": "pnpm build",
+      "location": "/Users/chandler/Documents/GitHub/HTTFlooring/htt-management",
+      "exitCode": 0,
+      "warning": "Existing Vite large-chunk warning remains."
+    },
+    "fullRegression": {
+      "command": "pnpm test:ci",
+      "exitCode": 0,
+      "files": 175,
+      "tests": 3775,
+      "seconds": 268.21,
+      "baselineFiles": 170,
+      "baselineTests": 3742,
+      "addedTests": 33
+    },
+    "guidance": {
+      "documents": 68,
+      "reachableSourceModules": 462,
+      "passed": true
+    },
+    "tableInventory": {
+      "surfaces": 149,
+      "passed": true
+    },
+    "whitespace": {
+      "passed": true,
+      "scope": "All files changed from stage-start baseline"
+    }
+  },
+  "native": {
+    "synthetic": true,
+    "stage": "S02-S04",
+    "schemaVersion": 33,
+    "at": "2026-10-23T08:01:51.545Z",
+    "nativeActions": [
+      "existing-stock policy switch denied",
+      "zero-stock FIFO switch committed",
+      "customer note created and visible after reload",
+      "final payroll approved and posted",
+      "payslip shows annual leave 2520 and loading 441",
+      "auditor payroll route denied",
+      "auditor costing policy read-only"
+    ],
+    "recovered": {
+      "runId": "67449a32-4edf-464e-8458-8877e9ea0784",
+      "status": "Posted",
+      "gross": 3961,
+      "annualBalance": 0,
+      "customerNoteCount": 2,
+      "fifoPolicyCount": 2
+    },
+    "snapshotChecksum": "43419910d2c0d8f1c1452dc4824dc1227501d2648a3fadcb614820d1295ce772"
+  },
+  "additionalNativeFormObservation": {
+    "ordinaryHours": 76,
+    "annualWeeks": 4,
+    "personalWeeks": 2,
+    "calculatedAnnualHours": 5.8462,
+    "calculatedPersonalHours": 2.9231,
+    "persisted": false,
+    "note": "Native UI-only draft calculation; closed without saving. Screenshots were inspected inline, not saved as artifacts."
+  },
+  "sourceSha256": {
+    "electron/payroll-filing/report.ts": "fb53b3dc4f47f1126862f8b9ab8095c261643bcd08f47195968b38cb1def2678",
+    "electron/security/businessHost.ts": "5a3af0ceefa1f1d440aca37cd1a54bddcf24240174a45bf3990f51622dcf2667",
+    "electron/security/businessSnapshot.ts": "ee91bbee374cfe1bf5ea4f9f86567d4ad65041ae6760901be40f8b6324f4ced7",
+    "electron/security/payrollRepository.ts": "5aecdb29a019d9cf39be9c4cc7c8f5c29c7e2490630d0f5b930dc59e4bd3797e",
+    "scripts/s02-s04.config.ts": "0bb8be737a316294adb60e6ea8b2607f9f47a899d50fd1d9bac240cfc1eb6cec",
+    "scripts/s02-s04.fixture.ts": "43ac174344b33652e8f8170b69ee2fc9729fe8f9848c15e6885967718d584337",
+    "scripts/s02-s04.verify.config.ts": "d57696c7e58b7cdc9bd2a74fa581a286bbc73811ceac167fe738595991b42893",
+    "scripts/s02-s04.verify.fixture.ts": "3e7c4f0ca045a6bfe0ef103c9266e734ace3b42ca5e49158380f648d43440ecf",
+    "src/features/attachments/attachmentIntegration.test.ts": "8d7e9b21b4ea0f1be214afac7003cf11548a9a6bccc86b635ab958503aabe78b",
+    "src/features/bank-instructions/instructionIntegration.test.ts": "95da5da632fc117972238aef92dcf2e6c3f61fdd47e258aba8a2ba779fa2fc78",
+    "src/features/bank-rules/bankRulesIntegration.test.ts": "2df652565a18c5326b6c4dc67c79b7464c7cb3c0728220a77d0902a0be63ecf5",
+    "src/features/bill-capture/recognitionIntegration.test.ts": "2c78855d2038aca9993c81608169b5152b76745a548e76b6af48815b6b54fd76",
+    "src/features/branding/brandingIntegration.test.ts": "47de1ab2ac02bd0910fa2055eb8da4261540e80b92ae73a3d43799bffbf8bf95",
+    "src/features/business-workspace/businessIntegration.test.ts": "04b1450e61dfb0f31f862fdfeb56cc54a75f17c6edb16d92ff14e1bd076161e8",
+    "src/features/contact-review/reviewIntegration.test.ts": "908d7937848a954c9819f5eb063f041665bfd805c82ce86ed12c8ee784ebe047",
+    "src/features/contacts/components/CustomerActivityTab.tsx": "b49a9114adf396c3b6dc522f785d73752036e03018ae260747b9257fb33b1e62",
+    "src/features/contacts/data/customerNotes.test.ts": "c5075f71b355a8ad4d9cc5b6b9404dfece663d9abf7aeb61137f2f8662cfcd1c",
+    "src/features/contacts/data/customerRepository.ts": "ad12f1d54a4b126b59f01f50486b494ed292c69de54e2eb2b1b368d57609e6c5",
+    "src/features/contacts/types/customer.ts": "90c6fd46e0fe6838a02338f4a8df3bd79fd027eb1588205f4b30c345bd395305",
+    "src/features/customer-deposits/customerDeposits.test.ts": "b6556d2c8474fc7c194c7d27024383e5edab5f12de6bee6dca1053427e8c7bf0",
+    "src/features/customer-returns/customerReturnRepository.ts": "4877f64a4b18f7d1afe0a5291b1b7e5c5429772b80f51093fb38148b5ba3476f",
+    "src/features/customer-returns/customerReturnsFifo.test.ts": "73c457a0405979be97ccd786307a91380b6664c03faa81135c1e21170f9a5985",
+    "src/features/data-transfer/transferIntegration.test.ts": "b2c6cdffe1170bb76bb6bed3eaa531d6a283ca6aaf5023d61a2f901d9896b75f",
+    "src/features/direct-documents/managedDocuments.test.ts": "41e5f13ce2ad5f7393f8bf4f49519a79281b0e656405fbaa0867d8f69edbbac4",
+    "src/features/document-output/output.test.ts": "fd24e975b96dff35840f92d87b6fe7a7b52e72a50bd361448f9329b738cf49ef",
+    "src/features/document-output/purchaseOutput.test.ts": "abad64e62c8751ec3be9e48f81e5a2581ec062a49352704e3b069a077d660b1d",
+    "src/features/document-recycle/purgeIntegration.test.ts": "8b9b3ec361462131a452880f1b12175b1ff6997cce4e4756de2511c4cfe91d9d",
+    "src/features/document-recycle/recycleIntegration.test.ts": "afa3d982f576b00bf26625baab52e5c244a5bbb67d9c60ee83ae1d7f00406d25",
+    "src/features/finance-closure/financeClosure.test.ts": "dc230f8b840997b6f1bbab3b711cb1dc5dc9d8a5198dc1f9d55dab846ade3f69",
+    "src/features/finance-foundation/financeFoundation.test.ts": "e7d9098c1983326ff79981d1ea86839d85ca8b6addf7444dc6e58ab0daffd4b5",
+    "src/features/finance-foundation/openingBalanceRepository.ts": "e91adabc63b56b5b82f758addc3e88b113435d65d4626b8ec2d1095d76c8998a",
+    "src/features/inventory/components/CostingPolicyPanel.tsx": "cca4b9fb0c4a10a189e8dfde9814d43bf39be2be6af368331832863e02945d3b",
+    "src/features/inventory/data/fifo.test.ts": "2c9ed7399e4f3ebd676a80e8315bbab574df1181169dffab064afd082ebdff20",
+    "src/features/inventory/data/fifo.ts": "4cf89db733f56ae31cd4bfa1d63a79bef34425c72bf9f093b968ddce5b7bd9d9",
+    "src/features/inventory/data/inventoryCostBalanceRepository.ts": "f40938879488c20eaa479f4b8f07dfd5621503b45dad677a1a77a44d7208310a",
+    "src/features/inventory/data/inventoryCostEngine.ts": "8baf525313986d3ca9cbc1f8b5f409724658549e06c3bac66844d653595e7662",
+    "src/features/inventory/data/inventoryCostMovementRepository.ts": "8690a11ec92bddcdf4b79b9b0a4b2ecb93cc2e2794fd23e411b25559b51beb07",
+    "src/features/inventory/data/productCostingRepository.ts": "4e14e976c48c1ea21f7545d9e2a1c944fb5e4e13ed73d41c374e6bb89580135a",
+    "src/features/inventory/pages/InventoryPage.tsx": "fff461d9c9c549e6d5dddf71daf7d8be61bba1ed8c905e0fc22d75c9a142b796",
+    "src/features/inventory/types/inventoryCost.ts": "40a7d9ca73b13dbbefd99c26be1ea567c3b3fb0ca5a95d2bd80cb5f0ca771657",
+    "src/features/inventory/types/productCosting.ts": "35055e027a5cecf1a9e0de87ad807aff67503c8dc1934c23bd7556f1e06ebc35",
+    "src/features/job-costing/jobCostingIntegration.test.ts": "874911cc5a460faca57a8a26640368eb3fbc88385301360e02760eeba81d56c3",
+    "src/features/payroll/data/payrollComplex.test.ts": "84e3a2c5ecd6e5c3b1df7e5d3e4d8259b637f4f32de07aa73aa988a3fc1fbc5b",
+    "src/features/payroll/data/payrollIntegration.test.ts": "4d3e67b6d63218c46376fd1e618617b54507b1a1afff2e6ba034aa7938f5f9e8",
+    "src/features/payroll/data/payrollModel.ts": "625e1edbb76f8705d3cdf821497e3f9e2c5f1285a7b8a1f4fb36f39506a30980",
+    "src/features/payroll/data/payrollProjectsIntegration.test.ts": "f6f11942c71a66a4381e6ab39d6f64dce1368ec663a5ec51f4a7b81f0c3bb976",
+    "src/features/payroll/pages/ComplexPayFields.tsx": "62cae7e5d15276f86720833d03aea83e08ea33bfcebcd67173e5ff93b0a35353",
+    "src/features/payroll/pages/PayrollPages.tsx": "a0b31edb3b6790bd3314df1ee93e9a1fca36d954d17ac2437ac938d6bf7dc0ca",
+    "src/features/recurring/recurringAutomation.test.ts": "2166bb90027f9dd3af649f27b26eeabe8f475a03efabc369278ce308e7d83c45",
+    "src/features/recurring/recurringIntegration.test.ts": "7f1ac3fd9e8befeba4012e75dc1817817d841fb1b6a1778e57e15cf0dc870ca3",
+    "src/features/sales-visits/visitsIntegration.test.ts": "4fc86e0a9e24d1e43645fd3b142e15c820761e3e761b8d032007225bdbabe858",
+    "src/features/security/accountingPeriods8E.test.ts": "79fb5f0cd2ec60bee4206eaaae1043f2119799ba0728a3e3b3cbcf390f0f0767",
+    "src/features/security/backupIpc8D.test.ts": "b5b9e47a469e404255ff5913de0b744557f96d2b0e5faf06d7349762ded07d7a",
+    "src/features/security/businessRecovery8D.test.ts": "0b1cd366f3ae071970563ffc5c8c770a13fb2abe05fbb0f8ebb7c4580751c941",
+    "src/features/security/sourceMetadataRepair.test.ts": "1f4dddef9b79326928e7928324c0bfa7b69d611edd270c05d4f994a4a2fb6cd4",
+    "src/features/security/targetedFinancialRepair.test.ts": "46c73fd6e4ae00034d6802f0854fdabf34b383700d2604d348d95edb69fb0549",
+    "src/features/supplier-prepayments/supplierPrepayments.test.ts": "fbe87ac71a09995aef03da75f6ab142d8016fc9a4a10d3a645eaf1f28b414cf1",
+    "src/features/supplier-returns/supplierReturns.test.ts": "af7c05560198fd62db40df1d6cbd2a663ba8decc8b1d13df34e464b2b2c5011f",
+    "src/features/supplier-returns/supplierReturnsFifo.test.ts": "14e974ab502c5067d0a2e5380604196ecbbb4648c4d301a0b8fb96f12166ea60",
+    "src/features/year-end/yearEnd.test.ts": "332fda18d902ba40646387d2841497660e258c9f8d4dc410ca4f553e7be42564"
+  },
+  "baselineManifestSha256": "a7602aa8a12c163aa8c22ee748d86771a7eb8fd566c41332fe55f72350ba01f0"
+}

@@ -1,3 +1,5 @@
+import './yearEndRepository';
+export {assertYearEndIntegrity} from './yearEndRepository';
 import './captureSourceRepository';
 import './brandingRepository';
 export { assertBankInstructionCommand } from './bankInstructionRepository';
