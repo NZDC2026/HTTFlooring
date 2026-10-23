@@ -13,6 +13,7 @@ import '../../../services/customer_note_service.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/sales_document_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/customer_product_sales_card.dart';
 import '../pricing/customer_pricing_screen.dart';
 import 'customer_invoices_screen.dart';
 import 'customer_map_screen.dart';
@@ -118,6 +119,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 ),
                 const SizedBox(height: 10),
                 _buildCompanyCard(customer),
+                const SizedBox(height: 24),
+                CustomerProductSalesCard(customerId: customer.id),
                 const SizedBox(height: 24),
                 _sectionHeader('ACCOUNT'),
                 const SizedBox(height: 10),

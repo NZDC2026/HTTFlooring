@@ -1,6 +1,7 @@
 import { ArrowLeft, Box, Ruler } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
+import ProductSalesCard from "../components/ProductSalesCard";
 import { products } from "../data/products";
 
 export default function ProductPage() {
@@ -136,6 +137,8 @@ export default function ProductPage() {
                         </div>
                     </section>
                 </div>
+
+                <ProductSalesCard key={product.id} productId={product.id} />
             </main>
         </>
     );

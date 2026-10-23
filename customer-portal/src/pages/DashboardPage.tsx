@@ -2,6 +2,7 @@ import { AlertCircle, MapPin, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 
+
 const categories = [
     {
         name: "Engineered Timber",

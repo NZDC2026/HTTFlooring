@@ -1117,3 +1117,30 @@ h2 {
 /* Invoice portal */
 .invoices-page{min-height:calc(100vh - 70px);background:#faf8f3}.invoices-heading{padding:38px 5% 22px;background:#f1ede5}.invoices-heading h1{font-size:44px;margin:0 0 5px}.invoices-heading p{color:#666}.invoice-content{padding:28px 5% 60px}.invoice-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:26px}.invoice-summary>div{background:#fff;border:1px solid var(--border);padding:22px;display:flex;flex-direction:column;gap:7px}.invoice-summary small,.invoice-summary span{color:#777}.invoice-summary strong{font-family:"Libre Caslon Display",Georgia,serif;font-size:30px;font-weight:400}.invoice-summary .danger-card{border-color:#e8c5c0}.danger-card strong,.account-overdue{color:#a84138}.invoice-search{height:48px;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);padding:0 14px;margin-bottom:18px}.invoice-search input{border:0;outline:0;flex:1}.invoice-table{border-top:1px solid var(--border)}.invoice-table-head,.invoice-line{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 1fr 1.3fr;gap:16px;align-items:center;padding:15px 12px}.invoice-table-head{font-size:12px;color:#777}.invoice-line{border-top:1px solid var(--border);background:#fff}.invoice-line:hover{background:#fffaf5}.invoice-status{width:max-content;padding:6px 9px;border-radius:5px;font-size:11px;font-weight:600}.invoice-status.outstanding{background:#f4eadb;color:#9b671d}.invoice-status.overdue{background:#f7dfdc;color:#a84138}.invoice-status.paid{background:#dff1e5;color:#187846}.aging{margin-top:32px;background:#fff;border:1px solid var(--border);padding:22px}.aging h2{margin-top:0}.aging>div{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.aging span{display:flex;flex-direction:column;color:#777;font-size:12px;gap:7px}.aging strong{color:#222;font-size:16px}.invoice-detail{min-height:calc(100vh - 70px);padding:30px 5% 60px;background:#f3efe7}.invoice-paper{max-width:1000px;margin:auto;background:#fff;padding:48px;box-shadow:0 12px 40px rgba(30,35,30,.06)}.invoice-detail-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:25px}.invoice-detail-head h1{font-size:42px;margin:5px 0}.invoice-meta{display:grid;grid-template-columns:1fr 1fr 2fr;gap:25px;padding:28px 0}.invoice-meta>div{display:flex;flex-direction:column;gap:6px}.invoice-meta small{color:#777}.invoice-items{margin-top:18px}.invoice-items-head,.invoice-items>div{display:grid;grid-template-columns:2fr .6fr 1fr 1fr;gap:15px;padding:14px;border-bottom:1px solid var(--border)}.invoice-items-head{background:#f4f1eb;color:#666;font-size:12px}.invoice-totals{width:min(420px,100%);margin:30px 0 0 auto;display:flex;flex-direction:column}.invoice-totals span{display:flex;justify-content:space-between;padding:8px 0}.invoice-totals .balance{border-top:1px solid var(--border);margin-top:8px;padding-top:16px;font-size:18px}.invoice-download{display:flex;gap:8px;align-items:center;margin-left:auto;margin-top:28px}.account-summary-cards{display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:16px;margin-bottom:28px}.account-summary-cards>div,.payment-attention{background:#fff;border:1px solid var(--border);padding:18px;display:flex;flex-direction:column;gap:5px}.account-summary-cards strong{font-size:22px}.account-summary-cards small,.account-summary-cards span{color:#777}.overdue-summary strong{color:#a84138}.payment-attention{flex-direction:row!important;align-items:center;color:#a84138}.payment-attention div{display:flex;flex-direction:column;gap:4px}.locked-region{display:flex;align-items:center;gap:7px;color:var(--copper)}
 @media(max-width:800px){.invoice-summary,.account-summary-cards{grid-template-columns:1fr}.invoice-table{overflow-x:auto}.invoice-table-head,.invoice-line{min-width:850px}.aging>div{grid-template-columns:1fr 1fr}.invoice-meta{grid-template-columns:1fr}.region-options{grid-template-columns:1fr}}
+
+/* Customer product sales, using the same comparison windows as Flutter. */
+.product-sales { margin: 28px 0; padding: 26px; border: 1px solid var(--border); border-radius: 14px; background: var(--white); }
+.sales-heading, .sales-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.sales-heading h2 { margin: 0; font-size: 30px; }
+.sales-heading p, .sales-toolbar > span, .sales-dates span { color: var(--muted); font-size: 13px; }
+.sales-heading p { margin: 8px 0 0; }
+.sales-demo { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.sales-demo input { accent-color: var(--green); width: 18px; height: 18px; }
+.sales-toolbar { margin: 22px 0 16px; }
+.sales-periods { display: flex; gap: 4px; padding: 4px; background: var(--ivory); border-radius: 8px; }
+.sales-periods button { padding: 9px 15px; border: 0; border-radius: 6px; color: var(--green); background: transparent; }
+.sales-periods button[aria-pressed="true"] { background: var(--green); color: white; }
+.sales-dates { display: flex; gap: 6px; flex-direction: column; font-size: 13px; margin-bottom: 18px; }
+.sales-table-wrap { overflow-x: auto; }
+.sales-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+.sales-table thead th { color: var(--muted); font-size: 12px; font-weight: 500; background: var(--ivory); }
+.sales-table th, .sales-table td { padding: 15px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.sales-table tbody th { font-weight: 600; }
+.sales-table small { display: block; color: var(--muted); font-size: 12px; margin-top: 5px; font-weight: 400; }
+.sales-table a:hover { text-decoration: underline; }
+.sales-trend { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.sales-trend.positive { color: #24734a; }
+.sales-trend.negative { color: #b74434; }
+.sales-trend.neutral { color: var(--muted); }
+.sales-empty { padding: 24px 0; color: var(--muted); }
+@media (max-width: 600px) { .product-sales { padding: 18px 14px; } .sales-table th, .sales-table td { padding: 12px 9px; } }
