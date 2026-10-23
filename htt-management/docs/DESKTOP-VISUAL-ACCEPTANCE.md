@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [WORKFLOW-ACCEPTANCE-20261021.md](WORKFLOW-ACCEPTANCE-20261021.md).
+
 # Desktop visual acceptance — 2026-10-16
 
 All 90 registered route patterns were opened and visually inspected in the Electron desktop application, using an isolated synthetic local profile. Parameterized routes were checked with representative records, not every possible ID or business state. The normal business profile was not used. No live API or external backend was connected.

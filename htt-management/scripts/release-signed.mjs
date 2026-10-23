@@ -1,0 +1,10 @@
+import {execFileSync} from 'node:child_process';
+import {mkdirSync,mkdtempSync} from 'node:fs';
+import {preflight,runPnpm} from './release-preflight.mjs';
+preflight();
+const run=args=>runPnpm(args,{stdio:'inherit'});
+run(['install','--frozen-lockfile']);run(['exec','install-electron']);run(['build']);run(['test:ci']);
+mkdirSync('release',{recursive:true});
+const output=mkdtempSync(`release/candidate-${process.platform}-`);
+run(['exec','electron-builder','--config','electron-builder.release.cjs',process.platform==='darwin'?'--mac':'--win',process.platform==='darwin'?'dmg':'nsis','--publish','never',`--config.directories.output=${output}`]);
+execFileSync(process.execPath,['scripts/release-manifest.mjs',output,'--signed'],{stdio:'inherit'});

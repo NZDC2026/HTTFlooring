@@ -10,7 +10,7 @@ import { BusinessFrame } from '../business-workspace/MasterDataPages';
 import { businessSettings } from '../business-workspace/configurationState';
 import { businessDateKey, fiscalYearStart } from '../../lib/businessDate';
 import { Panel, Field, SampleTable, Cell, fieldClass, buttonClass } from '../prototype/PrototypeUI';
-import { csvText, downloadSample } from '../page-previews/previewModel';
+import { csvText, downloadFile } from '../../lib/csv';
 import { calculateCashReport } from './cashReportService';
 export function CashReportsPage({ banking = false }: {
     banking?: boolean;
@@ -35,7 +35,7 @@ export function CashReportsPage({ banking = false }: {
         if (!report)
             return;
         const r = report;
-        downloadSample(`${banking ? 'banking-summary' : 'cash-flow'}-${from}-${to}.csv`, csvText([
+        downloadFile(`${banking ? 'banking-summary' : 'cash-flow'}-${from}-${to}.csv`, csvText([
             ['Report header', reportSettings().header], ['Basis','Cash'], ['Bank ledger report', from, to, currency, bankId ? banks.find(b => b.id === bankId)!.name : 'All accounts in currency'],
             ['Opening', reportNumber(r.opening)], ['Net movement', reportNumber(r.net)], ['Closing', reportNumber(r.closing)], ['Reconciliation difference', reportNumber(r.difference)],
             ['Activity groups (internal selected-bank transfers netted per journal)'], ['Activity', 'Money in', 'Money out', 'Net'],

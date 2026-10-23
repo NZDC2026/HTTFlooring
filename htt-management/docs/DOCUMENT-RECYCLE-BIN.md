@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [G04-RECYCLE-PURGE.md](G04-RECYCLE-PURGE.md).
+
 # Business document recycle bin — 2026-10-19
 
 The Document recycle bin at `/sales/recycle-bin` now operates on real local records: quotes, purchase orders, direct sales-order entry drafts, direct invoice entry drafts and expense-bill entry drafts. It replaces the sample-only restore/purge page. G04 adds ADMIN-only permanent purge of eligible recycled drafts; see [G04 scope, backup and recovery](G04-RECYCLE-PURGE.md).

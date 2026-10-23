@@ -1,7 +1,7 @@
 import { bankRuleClient } from '../bank-rules/ruleClient';
 import { useRuleReceipts } from '../bank-rules/ruleState';
 import {businessSettings} from '../business-workspace/configurationState';
-import { parseCsv } from '../page-previews/previewModel';
+import { parseCsv } from '../../lib/csv';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BusinessFrame } from '../business-workspace/MasterDataPages';
@@ -23,7 +23,7 @@ export function BankAccountSetupPage({ mode, id }: {
     const rows = useBankAccounts(), row = rows.find(r => r.id === id), navigate = useNavigate(), canWrite = usePermission('banking.write');
     const [expected] = useState(row?.updatedAt), [draft, setDraft] = useState(() => ({ id: row?.id, name: row?.name ?? '', bankName: row?.bankName ?? '', accountNumber: row?.accountNumber ?? '', accountType: row?.accountType ?? 'TRANSACTION' as const, currency: row?.currency ?? rows[0]?.currency ?? 'AUD', glAccountId: row?.glAccountId ?? '', openingBalanceDate: row?.openingBalanceDate ?? today(), active: row?.active ?? true })), [error, setError] = useState('');
     const path = '/banking/setup/accounts', edit = mode === 'edit' || mode === 'new';
-    return <BusinessFrame title={edit ? 'Bank account setup' : 'Bank accounts'} actions={<><Link className={buttonClass} to={path}>Register</Link>{mode === 'list' && canWrite && <Link className={buttonClass} to={path + '/new'}>New account</Link>}</>}><Notice error>{error}</Notice>{mode === 'list' ? <Panel title="Accounts"><SampleTable headers={['Name', 'Bank', 'Currency', 'Status']}>{rows.map(r => <tr key={r.id}><Cell><Link className="underline" to={path + '/' + r.id}>{r.name}</Link></Cell><Cell>{r.bankName}</Cell><Cell>{r.currency}</Cell><Cell>{r.active ? 'Active' : 'Inactive'}</Cell></tr>)}</SampleTable></Panel> : id && !row ? <Notice error>Account not found.</Notice> : edit ? !canWrite ? <Notice error>Your role cannot maintain bank accounts.</Notice> : <Panel title="Account details"><form className="space-y-4" onSubmit={e => { e.preventDefault(); try {
+    return <BusinessFrame title={edit ? 'Bank account setup' : 'Bank accounts'} actions={<><Link className={buttonClass} to={path}>Register</Link>{mode === 'list' && canWrite && <Link className={buttonClass} to={path + '/new'}>New account</Link>}</>}><Notice error>{error}</Notice>{mode === 'list' ? <Panel title="Accounts"><SampleTable dataset={{id:'bank-accounts',scope:'all-filtered',permission:'banking.read',rows:rows.map(r=>({id:r.id,cells:[r.name,r.bankName,r.currency,r.active?'Active':'Inactive']}))}} headers={['Name', 'Bank', 'Currency', 'Status']}>{rows.map(r => <tr key={r.id}><Cell><Link className="underline" to={path + '/' + r.id}>{r.name}</Link></Cell><Cell>{r.bankName}</Cell><Cell>{r.currency}</Cell><Cell>{r.active ? 'Active' : 'Inactive'}</Cell></tr>)}</SampleTable></Panel> : id && !row ? <Notice error>Account not found.</Notice> : edit ? !canWrite ? <Notice error>Your role cannot maintain bank accounts.</Notice> : <Panel title="Account details"><form className="space-y-4" onSubmit={e => { e.preventDefault(); try {
         const result = bankAccountRepository.save(draft, expected);
         navigate(path + '/' + result.id);
     }

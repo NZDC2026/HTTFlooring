@@ -78,7 +78,7 @@ const columns: ColumnDef<
             ),
         },
         {
-            id: "actions",
+            id: "actions", enableHiding:false, meta:{exportable:false},
             enableSorting: false,
             header: "",
             cell: () => (
@@ -122,6 +122,7 @@ export function RecentTransactions() {
             </div>
 
             <DataTable
+                capabilities={{id:"dashboard-recent",scope:"summary",permission:"inventory.read",rowId:r=>r.id}}
                 data={recentTransactions}
                 columns={columns}
                 search={{

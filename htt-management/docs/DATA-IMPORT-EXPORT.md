@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Master-data CSV import and export — 2026-10-19
 
 The Data import & export page now uses the local main-process repositories, persistence and audit host. It supports Customers, Suppliers, Customer branches, Customer contacts and Products. This phase does not import invoices, payments, journals, stock quantities or opening balances; their existing dedicated workflows remain authoritative. CSV is supported; XLSX is not.

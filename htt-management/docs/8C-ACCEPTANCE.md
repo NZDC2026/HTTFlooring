@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # 8C 本地身份、权限与操作审计
 
 基线：2026-10-15 已验收的 8B 源码（49 个测试文件、418 项测试）。

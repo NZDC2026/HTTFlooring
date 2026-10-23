@@ -86,5 +86,5 @@ export function filterActions(items: ActionItem[], input: {
 } = {}) {
     const terms = (input.query ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean);
     const rows = items.filter(r => (!input.kind || input.kind === 'All' || r.kind === input.kind) && (!input.mine || r.kind !== 'Tasks' || r.owner === input.userId) && terms.every(t => [r.number, r.name, r.detail, r.due].join(' ').toLowerCase().includes(t))), total = rows.length, pages = Math.max(1, Math.ceil(total / 50)), page = Number.isSafeInteger(input.page) ? Math.max(1, Math.min(input.page!, pages)) : 1;
-    return { total, pages, page, rows: rows.slice((page - 1) * 50, page * 50) };
+    return { total, pages, page, allRows: rows, rows: rows.slice((page - 1) * 50, page * 50) };
 }

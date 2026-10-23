@@ -1,6 +1,6 @@
 import { reportNumber, legacyReportPresentation } from '../report-settings/reportPresentation';
 import {logoHtml} from '../branding/brandingState';
-import { csvText } from '../page-previews/previewModel';
+import { csvText } from '../../lib/csv';
 import type { PreparedReportPack } from './reportPackService';
 const escapeHtml = (value: unknown) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 export function reportPackFileName(pack: PreparedReportPack, extension: 'html' | 'csv') { return `${pack.name.replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 80) || 'report-pack'}-${pack.from}-${pack.to}.${extension}`; }

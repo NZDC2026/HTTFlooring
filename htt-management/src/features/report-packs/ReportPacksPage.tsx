@@ -1,3 +1,5 @@
+import { DataTable } from '../../components/data-table/DataTable';
+import { WorkspaceBulkAction } from '../business-workspace/WorkspaceBulkAction';
 import { reportSettings } from '../report-settings/reportPresentation';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -5,7 +7,7 @@ import { workspaceRepositories, useWorkspaceRecords, configurationHistory } from
 import { businessSettings } from '../business-workspace/configurationState';
 import { BusinessFrame } from '../business-workspace/MasterDataPages';
 import { Panel, Field, SampleTable, Cell, fieldClass, buttonClass } from '../prototype/PrototypeUI';
-import { downloadSample } from '../page-previews/previewModel';
+import { downloadFile } from '../../lib/csv';
 import { useSecurity } from '../security/securityClient';
 import { hasPermission } from '../security/rbac';
 import { businessDateKey, fiscalYearStart } from '../../lib/businessDate';
@@ -66,7 +68,7 @@ export function ReportPacksPage({ mode, id }: {
     return <BusinessFrame title={mode === 'list' ? 'Management report packs' : editing ? `${mode === 'new' ? 'New' : 'Edit'} report pack` : row!.name} actions={<>{mode === 'list' && canWrite ? <Link className={buttonClass} to="/reports/packs/new">New report pack</Link> : <Link className={buttonClass} to="/reports/packs">Back to register</Link>}</>}>
         {error && <p role="alert" className="rounded-lg border border-red-300 p-3 text-sm text-red-700">{error}</p>}
         <p className="rounded-lg border bg-slate-50 p-3 text-sm">Saved periods and report order generate a combined local management pack from current books. Generate, review and export a copy when ready. Configurations persist; generated previews are retained by exporting them.</p>
-        {mode === 'list' ? <Panel title="Report pack register"><input className={fieldClass} aria-label="Find report packs" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, period or report"/><SampleTable headers={['Name', 'Period', 'Reports', 'Status']} empty={!rows.some(r => `${r.name} ${r.periodStart} ${r.periodEnd} ${r.reports}`.toLowerCase().includes(query.toLowerCase()))}>{rows.filter(r => `${r.name} ${r.periodStart} ${r.periodEnd} ${r.reports}`.toLowerCase().includes(query.toLowerCase())).map(r => <tr key={r.id}><Cell><Link className="underline" to={`/reports/packs/${r.id}`}>{r.name}</Link></Cell><Cell>{r.periodStart} → {r.periodEnd}</Cell><Cell>{r.reports}</Cell><Cell>{r.status}</Cell></tr>)}</SampleTable></Panel> : editing ? !canWrite ? <p role="alert">Your role may generate saved packs but cannot edit their configuration.</p> : <Panel title="Pack configuration"><form className="space-y-4" onSubmit={e => { e.preventDefault(); try {
+        {mode === 'list' ? <Panel title="Report pack register"><input className={fieldClass} aria-label="Find report packs" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name, period or report"/><DataTable data={rows.filter(r => `${r.name} ${r.periodStart} ${r.periodEnd} ${r.reports}`.toLowerCase().includes(query.toLowerCase()))} columns={[{accessorKey:'name',header:'Name',cell:({row})=><Link className="underline" to={`/reports/packs/${row.original.id}`}>{row.original.name}</Link>},{id:'period',accessorFn:r=>`${r.periodStart} → ${r.periodEnd}`,header:'Period'},{accessorKey:'reports',header:'Reports'},{accessorKey:'status',header:'Status'}]} pagination={{pageSize:50}} capabilities={{id:'report-packs',scope:'complete',permission:'accounting.read',rowId:r=>r.id,selectionActions:selected=><WorkspaceBulkAction domain="report-packs" rows={selected}/>}}/></Panel> : editing ? !canWrite ? <p role="alert">Your role may generate saved packs but cannot edit their configuration.</p> : <Panel title="Pack configuration"><form className="space-y-4" onSubmit={e => { e.preventDefault(); try {
             if (!selected.length)
                 throw new Error('Select at least one report.');
             const saved = repo.save({ ...row, ...draft, status: row?.status ?? 'Active', reports: selected.join(', ') }, expected);
@@ -86,7 +88,7 @@ export function ReportPacksPage({ mode, id }: {
         catch (e) {
             setError((e as Error).message);
         } }}>{row!.status === 'Active' ? 'Deactivate' : 'Activate'}</button></>}</div></Panel>
-            {pack && <Panel title={`${pack.cover} · generated copy`}><p className="text-sm">{pack.company.name} · {pack.company.currency} · {pack.from} → {pack.to}</p><p className="mt-2 text-xs">Generated {pack.generatedAt} · Actor {pack.generatedBy} · Configuration revision {pack.configRevision}</p>{stale && <p role="status" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">Books or configuration changed after generation. This copy keeps its earlier values. Generate a refreshed copy to include current data.</p>}<div className="my-4 flex flex-wrap gap-3"><button className={buttonClass} onClick={() => downloadSample(reportPackFileName(pack, 'csv'), reportPackCsv(pack))}>Download pack CSV</button><button className={buttonClass} onClick={() => downloadSample(reportPackFileName(pack, 'html'), renderReportPackHtml(pack), 'text/html')}>Download printable HTML</button><button className={buttonClass} disabled={!frameReady} onClick={() => { try {
+            {pack && <Panel title={`${pack.cover} · generated copy`}><p className="text-sm">{pack.company.name} · {pack.company.currency} · {pack.from} → {pack.to}</p><p className="mt-2 text-xs">Generated {pack.generatedAt} · Actor {pack.generatedBy} · Configuration revision {pack.configRevision}</p>{stale && <p role="status" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">Books or configuration changed after generation. This copy keeps its earlier values. Generate a refreshed copy to include current data.</p>}<div className="my-4 flex flex-wrap gap-3"><button className={buttonClass} onClick={() => downloadFile(reportPackFileName(pack, 'csv'), reportPackCsv(pack))}>Download pack CSV</button><button className={buttonClass} onClick={() => downloadFile(reportPackFileName(pack, 'html'), renderReportPackHtml(pack), 'text/html')}>Download printable HTML</button><button className={buttonClass} disabled={!frameReady} onClick={() => { try {
                 if (!frame.current?.contentWindow)
                     throw new Error('Print preview is not ready.');
                 frame.current.contentWindow.print();

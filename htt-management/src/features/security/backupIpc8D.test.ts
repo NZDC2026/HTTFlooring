@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const mocks = vi.hoisted(() => ({ on: vi.fn(), showSaveDialog: vi.fn(), showOpenDialog: vi.fn() }));
-vi.mock('electron', () => ({ ipcMain: { on: mocks.on }, dialog: { showSaveDialog: mocks.showSaveDialog, showOpenDialog: mocks.showOpenDialog } }));
+vi.mock('electron', () => ({ app:{isPackaged:false,getAppPath:()=>'/synthetic-app'}, ipcMain: { on: mocks.on }, dialog: { showSaveDialog: mocks.showSaveDialog, showOpenDialog: mocks.showOpenDialog } }));
 let root: string, request: (action: string, input?: unknown) => Promise<any>;
 beforeEach(async () => {
     vi.resetModules(); vi.stubGlobal('window', undefined); vi.stubGlobal('localStorage', undefined); vi.stubGlobal('__HTT_MAIN_HOST__', true);
@@ -27,7 +27,7 @@ describe('8D native backup file boundary', () => {
         expect((await request('business.backup.save')).ok).toBe(true);
         const text = readFileSync(file, 'utf8'); expect(text).not.toContain('passwordHash'); expect(text).not.toContain('auditKey');
         mocks.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [file] });
-        const preview = await request('business.restore.preview', { filePath: '/ignored-renderer-path' }); expect(preview.ok).toBe(true); expect(preview.value.schemaVersion).toBe(30);
+        const preview = await request('business.restore.preview', { filePath: '/ignored-renderer-path' }); expect(preview.ok).toBe(true); expect(preview.value.schemaVersion).toBe(31);
         expect((await request('business.restore.commit', { token: preview.value.token })).value.restartRequired).toBe(true);
     });
     it('rejects a save over active account or business data', async () => {

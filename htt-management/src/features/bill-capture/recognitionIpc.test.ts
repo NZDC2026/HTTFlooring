@@ -1,0 +1,34 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync, symlinkSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+const mocks = vi.hoisted(() => ({ on: vi.fn(), showSaveDialog: vi.fn(), showOpenDialog: vi.fn() }));
+vi.mock('electron', () => ({ app:{isPackaged:false,getAppPath:()=>'/synthetic-app'}, ipcMain: { on: mocks.on }, dialog: { showSaveDialog: mocks.showSaveDialog, showOpenDialog: mocks.showOpenDialog } }));
+let root: string, request: (action: string, input?: unknown) => Promise<any>;
+beforeEach(async () => {
+    vi.resetModules();
+    vi.stubGlobal('window', undefined);
+    vi.stubGlobal('localStorage', undefined);
+    vi.stubGlobal('__HTT_MAIN_HOST__', true);
+    root = mkdtempSync(join(tmpdir(), 'htt-capture-ipc-'));
+    mocks.on.mockClear();
+    mocks.showOpenDialog.mockReset();
+    mocks.showSaveDialog.mockReset();
+    const { registerSecurityIpc } = await import('../../../electron/security/registerSecurityIpc');
+    const owner = { webContents: { mainFrame: {} } };
+    registerSecurityIpc(join(root, 'active'), () => owner as any);
+    const event = { sender: owner.webContents, senderFrame: owner.webContents.mainFrame, returnValue: undefined as any };
+    request = async (action, input = {}) => { await mocks.on.mock.calls[0][1](event, action, input); return event.returnValue; };
+    await request('setup', { username: 'test.admin', displayName: 'Test admin', password: 'Test-profile-only-8D-4821' });
+    expect((await request('business.bootstrap')).ok).toBe(true);
+});
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); });
+const recognition={engine:'test',pages:1,lines:[{page:1,text:'Total: 110.00',confidence:0.9}]};
+async function selected(){const recognizer=await import('../../../electron/security/captureRecognizer');vi.spyOn(recognizer,'recognizeCaptureFile').mockReturnValue(recognition);const file=join(root,'invoice.png');writeFileSync(file,Buffer.from('89504e470d0a1a0a00000000','hex'));mocks.showOpenDialog.mockResolvedValue({canceled:false,filePaths:[file]});const reply=await request('capture.select',{operationId:'native-source'});expect(reply.ok).toBe(true);return {file,source:reply.value.source};}
+it('cancels recognition without creating source evidence',async()=>{mocks.showOpenDialog.mockResolvedValue({canceled:true});expect((await request('capture.select',{operationId:'cancel'})).value).toEqual({});});
+it('uses only native-selected bytes and returns projected source metadata, then exports exact original',async()=>{const {file,source}=await selected();expect(source.content).toBeUndefined();const output=join(root,'export.png');mocks.showSaveDialog.mockResolvedValue({canceled:false,filePath:output});expect((await request('capture.export',{id:source.id})).value.saved).toBe(true);expect(readFileSync(output)).toEqual(readFileSync(file));});
+it('rejects caller paths and forged recognition before opening a dialog',async()=>{expect((await request('capture.select',{operationId:'unsafe',path:'/private/file',recognition})).ok).toBe(false);expect(mocks.showOpenDialog).not.toHaveBeenCalled();});
+it('rejects selected symlinks and directories',async()=>{const file=join(root,'file.png'),link=join(root,'link.png'),folder=join(root,'folder');writeFileSync(file,'not an image');symlinkSync(file,link);mkdirSync(folder);for(const path of [link,folder]){mocks.showOpenDialog.mockResolvedValue({canceled:false,filePaths:[path]});expect((await request('capture.select',{operationId:'bad'})).ok).toBe(false);}});
+it('checks purchasing authority before the native recognition dialog',async()=>{await request('users.create',{username:'native.audit',displayName:'Audit',password:'Test-profile-only-8D-4821',roles:['AUDITOR']});await request('login',{username:'native.audit',password:'Test-profile-only-8D-4821'});expect((await request('capture.select',{operationId:'denied'})).ok).toBe(false);expect(mocks.showOpenDialog).not.toHaveBeenCalled();});
+it('blocks original exports into active profile files and supports cancellation',async()=>{const {source}=await selected();mocks.showSaveDialog.mockResolvedValue({canceled:true});expect((await request('capture.export',{id:source.id})).value.saved).toBe(false);mocks.showSaveDialog.mockResolvedValue({canceled:false,filePath:join(root,'active','business-v1.json')});expect((await request('capture.export',{id:source.id})).ok).toBe(false);});
+it('rechecks authority after the native save dialog if the session expires',async()=>{const {source}=await selected(),output=join(root,'denied.png'),now=Date.now();mocks.showSaveDialog.mockImplementation(async()=>{vi.spyOn(Date,'now').mockReturnValue(now+31*60000);return {canceled:false,filePath:output};});expect((await request('capture.export',{id:source.id})).ok).toBe(false);expect(existsSync(output)).toBe(false);});

@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Duplicate correction audit proof
 
 The shared duplicate-correction recognizer now uses the same journal lifecycle evidence as bank matching and reconciliation. The canonical posting, reversed duplicate and offset must all have valid, unambiguous lifecycle ownership. Conflicting claims, an offset with duplicate line identities, invalid reversal timestamps, and invalid financial dates cannot qualify as an internal correction.

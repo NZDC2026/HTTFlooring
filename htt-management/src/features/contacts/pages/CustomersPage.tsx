@@ -19,6 +19,7 @@ const columns: ColumnDef<
 >[] = [
         {
             accessorKey: "businessName",
+            meta:{exportValue:r=>r.businessName+' · '+r.code},
             header: "Customer",
 
             cell: ({ row }) => (
@@ -47,6 +48,7 @@ const columns: ColumnDef<
 
         {
             id: "primaryContact",
+            meta:{exportValue:r=>{const c=r.contacts.find(c=>c.id===r.primaryContactId);return c?[c.firstName+' '+c.lastName,c.email].filter(Boolean).join(' · '):'';}},
             header: "Primary Contact",
 
             accessorFn: (customer) => {
@@ -275,6 +277,7 @@ export function CustomersPage() {
             </div>
 
             <DataTable
+                capabilities={{id:"customers",scope:"complete",permission:"sales.read",rowId:r=>r.id}}
                 data={customers}
                 columns={columns}
                 search={{

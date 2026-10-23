@@ -62,8 +62,8 @@ export function periodCloseChecks(period: AccountingPeriod): CloseCheck {
     }catch(error){add('CUSTOMER_DEPOSIT_CHECK_FAILED',error instanceof Error?error.message:String(error),'/accounting/reconciliation/deposits?asOf='+encodeURIComponent(period.endDate));}
     try {const r=calculatePrepaymentReconciliation({prepayments:s.supplierPrepayments,accounts:s.accounts.accounts,journals:s.journals.journalEntries,banks:s.bankAccounts.bankAccounts,suppliers:s.suppliers.suppliers,asOfDate:period.endDate});if(!r.reconciled)add('SUPPLIER_PREPAYMENT_DIFFERENCE',`Supplier prepayments require review at ${period.endDate}: difference ${r.difference}; ${r.issues.length} integrity issue(s).`,'/accounting/reconciliation/prepayments?asOf='+encodeURIComponent(period.endDate));}catch(error){add('SUPPLIER_PREPAYMENT_CHECK_FAILED',error instanceof Error?error.message:String(error),'/accounting/reconciliation/prepayments?asOf='+encodeURIComponent(period.endDate));}
     for (const [name, check] of reconciliations) {
-        try { const result = check(); if (!result.reconciled || !Number.isFinite(result.difference)) add(`${name}_DIFFERENCE`, `${name} to GL difference at ${period.endDate}: ${result.difference}.`); }
-        catch (error) { add(`${name}_CHECK_FAILED`, error instanceof Error ? error.message : String(error)); }
+        try { const result = check(); if (!result.reconciled || !Number.isFinite(result.difference)) add(`${name}_DIFFERENCE`, `${name} to GL difference at ${period.endDate}: ${result.difference}.`,name==='INVENTORY'?'/inventory/reconciliation?asOf='+encodeURIComponent(period.endDate):undefined); }
+        catch (error) { add(`${name}_CHECK_FAILED`, error instanceof Error ? error.message : String(error),name==='INVENTORY'?'/inventory/reconciliation?asOf='+encodeURIComponent(period.endDate):undefined); }
     }
     for (const account of s.bankAccounts.bankAccounts) {
         const activity = (s.journals.journalEntries as JournalEntry[]).some(j => j.journalDate <= period.endDate && j.lines.some(line => line.accountId === account.glAccountId)) || (account.openingBalance !== 0 && account.openingBalanceDate <= period.endDate);

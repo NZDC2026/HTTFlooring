@@ -1,5 +1,5 @@
 import { requireDateKey } from '../../lib/businessDate';
-import { parseCsv } from '../page-previews/previewModel';
+import { parseCsv } from '../../lib/csv';
 import type { CaptureInput } from '../direct-documents/managedDocumentRepository';
 export const captureHeaders = ['supplierCode', 'reference', 'date', 'dueDate', 'description', 'accountCode', 'quantity', 'unitCost', 'taxCode', 'basis', 'net', 'tax', 'total'] as const;
 type Lookup = {

@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Customer physical returns and deposits — 2026-10-20
 
 Both workflows use the existing trusted local repository, atomic business snapshot, journal, inventory, audit and backup architecture. No external service or live payment execution is added. Schema 18 migrates earlier profiles with empty new registers.

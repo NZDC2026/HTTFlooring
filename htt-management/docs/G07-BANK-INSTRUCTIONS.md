@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # G07 银行指令文件与工资批次
 
 范围：CommBank／CommBiz 为默认及优先验收配置，保留 NAB Connect 自平衡 ABA 选项。沿用本地可信主进程、Repository、原子持久化及审计，不连接独立后台，不上传银行文件、不执行付款，也不声称已获银行认证。

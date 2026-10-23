@@ -1,3 +1,4 @@
+import { OperationalLog } from "./operationalLog";
 import { registerSecurityIpc } from "../security/registerSecurityIpc";
 import {
     app,
@@ -5,6 +6,8 @@ import {
     dialog,
     ipcMain,
     nativeImage,
+    Menu,
+    shell,
 } from "electron";
 
 import path from "node:path";
@@ -30,6 +33,7 @@ const __dirname =
 const APP_NAME =
     "HTT Flooring Management System";
 
+let diagnostics: OperationalLog | undefined;
 let lockSecurity = () => {};
 let mainWindow:
     | BrowserWindow
@@ -169,10 +173,7 @@ function registerIpcHandlers() {
                         result.filePath,
                 };
             } catch (error) {
-                console.error(
-                    "Failed to export customer statement PDF:",
-                    error,
-                );
+                diagnostics?.event("pdf-export-failed");
 
                 return {
                     success:
@@ -216,13 +217,15 @@ function sanitizePdfFileName(
 }
 
 function createMainWindow() {
+    // Explicit alternate profile + compact window for repeatable minimum-desktop acceptance.
+    const compact=app.commandLine.hasSwitch("user-data-dir")&&app.commandLine.getSwitchValue("acceptance-window")==="compact";
     mainWindow =
         new BrowserWindow({
             title:
                 APP_NAME,
 
-            width: 1440,
-            height: 900,
+            width: compact?1100:1440,
+            height: compact?700:900,
 
             minWidth: 1100,
             minHeight: 700,
@@ -274,7 +277,10 @@ function createMainWindow() {
     }
 
     mainWindow.webContents.on("did-start-navigation", (_event, _url, inPlace, isMainFrame) => { if (isMainFrame && !inPlace) lockSecurity(); });
-    mainWindow.webContents.on("render-process-gone", () => lockSecurity());
+    mainWindow.webContents.on("render-process-gone", () => { lockSecurity(); diagnostics?.event("renderer-gone"); });
+    mainWindow.on("unresponsive", () => { lockSecurity(); diagnostics?.event("renderer-unresponsive"); });
+    mainWindow.on("responsive", () => diagnostics?.event("renderer-responsive"));
+    mainWindow.webContents.on("did-fail-load", (_event, code, _description, _url, mainFrame) => { if (mainFrame && code !== -3) diagnostics?.event("load-failed"); });
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     mainWindow.webContents.on("will-navigate", (event, url) => {
         const target = new URL(url);
@@ -293,7 +299,13 @@ function createMainWindow() {
 
 const customUserData = app.commandLine.getSwitchValue("user-data-dir");
 if (customUserData) app.setPath("userData", path.resolve(customUserData));
-if (!app.requestSingleInstanceLock()) app.quit();
+if (!app.requestSingleInstanceLock()) { app.quit(); }
+else {
+ diagnostics = new OperationalLog(app.getPath("userData"), app.getVersion());
+ process.on("uncaughtException", () => { diagnostics?.event("main-exception"); lockSecurity(); app.exit(1); });
+ process.on("unhandledRejection", () => { diagnostics?.event("main-rejection"); lockSecurity(); app.exit(1); });
+ app.on("will-quit", () => diagnostics?.finish());
+}
 app.on("second-instance", () => { mainWindow?.show(); mainWindow?.focus(); });
 
 app.setName(
@@ -305,9 +317,19 @@ app.whenReady().then(
         setMacDockIcon();
 
         registerIpcHandlers();
-        lockSecurity = registerSecurityIpc(path.join(app.getPath("userData"), "local-security"), () => mainWindow).lock;
+        lockSecurity = registerSecurityIpc(path.join(app.getPath("userData"), "local-security"), () => mainWindow, () => diagnostics?.event("recurring-stopped")).lock;
 
+        Menu.setApplicationMenu(Menu.buildFromTemplate([
+            ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
+            { role: "fileMenu" }, { role: "editMenu" }, { role: "viewMenu" }, { role: "windowMenu" },
+            { role: "help", submenu: [{ label: "Local diagnostics…", click: async () => {
+                const status=diagnostics?.status();
+                const result=await dialog.showMessageBox({type:"info",title:"Local diagnostics",message:`HTT Flooring ${app.getVersion()}`,detail:`Local diagnostics: ${status?.available?"available":"unavailable"}\nSession alerts: ${status?.alerts.join(", ")||"none"}\n\nNo business records, passwords, error text or document contents are logged. No telemetry is sent. Business audit remains in Security settings.`,buttons:["Close","Open log folder"]});
+                if(result.response===1&&diagnostics)await shell.openPath(diagnostics.directory);
+            } }] },
+        ]));
         createMainWindow();
+        diagnostics?.event("ready");
 
         app.on(
             "activate",
@@ -323,7 +345,11 @@ app.whenReady().then(
             },
         );
     },
-);
+).catch(() => {
+    diagnostics?.event("startup-failed");
+    dialog.showErrorBox("HTT Flooring could not start", "Restart the application. If the problem continues, inspect the local diagnostics folder in the application profile. Business files have not been reset.");
+    app.exit(1);
+});
 
 app.on(
     "window-all-closed",

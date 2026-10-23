@@ -1,0 +1,57 @@
+name: Signed desktop candidates
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing committed tag matching package version (vX.Y.Z)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  signed:
+    environment: ${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            environment: desktop-release-macos
+          - os: windows-2022
+            environment: desktop-release-windows
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: htt-management
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: htt-management/.node-version
+          cache-dependency-path: htt-management/pnpm-lock.yaml
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release:signed
+        env:
+          HTT_RELEASE_TAG: ${{ inputs.tag }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_NAME: ${{ secrets.CSC_NAME }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-candidate-${{ matrix.os }}
+          path: |
+            htt-management/release/candidate-*/*.dmg
+            htt-management/release/candidate-*/*.exe
+            htt-management/release/candidate-*/release-manifest.json
+            htt-management/release/candidate-*/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30

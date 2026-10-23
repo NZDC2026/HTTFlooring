@@ -1,0 +1,44 @@
+name: Desktop verification
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15-intel, windows-2022]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: htt-management
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: htt-management/.node-version
+          cache-dependency-path: htt-management/pnpm-lock.yaml
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec install-electron
+      - run: node scripts/current-guidance.mjs --check
+      - run: node scripts/table-inventory.mjs --check
+      - run: pnpm build
+      - run: pnpm test:ci
+      - name: Unsigned packaging smoke check
+        run: pnpm exec electron-builder --dir --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify native package structure
+        run: node scripts/verify-desktop-package.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-smoke-${{ matrix.os }}
+          path: htt-management/release/
+          retention-days: 7

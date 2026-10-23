@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Bank reconciliation completion and verified recovery
 
 All bankReconciliations.complete callers now create a durable BANK_RECONCILIATION operation. The optional second argument supplies a stable operation ID; the desktop page preserves it across an uncertain submission and prevents overlapping clicks. Existing callers without an ID receive a generated ID. Result identity is bound before saving the completed reconciliation. A completed identical request returns its existing result; a changed payload or unacknowledged result cannot be replayed. Main command failure rolls back reconciliation records, clearing locks and operation metadata together. No schema change or external service is required.

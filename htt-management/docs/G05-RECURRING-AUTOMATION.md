@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # G05 周期业务本地自动执行
 
 完成日期：2026-10-22（Pacific/Auckland）。保留现有主进程、Repository／Service、Mock、持久化、备份及审计架构，不增加独立后台。

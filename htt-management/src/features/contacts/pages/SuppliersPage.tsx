@@ -37,6 +37,7 @@ const columns: ColumnDef<
         {
             accessorKey:
                 "businessName",
+            meta:{exportValue:r=>r.businessName+' · '+r.code},
 
             header: "Supplier",
 
@@ -289,6 +290,7 @@ export function SuppliersPage() {
             </div>
 
             <DataTable
+                capabilities={{id:"suppliers",scope:"complete",permission:"purchases.read",rowId:r=>r.id}}
                 data={
                     suppliers
                 }

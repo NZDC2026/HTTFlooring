@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 > Follow-up: [TARGETED-FINANCIAL-REPAIR.md](TARGETED-FINANCIAL-REPAIR.md) adds executable isolated bank repairs. Earlier guidance-only limits below describe the prior baseline.
 
 # Purchase output and guided recovery

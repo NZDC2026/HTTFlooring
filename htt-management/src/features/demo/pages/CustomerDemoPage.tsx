@@ -6,15 +6,18 @@ import { Link } from "react-router-dom";
 import { Badge } from "../../../components/ui/Badge";
 import { feedback } from "../../../components/ui/feedback";
 import { Card, CardContent } from "../../../components/ui/Card";
-import { mockQuotes, mockSalesOrders, mockInvoices } from "../../sales/data/mockSalesDocuments";
-import { mockPurchaseOrders } from "../../purchases/data/mockPurchaseOrders";
+import {useSalesDocuments} from "../../sales/data/useSalesDocuments";
+import type {SalesDocument} from "../../sales/types/salesDocument";
+import {usePurchaseOrders} from "../../purchases/data/usePurchaseOrders";
+import type {PurchaseOrder} from "../../purchases/types/purchaseOrder";
 
 type DemoStep = { title: string; detail: string; path: string; action: string; check: string };
 type DemoFlow = { title: string; subtitle: string; steps: DemoStep[] };
-const salesQuote = mockQuotes[0];
-const salesOrder = mockSalesOrders.find((order) => order.id === salesQuote?.convertedSalesOrderId) ?? mockSalesOrders[0];
-const salesInvoice = mockInvoices.find((invoice) => salesOrder?.invoiceIds.includes(invoice.id)) ?? mockInvoices[0];
-const purchaseOrder = mockPurchaseOrders[0];
+function initialFlows(documents:SalesDocument[],purchaseOrders:PurchaseOrder[]):DemoFlow[]{
+const salesQuote = documents.find(d=>d.type==='QUOTE');
+const salesOrder = documents.find(d=>d.type==='SALES_ORDER'&&d.id===salesQuote?.convertedSalesOrderId) ?? documents.find(d=>d.type==='SALES_ORDER');
+const salesInvoice = documents.find(d=>d.type==='INVOICE'&&salesOrder?.type==='SALES_ORDER'&&salesOrder.invoiceIds.includes(d.id)) ?? documents.find(d=>d.type==='INVOICE');
+const purchaseOrder = purchaseOrders[0];
 
 const baseFlows: DemoFlow[] = [
     {
@@ -22,7 +25,7 @@ const baseFlows: DemoFlow[] = [
         subtitle: "Follow linked customer documents from quotation to invoice.",
         steps: [
             { title: "Sales workspace", detail: "Search and filter sales documents.", path: "/sales", action: "Browse sales", check: "Search, filters and detail links respond correctly." },
-            ...(salesQuote ? [{ title: `Quote ${salesQuote.documentNumber}`, detail: "Review the quotation and linked order.", path: `/sales/quotes/${salesQuote.id}`, action: "Open quote", check: "Quote details and order link match the sample document." }] : []),
+            ...(salesQuote ? [{ title: `Quote ${salesQuote.documentNumber}`, detail: "Review the quotation and linked order.", path: `/sales/quotes/${salesQuote.id}`, action: "Open quote", check: "Quote details and order link match the current local document." }] : []),
             ...(salesOrder ? [{ title: `Order ${salesOrder.documentNumber}`, detail: "Review fulfilment and invoice links.", path: `/sales/orders/${salesOrder.id}`, action: "Open order", check: "Order status and linked invoice are visible." }] : []),
             ...(salesInvoice ? [{ title: `Invoice ${salesInvoice.documentNumber}`, detail: "Review GST, totals and payment status.", path: `/sales/invoices/${salesInvoice.id}`, action: "Open invoice", check: "Invoice totals and status display correctly." }] : []),
         ],
@@ -46,14 +49,17 @@ const baseFlows: DemoFlow[] = [
             { title: "Inventory", detail: "Review stock by site and inventory valuation.", path: "/inventory", action: "Open inventory", check: "Site filters and stock list respond correctly." },
             { title: "Accounting", detail: "Review financial reports and journal records.", path: "/accounting", action: "Open accounting", check: "Financial navigation and report screens load." },
             { title: "Banking", detail: "Explore bank accounts and reconciliation.", path: "/banking", action: "Open banking", check: "Account and reconciliation links work." },
-            { title: "Payroll", detail: "Preview sample pay runs; do not process payroll.", path: "/payroll", action: "Open payroll", check: "Demo-only actions are clearly identified." },
-            { title: "Documents", detail: "Search sample document metadata.", path: "/documents", action: "Open documents", check: "Search and preview feedback work." },
-            { title: "Settings", detail: "Review company and integration settings.", path: "/settings", action: "Open settings", check: "Unavailable integrations are marked as demo-only." },
+            { title: "Payroll", detail: "Inspect current local Australian pay runs. Do not approve, post or record payment during a read-only walkthrough.", path: "/payroll", action: "Open payroll", check: "Real payroll actions remain subject to role, review and period controls." },
+            { title: "Documents", detail: "Search actual linked local files and version metadata.", path: "/documents", action: "Open documents", check: "Search and preview feedback work." },
+            { title: "Settings", detail: "Review company and integration settings.", path: "/settings", action: "Open settings", check: "External services are explicitly marked as disconnected." },
         ],
     },
 ];
 
+return baseFlows;
+}
 export function CustomerDemoPage() {
+    const documents=useSalesDocuments(),purchaseOrders=usePurchaseOrders();
     const receipts = useGoodsReceipts();
     const bills = useSupplierBills();
     const [completed, setCompleted] = useState<string[]>([]);
@@ -61,6 +67,7 @@ export function CustomerDemoPage() {
     const [issues, setIssues] = useState<Record<string, string>>({});
     const [showOnlyPending, setShowOnlyPending] = useState(false);
     const flows = useMemo(() => {
+        const baseFlows=initialFlows(documents,purchaseOrders),purchaseOrder=purchaseOrders[0];
         const linkedReceipt = receipts.find((receipt) => receipt.purchaseOrderId === purchaseOrder?.id);
         const linkedBill = bills.find((bill) => bill.purchaseOrderId === purchaseOrder?.id);
         return baseFlows.map((flow, index) => index !== 1 ? flow : {
@@ -72,7 +79,7 @@ export function CustomerDemoPage() {
                 ...flow.steps.slice(2),
             ],
         });
-    }, [receipts, bills]);
+    }, [receipts, bills,documents,purchaseOrders]);
     const total = flows.reduce((sum, flow) => sum + flow.steps.length, 0);
     const validKeys = new Set(flows.flatMap((flow, flowIndex) => flow.steps.map((_, stepIndex) => `${flowIndex}:${stepIndex}`)));
     const doneCount = completed.filter((key) => validKeys.has(key)).length;
@@ -82,7 +89,7 @@ export function CustomerDemoPage() {
         const lines = [
             "HTT Flooring · Customer demo acceptance checklist",
             `Date: ${new Date().toLocaleString()}`,
-            "Environment: Mock Data · no live API",
+            "Environment: current local profile · no external services",
             `Verified: ${doneCount}/${total}; Issues: ${issueCount}`,
             "",
             ...flows.flatMap((item, flowIndex) => [
@@ -108,7 +115,7 @@ export function CustomerDemoPage() {
     const resetPresentation = async () => {
         const accepted = await feedback.confirm({
             title: "Restart demo presentation?",
-            message: "This clears the current walkthrough checks and issue notes and reloads sample screens. It does NOT delete saved purchase posting operations, accounting audit history, or any other browser data. Export your acceptance report first if needed.",
+            message: "This clears only walkthrough checks and issue notes, then reloads. Business records, files and audit are retained. It does not restore seed data or undo business actions. Export your checklist first if needed.",
             confirmLabel: "Restart presentation",
         });
         if (!accepted) return;
@@ -116,7 +123,7 @@ export function CustomerDemoPage() {
         setIssues({});
         setActiveFlow(0);
         setShowOnlyPending(false);
-        // Reload only: module-scoped sample state is recreated. Never clear localStorage,
+        // Reload only: checklist state is recreated. Never clear localStorage,
         // sessionStorage or IndexedDB because accounting/audit records may live there.
         window.location.reload();
     };
@@ -125,12 +132,12 @@ export function CustomerDemoPage() {
     return <div className="space-y-6 pb-10">
         <header className="flex flex-wrap items-start justify-between gap-4">
             <div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]"><Compass size={15} /> Guided walkthrough</p><h1 className="mt-2 font-display text-3xl">Customer demo journey</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Open each screen, verify the interaction, then mark the checkpoint complete.</p></div>
-            <Badge variant="info">DEMO · Mock data</Badge>
+            <Badge variant="info">GUIDE · Current local profile</Badge>
         </header>
-        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm"><Info size={18} className="mt-0.5 shrink-0" /><p>Presentation-only data. Checking a step does not submit a transaction. Payroll processing, uploads, live payments and API connections are not enabled. Checks and issue notes are kept only on this page and reset on refresh. Export the checklist before leaving or refreshing.</p></div>
+        <div className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm"><Info size={18} className="mt-0.5 shrink-0" /><p>This guide opens the current local business profile; it is not a sandbox. Checking a step only updates this checklist, but actions on linked pages can save business records, upload files or process local payroll according to your permissions. External payment execution and API connections remain disconnected. Use a disposable synthetic profile for demonstrations. Checks and issue notes reset on refresh; export the checklist before leaving.</p></div>
         <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5" aria-label="Presentation controls">
             <div className="flex flex-wrap items-center justify-between gap-4">
-                <div><h2 className="font-semibold">Demo V1.0 · Presentation reset</h2><p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">Restart the guided walkthrough and reload in-memory sample screens. Saved accounting, posting and audit data are protected and are not reset.</p></div>
+                <div><h2 className="font-semibold">Demo V1.0 · Presentation reset</h2><p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">Restart this checklist and reload. Saved business data is retained; restarting does not undo transactions or restore demonstration records.</p></div>
                 <button type="button" onClick={resetPresentation} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold hover:bg-[var(--color-surface-muted)]"><RotateCcw size={16} /> Restart presentation</button>
             </div>
         </section>

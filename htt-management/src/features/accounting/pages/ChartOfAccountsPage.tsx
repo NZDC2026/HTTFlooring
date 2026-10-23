@@ -162,6 +162,7 @@ const columns:
         {
             id:
                 "systemRole",
+            accessorFn: r=>r.systemRole??'',
 
             header:
                 "System Role",
@@ -187,6 +188,7 @@ const columns:
         {
             id:
                 "manualPosting",
+            accessorFn: r=>r.allowManualPosting,
 
             header:
                 "Manual Posting",
@@ -636,6 +638,7 @@ export function ChartOfAccountsPage() {
                     </div>
 
                     <DataTable
+                capabilities={{id:"chart-of-accounts",scope:"complete",permission:"accounting.read",rowId:r=>r.id}}
                         columns={
                             columns
                         }

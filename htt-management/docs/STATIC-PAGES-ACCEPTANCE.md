@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Static page completion — existing navigation scope
 
 Completed 2026-10-16. Scope is the modules currently present in HTT Management's sidebar, top bar and registered routes, including their newly added prototype subpages. This is a static/interactivity milestone, not a claim that payroll, document storage or external integrations are implemented as business services.

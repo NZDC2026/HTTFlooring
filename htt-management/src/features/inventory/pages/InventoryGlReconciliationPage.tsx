@@ -1,8 +1,10 @@
+import {reportAsOf} from "../../../lib/reportAsOf";
+import {useSearchParams} from "react-router-dom";
 import { reportMoney } from '../../report-settings/reportPresentation';
 import { ReportContext } from '../../report-settings/ReportContext';
 import {businessDateKey} from '../../../lib/businessDate';
 import {
-    useState,
+
 } from "react";
 
 import {
@@ -51,20 +53,20 @@ export function InventoryGlReconciliationPage() {
     const navigate =
         useNavigate();
 
-    const [
-        asOfDate,
-        setAsOfDate,
-    ] = useState(
-        getToday(),
-    );
+    const [params,setParams]=useSearchParams();
+    const dateState=reportAsOf(params.get("asOf"),getToday());
+    const asOfDate=dateState.date;
+    const setAsOfDate=(value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);next.set("asOf",value);return next;});
 
-    const reconciliation =
+    const {reconciliation,error} =
         useInventoryGlReconciliation(
             asOfDate,
         );
 
+    if(!reconciliation)return <div className="space-y-4 p-6"><h1 className="text-2xl font-semibold">Inventory Reconciliation</h1><label>As at<Input type="date" value={asOfDate} onChange={event=>{if(event.target.value)setAsOfDate(event.target.value);}}/></label>{dateState.invalid&&<p role="alert">Invalid reporting date in link. Showing {asOfDate}.</p>}<p role="alert">Inventory reconciliation could not be verified at {asOfDate}: {error}</p><p>Balances are unavailable. Review the inventory records and control account before continuing; no adjustment has been posted.</p><Button onClick={()=>navigate("/accounting/finance-controls?asOf="+encodeURIComponent(asOfDate))}>Finance controls</Button></div>;
+
     return (
-        <div className="pb-8"><ReportContext basis="Accrual"/>
+        <div className="pb-8"><ReportContext basis="Accrual"/>{dateState.invalid&&<p role="alert">Invalid reporting date in link. Showing {asOfDate}.</p>}
             <Button
                 variant="ghost"
                 size="sm"

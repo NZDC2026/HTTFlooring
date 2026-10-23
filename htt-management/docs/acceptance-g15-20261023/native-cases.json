@@ -1,0 +1,197 @@
+{
+  "method": "Actual native Electron interaction through CUA; representative cases only, not all route/state combinations",
+  "cases": [
+    {
+      "id": "N01",
+      "role": "ADMIN",
+      "window": "1100x700",
+      "path": "/workspace",
+      "observed": "Directory cards, wrap and navigation readable",
+      "result": "passed"
+    },
+    {
+      "id": "N02",
+      "role": "ADMIN",
+      "window": "1100x700",
+      "path": "/reports/library",
+      "observed": "Cost/payroll report cards available",
+      "result": "passed"
+    },
+    {
+      "id": "N03",
+      "role": "ADMIN",
+      "window": "1100x700",
+      "path": "/payroll",
+      "observed": "Permitted overview and empty pay-run state",
+      "result": "passed"
+    },
+    {
+      "id": "N04",
+      "role": "SALES",
+      "window": "1100x700",
+      "path": "/reports/library",
+      "observed": "Sales reports; payroll/cost cards absent",
+      "result": "passed"
+    },
+    {
+      "id": "N05",
+      "role": "SALES",
+      "window": "1100x700",
+      "path": "/workspace",
+      "observed": "Sales directory, payroll absent; accounting-period menu absent on retest",
+      "result": "passed"
+    },
+    {
+      "id": "N06",
+      "role": "WAREHOUSE",
+      "window": "1100x700",
+      "path": "/reports/library",
+      "observed": "Purchase reports available; payroll and cost reports absent",
+      "result": "passed"
+    },
+    {
+      "id": "N07",
+      "role": "WAREHOUSE",
+      "window": "1100x700",
+      "path": "/inventory",
+      "observed": "Readable empty stock state without costs",
+      "result": "passed"
+    },
+    {
+      "id": "N08",
+      "role": "PURCHASING",
+      "window": "1100x700",
+      "path": "/settings/purchases",
+      "observed": "Readable defaults, disabled maintenance controls",
+      "result": "passed"
+    },
+    {
+      "id": "N09",
+      "role": "AUDITOR",
+      "window": "1100x700",
+      "path": "/reports/library",
+      "observed": "Financial/cost read access, payroll absent",
+      "result": "passed"
+    },
+    {
+      "id": "N10",
+      "role": "AUDITOR",
+      "window": "1100x700",
+      "path": "/banking",
+      "observed": "Retest: New Transaction and Transfer Money absent",
+      "result": "passed"
+    },
+    {
+      "id": "N11",
+      "role": "ACCOUNTANT",
+      "window": "1100x700",
+      "path": "/payroll",
+      "observed": "Permitted payroll overview, empty run state",
+      "result": "passed"
+    },
+    {
+      "id": "N12",
+      "role": "ACCOUNTANT",
+      "window": "1100x700",
+      "path": "/reports/library",
+      "observed": "Financial and payroll cards available",
+      "result": "passed"
+    },
+    {
+      "id": "N13",
+      "role": "FINANCE_ADMIN",
+      "window": "1100x700",
+      "path": "/accounting/periods",
+      "observed": "Management form and empty period state readable",
+      "result": "passed"
+    },
+    {
+      "id": "N14",
+      "role": "FINANCE_ADMIN",
+      "window": "1100x700",
+      "path": "/accounting/periods",
+      "observed": "Final retest: long identity/search truncate; sign-out single-line",
+      "result": "passed"
+    },
+    {
+      "id": "N15",
+      "role": "FINANCE_ADMIN",
+      "window": "1100x700",
+      "path": "reload",
+      "observed": "Reload invalidates session and returns to sign-in",
+      "result": "passed"
+    },
+    {
+      "id": "N16",
+      "role": "ADMIN",
+      "window": "1100x700",
+      "path": "/settings/security",
+      "observed": "Native-selected business backup exported; state equals seed",
+      "result": "passed"
+    },
+    {
+      "id": "N17",
+      "role": "ADMIN",
+      "window": "1100x700",
+      "path": "corrupt profile login",
+      "observed": "Checksum failure blocks business bootstrap; recovery panel visible",
+      "result": "passed"
+    },
+    {
+      "id": "N18",
+      "role": "ADMIN",
+      "window": "1100x700",
+      "path": "restore preview",
+      "observed": "Native-selected valid v31 snapshot; commit disabled until explicit confirmation",
+      "result": "passed"
+    },
+    {
+      "id": "N19",
+      "role": "ADMIN",
+      "window": "1100x700",
+      "path": "restore commit",
+      "observed": "Independent synthetic profile restored; restart-required screen",
+      "result": "passed"
+    },
+    {
+      "id": "N20",
+      "role": "ADMIN",
+      "window": "1440x900",
+      "path": "/payroll/employees",
+      "observed": "Restored restart succeeds; QA-EMP record retained; readable populated table",
+      "result": "passed"
+    },
+    {
+      "id": "N21",
+      "role": "ADMIN",
+      "window": "1440x900",
+      "path": "/settings/security",
+      "observed": "Cancel native restore file dialog; no preview/commit; state unchanged",
+      "result": "passed"
+    },
+    {
+      "id": "N22",
+      "role": "AUDITOR",
+      "window": "1100x700",
+      "path": "/banking/accounts/:bankAccountId",
+      "observed": "Valid Operating Account register readable; Reconcile action absent after final fix",
+      "result": "passed"
+    },
+    {
+      "id": "N23",
+      "role": "ACCOUNTANT",
+      "window": "1100x700",
+      "path": "/banking/accounts/:bankAccountId",
+      "observed": "Valid Operating Account register readable; Reconcile remains available with banking.reconcile",
+      "result": "passed"
+    }
+  ],
+  "allSevenRolesLoggedIn": true,
+  "validProfileRepositoriesAndStorageUnchanged": true,
+  "exportEqualsBaseline": true,
+  "restoredProfileEqualsBackup": true,
+  "appsClosed": true,
+  "realBusinessProfileUsed": false,
+  "baselineSha256": "17b772af4250141a900ac0e6801c4f2bc00e7b028ceed471d39835a6049bb067",
+  "nativeActions": "Login/logout/view, reload, backup export/cancel and explicit restore of disposable corrupted profile; no business financial posting/payment actions"
+}

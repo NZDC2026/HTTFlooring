@@ -1,3 +1,4 @@
+import { parseBulkStatus } from './bulkStatus';
 import { reportPresentationSchema } from '../report-settings/reportPresentation';
 import { parseRuleConditions } from '../bank-rules/ruleConditions';
 import { runSavedReport } from '../saved-reports/savedReportCommand';
@@ -194,11 +195,17 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
                 throw new Error('Next document numbers must be positive integers.');
     }
 }
-function log(domain: string, row: ConfigRow, action: string) { configurationHistory[domain].push({ id: crypto.randomUUID(), name: action, status: 'Active', revision: '1', createdAt: now(), updatedAt: now(), recordId: row.id, actorId: trustedAuthorization.current()?.userId ?? 'local-test', after: JSON.stringify(row) }); }
+let batchContext:{batchId:string;batchRequest:string}|undefined;
+function log(domain: string, row: ConfigRow, action: string) { configurationHistory[domain].push({ id: crypto.randomUUID(), name: action, status: 'Active', revision: '1', createdAt: now(), updatedAt: now(), ...batchContext, recordId: row.id, actorId: trustedAuthorization.current()?.userId ?? 'local-test', after: JSON.stringify(row) }); }
 export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDomains).map(domain => {
     const repository = {
         run(raw:unknown) { if(domain!=='custom-reports') throw new Error('Saved-report execution is not available on this register.'); return runSavedReport(raw); },
         generate(raw:unknown) { if(domain!=='report-packs') throw new Error('Report generation is only available for report packs.'); return generateSavedReportPack(raw); },
+        previewBulkStatus(raw:unknown) {const input=parseBulkStatus(domain,raw);return input.rows.map(({id,expectedRevision})=>{const row=configurationRows[domain].find(r=>r.id===id);if(!row||row.revision!==expectedRevision)throw new Error('A selected record changed or was removed. Reload and review the batch again.');validate(domain,{...row,status:input.status},configurationRows[domain]);return {id,name:row.name,from:row.status,to:input.status,revision:row.revision};});},
+        bulkStatus(raw:unknown) {const input=parseBulkStatus(domain,raw),request=JSON.stringify({status:input.status,rows:input.rows.slice().sort((a,b)=>a.id.localeCompare(b.id))}),prior=configurationHistory[domain].filter(h=>h.batchId===input.operationId);
+            if(prior.length){if(prior.length!==input.rows.length||prior.some(h=>h.batchRequest!==request||h.actorId!==trustedAuthorization.current()?.userId))throw new Error('Batch operation ID belongs to another request or actor.');return {batchId:input.operationId,records:prior.map(h=>JSON.parse(h.after) as ConfigRow)};}
+            repository.previewBulkStatus(input);batchContext={batchId:input.operationId,batchRequest:request};try{return {batchId:input.operationId,records:input.rows.map(r=>repository.setStatus(r.id,input.status,r.expectedRevision))};}finally{batchContext=undefined;}
+        },
         getAll: () => configurationRows[domain], getById: (id: string) => configurationRows[domain].find(r => r.id === id),
         save(raw: Record<string, string>, expectedRevision?: string) { const input = strings.parse(raw), existing = configurationRows[domain].find(r => r.id === input.id); if (existing && existing.revision !== expectedRevision)
             throw new Error('Record changed. Reload before saving.'); if (!existing && expectedRevision !== undefined)
@@ -214,7 +221,7 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
         addNote(id: string, note: string) { const row = repository.getById(id); if (!row || domain !== 'tasks' || !note.trim() || note.length > 4000)
             throw new Error('A valid task note is required.'); log(domain, { ...row, note: note.trim() }, 'Note added'); emit(); },
     };
-    registerRepository('workspace_' + domain.replaceAll('-', '_'), { validate: (value, snapshots) => { validateConfigurationSnapshot(domain, value); validateConfigurationReferences(domain, value, snapshots); }, repository, read: workspaceDomains[domain].read, commands: { run: domain==='custom-reports'?'accounting.read':null, generate: domain==='report-packs'?'accounting.read':null, save: workspaceDomains[domain].write, setStatus: workspaceDomains[domain].write, addNote: domain === 'tasks' ? 'sales.write' : null }, snapshot: () => ({ records: configurationRows[domain], history: configurationHistory[domain] }), restore: value => { validateConfigurationSnapshot(domain, value); configurationRows[domain] = value.records; configurationHistory[domain] = value.history; }, publish: emit });
+    registerRepository('workspace_' + domain.replaceAll('-', '_'), { validate: (value, snapshots) => { validateConfigurationSnapshot(domain, value); validateConfigurationReferences(domain, value, snapshots); }, repository, read: workspaceDomains[domain].read, commands: { previewBulkStatus:workspaceDomains[domain].write, bulkStatus:workspaceDomains[domain].write, run: domain==='custom-reports'?'accounting.read':null, generate: domain==='report-packs'?'accounting.read':null, save: workspaceDomains[domain].write, setStatus: workspaceDomains[domain].write, addNote: domain === 'tasks' ? 'sales.write' : null }, snapshot: () => ({ records: configurationRows[domain], history: configurationHistory[domain] }), restore: value => { validateConfigurationSnapshot(domain, value); configurationRows[domain] = value.records; configurationHistory[domain] = value.history; }, publish: emit });
     return [domain, repository];
 }));
 export function validateConfigurationSnapshot(domain: string, value: unknown) { const snapshot = z.object({ records: z.array(strings), history: z.array(strings) }).strict().parse(value); const ids = new Set<string>(); for (const row of snapshot.records) {
@@ -222,6 +229,11 @@ export function validateConfigurationSnapshot(domain: string, value: unknown) { 
         throw new Error('Invalid workspace record identity.');
     ids.add(row.id);
     validate(domain, row, snapshot.records as ConfigRow[], false);
+} if(domain && snapshot.history.some(h=>h.batchId)) {
+    const batches=new Map<string,typeof snapshot.history>();for(const h of snapshot.history)if(h.batchId)batches.set(h.batchId,[...(batches.get(h.batchId)??[]),h]);
+    for(const [batchId,entries] of batches){const request=JSON.parse(entries[0].batchRequest),input=parseBulkStatus(domain,{operationId:batchId,...request});if(entries.length!==input.rows.length||new Set(entries.map(h=>h.recordId)).size!==entries.length||entries.some(h=>h.batchRequest!==entries[0].batchRequest||!h.actorId||h.actorId!==entries[0].actorId))throw new Error('Incomplete or inconsistent bulk audit.');
+        for(const h of entries){const r=input.rows.find(r=>r.id===h.recordId),after=strings.parse(JSON.parse(h.after));if(!r||after.id!==r.id||after.status!==input.status||Number(after.revision)!==Number(r.expectedRevision)+1)throw new Error('Bulk audit result does not match the reviewed request.');validate(domain,after,[],false);}
+    }
 } return snapshot; }
 export function useWorkspaceRecords(domain: string) { useSyncExternalStore(fn => { listeners.add(fn); return () => { listeners.delete(fn); }; }, () => revision, () => revision); return configurationRows[domain] ?? []; }
 export { systemRoles };

@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync, symlinkSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const mocks = vi.hoisted(() => ({ on: vi.fn(), showSaveDialog: vi.fn(), showOpenDialog: vi.fn() }));
-vi.mock('electron', () => ({ ipcMain: { on: mocks.on }, dialog: { showSaveDialog: mocks.showSaveDialog, showOpenDialog: mocks.showOpenDialog } }));
+vi.mock('electron', () => ({ app:{isPackaged:false,getAppPath:()=>'/synthetic-app'}, ipcMain: { on: mocks.on }, dialog: { showSaveDialog: mocks.showSaveDialog, showOpenDialog: mocks.showOpenDialog } }));
 let root: string, request: (action: string, input?: unknown) => Promise<any>;
 beforeEach(async () => {
     vi.resetModules();

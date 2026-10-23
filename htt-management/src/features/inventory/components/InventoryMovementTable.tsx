@@ -128,6 +128,7 @@ const columns:
 
         {
             id: "transaction",
+            accessorFn: r=>String(r.transactionQuantity)+" "+r.transactionUnitSymbol,
 
             header:
                 "Transaction",
@@ -155,6 +156,7 @@ const columns:
 
         {
             id: "baseQuantity",
+            accessorFn: r=>String(r.quantityBase)+" "+r.baseUnitSymbol,
 
             header:
                 "Inventory Qty",
@@ -221,6 +223,7 @@ export function InventoryMovementTable({
 
     return (
         <DataTable
+                capabilities={{id:"inventory-movements",scope:"complete",permission:"inventory.read",rowId:r=>r.id}}
             data={rows}
             columns={
                 columns

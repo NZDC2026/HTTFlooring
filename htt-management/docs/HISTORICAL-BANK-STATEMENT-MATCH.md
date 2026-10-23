@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Historical bank statement matching
 
 Imported statement candidates, matching and reconciliation now use the same dated journal evidence as manual reconciliation, period close and recovery. An original journal reversed on a later financial date can match its genuine earlier cash movement only before that reversal date. Both sides must retain the exact linked reversal evidence; missing or inconsistent evidence does not qualify.

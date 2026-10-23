@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # G10 采购设置默认值
 
 G10 本地范围：独立 `/settings/purchases` 页面，采购期限／付款偏好保存、来源继承、历史保留、权限、并发、审计与重启。

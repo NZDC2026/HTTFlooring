@@ -45,8 +45,7 @@ export function useInventoryGlReconciliation(
         );
 
     return useMemo(
-        () =>
-            calculateInventoryGlReconciliation({
+        () => {try {return {reconciliation:calculateInventoryGlReconciliation({
                 accounts,
 
                 journalEntries,
@@ -54,7 +53,7 @@ export function useInventoryGlReconciliation(
                 costMovements,
 
                 asOfDate,
-            }),
+            }),error:undefined};}catch(error){return {reconciliation:undefined,error:error instanceof Error?error.message:"Inventory reconciliation could not be checked."};}},
         [
             accounts,
             journalEntries,

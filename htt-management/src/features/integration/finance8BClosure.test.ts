@@ -230,7 +230,7 @@ describe('8B sales financial integration', () => {
         const { calculateFinanceControls } = await import('../accounting/data/financeControlsService');
         const { calculateAccountsPayableGlReconciliation } = await import('../accounting/data/accountsPayableGlReconciliationService');
         const ap = calculateAccountsPayableGlReconciliation({ suppliers: m.suppliers.getAll(), bills: [], payments: [], credits: [], creditAllocations: [], accounts: m.accounts.getAll(), journalEntries: m.journals.getAll(), asOfDate: '2026-10-15' });
-        const controls = calculateFinanceControls({ accounts: m.accounts.getAll(), journalEntries: m.journals.getAll(), bankAccounts: m.banks.getAll(), arReconciliation: reconcile(), apReconciliation: ap, asOfDate: '2026-10-15' });
+        const controls = calculateFinanceControls({ costMovements: (await import('../inventory/data/inventoryCostMovementRepository')).inventoryCostMovementRepository.getAll(), accounts: m.accounts.getAll(), journalEntries: m.journals.getAll(), bankAccounts: m.banks.getAll(), arReconciliation: reconcile(), apReconciliation: ap, asOfDate: '2026-10-15' });
         expect(controls.controls.filter(c => c.status === 'FAIL')).toEqual([]);
         expect(controls.bankControls.filter(c => c.status === 'FAIL')).toEqual([]);
         expect(salesRepository.getById(invoice.id)).toMatchObject({ amountDue: invoice.amountDue });

@@ -1,0 +1,439 @@
+[
+  {
+    "path": "docs/8C-ACCEPTANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/8D-ACCEPTANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/8E-ACCEPTANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/ACTION-CENTRE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/AU-PAYROLL.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/G07-BANK-INSTRUCTIONS.md",
+      "docs/G08-PAYROLL-PROJECTS.md"
+    ]
+  },
+  {
+    "path": "docs/BANK-CLOSE-EVIDENCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/BANK-RECOVERY-ACCEPTANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/BANK-REVERSAL-EVIDENCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/BANK-STATEMENT-CORRECTION.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/BUSINESS-ATTACHMENTS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/BUSINESS-DATA-INTEGRATION.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md",
+      "docs/G02-PRICING-INSTANT.md",
+      "docs/FINANCE-FOUNDATION.md",
+      "docs/FINANCE-CLOSURE.md"
+    ]
+  },
+  {
+    "path": "docs/CASH-REPORTS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/CLEARED-BANK-MATCH-GUARD.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/CONTACT-REVIEW.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/CURRENT-SYSTEM-STATUS.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/CUSTOMER-RETURNS-AND-DEPOSITS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/DATA-IMPORT-EXPORT.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/DESKTOP-VISUAL-ACCEPTANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/WORKFLOW-ACCEPTANCE-20261021.md"
+    ]
+  },
+  {
+    "path": "docs/DIRECT-DOCUMENTS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/DOCUMENT-OUTPUT.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md",
+      "docs/PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md",
+      "docs/BUSINESS-ATTACHMENTS.md",
+      "docs/G09-BRANDING.md"
+    ]
+  },
+  {
+    "path": "docs/DOCUMENT-RECYCLE-BIN.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/G04-RECYCLE-PURGE.md"
+    ]
+  },
+  {
+    "path": "docs/DOCUMENTATION-INDEX.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/DUPLICATE-CORRECTION-AUDIT-PROOF.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/FINANCE-CLOSURE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/FINANCE-CONTROL-INTEGRITY-STATUS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/FINANCE-FOUNDATION.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/FINANCIAL-RECOVERY-WORKBENCH.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G01-DASHBOARD-BANK-EVIDENCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G02-PRICING-INSTANT.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G03-SOURCE-REPAIR.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G04-RECYCLE-PURGE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G05-RECURRING-AUTOMATION.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G06-BANK-RULES.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G07-BANK-INSTRUCTIONS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G08-PAYROLL-PROJECTS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G09-BRANDING.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G10-PURCHASE-SETTINGS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G11-REPORT-SETTINGS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G12-TABLE-CAPABILITIES.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G13-LOCAL-DOCUMENT-RECOGNITION.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/G14-CURRENT-GUIDANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md",
+      "docs/G15-DESKTOP-ACCEPTANCE.md"
+    ]
+  },
+  {
+    "path": "docs/G15-DESKTOP-ACCEPTANCE.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/G16-RELEASE-READINESS.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/G17-INVENTORY-FINANCE-CONTROL.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/HISTORICAL-BANK-STATEMENT-MATCH.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/JOB-COSTING.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/NET-DOCUMENT-ANALYSIS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/PURCHASE-OUTPUT-AND-RECOVERY-GUIDANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/RECONCILIATION-RECOVERY-ACCEPTANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/RECORD-SEARCH.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/RECURRING-TRANSACTIONS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/G05-RECURRING-AUTOMATION.md"
+    ]
+  },
+  {
+    "path": "docs/REPORT-PACKS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/REQUIREMENTS-STATIC-COMPLETION.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/SALES-SERVICES.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/SALES-VISITS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/SAVED-REPORTS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/STATIC-PAGES-ACCEPTANCE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/STATIC-PAGES-ROUTES.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/SUPPLIER-DOCUMENT-CAPTURE.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/G13-LOCAL-DOCUMENT-RECOGNITION.md"
+    ]
+  },
+  {
+    "path": "docs/SUPPLIER-PREPAYMENTS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/SUPPLIER-RETURNS.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/TARGETED-FINANCIAL-REPAIR.md",
+    "status": "dated-record",
+    "followUps": [
+      "docs/CURRENT-SYSTEM-STATUS.md"
+    ]
+  },
+  {
+    "path": "docs/WORKFLOW-ACCEPTANCE-20261021.md",
+    "status": "current",
+    "followUps": []
+  }
+]

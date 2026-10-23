@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Sales services and non-stock catalogue items
 
 Products support STOCK, NON_STOCK and SERVICE. Existing records without a type remain STOCK. Services support hour/job units and fractional quantities; non-stock material items retain normal unit conversions. The catalogue exposes item type and disables inventory purchasing for sales-only items.

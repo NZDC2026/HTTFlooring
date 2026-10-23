@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 > Follow-up: [Physical supplier returns](SUPPLIER-RETURNS.md) now connects confirmed credits to inventory dispatch and atomic reversal.
 
 > Follow-up: customer store/accounting-contact snapshots and area-to-pack entry are connected. [Sales document output](DOCUMENT-OUTPUT.md) now provides immutable local printable versions and email preparation.

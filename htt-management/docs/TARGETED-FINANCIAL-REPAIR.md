@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Targeted financial exception repair
 
 G03 adds reviewed compound source metadata repair beyond bank exceptions: Sales/AP/credit summary correction, uniquely proven missing Sales result bindings and completed supplier-bill posting metadata. It uses independent approval, stale-evidence rejection, full rollback/restart proof and retained proposal history under schema 24. See [G03 source repair](G03-SOURCE-REPAIR.md) for exact eligibility, desktop acceptance and deliberate blockers. The bank procedures below remain available; they do not authorize arbitrary source reconstruction.

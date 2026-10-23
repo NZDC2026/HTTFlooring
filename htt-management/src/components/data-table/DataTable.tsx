@@ -1,258 +1,30 @@
-import { useMemo, useState } from "react";
-import {
-    ArrowDown,
-    ArrowUp,
-    ArrowUpDown,
-    Search,
-} from "lucide-react";
-
-import {
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
-    type ColumnDef,
-    type SortingState,
-    useReactTable,
-} from "@tanstack/react-table";
-
-import { cn } from "../../lib/cn";
-import { Input } from "../ui/Input";
-import { TableEmptyRow } from "../ui/DemoTable";
-import { DataTablePagination } from "./DataTablePagination";
-import type {
-    DataTablePaginationConfig,
-    DataTableSearchConfig,
-} from "./types";
-
-interface DataTableProps<TData> {
-    data: TData[];
-    columns: ColumnDef<TData, unknown>[];
-
-    search?: DataTableSearchConfig<TData>;
-    pagination?: DataTablePaginationConfig;
-
-    emptyTitle?: string;
-    emptyDescription?: string;
-
-    onRowClick?: (row: TData) => void;
-}
-
-export function DataTable<TData>({
-    data,
-    columns,
-    search,
-    pagination,
-    emptyTitle = "No results found",
-    emptyDescription = "Try adjusting your search or filters.",
-    onRowClick,
-}: DataTableProps<TData>) {
-    const [sorting, setSorting] =
-        useState<SortingState>([]);
-
-    const [query, setQuery] = useState("");
-
-    const filteredData = useMemo(() => {
-        if (!query.trim()) {
-            return data;
-        }
-
-        const normalizedQuery =
-            query.trim().toLowerCase();
-
-        if (search?.filterFn) {
-            return data.filter((row) =>
-                search.filterFn?.(row, normalizedQuery),
-            );
-        }
-
-        return data.filter((row) =>
-            JSON.stringify(row)
-                .toLowerCase()
-                .includes(normalizedQuery),
-        );
-    }, [data, query, search]);
-
-    const table = useReactTable({
-        data: filteredData,
-        columns,
-
-        state: {
-            sorting,
-        },
-
-        onSortingChange: setSorting,
-
-        getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel:
-            getPaginationRowModel(),
-
-        initialState: {
-            pagination: {
-                pageSize: pagination?.pageSize ?? 10,
-            },
-        },
-    });
-
-    return (
-        <div
-            className="
-        overflow-hidden
-        rounded-[var(--radius-card)]
-        border border-[var(--color-border)]
-        bg-white
-        shadow-[var(--shadow-xs)]
-      "
-        >
-            {search && (
-                <div className="flex items-center border-b border-[var(--color-border)] px-4 py-3">
-                    <div className="relative w-[320px]">
-                        <Search
-                            size={15}
-                            className="
-                absolute left-3 top-1/2
-                -translate-y-1/2
-                text-[var(--color-text-muted)]
-              "
-                        />
-
-                        <Input
-                            value={query}
-                            onChange={(event) => {
-                                setQuery(event.target.value);
-                                table.setPageIndex(0);
-                            }}
-                            placeholder={
-                                search.placeholder ??
-                                "Search..."
-                            }
-                            className="h-9 pl-9"
-                        />
-                    </div>
-                </div>
-            )}
-
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                    <thead>
-                        {table
-                            .getHeaderGroups()
-                            .map((headerGroup) => (
-                                <tr key={headerGroup.id}>
-                                    {headerGroup.headers.map(
-                                        (header) => {
-                                            const canSort =
-                                                header.column.getCanSort();
-
-                                            const sorted =
-                                                header.column.getIsSorted();
-
-                                            return (
-                                                <th
-                                                    key={header.id}
-                                                    className="
-                            h-10
-                            border-b border-[var(--color-border)]
-                            bg-[var(--color-background-subtle)]
-                            px-4 text-left
-                            text-[11px] font-semibold
-                            uppercase tracking-[0.06em]
-                            text-[var(--color-text-muted)]
-                          "
-                                                >
-                                                    {header.isPlaceholder ? null : (
-                                                        <button
-                                                            type="button"
-                                                            disabled={!canSort}
-                                                            onClick={
-                                                                canSort
-                                                                    ? header.column.getToggleSortingHandler()
-                                                                    : undefined
-                                                            }
-                                                            className={cn(
-                                                                "inline-flex items-center gap-1.5",
-                                                                canSort &&
-                                                                "cursor-pointer hover:text-[var(--color-text-primary)]",
-                                                            )}
-                                                        >
-                                                            {flexRender(
-                                                                header.column.columnDef.header,
-                                                                header.getContext(),
-                                                            )}
-
-                                                            {canSort &&
-                                                                (sorted === "asc" ? (
-                                                                    <ArrowUp size={12} />
-                                                                ) : sorted ===
-                                                                    "desc" ? (
-                                                                    <ArrowDown size={12} />
-                                                                ) : (
-                                                                    <ArrowUpDown
-                                                                        size={12}
-                                                                        className="opacity-40"
-                                                                    />
-                                                                ))}
-                                                        </button>
-                                                    )}
-                                                </th>
-                                            );
-                                        },
-                                    )}
-                                </tr>
-                            ))}
-                    </thead>
-
-                    <tbody>
-                        {table.getRowModel().rows.length >
-                            0 ? (
-                            table
-                                .getRowModel()
-                                .rows.map((row) => (
-                                    <tr
-                                        key={row.id}
-                                        onClick={() =>
-                                            onRowClick?.(row.original)
-                                        }
-                                        className={cn(
-                                            "border-b border-[var(--color-border)] last:border-b-0",
-                                            "transition-colors",
-                                            onRowClick &&
-                                            "cursor-pointer hover:bg-[var(--color-surface-hover)]",
-                                        )}
-                                    >
-                                        {row
-                                            .getVisibleCells()
-                                            .map((cell) => (
-                                                <td
-                                                    key={cell.id}
-                                                    className="
-                            h-[52px] px-4
-                            text-[13px]
-                            text-[var(--color-text-primary)]
-                          "
-                                                >
-                                                    {flexRender(
-                                                        cell.column.columnDef
-                                                            .cell,
-                                                        cell.getContext(),
-                                                    )}
-                                                </td>
-                                            ))}
-                                    </tr>
-                                ))
-                        ) : (
-                            <TableEmptyRow colSpan={columns.length} title={emptyTitle} description={emptyDescription} />
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            {pagination && (
-                <DataTablePagination table={table} />
-            )}
-        </div>
-    );
+import { filterTableRows } from './tableSearch';
+import { useMemo, useState } from 'react';
+import { flexRender,getCoreRowModel,getPaginationRowModel,getSortedRowModel,type ColumnDef,type SortingState,type VisibilityState,type RowSelectionState,useReactTable } from '@tanstack/react-table';
+import { cn } from '../../lib/cn';
+import { Input } from '../ui/Input';
+import { TableEmptyRow } from '../ui/DemoTable';
+import { DataTablePagination } from './DataTablePagination';
+import { ColumnControls } from './ColumnControls';
+import { downloadTableCsv,exportTable } from './tableExport';
+import { usePermission } from '../../features/security/usePermission';
+import type { DataTableCapabilities,DataTablePaginationConfig,DataTableSearchConfig } from './types';
+interface DataTableProps<TData>{data:TData[];columns:ColumnDef<TData,unknown>[];search?:DataTableSearchConfig<TData>;pagination?:DataTablePaginationConfig;capabilities?:DataTableCapabilities<TData>;emptyTitle?:string;emptyDescription?:string;onRowClick?:(row:TData)=>void;}
+export function DataTable<TData>({data,columns,search,pagination,capabilities,emptyTitle='No results found',emptyDescription='Try adjusting your search or filters.',onRowClick}:DataTableProps<TData>){
+ const [sorting,setSorting]=useState<SortingState>([]),[query,setQuery]=useState(''),[columnVisibility,setColumnVisibility]=useState<VisibilityState>({}),[rowSelection,setRowSelection]=useState<RowSelectionState>({}),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const canRead=usePermission(capabilities?.permission??'inventory.read');
+ const validIds=useMemo(()=>{if(!capabilities)return false;const ids=data.map(capabilities.rowId);return ids.every(id=>typeof id==='string'&&!!id)&&new Set(ids).size===ids.length;},[data,capabilities]);
+ const complete=capabilities?.scope==='complete'&&canRead&&validIds;
+ const filteredData=useMemo(()=>filterTableRows(data,columns,query,search?.filterFn),[data,query,search,columns]);
+ const table=useReactTable({data:filteredData,columns,state:{sorting,columnVisibility,rowSelection},onSortingChange:setSorting,onColumnVisibilityChange:setColumnVisibility,onRowSelectionChange:setRowSelection,getRowId:(r,i)=>validIds?capabilities!.rowId(r):String(i),enableRowSelection:complete,getCoreRowModel:getCoreRowModel(),getSortedRowModel:getSortedRowModel(),getPaginationRowModel:pagination?getPaginationRowModel():undefined,initialState:{pagination:{pageSize:Math.max(1,Math.min(500,pagination?.pageSize??10))}}});
+ const allRows=table.getPrePaginationRowModel().rows,selectedRows=allRows.filter(r=>rowSelection[r.id]),visible=table.getVisibleLeafColumns(),selectedIds=new Set(selectedRows.map(r=>r.id));
+ const exportRows=(selected:boolean)=>{try{const output=exportTable(table,selected);downloadTableCsv(capabilities!.id+(selected?'-selected':'-all-filtered'),output.csv);setNotice(`Exported ${output.count} rows across all matching pages; visible data columns only.`);setError('');}catch(e){setError((e as Error).message);}};
+ if(capabilities&&!canRead)return <p role="alert">Your role cannot read this table.</p>;
+ return <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
+ <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 print:hidden">{search?<Input aria-label={search.placeholder??'Search table'} value={query} onChange={e=>{setQuery(e.target.value);setRowSelection({});table.setPageIndex(0);setNotice('');}} placeholder={search.placeholder??'Search…'} className="h-9 w-full max-w-xs"/>:<span/>}<div className="flex flex-wrap items-center gap-2">{complete&&<button type="button" className="rounded-lg border px-3 py-2 text-sm" disabled={!allRows.length} onClick={()=>exportRows(false)}>Export all filtered rows ({allRows.length})</button>}<ColumnControls columns={table.getAllLeafColumns().filter(c=>c.getCanHide()).map(c=>({id:c.id,label:typeof c.columnDef.header==='string'?c.columnDef.header:c.id,visible:c.getIsVisible()}))} onChange={(id,value)=>table.getColumn(id)?.toggleVisibility(value)} onReset={()=>table.resetColumnVisibility()}/></div></div>
+ {error&&<p role="alert" className="p-3 text-red-700">{error}</p>}{notice&&<p role="status" className="p-3 text-sm">{notice}</p>}
+ {capabilities?.scope==='complete'&&!validIds&&<p role="alert" className="p-3 text-red-700">Stable unique row IDs are required. Selection and export are unavailable.</p>}
+ {complete&&<div className="flex flex-wrap items-center gap-3 border-b p-3 text-sm print:hidden"><label className="flex gap-2"><input aria-label="Select all filtered rows" type="checkbox" checked={!!allRows.length&&selectedRows.length===allRows.length} disabled={!allRows.length} onChange={e=>setRowSelection(e.target.checked?Object.fromEntries(allRows.map(r=>[r.id,true])):{})}/>Select all {allRows.length} filtered rows across pages</label><span>{selectedRows.length} selected</span><button type="button" className="underline" disabled={!selectedRows.length} onClick={()=>setRowSelection({})}>Clear selection</button><button type="button" className="rounded border px-3 py-2" disabled={!selectedRows.length} onClick={()=>exportRows(true)}>Export selected rows</button>{selectedRows.length>0&&capabilities.selectionActions?.(selectedRows.map(r=>r.original))}</div>}
+ <div className="overflow-x-auto"><table className="w-full border-collapse"><thead className="bg-[var(--color-background-subtle)]">{table.getHeaderGroups().map(hg=><tr key={hg.id}>{complete&&<th className="px-3 text-left print:hidden">Select</th>}{hg.headers.map(h=><th key={h.id} className="h-10 border-b px-4 text-left text-xs font-semibold"><button type="button" disabled={!h.column.getCanSort()} onClick={h.column.getToggleSortingHandler()} aria-label={'Sort '+(typeof h.column.columnDef.header==='string'?h.column.columnDef.header:h.column.id)}>{h.isPlaceholder?null:flexRender(h.column.columnDef.header,h.getContext())}{h.column.getCanSort()&&(h.column.getIsSorted()==='asc'?' ↑':h.column.getIsSorted()==='desc'?' ↓':' ↕')}</button></th>)}</tr>)}</thead><tbody>{table.getRowModel().rows.length?table.getRowModel().rows.map(r=><tr key={r.id} onClick={()=>onRowClick?.(r.original)} className={cn('border-b last:border-b-0',onRowClick&&'cursor-pointer hover:bg-[var(--color-surface-hover)]')}>{complete&&<td className="px-3 print:hidden" onClick={e=>e.stopPropagation()}><input type="checkbox" aria-label={'Select row '+r.id} checked={selectedIds.has(r.id)} onChange={e=>setRowSelection(s=>({...s,[r.id]:e.target.checked}))}/></td>}{r.getVisibleCells().map(c=><td key={c.id} className="h-[52px] px-4 text-[13px]">{flexRender(c.column.columnDef.cell,c.getContext())}</td>)}</tr>):<TableEmptyRow colSpan={visible.length+(complete?1:0)} title={emptyTitle} description={emptyDescription}/>}</tbody></table></div>{pagination&&<DataTablePagination table={table}/>}
+ </div>;
 }

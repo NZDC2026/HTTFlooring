@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Local sales visits & follow-ups — 2026-10-18
 
 Sales visits & activity now uses a main-owned local salesVisits repository. It records visit plans, check-in/out, outcomes, append-only notes and a linked follow-up task. No backend, device location tracking, contact synchronization or external messaging is added.

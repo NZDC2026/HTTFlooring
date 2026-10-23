@@ -1,5 +1,6 @@
+// Historical prototype state and arithmetic, retained for fixture regression only. Production imports shared CSV from src/lib/csv.ts.
 import { useSyncExternalStore } from 'react';
-import { previewModules, type PreviewField, type PreviewRow } from './catalog';
+import { previewModules, type PreviewField, type PreviewRow } from './legacyCatalog';
 export type Draft = Record<string, string>;
 export function defaultDraft(fields: PreviewField[], row?: Draft): Draft {
  return Object.fromEntries(fields.map(f => [f.key, row?.[f.key] ?? f.value ?? f.options?.[0] ?? '']));
@@ -57,28 +58,7 @@ export function allocationErrors(amount: string, allocated: string[], balances: 
  if (values.reduce((a, b) => a + b, 0) > paid) return ['Allocations exceed the available receipt.'];
  return [];
 }
-export function csvText(rows: string[][]): string {
- // Prevent spreadsheet applications interpreting exported user text as formulas.
- return rows.map(row => row.map(v => `"${(/^[=+@\-\t\r]/.test(v) ? "'" + v : v).replaceAll('"', '""')}"`).join(',')).join('\r\n');
-}
-export function downloadSample(name: string, content: string, type = 'text/csv') { const url = URL.createObjectURL(new Blob([content], { type })); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 500); }
-/** Handles quoted commas, escaped quotes and multiline CSV; rejects malformed quotes. */
-export function parseCsv(text: string): string[][] {
- const rows: string[][] = []; let row: string[] = [], cell = '', quoted = false, closed = false;
- const pushCell = () => { row.push(cell); cell = ''; closed = false; };
- const pushRow = () => { pushCell(); if (row.some(v => v.trim())) rows.push(row); row = []; };
- for (let i = 0; i < text.length; i++) {
-  const c = text[i];
-  if (quoted) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else { quoted = false; closed = true; } } else cell += c; }
-  else if (c === '"') { if (cell || closed) throw new Error('Malformed CSV quote.'); quoted = true; }
-  else if (c === ',') pushCell();
-  else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; pushRow(); }
-  else { if (closed && c.trim()) throw new Error('Unexpected text after a quoted field.'); if (!closed) cell += c; }
- }
- if (quoted) throw new Error('An opened CSV quote was not closed.');
- if (cell || row.length || closed) pushRow();
- return rows;
-}
+export {csvText,parseCsv,downloadFile as downloadSample} from '../../lib/csv';
 export function validateImport(rows: string[][], mapping: { name: number; email: number }) {
  const seen = new Set<string>();
  return rows.slice(1).map((row, i) => {

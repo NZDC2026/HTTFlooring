@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # G11 报表设置默认值
 
 G11 本地范围：独立 `/settings/reports` 页面，默认口径、币种偏好、自定义表头、金额小数位，以及报表页面和新生成输出的实际应用链。沿用本地 Repository／Service／快照／审计，没有连接独立后台。

@@ -1,3 +1,4 @@
+import {usePermission} from '../../security/usePermission';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
@@ -42,6 +43,7 @@ import {
 } from "../data/bankRegisterService";
 
 export function BankingPage() {
+    const canWrite=usePermission('banking.write');
     const navigate =
         useNavigate();
 
@@ -125,7 +127,7 @@ export function BankingPage() {
                     </p>
                 </div>
 
-                <div className="flex flex-wrap gap-3">
+                {canWrite&&<div className="flex flex-wrap gap-3">
                     <Button
                         variant="secondary"
                         onClick={() =>
@@ -158,7 +160,7 @@ export function BankingPage() {
 
                         New Transaction
                     </Button>
-                </div>
+                </div>}
             </div>
 
             <div className="mb-6 grid gap-4 md:grid-cols-3">

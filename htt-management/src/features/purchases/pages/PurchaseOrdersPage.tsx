@@ -520,11 +520,12 @@ export function PurchaseOrdersPage() {
             </div>
 
             <DataTable
+                capabilities={{id:"purchase-orders",scope:"complete",permission:"purchases.read",rowId:r=>r.id}}
                 data={
                     purchaseOrders
                 }
                 columns={[...columns, {
-                    id: "preview",
+                    id: "preview", enableHiding:false, meta:{exportable:false},
                     header: "Quick view",
                     cell: ({ row }) => <button type="button" aria-label={`Preview ${row.original.purchaseOrderNumber}`} title="Preview purchase order" className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-primary)] hover:bg-[var(--color-surface-muted)]" onClick={(event) => { event.stopPropagation(); setPreview(row.original); }}><Eye size={15} /> Preview</button>,
                 } as ColumnDef<PurchaseOrder, unknown>]}

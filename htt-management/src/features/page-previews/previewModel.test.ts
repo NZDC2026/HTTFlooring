@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { previewModules } from './catalog';
+import { previewModules } from './legacyCatalog';
 import { allocationErrors, csvText, defaultDraft, documentTotals, getPagePreview, parseCsv, resetPagePreview, savePreviewRecord, validateFields, validateImport } from './previewModel';
 afterEach(resetPagePreview);
 describe('isolated management page previews', () => {

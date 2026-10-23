@@ -1,3 +1,4 @@
+import './captureSourceRepository';
 import './brandingRepository';
 export { assertBankInstructionCommand } from './bankInstructionRepository';
 export { classifyImportedBankLines } from './bankRuleRepository';

@@ -1,3 +1,9 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [G13-LOCAL-DOCUMENT-RECOGNITION.md](G13-LOCAL-DOCUMENT-RECOGNITION.md).
+
+# Current implementation
+
+G13 now adds local macOS PDF/PNG/JPEG recognition, preserved originals, confidence/provenance review and immutable draft source links. See [G13 implementation and acceptance](G13-LOCAL-DOCUMENT-RECOGNITION.md). The text below records the earlier manual/CSV delivery; statements excluding OCR/source bytes are historical, superseded by G13.
+
 # Supplier document capture & review — 2026-10-18
 
 The document capture screen now prepares real managed expense/service bill drafts from manual fields or a single-bill CSV. It uses the existing local expense repository and persistence; no new register or schema migration is required. Automatic PDF/image OCR and storage of source file bytes remain outside this change.

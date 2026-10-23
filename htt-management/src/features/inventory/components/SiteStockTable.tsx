@@ -130,6 +130,7 @@ export function SiteStockTable({
 }: Props) {
     return (
         <DataTable
+                capabilities={{id:"site-stock",scope:"complete",permission:"inventory.read",rowId:r=>r.key}}
             data={rows}
             columns={
                 columns

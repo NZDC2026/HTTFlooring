@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md), [G02-PRICING-INSTANT.md](G02-PRICING-INSTANT.md), [FINANCE-FOUNDATION.md](FINANCE-FOUNDATION.md), [FINANCE-CLOSURE.md](FINANCE-CLOSURE.md).
+
 > Latest follow-up: [Direct documents](DIRECT-DOCUMENTS.md) connects direct sales orders/invoices, expense/service bills and sales dispatch to the persisted local business engine.
 
 > Latest follow-up: [Finance foundation](FINANCE-FOUNDATION.md) connects financial settings, tax account/report snapshots and reconciled opening-balance import. Older scope notes below describe their earlier baseline.

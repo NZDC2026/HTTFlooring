@@ -1,0 +1,169 @@
+{
+  "date": "2026-10-23",
+  "status": "partial-release-readiness",
+  "schemaVersion": 31,
+  "fullRegression": {
+    "files": 155,
+    "tests": 3502,
+    "failed": 0,
+    "seconds": 243.99
+  },
+  "build": "passed",
+  "frozenLockfile": "passed supply-chain policy, 481 entries",
+  "freshTemporaryInstall": "passed, pnpm 11.25.0; Electron v44.5.1",
+  "signingIdentities": 0,
+  "formalReleaseAccepted": false,
+  "remoteCiExecuted": false,
+  "installerManifest": {
+    "version": "0.1.0",
+    "commit": "ff1002abac5fcfb4cd958c8fdda47cbb45933ed9",
+    "dirty": true,
+    "node": "24.19.0",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "lockfileSha256": "78ea1580d325330be1da29bd43b8c1c1cd34f83bba92223469dedacd9515267e",
+    "verification": "UNSIGNED-INTERNAL-ONLY",
+    "createdAt": "2026-10-23T02:02:30.076Z",
+    "artifacts": [
+      {
+        "name": "HTT-Flooring-Demo-0.1.0-mac-arm64.dmg",
+        "sha256": "960b82abca237077af3dcad1f91be7d31a7f2dd149fb7fae3b3fd3d49664f6db"
+      }
+    ]
+  },
+  "oldAsarSha256": "e1b056188f08968901b7707a5244380dc2e211a0bb0f5e227f3a7642ad83b3f7",
+  "installedAsarSha256": "d4011c504f96b8fb6a16e5e49bc3024426984d2c972bebdd62fe8938e5ab5d3c",
+  "nativeCases": [
+    {
+      "id": 1,
+      "result": "passed",
+      "observation": "Old unsigned build signs into isolated synthetic schema31 profile"
+    },
+    {
+      "id": 2,
+      "result": "passed",
+      "observation": "Local DMG mounted read-only and app copied to temporary installation directory"
+    },
+    {
+      "id": 3,
+      "result": "passed",
+      "observation": "Installed new build signs in and reads original workspace"
+    },
+    {
+      "id": 4,
+      "result": "passed",
+      "observation": "Help diagnostics reports available and no session alerts"
+    },
+    {
+      "id": 5,
+      "result": "passed",
+      "observation": "Native backup export succeeds"
+    },
+    {
+      "id": 6,
+      "result": "passed",
+      "observation": "Native file selection/preview/explicit restore succeeds"
+    },
+    {
+      "id": 7,
+      "result": "passed",
+      "observation": "Restored workspace blocks further work until restart"
+    },
+    {
+      "id": 8,
+      "result": "passed",
+      "observation": "New installed build restarts and signs in after recovery"
+    },
+    {
+      "id": 9,
+      "result": "passed",
+      "observation": "Retained old build signs in after same-schema rollback"
+    },
+    {
+      "id": 10,
+      "result": "passed",
+      "observation": "Complete repositories/storage equality through upgrade/export/restore/rollback"
+    },
+    {
+      "id": 11,
+      "result": "passed",
+      "observation": "Recovery retains one pre-restore business file; seven local users remain"
+    },
+    {
+      "id": 12,
+      "result": "passed",
+      "observation": "Only isolated known PID force-stopped; new diagnostics visibly shows previous-unclean-exit; normal exit recorded"
+    }
+  ],
+  "limitations": [
+    "Same version 0.1.0/schema31 local build replacement only",
+    "Unsigned arm64 local installer; no Gatekeeper certification",
+    "No signed/public release or remote CI run",
+    "No Windows/Intel Mac runtime acceptance",
+    "No production business profile used"
+  ],
+  "finalTargetedRegression": {
+    "files": 4,
+    "tests": 23,
+    "failed": 0,
+    "seconds": 1.26
+  },
+  "releaseConfigurationSchema": "validated using installed electron-builder 26.15.3",
+  "unsignedSignatureGate": "rejected by codesign --verify --deep --strict before writing a signed manifest",
+  "crossPlatformFollowUp": {
+    "date": "2026-10-23",
+    "userConstraint": "No signing certificates yet; complete other verifiable work",
+    "build": "passed",
+    "regression": {
+      "files": 157,
+      "tests": 3511,
+      "failed": 0,
+      "seconds": 256.01
+    },
+    "windows": {
+      "installer": "HTT-Flooring-Demo-0.1.0-win-x64.exe",
+      "bytes": 124993013,
+      "sha256": "5a021ae9cc8bb74f8623769e8a9e3aaefdb627066d239fe86253fe3ec33f6b66",
+      "certificateTable": [
+        0,
+        0
+      ],
+      "nativeExecution": false,
+      "buildHost": "macOS arm64",
+      "structureCheck": "passed; x64 application, no macOS OCR helper"
+    },
+    "macIntel": {
+      "runtime": "Rosetta on Apple Silicon, not native Intel hardware",
+      "applicationArchitecture": "x86_64",
+      "asarSha256": "e7ed5691635b238e4905d823d81424f3f2b8d1e36edc2ca27b8179a1d3a2b120",
+      "nativeUi": [
+        "sign-in with isolated synthetic profile",
+        "Dashboard and persisted data read",
+        "actual original-file selection and recognition",
+        "preserved SHA256, engine/pages and suggestions visible",
+        "normal quit"
+      ],
+      "initialOcrFailure": "Forced x86_64 Vision helper failed in translation; same universal helper arm64 slice succeeded",
+      "fixedModuleProbe": {
+        "arch": "x64",
+        "pages": 1,
+        "lines": 10
+      },
+      "preservedSyntheticSources": 1
+    },
+    "structureChecks": {
+      "darwinArm64": "passed",
+      "darwinX64": "passed",
+      "windowsX64": "passed"
+    },
+    "remoteCiExecuted": false,
+    "signingOrNotarizationAccepted": false,
+    "remaining": [
+      "Trusted signing identities and notarization",
+      "Authenticated remote CI execution",
+      "Native Windows installation/upgrade/rollback/recovery",
+      "Intel Mac hardware acceptance",
+      "Clean-machine OS trust validation"
+    ]
+  }
+}

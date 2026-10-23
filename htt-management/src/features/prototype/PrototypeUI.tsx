@@ -1,3 +1,4 @@
+import { ReadOnlyTable, type ReadOnlyTableProps } from '../../components/data-table/ReadOnlyTable';
 import type { ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 export const fieldClass = 'w-full rounded-lg border border-[var(--color-border)] bg-white px-3 py-2 text-sm';
@@ -8,6 +9,6 @@ export function PrototypeFrame({ title, description, children, actions, area = '
 }
 export function Panel({ title, children }: { title: string; children: ReactNode }) { return <section className="space-y-4 rounded-xl border border-[var(--color-border)] bg-white p-5"><h2 className="text-lg font-semibold">{title}</h2>{children}</section>; }
 export function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-1 text-sm font-medium">{label}{children}</label>; }
-export function SampleTable({ headers, children, empty }: { headers: string[]; children: ReactNode; empty?: boolean }) { return <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]"><table className="w-full min-w-[600px] text-left text-sm"><thead className="bg-[var(--color-surface-muted)]"><tr>{headers.map(h => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}</tr></thead><tbody className="divide-y divide-[var(--color-border)]">{empty ? <tr><td colSpan={headers.length} className="p-8 text-center text-[var(--color-text-secondary)]">No matching records. Adjust the search or filters.</td></tr> : children}</tbody></table></div>; }
+export function SampleTable(props:ReadOnlyTableProps) {return <ReadOnlyTable {...props}/>;}
 export function Cell({ children }: { children?: ReactNode }) { return <td className="px-4 py-3 align-top">{children}</td>; }
 export function MissingSample({ to, label }: { to: string; label: string }) { return <Panel title="Sample record not found"><p>This sample may have been cleared when the app reloaded.</p><Link className={buttonClass} to={to}>Back to {label}</Link></Panel>; }

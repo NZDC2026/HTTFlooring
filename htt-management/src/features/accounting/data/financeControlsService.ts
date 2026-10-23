@@ -1,3 +1,5 @@
+import {calculateInventoryGlReconciliation} from "../../inventory/data/inventoryGlReconciliationService";
+import type {InventoryCostMovement} from "../../inventory/types/inventoryCost";
 import { requireDateKey } from "../../../lib/businessDate";
 import type {
     Account,
@@ -144,6 +146,7 @@ function buildControl({
 }
 
 interface CalculateFinanceControlsInput {
+    costMovements: InventoryCostMovement[];
     accounts:
     Account[];
 
@@ -164,6 +167,7 @@ interface CalculateFinanceControlsInput {
 }
 
 export function calculateFinanceControls({
+    costMovements,
     accounts,
     journalEntries,
     bankAccounts,
@@ -353,6 +357,16 @@ export function calculateFinanceControls({
                     "/accounting/profit-and-loss",
             }),
         ];
+
+    const inventoryRoute="/inventory/reconciliation?asOf="+encodeURIComponent(asOfDate);
+    try {
+        const result=calculateInventoryGlReconciliation({accounts,journalEntries,costMovements,asOfDate});
+        const control=buildControl({id:"inventory",name:"Inventory",description:"Inventory cost subledger must equal the Inventory GL control account at the selected reporting date.",leftLabel:"Inventory Subledger",leftValue:result.subledgerInventoryValue,rightLabel:"GL Inventory",rightValue:result.glInventoryBalance,route:inventoryRoute});
+        if(!result.reconciled)control.status="FAIL";
+        controls.push(control);
+    } catch(error) {
+        controls.push({id:"inventory",name:"Inventory",description:"Inventory reconciliation could not be verified: "+(error instanceof Error?error.message:"Check failed."),leftLabel:"Inventory Subledger",leftValue:0,rightLabel:"GL Inventory",rightValue:0,difference:0,status:"FAIL",unavailable:true,route:inventoryRoute});
+    }
 
     const glSummary =
         calculateGeneralLedgerSummary(

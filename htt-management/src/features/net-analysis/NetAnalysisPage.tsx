@@ -12,7 +12,7 @@ import { BusinessFrame } from '../business-workspace/MasterDataPages';
 import { businessSettings } from '../business-workspace/configurationState';
 import { businessDateKey, fiscalYearStart } from '../../lib/businessDate';
 import { Panel, Field, SampleTable, Cell, fieldClass, buttonClass } from '../prototype/PrototypeUI';
-import { csvText, downloadSample } from '../page-previews/previewModel';
+import { csvText, downloadFile } from '../../lib/csv';
 import { calculateNetAnalysis, type AnalysisEvent } from './netAnalysisService';
 import { salesAnalysisSources, purchaseAnalysisSources } from './analysisSources';
 const labels = { DOCUMENT: 'Original document', CREDIT: 'Credit note', VOID: 'Void reversal' };
@@ -40,7 +40,7 @@ export function NetAnalysisPage({ purchases = false }: {
     const exportReport = () => {
         if (!report)
             return;
-        downloadSample(`${purchases ? 'net-purchases' : 'net-sales'}-${from}-${to}.csv`, csvText([
+        downloadFile(`${purchases ? 'net-purchases' : 'net-sales'}-${from}-${to}.csv`, csvText([
             ['Report header',reportSettings().header], ['Basis','Accrual'], [purchases ? 'Net purchase documents' : 'Net sales documents', from, to, currency], ['Contact ID', partyId || 'All'], ['Search', query], ['Activity', event],
             ['Filtered totals', reportNumber(report.totals.subtotal), reportNumber(report.totals.tax), reportNumber(report.totals.total)],
             ['Activity', 'Count', 'Before tax', 'Tax', 'Gross'], ...report.movements.map(m => [labels[m.type], String(m.count), reportNumber(m.subtotal), reportNumber(m.tax), reportNumber(m.total)]),

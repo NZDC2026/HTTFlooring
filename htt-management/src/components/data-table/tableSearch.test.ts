@@ -1,0 +1,5 @@
+import {it,expect} from 'vitest';
+import {filterTableRows} from './tableSearch';
+const rows=[{id:'a',name:'Oak',cost:987654,contact:{email:'visible@test.example'},privateNotes:'secret'},{id:'b',name:'Pine',cost:200,contact:{email:'other@test.example'},privateNotes:'confidential'}];
+it('searches only authorised scalar accessors, never undeclared cost, notes or metadata',()=>{expect(filterTableRows(rows,[{accessorKey:'name',header:'Name'}],'Oak')).toHaveLength(1);expect(filterTableRows(rows,[{accessorKey:'name',header:'Name'}],'987654')).toEqual([]);expect(filterTableRows(rows,[{accessorKey:'name',header:'Name'}],'secret')).toEqual([]);});
+it('supports declared nested/derived values and a scoped custom filter without serialising the full object',()=>{expect(filterTableRows(rows,[{accessorKey:'contact.email',header:'Email'}],'visible@')).toEqual([rows[0]]);expect(filterTableRows(rows,[{id:'kind',accessorFn:r=>r.name+' product',header:'Kind'}],'pine PRODUCT')).toEqual([rows[1]]);expect(filterTableRows(rows,[],'OAK',(r,q)=>r.name.toLowerCase().includes(q))).toEqual([rows[0]]);expect(filterTableRows(rows,[],' ')).toBe(rows);});

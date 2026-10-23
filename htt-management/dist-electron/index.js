@@ -1,28 +1,119 @@
-import { A as e, D as t, F as n, G as r, I as i, M as a, O as o, P as s, U as c, a as l, i as u, j as d, k as f, n as p, r as m, t as h } from "./businessSnapshot-BYySNXvh.js";
-import { BrowserWindow as g, app as _, dialog as v, ipcMain as y, nativeImage as ee } from "electron";
-import { closeSync as b, existsSync as x, fsyncSync as S, mkdirSync as C, openSync as w, readFileSync as T, realpathSync as E, renameSync as te, statSync as ne, writeFileSync as D } from "node:fs";
-import { createHash as O, createHmac as k, randomBytes as A, randomUUID as j, scryptSync as re, timingSafeEqual as M } from "node:crypto";
-import N, { basename as P, dirname as F, isAbsolute as I, join as L, relative as R, sep as z } from "node:path";
-import { writeFile as B } from "node:fs/promises";
-import { fileURLToPath as V } from "node:url";
+import { $ as e, A as t, D as n, F as r, G as i, I as a, M as o, O as s, P as c, U as l, a as u, i as d, j as f, k as ee, n as p, r as m, t as h } from "./businessSnapshot-CJPjG5Tx.js";
+import { appendFileSync as te, closeSync as g, existsSync as _, fsyncSync as v, mkdirSync as y, openSync as b, readFileSync as x, realpathSync as S, renameSync as C, statSync as w, writeFileSync as T } from "node:fs";
+import E, { basename as D, dirname as O, isAbsolute as k, join as A, relative as j, sep as M } from "node:path";
+import { createHash as ne, createHmac as N, randomBytes as P, randomUUID as F, scryptSync as re, timingSafeEqual as I } from "node:crypto";
+import { BrowserWindow as L, Menu as R, app as z, dialog as B, ipcMain as V, nativeImage as ie, shell as ae } from "electron";
+import { writeFile as oe } from "node:fs/promises";
+import { fileURLToPath as se } from "node:url";
+//#region electron/main/operationalLog.ts
+var ce = /* @__PURE__ */ new Set([
+	"start",
+	"ready",
+	"clean-exit",
+	"previous-unclean-exit",
+	"renderer-gone",
+	"renderer-unresponsive",
+	"renderer-responsive",
+	"load-failed",
+	"startup-failed",
+	"main-exception",
+	"main-rejection",
+	"pdf-export-failed",
+	"recurring-stopped"
+]), le = class {
+	directory;
+	session = F();
+	available = !0;
+	alerts = /* @__PURE__ */ new Set();
+	version;
+	maxBytes;
+	constructor(e, t, n = 262144) {
+		this.version = t, this.maxBytes = n, this.directory = A(e, "diagnostics");
+		try {
+			y(this.directory, {
+				recursive: !0,
+				mode: 448
+			});
+			let e = A(this.directory, "session.json");
+			if (_(e)) try {
+				JSON.parse(x(e, "utf8")).clean !== !0 && this.event("previous-unclean-exit");
+			} catch {
+				this.event("previous-unclean-exit");
+			}
+			T(e, JSON.stringify({
+				session: this.session,
+				clean: !1
+			}), { mode: 384 }), this.event("start");
+		} catch {
+			this.available = !1;
+		}
+	}
+	event(e) {
+		if (ce.has(e) && ([
+			"previous-unclean-exit",
+			"renderer-gone",
+			"renderer-unresponsive",
+			"load-failed",
+			"startup-failed",
+			"main-exception",
+			"main-rejection",
+			"recurring-stopped",
+			"pdf-export-failed"
+		].includes(e) && this.alerts.add(e), e === "renderer-responsive" && this.alerts.delete("renderer-unresponsive"), this.available)) try {
+			let t = A(this.directory, "operations.jsonl");
+			if (_(t) && w(t).size >= this.maxBytes) for (let e = 2; e >= 1; e--) {
+				let n = e === 1 ? t : `${t}.${e - 1}`;
+				_(n) && C(n, `${t}.${e}`);
+			}
+			te(t, JSON.stringify({
+				at: (/* @__PURE__ */ new Date()).toISOString(),
+				session: this.session,
+				version: /^[0-9]+\.[0-9]+\.[0-9]+(?:-[\w.-]+)?$/.test(this.version) ? this.version : "unknown",
+				platform: process.platform,
+				arch: process.arch,
+				event: e
+			}) + "\n", { mode: 384 });
+		} catch {
+			this.available = !1;
+		}
+	}
+	finish() {
+		this.event("clean-exit");
+		try {
+			T(A(this.directory, "session.json"), JSON.stringify({
+				session: this.session,
+				clean: !0
+			}), { mode: 384 });
+		} catch {
+			this.available = !1;
+		}
+	}
+	status() {
+		return {
+			available: this.available,
+			alerts: [...this.alerts]
+		};
+	}
+};
+//#endregion
 //#region electron/security/localSecurity.ts
 function H(e, t) {
-	C(F(e), {
+	y(O(e), {
 		recursive: !0,
 		mode: 448
 	});
-	let n = `${e}.${j()}.tmp`, r = w(n, "wx", 384);
+	let n = `${e}.${F()}.tmp`, r = b(n, "wx", 384);
 	try {
-		D(r, JSON.stringify(t)), S(r);
+		T(r, JSON.stringify(t)), v(r);
 	} finally {
-		b(r);
+		g(r);
 	}
-	te(n, e);
-	let i = w(F(e), "r");
+	C(n, e);
+	let i = b(O(e), "r");
 	try {
-		S(i);
+		v(i);
 	} finally {
-		b(i);
+		g(i);
 	}
 }
 var U = ({ id: e, username: t, displayName: n, roles: r, active: i }) => ({
@@ -41,10 +132,10 @@ function G(e) {
 	return e;
 }
 function K(e) {
-	if (!Array.isArray(e) || !e.length || !e.every((e) => r.includes(e))) throw Error("Choose at least one valid role.");
+	if (!Array.isArray(e) || !e.length || !e.every((e) => i.includes(e))) throw Error("Choose at least one valid role.");
 	return [...new Set(e)];
 }
-var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
+var q = (e, t) => re(e, t, 64).toString("hex"), ue = class {
 	state;
 	session = null;
 	poisoned = !1;
@@ -52,8 +143,8 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 	save;
 	now;
 	constructor(e, t = H, n = () => Date.now()) {
-		if (this.path = e, this.save = t, this.now = n, x(e)) {
-			let t = JSON.parse(T(e, "utf8"));
+		if (this.path = e, this.save = t, this.now = n, _(e)) {
+			let t = JSON.parse(x(e, "utf8"));
 			if (t?.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(t.auditKey) || !Array.isArray(t.users) || !Array.isArray(t.audit)) throw Error("Invalid local security database; access blocked.");
 			let n = /* @__PURE__ */ new Set(), r = /* @__PURE__ */ new Set();
 			for (let e of t.users) {
@@ -64,13 +155,13 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			let i = "";
 			for (let e of t.audit) {
 				let { hash: n, ...r } = e;
-				if (e.previousHash !== i || n !== k("sha256", t.auditKey).update(JSON.stringify(r)).digest("hex")) throw Error("Local audit integrity check failed; access blocked.");
+				if (e.previousHash !== i || n !== N("sha256", t.auditKey).update(JSON.stringify(r)).digest("hex")) throw Error("Local audit integrity check failed; access blocked.");
 				i = n;
 			}
 			this.state = t;
 		} else this.state = {
 			schemaVersion: 1,
-			auditKey: A(32).toString("hex"),
+			auditKey: P(32).toString("hex"),
 			users: [],
 			audit: []
 		};
@@ -85,7 +176,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 	}
 	audit(e, t, n, r, i, a = this.principal()?.userId ?? "UNAUTHENTICATED") {
 		let o = {
-			id: j(),
+			id: F(),
 			timestamp: new Date(this.now()).toISOString(),
 			actorId: a,
 			action: e,
@@ -96,7 +187,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			previousHash: this.state.audit.at(-1)?.hash ?? ""
 		}, s = JSON.parse(JSON.stringify(o)), c = {
 			...s,
-			hash: k("sha256", this.state.auditKey).update(JSON.stringify(s)).digest("hex")
+			hash: N("sha256", this.state.auditKey).update(JSON.stringify(s)).digest("hex")
 		};
 		this.commit({
 			...this.state,
@@ -114,7 +205,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 	}
 	require(e) {
 		let t = this.principal();
-		if (!c(t, e)) throw this.audit("permission.denied", e, "DENIED", e), Error(`Permission denied: ${e}`);
+		if (!l(t, e)) throw this.audit("permission.denied", e, "DENIED", e), Error(`Permission denied: ${e}`);
 		return this.session.idleUntil = Math.min(this.now() + 18e5, this.session.absoluteUntil), t;
 	}
 	status() {
@@ -135,8 +226,8 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 		let n = W(e.username), r = G(e.password);
 		if (!e.displayName?.trim() || e.displayName.trim().length > 100) throw Error("Display name is required (maximum 100 characters).");
 		if (this.state.users.some((e) => e.username === n)) throw Error("Username already exists.");
-		let i = A(16).toString("hex"), a = {
-			id: j(),
+		let i = P(16).toString("hex"), a = {
+			id: F(),
 			username: n,
 			displayName: e.displayName.trim(),
 			roles: K(t),
@@ -158,7 +249,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 		let n = this.state.users.find((e) => e.username === t);
 		if (n && n.lockedUntil > this.now()) throw Error("Too many login attempts; try again later.");
 		let r = Buffer.from(q(e.password, n?.salt ?? "unavailable-account"), "hex"), i = n ? Buffer.from(n.passwordHash, "hex") : Buffer.alloc(64);
-		if (!n?.active || !M(r, i)) throw n && this.commit({
+		if (!n?.active || !I(r, i)) throw n && this.commit({
 			...this.state,
 			users: this.state.users.map((e) => e.id === n.id ? {
 				...e,
@@ -206,8 +297,8 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 		let t = this.principal();
 		if (!t) throw Error("Login required.");
 		let n = this.state.users.find((e) => e.id === t.userId);
-		if (typeof e.currentPassword != "string" || e.currentPassword.length > 256 || !M(Buffer.from(q(e.currentPassword, n.salt), "hex"), Buffer.from(n.passwordHash, "hex"))) throw Error("Current password is incorrect.");
-		let r = G(e.password), i = A(16).toString("hex");
+		if (typeof e.currentPassword != "string" || e.currentPassword.length > 256 || !I(Buffer.from(q(e.currentPassword, n.salt), "hex"), Buffer.from(n.passwordHash, "hex"))) throw Error("Current password is incorrect.");
+		let r = G(e.password), i = P(16).toString("hex");
 		this.audit("user.password", n.id, "INTENT"), this.commit({
 			...this.state,
 			users: this.state.users.map((e) => e.id === n.id ? {
@@ -231,7 +322,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			rows: [...i].reverse().slice(t, t + n)
 		};
 	}
-}, ae = class {
+}, de = class {
 	values = {};
 	initialized = !1;
 	automationEngine;
@@ -248,25 +339,25 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 	constructor(e, t) {
 		this.path = e, this.security = t;
 	}
-	async initialize(t = {}) {
+	async initialize(e = {}) {
 		if (this.blocked) throw Error("Restart the desktop application before reopening business data.");
 		if (this.initialized) return;
 		if (!this.security.principal()) throw Error("Login required.");
 		let n, r;
-		if (x(this.path)) r = m(T(this.path, "utf8")), r.schemaVersion !== 30 && (n = structuredClone(r), h(r)), this.values = r.storage;
+		if (_(this.path)) r = m(x(this.path, "utf8")), r.schemaVersion !== 31 && (n = structuredClone(r), h(r)), this.values = r.storage;
 		else {
-			if (this.security.require("users.manage"), !t || typeof t != "object" || Object.keys(t).length > 1e3) throw Error("Invalid legacy local data.");
-			for (let [e, n] of Object.entries(t)) if (!e.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
-			let e = L(F(this.path), "legacy-profile-backup-v1.json");
-			x(e) || H(e, {
+			if (this.security.require("users.manage"), !e || typeof e != "object" || Object.keys(e).length > 1e3) throw Error("Invalid legacy local data.");
+			for (let [t, n] of Object.entries(e)) if (!t.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
+			let t = A(O(this.path), "legacy-profile-backup-v1.json");
+			_(t) || H(t, {
 				schemaVersion: 1,
 				capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
-				storage: t
-			}), this.values = { ...t }, this.security.audit("business.import", "local-desktop-profile", "INTENT", "users.manage");
+				storage: e
+			}), this.values = { ...e }, this.security.audit("business.import", "local-desktop-profile", "INTENT", "users.manage");
 		}
 		let i = {
 			get length() {
-				return Object.keys(s.values).length;
+				return Object.keys(a.values).length;
 			},
 			key: (e) => Object.keys(this.values)[e] ?? null,
 			getItem: (e) => this.values[e] ?? null,
@@ -279,7 +370,7 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			clear: () => {
 				this.values = {};
 			}
-		}, s = this;
+		}, a = this;
 		Object.defineProperty(globalThis, "__HTT_MAIN_HOST__", {
 			configurable: !0,
 			value: !0
@@ -290,31 +381,31 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			configurable: !0,
 			value: { localStorage: i }
 		});
-		let c = await import("./businessEngine-slcXYhv_.js");
-		this.workspaceDefaults = c.workspaceDefaults, r && (p(r, this.workspaceDefaults), l(r.repositories, e()), d(r.repositories), o(r.repositories), this.lastCommandId = r.lastCommandId), c.initialize(() => this.security.principal()), this.automationEngine = c, this.assertPeriod = c.assertPostingPeriod, a(() => {
+		let c = await import("./businessEngine-B1U8-lG7.js");
+		this.workspaceDefaults = c.workspaceDefaults, r && (p(r, this.workspaceDefaults), u(r.repositories, t()), f(r.repositories), s(r.repositories), this.lastCommandId = r.lastCommandId), c.initialize(() => this.security.principal()), this.automationEngine = c, this.assertPeriod = c.assertPostingPeriod, o(() => {
 			if (!this.security.require("users.manage").roles.includes("ADMIN") || !this.initialized || this.blocked) throw Error("Permanent purge requires a healthy ADMIN desktop session.");
-			let t = e();
-			d(t);
-			let n = u({
+			let e = t();
+			f(e);
+			let n = d({
 				storage: structuredClone(this.values),
-				repositories: t,
+				repositories: e,
 				lastCommandId: this.lastCommandId
-			}), r = L(F(this.path), "recycle-backups"), i = j(), a = `pre-purge-${i}.json`;
-			C(r, {
+			}), r = A(O(this.path), "recycle-backups"), i = F(), a = `pre-purge-${i}.json`;
+			y(r, {
 				recursive: !0,
 				mode: 448
 			});
-			let o = L(r, a);
+			let o = A(r, a);
 			H(o, n);
-			let s = T(o, "utf8"), c = m(s);
-			if (l(c.repositories, t), d(c.repositories), JSON.stringify(c) !== JSON.stringify(n)) throw Error("Pre-purge backup verification failed.");
+			let s = x(o, "utf8"), c = m(s);
+			if (u(c.repositories, e), f(c.repositories), JSON.stringify(c) !== JSON.stringify(n)) throw Error("Pre-purge backup verification failed.");
 			return {
 				id: i,
 				fileName: a,
-				sha256: O("sha256").update(s).digest("hex"),
+				sha256: ne("sha256").update(s).digest("hex"),
 				createdAt: (/* @__PURE__ */ new Date()).toISOString()
 			};
-		}), n && (H(L(F(this.path), `pre-migration-v${r.schemaVersion}-${j()}.json`), n), this.persist(), this.security.audit("business.migrate.v9", "local-desktop-profile", "SUCCESS", "users.manage")), r || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
+		}), n && (H(A(O(this.path), `pre-migration-v${r.schemaVersion}-${F()}.json`), n), this.persist(), this.security.audit("business.migrate.v9", "local-desktop-profile", "SUCCESS", "users.manage")), r || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
 		for (let e of this.security.pendingBusinessCommands()) this.security.audit(`recovery.${e.action}`, e.resourceId, e.commandId === this.lastCommandId ? "SUCCESS" : "FAILED", e.permission, e.commandId);
 		this.initialized = !0;
 	}
@@ -360,28 +451,28 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			this.scanningRecurring = !1;
 		}
 	}
-	persist(t = this.lastCommandId) {
-		H(this.path, u({
+	persist(e = this.lastCommandId) {
+		H(this.path, d({
 			storage: this.values,
-			repositories: e(),
-			lastCommandId: t
-		})), this.lastCommandId = t;
+			repositories: t(),
+			lastCommandId: e
+		})), this.lastCommandId = e;
 	}
 	exportBackup() {
 		if (this.security.require("users.manage"), !this.initialized || this.blocked) throw Error("Backup requires healthy initialized business data.");
-		let t = m(T(this.path, "utf8"));
-		return l(t.repositories, e()), d(t.repositories), u({
-			storage: t.storage,
-			repositories: t.repositories,
-			lastCommandId: t.lastCommandId
+		let e = m(x(this.path, "utf8"));
+		return u(e.repositories, t()), f(e.repositories), d({
+			storage: e.storage,
+			repositories: e.repositories,
+			lastCommandId: e.lastCommandId
 		});
 	}
-	prepareRestore(t) {
+	prepareRestore(e) {
 		let n = this.security.require("users.manage");
 		this.prepared = void 0;
-		let r = m(t);
-		h(r), this.initialized && (p(r, this.workspaceDefaults), l(r.repositories, e()), d(r.repositories));
-		let i = j();
+		let r = m(e);
+		h(r), this.initialized && (p(r, this.workspaceDefaults), u(r.repositories, t()), f(r.repositories));
+		let i = F();
 		this.prepared = {
 			token: i,
 			actor: n.userId,
@@ -397,9 +488,9 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			counts: a
 		};
 	}
-	async restoreBackup(t) {
+	async restoreBackup(e) {
 		let n = this.security.require("users.manage"), r = this.prepared;
-		if (this.prepared = void 0, !r || r.token !== t || r.actor !== n.userId || r.revision !== this.lastCommandId || r.expires < Date.now()) throw Error("Restore preview expired; select the backup again.");
+		if (this.prepared = void 0, !r || r.token !== e || r.actor !== n.userId || r.revision !== this.lastCommandId || r.expires < Date.now()) throw Error("Restore preview expired; select the backup again.");
 		if (Object.defineProperty(globalThis, "__HTT_MAIN_HOST__", {
 			configurable: !0,
 			value: !0
@@ -418,34 +509,34 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 				value: { localStorage: t }
 			});
 		}
-		let i = await import("./businessEngine-slcXYhv_.js");
-		if (p(r.database, i.workspaceDefaults), l(r.database.repositories, e()), d(r.database.repositories), this.security.require("users.manage").userId !== n.userId) throw Error("Restore session changed.");
+		let i = await import("./businessEngine-B1U8-lG7.js");
+		if (p(r.database, i.workspaceDefaults), u(r.database.repositories, t()), f(r.database.repositories), this.security.require("users.manage").userId !== n.userId) throw Error("Restore session changed.");
 		let a = this.security.pendingBusinessCommands();
 		if (a.length) {
-			let e = m(T(this.path, "utf8"));
+			let e = m(x(this.path, "utf8"));
 			for (let t of a) this.security.audit(`recovery.${t.action}`, t.resourceId, t.commandId === e.lastCommandId ? "SUCCESS" : "FAILED", t.permission, t.commandId);
 		}
-		let o = j();
-		if (this.security.audit("business.restore", "business-data-only", "INTENT", "users.manage", o), x(this.path)) {
-			let e = L(F(this.path), "recovery-backups");
-			C(e, {
+		let o = F();
+		if (this.security.audit("business.restore", "business-data-only", "INTENT", "users.manage", o), _(this.path)) {
+			let e = A(O(this.path), "recovery-backups");
+			y(e, {
 				recursive: !0,
 				mode: 448
 			});
-			let t = w(L(e, `before-restore-${o}.json`), "wx", 384);
+			let t = b(A(e, `before-restore-${o}.json`), "wx", 384);
 			try {
-				D(t, T(this.path)), S(t);
+				T(t, x(this.path)), v(t);
 			} finally {
-				b(t);
+				g(t);
 			}
-			let n = w(e, "r");
+			let n = b(e, "r");
 			try {
-				S(n);
+				v(n);
 			} finally {
-				b(n);
+				g(n);
 			}
 		}
-		let s = u({
+		let s = d({
 			storage: r.database.storage,
 			repositories: r.database.repositories,
 			lastCommandId: o
@@ -461,23 +552,23 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 	view() {
 		let e = this.security.principal();
 		if (!e || !this.initialized) throw Error("Login and desktop data initialization required.");
-		let t = c(e, "audit.read") ? Object.fromEntries(Object.entries(this.values).filter(([e]) => e === "htt:financial-operations:v1" || e.startsWith("htt.purchasePosting."))) : {};
+		let t = l(e, "audit.read") ? Object.fromEntries(Object.entries(this.values).filter(([e]) => e === "htt:financial-operations:v1" || e.startsWith("htt.purchasePosting."))) : {};
 		return {
-			repositories: f(e),
+			repositories: ee(e),
 			storage: t
 		};
 	}
-	command(n) {
+	command(e) {
 		if (this.blocked || !this.initialized) throw Error("Business writes blocked; restart and inspect local audit.");
-		if (!n || typeof n.repository != "string" || typeof n.method != "string" || !Array.isArray(n.args) || n.args.length > 20) throw Error("Invalid business command.");
+		if (!e || typeof e.repository != "string" || typeof e.method != "string" || !Array.isArray(e.args) || e.args.length > 20) throw Error("Invalid business command.");
 		let r;
 		try {
-			r = t(n.repository, n.method);
-		} catch (e) {
-			throw this.security.audit("command.denied", `${n.repository}.${n.method}`.slice(0, 200), "DENIED"), e;
+			r = n(e.repository, e.method);
+		} catch (t) {
+			throw this.security.audit("command.denied", `${e.repository}.${e.method}`.slice(0, 200), "DENIED"), t;
 		}
-		let i = this.security.require(r.permission), a = structuredClone(n.args);
-		if (this.automationEngine?.assertBankInstructionCommand(n.repository, n.method, a), [
+		let i = this.security.require(r.permission), a = structuredClone(e.args);
+		if (this.automationEngine?.assertBankInstructionCommand(e.repository, e.method, a), [
 			"sales",
 			"fulfilments",
 			"goodsReceipts",
@@ -486,8 +577,8 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			"supplierCredits",
 			"bankTransactions",
 			"bankReconciliations"
-		].includes(n.repository) && a[0] && typeof a[0] == "object") {
-			let e = [
+		].includes(e.repository) && a[0] && typeof a[0] == "object") {
+			let t = [
 				"paymentDate",
 				"creditDate",
 				"allocationDate",
@@ -499,26 +590,26 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 				"transactionDate",
 				"transferDate",
 				"statementDate"
-			], t = a[0];
+			], n = a[0];
 			try {
-				for (let n of e) if (t[n] !== void 0) {
-					if (typeof t[n] != "string") throw Error("Invalid posting date.");
-					this.assertPeriod(t[n]);
+				for (let e of t) if (n[e] !== void 0) {
+					if (typeof n[e] != "string") throw Error("Invalid posting date.");
+					this.assertPeriod(n[e]);
 				}
-			} catch (e) {
-				throw this.security.audit("period.denied", `${n.repository}.${n.method}`, "DENIED", r.permission), e;
+			} catch (t) {
+				throw this.security.audit("period.denied", `${e.repository}.${e.method}`, "DENIED", r.permission), t;
 			}
 		}
-		if (n.repository === "journals") {
-			let t = a[0];
-			if (n.method === "post" && (t?.sourceType !== "MANUAL_JOURNAL" || t.sourceId)) throw Error("System journals must be posted through their business source.");
-			if (n.method === "reverse" && e().journals.journalEntries.find((e) => e.id === t?.journalEntryId)?.sourceType !== "MANUAL_JOURNAL") throw Error("System journals must be reversed through their business source.");
+		if (e.repository === "journals") {
+			let n = a[0];
+			if (e.method === "post" && (n?.sourceType !== "MANUAL_JOURNAL" || n.sourceId)) throw Error("System journals must be posted through their business source.");
+			if (e.method === "reverse" && t().journals.journalEntries.find((e) => e.id === n?.journalEntryId)?.sourceType !== "MANUAL_JOURNAL") throw Error("System journals must be reversed through their business source.");
 		}
-		if (n.repository === "supplierPayments" && n.method === "reverse" && e().paymentBatches.batches.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this supplier payment through its payment batch.");
-		if (n.repository === "sales" && n.method === "reverseInvoicePayment" && e().customerSettlements.receipts.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this payment through its grouped customer receipt.");
-		if (n.repository === "salesRecovery" && a[0] && typeof a[0] == "object") {
-			let e = a[0];
-			n.method === "recordSalesManualReview" && (e.operator = i.userId), n.method === "closeVerifiedSalesReview" && (e.approver = i.userId);
+		if (e.repository === "supplierPayments" && e.method === "reverse" && t().paymentBatches.batches.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this supplier payment through its payment batch.");
+		if (e.repository === "sales" && e.method === "reverseInvoicePayment" && t().customerSettlements.receipts.some((e) => e.status === "POSTED" && e.paymentIds.includes(a[0]))) throw Error("Reverse this payment through its grouped customer receipt.");
+		if (e.repository === "salesRecovery" && a[0] && typeof a[0] == "object") {
+			let t = a[0];
+			e.method === "recordSalesManualReview" && (t.operator = i.userId), e.method === "closeVerifiedSalesReview" && (t.approver = i.userId);
 		}
 		if ([
 			"voidInvoice",
@@ -526,40 +617,40 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 			"void",
 			"markVoid",
 			"voidCredit"
-		].includes(n.method) && [
+		].includes(e.method) && [
 			"sales",
 			"supplierBills",
 			"supplierCredits"
-		].includes(n.repository)) {
-			let t = e(), n = typeof a[0] == "string" ? a[0] : a[0]?.invoiceId ?? a[0]?.creditNoteId ?? a[0]?.supplierCreditId ?? a[0]?.supplierBillId;
+		].includes(e.repository)) {
+			let e = t(), n = typeof a[0] == "string" ? a[0] : a[0]?.invoiceId ?? a[0]?.creditNoteId ?? a[0]?.supplierCreditId ?? a[0]?.supplierBillId;
 			if ([
-				...t.sales.invoices,
-				...t.customerCredits.creditNotes,
-				...t.supplierBills.supplierBills,
-				...t.supplierCredits.supplierCredits
+				...e.sales.invoices,
+				...e.customerCredits.creditNotes,
+				...e.supplierBills.supplierBills,
+				...e.supplierCredits.supplierCredits
 			].some((e) => e.id === n && e.openingBalanceImportId)) throw Error("Historical opening documents must be corrected through the opening batch reversal.");
 		}
-		let s = j(), c = `${n.repository}.${n.method}`, l = typeof a[0] == "string" ? a[0].slice(0, 200) : String(a[0]?.id ?? a[0]?.invoiceId ?? n.repository).slice(0, 200);
-		this.security.audit(c, l, "INTENT", r.permission, s);
-		let u = e(), d = structuredClone(this.values), f;
+		let o = F(), c = `${e.repository}.${e.method}`, l = typeof a[0] == "string" ? a[0].slice(0, 200) : String(a[0]?.id ?? a[0]?.invoiceId ?? e.repository).slice(0, 200);
+		this.security.audit(c, l, "INTENT", r.permission, o);
+		let u = t(), d = structuredClone(this.values), f;
 		try {
-			if (f = r.execute(a), n.repository === "bankStatements" && ["importRows", "importCsv"].includes(n.method)) {
-				let t = new Set(u.bankStatements.lines.map((e) => e.id)), n = e().bankStatements.lines.filter((e) => !t.has(e.id)).map((e) => e.id);
-				this.automationEngine?.classifyImportedBankLines(n, s);
+			if (f = r.execute(a), e.repository === "bankStatements" && ["importRows", "importCsv"].includes(e.method)) {
+				let e = new Set(u.bankStatements.lines.map((e) => e.id)), n = t().bankStatements.lines.filter((t) => !e.has(t.id)).map((e) => e.id);
+				this.automationEngine?.classifyImportedBankLines(n, o);
 			}
-			if (n.repository === "sales" && n.method === "createInvoiceFromOrder" && this.assertPeriod(f.documentDate), f instanceof Promise) throw Error("Business commands must be synchronous.");
+			if (e.repository === "sales" && e.method === "createInvoiceFromOrder" && this.assertPeriod(f.documentDate), f instanceof Promise) throw Error("Business commands must be synchronous.");
 		} catch (e) {
-			throw this.values = d, o(u), this.security.audit(c, l, "FAILED", r.permission, s), e;
+			throw this.values = d, s(u), this.security.audit(c, l, "FAILED", r.permission, o), e;
 		}
 		try {
-			this.persist(s);
+			this.persist(o);
 		} catch (e) {
-			throw this.values = d, o(u), this.blocked = !0, Error(`Business commit ${s} could not be confirmed: ${e instanceof Error ? e.message : String(e)}. Restart and review before retry.`);
+			throw this.values = d, s(u), this.blocked = !0, Error(`Business commit ${o} could not be confirmed: ${e instanceof Error ? e.message : String(e)}. Restart and review before retry.`);
 		}
 		try {
-			this.security.audit(c, l, "SUCCESS", r.permission, s);
+			this.security.audit(c, l, "SUCCESS", r.permission, o);
 		} catch {
-			throw this.blocked = !0, Error(`Business command ${s} committed, but final audit confirmation failed. Do not repeat it; restart and review.`);
+			throw this.blocked = !0, Error(`Business command ${o} committed, but final audit confirmation failed. Do not repeat it; restart and review.`);
 		}
 		return {
 			result: f,
@@ -569,62 +660,63 @@ var q = (e, t) => re(e, t, 64).toString("hex"), ie = class {
 };
 //#endregion
 //#region electron/security/registerSecurityIpc.ts
-function oe(e, t) {
-	let r = new ie(L(e, "security-v1.json")), a = new ae(L(e, "business-v1.json"), r), o = !1;
-	y.on("security:request", async (c, l, u) => {
-		let d = t();
-		if (!d || c.sender !== d.webContents || c.senderFrame !== d.webContents.mainFrame) {
-			c.returnValue = {
+function fe(t, n, i = () => {}) {
+	e(A(z.isPackaged ? process.resourcesPath : z.getAppPath(), z.isPackaged ? "ocr" : "dist-ocr", "htt-ocr"));
+	let o = new ue(A(t, "security-v1.json")), s = new de(A(t, "business-v1.json"), o), l = !1;
+	V.on("security:request", async (e, i, u) => {
+		let d = n();
+		if (!d || e.sender !== d.webContents || e.senderFrame !== d.webContents.mainFrame) {
+			e.returnValue = {
 				ok: !1,
 				error: "Untrusted desktop sender."
 			};
 			return;
 		}
-		if (o) {
-			c.returnValue = {
+		if (l) {
+			e.returnValue = {
 				ok: !1,
 				error: "A desktop operation is already running."
 			};
 			return;
 		}
-		o = !0;
+		l = !0;
 		try {
-			if (typeof l != "string" || JSON.stringify(u ?? null).length > 6e7) throw Error("Invalid desktop request.");
-			let t = u ?? {}, o;
-			switch (l) {
+			if (typeof i != "string" || JSON.stringify(u ?? null).length > 6e7) throw Error("Invalid desktop request.");
+			let n = u ?? {}, l;
+			switch (i) {
 				case "status":
-					o = r.status();
+					l = o.status();
 					break;
 				case "setup":
-					o = r.setup(t);
+					l = o.setup(n);
 					break;
 				case "login":
-					o = r.login(t);
+					l = o.login(n);
 					break;
 				case "logout":
-					o = r.logout();
+					l = o.logout();
 					break;
 				case "users.list":
-					o = r.listUsers();
+					l = o.listUsers();
 					break;
 				case "users.create":
-					o = r.createUser(t);
+					l = o.createUser(n);
 					break;
 				case "users.update":
-					o = r.updateUser(t);
+					l = o.updateUser(n);
 					break;
 				case "password.change":
-					o = r.changePassword(t);
+					l = o.changePassword(n);
 					break;
 				case "audit.list":
-					o = r.listAudit(t);
+					l = o.listAudit(n);
 					break;
 				case "business.bootstrap":
-					await a.initialize(t.legacyStorage), a.scanRecurringDue(), o = a.view();
+					await s.initialize(n.legacyStorage), s.scanRecurringDue(), l = s.view();
 					break;
 				case "business.backup.save": {
-					r.require("users.manage");
-					let t = await v.showSaveDialog(d, {
+					o.require("users.manage");
+					let e = await B.showSaveDialog(d, {
 						title: "Save business backup",
 						defaultPath: `HTT-Business-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`,
 						filters: [{
@@ -632,25 +724,25 @@ function oe(e, t) {
 							extensions: ["json"]
 						}]
 					});
-					if (t.canceled || !t.filePath) {
-						o = { saved: !1 };
+					if (e.canceled || !e.filePath) {
+						l = { saved: !1 };
 						break;
 					}
-					let n = R(E(e), L(E(F(t.filePath)), P(t.filePath)));
-					if (!n || !n.startsWith(".." + z) && n !== ".." && !I(n)) throw Error("Choose a backup location outside the active local data directory.");
-					let i = a.exportBackup();
-					r.audit("business.backup", "business-data-only", "INTENT", "users.manage");
+					let n = j(S(t), A(S(O(e.filePath)), D(e.filePath)));
+					if (!n || !n.startsWith(".." + M) && n !== ".." && !k(n)) throw Error("Choose a backup location outside the active local data directory.");
+					let r = s.exportBackup();
+					o.audit("business.backup", "business-data-only", "INTENT", "users.manage");
 					try {
-						H(t.filePath, i);
+						H(e.filePath, r);
 					} catch (e) {
-						throw r.audit("business.backup", "business-data-only", "FAILED", "users.manage"), e;
+						throw o.audit("business.backup", "business-data-only", "FAILED", "users.manage"), e;
 					}
-					r.audit("business.backup", "business-data-only", "SUCCESS", "users.manage"), o = { saved: !0 };
+					o.audit("business.backup", "business-data-only", "SUCCESS", "users.manage"), l = { saved: !0 };
 					break;
 				}
 				case "business.restore.preview": {
-					r.require("users.manage");
-					let e = await v.showOpenDialog(d, {
+					o.require("users.manage");
+					let e = await B.showOpenDialog(d, {
 						title: "Select business backup",
 						properties: ["openFile"],
 						filters: [{
@@ -659,23 +751,89 @@ function oe(e, t) {
 						}]
 					});
 					if (e.canceled || !e.filePaths[0]) {
-						o = null;
+						l = null;
 						break;
 					}
-					if (ne(e.filePaths[0]).size > 25e7) throw Error("Backup exceeds 250 MB.");
-					o = a.prepareRestore(T(e.filePaths[0], "utf8"));
+					if (w(e.filePaths[0]).size > 25e7) throw Error("Backup exceeds 250 MB.");
+					l = s.prepareRestore(x(e.filePaths[0], "utf8"));
 					break;
 				}
 				case "business.restore.commit":
-					await a.restoreBackup(t.token), o = { restartRequired: !0 };
+					await s.restoreBackup(n.token), l = { restartRequired: !0 };
 					break;
+				case "capture.select": {
+					if (o.require("purchases.bill"), Object.keys(n).some((e) => e !== "operationId") || typeof n.operationId != "string" || !n.operationId || n.operationId.length > 200) throw Error("Invalid recognition request.");
+					let e = await B.showOpenDialog(d, {
+						title: "Recognize supplier original locally (10 MB maximum)",
+						properties: ["openFile"],
+						filters: [{
+							name: "Supplier originals",
+							extensions: [
+								"pdf",
+								"png",
+								"jpg",
+								"jpeg"
+							]
+						}]
+					});
+					if (e.canceled || !e.filePaths[0]) {
+						l = {};
+						break;
+					}
+					let t = a(e.filePaths[0]), r = s.command({
+						repository: "captureSources",
+						method: "recognize",
+						args: [{
+							operationId: n.operationId,
+							file: {
+								name: D(e.filePaths[0]),
+								content: t.toString("base64")
+							}
+						}]
+					});
+					l = {
+						source: r.result,
+						view: r.view
+					};
+					break;
+				}
+				case "capture.export": {
+					if (o.require("purchases.bill"), Object.keys(n).some((e) => e !== "id") || typeof n.id != "string") throw Error("Invalid source export request.");
+					let e = s.command({
+						repository: "captureSources",
+						method: "read",
+						args: [n.id]
+					}).result, i = await B.showSaveDialog(d, {
+						title: "Export preserved original",
+						defaultPath: e.name
+					});
+					if (i.canceled || !i.filePath) {
+						l = { saved: !1 };
+						break;
+					}
+					let a = j(S(t), A(S(O(i.filePath)), D(i.filePath)));
+					if (!a || !a.startsWith(".." + M) && a !== ".." && !k(a)) throw Error("Choose an export location outside the active local data directory.");
+					o.audit("capture.export", n.id, "INTENT", "purchases.bill");
+					try {
+						let e = s.command({
+							repository: "captureSources",
+							method: "read",
+							args: [n.id]
+						}).result;
+						c(i.filePath, r(e));
+					} catch (e) {
+						throw o.audit("capture.export", n.id, "FAILED", "purchases.bill"), e;
+					}
+					o.audit("capture.export", n.id, "SUCCESS", "purchases.bill"), l = { saved: !0 };
+					break;
+				}
 				case "attachments.select": {
-					r.require("inventory.read"), a.command({
+					o.require("inventory.read"), s.command({
 						repository: "attachments",
 						method: "checkTarget",
-						args: [t.target]
+						args: [n.target]
 					});
-					let e = await v.showOpenDialog(d, {
+					let e = await B.showOpenDialog(d, {
 						title: "Select attachment file (maximum 10 MB)",
 						properties: ["openFile"],
 						filters: [{
@@ -693,20 +851,20 @@ function oe(e, t) {
 						}]
 					});
 					if (e.canceled || !e.filePaths[0]) {
-						o = { saved: !1 };
+						l = { saved: !1 };
 						break;
 					}
-					let n = i(e.filePaths[0]);
-					o = {
+					let t = a(e.filePaths[0]);
+					l = {
 						saved: !0,
-						...a.command({
+						...s.command({
 							repository: "attachments",
 							method: "upload",
 							args: [{
-								...t,
+								...n,
 								file: {
-									name: P(e.filePaths[0]),
-									content: n.toString("base64")
+									name: D(e.filePaths[0]),
+									content: t.toString("base64")
 								}
 							}]
 						})
@@ -714,101 +872,101 @@ function oe(e, t) {
 					break;
 				}
 				case "attachments.export": {
-					r.require("inventory.read");
-					let i = a.command({
+					o.require("inventory.read");
+					let e = s.command({
 						repository: "attachments",
 						method: "read",
-						args: [t]
-					}).result, c = await v.showSaveDialog(d, {
+						args: [n]
+					}).result, i = await B.showSaveDialog(d, {
 						title: "Export attachment version",
-						defaultPath: i.name
+						defaultPath: e.name
 					});
-					if (c.canceled || !c.filePath) {
-						o = { saved: !1 };
+					if (i.canceled || !i.filePath) {
+						l = { saved: !1 };
 						break;
 					}
-					let l = R(E(e), L(E(F(c.filePath)), P(c.filePath)));
-					if (!l || !l.startsWith(".." + z) && l !== ".." && !I(l)) throw Error("Choose an export location outside the active local data directory.");
-					r.audit("attachments.export", String(t.id) + "/" + String(t.versionId), "INTENT", "inventory.read");
+					let a = j(S(t), A(S(O(i.filePath)), D(i.filePath)));
+					if (!a || !a.startsWith(".." + M) && a !== ".." && !k(a)) throw Error("Choose an export location outside the active local data directory.");
+					o.audit("attachments.export", String(n.id) + "/" + String(n.versionId), "INTENT", "inventory.read");
 					try {
-						let e = a.command({
+						let e = s.command({
 							repository: "attachments",
 							method: "read",
-							args: [t]
+							args: [n]
 						}).result;
-						s(L(E(F(c.filePath)), P(c.filePath)), n(e));
+						c(A(S(O(i.filePath)), D(i.filePath)), r(e));
 					} catch (e) {
-						throw r.audit("attachments.export", String(t.id) + "/" + String(t.versionId), "FAILED", "inventory.read"), e;
+						throw o.audit("attachments.export", String(n.id) + "/" + String(n.versionId), "FAILED", "inventory.read"), e;
 					}
-					r.audit("attachments.export", String(t.id) + "/" + String(t.versionId), "SUCCESS", "inventory.read"), o = { saved: !0 };
+					o.audit("attachments.export", String(n.id) + "/" + String(n.versionId), "SUCCESS", "inventory.read"), l = { saved: !0 };
 					break;
 				}
 				case "business.recurring.scan":
-					if (r.require("inventory.read"), Object.keys(t).length) throw Error("Recurring scan does not accept caller dates, actors or limits.");
-					o = {
-						result: a.scanRecurringDue(),
-						view: a.view()
+					if (o.require("inventory.read"), Object.keys(n).length) throw Error("Recurring scan does not accept caller dates, actors or limits.");
+					l = {
+						result: s.scanRecurringDue(),
+						view: s.view()
 					};
 					break;
 				case "business.command":
-					o = a.command(t);
+					l = s.command(n);
 					break;
 				default: throw Error("Unknown desktop security action.");
 			}
-			c.returnValue = {
+			e.returnValue = {
 				ok: !0,
-				value: o
+				value: l
 			};
-		} catch (e) {
-			c.returnValue = {
+		} catch (t) {
+			e.returnValue = {
 				ok: !1,
-				error: e instanceof Error ? e.message : "Desktop operation failed."
+				error: t instanceof Error ? t.message : "Desktop operation failed."
 			};
 		} finally {
-			o = !1;
+			l = !1;
 		}
 	});
-	let c = !1, l = setInterval(() => {
-		if (!(o || c)) {
-			o = !0;
+	let u = !1, d = setInterval(() => {
+		if (!(l || u)) {
+			l = !0;
 			try {
-				a.scanRecurringDue();
-			} catch (e) {
-				c = !0, console.error("Local recurring scan stopped:", e instanceof Error ? e.message : "Restart and inspect business data.");
+				s.scanRecurringDue();
+			} catch {
+				u = !0, i();
 			} finally {
-				o = !1;
+				l = !1;
 			}
 		}
 	}, 6e4);
-	return l.unref(), {
-		dispose: () => clearInterval(l),
+	return d.unref(), {
+		dispose: () => clearInterval(d),
 		lock: () => {
 			try {
-				r.principal() && r.logout();
+				o.principal() && o.logout();
 			} catch {}
 		}
 	};
 }
 //#endregion
 //#region electron/main/index.ts
-var se = V(import.meta.url), J = N.dirname(se), Y = "HTT Flooring Management System", X = () => {}, Z = null;
-function ce(...e) {
-	return N.join(J, "..", ...e);
+var pe = se(import.meta.url), J = E.dirname(pe), Y = "HTT Flooring Management System", X, Z = () => {}, Q = null;
+function me(...e) {
+	return E.join(J, "..", ...e);
 }
-function le() {
+function he() {
 	if (process.platform !== "darwin") return;
-	let e = ce("build", "icon.png"), t = ee.createFromPath(e);
-	t.isEmpty() || _.dock?.setIcon(t);
+	let e = me("build", "icon.png"), t = ie.createFromPath(e);
+	t.isEmpty() || z.dock?.setIcon(t);
 }
-function ue() {
-	y.handle("statement:export-pdf", async (e, t) => {
+function ge() {
+	V.handle("statement:export-pdf", async (e, t) => {
 		try {
-			let n = g.fromWebContents(e.sender);
+			let n = L.fromWebContents(e.sender);
 			if (!n) return {
 				success: !1,
 				error: "Unable to resolve the current application window."
 			};
-			let r = de(t.defaultFileName), i = await v.showSaveDialog(n, {
+			let r = _e(t.defaultFileName), i = await B.showSaveDialog(n, {
 				title: "Export Customer Statement",
 				defaultPath: r,
 				filters: [{
@@ -826,57 +984,92 @@ function ue() {
 				printBackground: !0,
 				preferCSSPageSize: !0
 			});
-			return await B(i.filePath, a), {
+			return await oe(i.filePath, a), {
 				success: !0,
 				filePath: i.filePath
 			};
 		} catch (e) {
-			return console.error("Failed to export customer statement PDF:", e), {
+			return X?.event("pdf-export-failed"), {
 				success: !1,
 				error: e instanceof Error ? e.message : "Unable to export PDF."
 			};
 		}
 	});
 }
-function de(e) {
+function _e(e) {
 	let t = e.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-").replace(/\s+/g, " ").trim() || "Customer Statement";
 	return t.toLowerCase().endsWith(".pdf") ? t : `${t}.pdf`;
 }
-function Q() {
-	Z = new g({
+function $() {
+	let e = z.commandLine.hasSwitch("user-data-dir") && z.commandLine.getSwitchValue("acceptance-window") === "compact";
+	Q = new L({
 		title: Y,
-		width: 1440,
-		height: 900,
+		width: e ? 1100 : 1440,
+		height: e ? 700 : 900,
 		minWidth: 1100,
 		minHeight: 700,
 		show: !1,
 		backgroundColor: "#f4f1eb",
 		webPreferences: {
-			preload: N.join(J, "index.mjs"),
+			preload: E.join(J, "index.mjs"),
 			contextIsolation: !0,
 			nodeIntegration: !1,
 			sandbox: !0
 		}
-	}), Z.once("ready-to-show", () => {
-		Z?.show();
-	}), process.env.VITE_DEV_SERVER_URL ? Z.loadURL(process.env.VITE_DEV_SERVER_URL) : Z.loadFile(N.join(J, "../dist/index.html")), Z.webContents.on("did-start-navigation", (e, t, n, r) => {
-		r && !n && X();
-	}), Z.webContents.on("render-process-gone", () => X()), Z.webContents.setWindowOpenHandler(() => ({ action: "deny" })), Z.webContents.on("will-navigate", (e, t) => {
-		let n = new URL(t), r = new URL(Z.webContents.getURL());
+	}), Q.once("ready-to-show", () => {
+		Q?.show();
+	}), process.env.VITE_DEV_SERVER_URL ? Q.loadURL(process.env.VITE_DEV_SERVER_URL) : Q.loadFile(E.join(J, "../dist/index.html")), Q.webContents.on("did-start-navigation", (e, t, n, r) => {
+		r && !n && Z();
+	}), Q.webContents.on("render-process-gone", () => {
+		Z(), X?.event("renderer-gone");
+	}), Q.on("unresponsive", () => {
+		Z(), X?.event("renderer-unresponsive");
+	}), Q.on("responsive", () => X?.event("renderer-responsive")), Q.webContents.on("did-fail-load", (e, t, n, r, i) => {
+		i && t !== -3 && X?.event("load-failed");
+	}), Q.webContents.setWindowOpenHandler(() => ({ action: "deny" })), Q.webContents.on("will-navigate", (e, t) => {
+		let n = new URL(t), r = new URL(Q.webContents.getURL());
 		(n.protocol !== r.protocol || n.host !== r.host || n.pathname !== r.pathname) && e.preventDefault();
-	}), Z.on("closed", () => {
-		X(), Z = null;
+	}), Q.on("closed", () => {
+		Z(), Q = null;
 	});
 }
-var $ = _.commandLine.getSwitchValue("user-data-dir");
-$ && _.setPath("userData", N.resolve($)), _.requestSingleInstanceLock() || _.quit(), _.on("second-instance", () => {
-	Z?.show(), Z?.focus();
-}), _.setName(Y), _.whenReady().then(() => {
-	le(), ue(), X = oe(N.join(_.getPath("userData"), "local-security"), () => Z).lock, Q(), _.on("activate", () => {
-		g.getAllWindows().length === 0 && Q();
+var ve = z.commandLine.getSwitchValue("user-data-dir");
+ve && z.setPath("userData", E.resolve(ve)), z.requestSingleInstanceLock() ? (X = new le(z.getPath("userData"), z.getVersion()), process.on("uncaughtException", () => {
+	X?.event("main-exception"), Z(), z.exit(1);
+}), process.on("unhandledRejection", () => {
+	X?.event("main-rejection"), Z(), z.exit(1);
+}), z.on("will-quit", () => X?.finish())) : z.quit(), z.on("second-instance", () => {
+	Q?.show(), Q?.focus();
+}), z.setName(Y), z.whenReady().then(() => {
+	he(), ge(), Z = fe(E.join(z.getPath("userData"), "local-security"), () => Q, () => X?.event("recurring-stopped")).lock, R.setApplicationMenu(R.buildFromTemplate([
+		...process.platform === "darwin" ? [{ role: "appMenu" }] : [],
+		{ role: "fileMenu" },
+		{ role: "editMenu" },
+		{ role: "viewMenu" },
+		{ role: "windowMenu" },
+		{
+			role: "help",
+			submenu: [{
+				label: "Local diagnostics…",
+				click: async () => {
+					let e = X?.status();
+					(await B.showMessageBox({
+						type: "info",
+						title: "Local diagnostics",
+						message: `HTT Flooring ${z.getVersion()}`,
+						detail: `Local diagnostics: ${e?.available ? "available" : "unavailable"}\nSession alerts: ${e?.alerts.join(", ") || "none"}\n\nNo business records, passwords, error text or document contents are logged. No telemetry is sent. Business audit remains in Security settings.`,
+						buttons: ["Close", "Open log folder"]
+					})).response === 1 && X && await ae.openPath(X.directory);
+				}
+			}]
+		}
+	])), $(), X?.event("ready"), z.on("activate", () => {
+		L.getAllWindows().length === 0 && $();
 	});
-}), _.on("window-all-closed", () => {
-	process.platform !== "darwin" && _.quit();
+}).catch(() => {
+	X?.event("startup-failed"), B.showErrorBox("HTT Flooring could not start", "Restart the application. If the problem continues, inspect the local diagnostics folder in the application profile. Business files have not been reset."), z.exit(1);
+}), z.on("window-all-closed", () => {
+	process.platform !== "darwin" && z.quit();
 });
 //#endregion
 export {};

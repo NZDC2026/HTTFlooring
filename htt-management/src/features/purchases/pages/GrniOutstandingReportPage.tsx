@@ -1,4 +1,4 @@
-import { csvText } from '../../page-previews/previewModel';
+import { csvText } from '../../../lib/csv';
 import { reportNumber, reportSettings } from '../../report-settings/reportPresentation';
 import { reportMoney } from '../../report-settings/reportPresentation';
 import { ReportContext } from '../../report-settings/ReportContext';

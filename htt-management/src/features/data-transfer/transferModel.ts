@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parseCsv } from '../page-previews/previewModel';
+import { parseCsv } from '../../lib/csv';
 import { reviewDefaults } from '../contact-review/reviewModel';
 import type { Permission } from '../security/rbac';
 export const datasets = ['Customers', 'Suppliers', 'Customer branches', 'Customer contacts', 'Products'] as const;

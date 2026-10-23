@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Verified bank operation recovery
 
 The financial recovery workbench now supports BANK_TRANSACTION (money in/out) and BANK_TRANSFER alongside existing Sales cases. The main process owns inspection, evidence and independent approval through the existing salesRecovery command boundary. Authenticated actor substitution, accounting.recover permission and command rollback remain shared with Sales recovery; internal command names are preserved for compatibility.

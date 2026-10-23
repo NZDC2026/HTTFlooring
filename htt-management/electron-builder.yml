@@ -16,6 +16,10 @@ extraResources:
     to: icon.png
 asar: true
 mac:
+  extraResources:
+    - from: dist-ocr
+      to: ocr
+      filter: ["htt-ocr"]
   category: public.app-category.business
   target:
     - target: dmg

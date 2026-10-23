@@ -7,7 +7,7 @@ import { useSyncExternalStore } from 'react';
 import { z } from 'zod';
 import { registerRepository } from '../security/repositoryHost';
 import { requireDateKey } from '../../lib/businessDate';
-import { parseCsv } from '../page-previews/previewModel';
+import { parseCsv } from '../../lib/csv';
 import { bankAccountRepository } from '../banking/data/bankAccountRepository';
 import { bankReconciliationRepository } from '../banking/data/bankReconciliationRepository';
 import { calculateBankRegister } from '../banking/data/bankRegisterService';

@@ -1,41 +1,150 @@
-import type { Permission } from '../security/rbac';
-export type PreviewRow = { id: string; name: string; status: string; [key: string]: string };
-export type PreviewField = { key: string; label: string; type?: 'text' | 'number' | 'date' | 'datetime-local' | 'email' | 'select' | 'textarea'; options?: string[]; required?: boolean; min?: number; max?: number; step?: string; value?: string };
-export type PreviewModule = { id: string; title: string; group: string; path: string; permission: Permission; description: string; fields: PreviewField[]; columns: string[]; example: Record<string, string>; tabs?: string[] };
-const f = (key: string, label: string, type: PreviewField['type'] = 'text', options?: string[], value?: string): PreviewField => ({ key, label, type, options, value, required: true });
-const select = (key: string, label: string, options: string[]) => f(key, label, 'select', options);
-const amount = (key: string, label: string, value = '0'): PreviewField => ({ ...f(key, label, 'number', undefined, value), min: 0, step: '0.01' });
-const date = (key: string, label: string) => f(key, label, 'date', undefined, '2026-10-16');
-const account = (key: string, label: string): PreviewField => ({ ...select(key, label, ['1000 · Bank', '1100 · Receivables', '1200 · Inventory', '2000 · Payables', '2100 · GST', '2200 · Payroll clearing', '4000 · Sales', '5000 · Purchases', '5100 · Cost of goods sold', '6000 · Wages']), value: ({ receivable: '1100 · Receivables', income: '4000 · Sales', inventory: '1200 · Inventory', cogs: '5100 · Cost of goods sold', gst: '2100 · GST', collected: '2100 · GST', paid: '2100 · GST', payroll: '2200 · Payroll clearing', clearing: '2200 · Payroll clearing', liability: '2200 · Payroll clearing', wages: '6000 · Wages', expense: '5000 · Purchases', account: '5000 · Purchases' } as Record<string, string>)[key] ?? '1000 · Bank' });
-const modules: PreviewModule[] = [];
-function add(id: string, title: string, group: string, path: string, permission: Permission, description: string, fields: PreviewField[], example: Record<string, string>, tabs?: string[]) {
- modules.push({ id, title, group, path, permission, description, fields, example, columns: fields.slice(0, 4).map(x => x.key), tabs });
-}
-add('products', 'Products & services', 'Inventory & pricing', '/inventory/products', 'inventory.read', 'Maintain purchasing, selling, stock and packaging information.', [f('sku', 'SKU'), select('kind', 'Product type', ['Stock item', 'Service', 'Non-stock item']), select('unit', 'Selling unit', ['Pack', 'm²', 'Bucket', 'Each']), amount('price', 'Standard selling price', '49.50'), amount('cost', 'Buying cost (sample)', '25'), amount('coverage', 'm² per pack', '2.2'), select('rounding', 'Pack rounding', ['Whole packs up', 'Allow fractional packs']), amount('reorder', 'Reorder point', '10'), amount('target', 'Target stock', '50'), select('buy', 'Available for purchasing', ['Yes', 'No']), select('sell', 'Available for selling', ['Yes', 'No']), select('tax', 'Tax code', ['GST 15%', 'Zero rated', 'Exempt']), f('brand', 'Brand'), f('category', 'Category'), f('image', 'Image URL (preview only)')], { name: 'Coastal Oak flooring', sku: 'SAMPLE-OAK', brand: 'HTT', category: 'Flooring', image: 'sample-oak.jpg' }, ['Overview', 'Units & conversion', 'Buying & selling', 'Reorder & stock']);
-add('promotions', 'Scheduled promotions', 'Inventory & pricing', '/inventory/promotions', 'inventory.read', 'Plan customer and product specials with explicit start and end times.', [f('product', 'Product / SKU'), f('customer', 'Customer scope'), f('starts', 'Starts (local time)', 'datetime-local', undefined, '2026-10-16T09:00'), f('ends', 'Ends (local time)', 'datetime-local', undefined, '2026-10-31T17:00'), amount('price', 'Promotional unit price', '45'), select('priority', 'Priority when rules overlap', ['Customer price first', 'Promotion first', 'Lowest eligible price']), f('timezone', 'Time zone', 'text', undefined, 'Pacific/Auckland')], { name: 'October flooring special', product: 'SAMPLE-OAK', customer: 'All trade customers' }, ['Overview', 'Price comparison', 'History']);
-add('tax-codes', 'Tax codes', 'Accounting', '/accounting/tax-codes', 'accounting.read', 'Review GST codes, inclusive/exclusive calculation and reporting mappings.', [f('code', 'Tax code'), amount('rate', 'Tax rate (%)', '15'), select('basis', 'Entry basis', ['Exclusive', 'Inclusive']), account('collected', 'GST collected account'), account('paid', 'GST paid account'), f('report', 'Return / report mapping')], { name: 'Standard GST', code: 'GST15', report: 'Output / input GST' }, ['Overview', 'Calculation preview', 'Reporting']);
-add('linked-accounts', 'Linked accounts', 'Accounting', '/accounting/linked-accounts', 'accounting.read', 'Preview default general ledger mappings used by each business process.', [select('process', 'Business process', ['Sales', 'Purchases', 'Payroll']), account('receivable', 'Receivables / payables control'), account('income', 'Income / expense account'), account('inventory', 'Inventory account'), account('cogs', 'Cost of goods sold'), account('gst', 'GST control account'), account('payroll', 'Payroll clearing account')], { name: 'Sales posting defaults', process: 'Sales' }, ['Overview', 'Posting example']);
-add('jobs', 'Jobs & projects', 'Accounting', '/accounting/jobs', 'accounting.read', 'Track project budgets, allocate posted revenue and costs, and compare actual profitability.', [f('code', 'Job code'), f('customer', 'Customer'), f('owner', 'Project owner'), date('starts', 'Start date'), date('ends', 'End date'), amount('budget', 'Revenue budget', '10000'), amount('costBudget', 'Cost budget', '6000')], { name: 'Sample showroom installation', code: 'JOB-SAMPLE', customer: 'Sample Flooring Ltd', owner: 'Sample team' }, ['Overview', 'Transactions', 'Profitability']);
-add('bank-accounts', 'Bank account setup', 'Banking', '/banking/setup/accounts', 'banking.read', 'Preview bank account details, ledger links and feed preferences.', [f('number', 'Account number (sample only)'), f('bank', 'Bank name'), select('currency', 'Currency', ['NZD', 'AUD']), account('ledger', 'Linked bank GL account'), select('feed', 'Feed provider', ['Manual import', 'Provider to be configured']), date('feedStart', 'Feed start date')], { name: 'Sample operating account', number: '00-0000-0000000-00', bank: 'Sample Bank' }, ['Overview', 'Feed settings', 'Import history']);
-add('bank-rules', 'Bank rules', 'Banking', '/banking/rules', 'banking.read', 'Define matching conditions and resulting categorisation before testing a sample.', [select('match', 'Match mode', ['All conditions', 'Any condition']), select('field', 'Transaction field', ['Description', 'Payee', 'Reference']), select('operator', 'Operator', ['Contains', 'Equals', 'Starts with']), f('value', 'Match text'), account('account', 'Categorise to account'), select('tax', 'Tax code', ['GST 15%', 'Zero rated', 'Exempt']), select('enabled', 'Enabled', ['Yes', 'No'])], { name: 'Sample office supplies', value: 'OFFICE', field: 'Description' }, ['Overview', 'Test rule', 'History']);
-add('payment-batches', 'Electronic payment batches', 'Banking', '/banking/payment-batches', 'banking.read', 'Select sample supplier or wage payments, review approval and bank export layout.', [select('kind', 'Batch type', ['Supplier payments', 'Wages']), date('payDate', 'Payment date'), f('bank', 'Paying account'), f('reference', 'Bank reference'), select('format', 'Export format', ['NZ bank CSV preview', 'ABA layout preview']), amount('total', 'Batch total', '1100')], { name: 'Sample supplier batch', bank: 'Sample operating account', reference: 'OCT-SAMPLE' }, ['Overview', 'Payments', 'Approval & export']);
-add('pay-items', 'Pay items', 'Payroll', '/payroll/pay-items', 'payroll.read', 'Configure sample earnings, allowances, deductions, leave, tax and employer contributions.', [f('code', 'Pay item code'), select('category', 'Category', ['Earnings', 'Allowance', 'Deduction', 'Leave', 'Tax', 'Employer contribution']), select('method', 'Calculation method', ['Hourly rate', 'Fixed amount', 'Percentage']), amount('rate', 'Rate / amount', '30'), select('taxable', 'Tax treatment', ['Taxable', 'Non-taxable', 'Before tax deduction', 'After tax deduction']), account('expense', 'Expense account'), account('liability', 'Liability / clearing account')], { name: 'Ordinary hours', code: 'ORD', category: 'Earnings' }, ['Overview', 'Employee assignments', 'Posting preview']);
-add('filing', 'Payroll filing', 'Payroll', '/payroll/filing', 'payroll.read', 'Review a sample NZ Payday Filing submission and its response / correction workflow.', [f('payrun', 'Pay run reference'), date('payDate', 'Pay date'), f('employer', 'Employer IRD identifier (sample)'), select('type', 'Submission type', ['Employment information', 'Amendment']), f('contact', 'Payroll contact email', 'email')], { name: 'October employment information', payrun: 'SAMPLE-RUN-01', employer: '000-000-000', contact: 'payroll@example.invalid' }, ['Overview', 'Employees & validation', 'Submission & response']);
-add('recurring', 'Recurring transactions', 'Automation & tasks', '/automation/recurring', 'inventory.read', 'Generate due invoice and expense drafts from saved local templates with ordered schedules and retry protection.', [select('kind', 'Transaction type', ['Invoice', 'Bill', 'Bank transaction']), f('contact', 'Customer / supplier'), select('frequency', 'Frequency', ['Weekly', 'Fortnightly', 'Monthly', 'Quarterly']), date('next', 'Next generation date'), date('ends', 'Schedule end date'), amount('total', 'Template amount', '220'), select('mode', 'Generation mode', ['Draft for review', 'Require approval'])], { name: 'Monthly sample maintenance', contact: 'Sample Flooring Ltd' }, ['Overview', 'Template lines', 'Run history']);
-add('tasks', 'Tasks & action centre', 'Automation & tasks', '/tasks', 'sales.read', 'Maintain local tasks, owners and due dates with audited completion and reopening.', [f('customer', 'Customer / branch'), f('owner', 'Assigned to'), date('due', 'Due date'), select('priority', 'Priority', ['Normal', 'High', 'Low']), f('notes', 'Task instructions', 'textarea')], { name: 'Follow up showroom quote', customer: 'Sample Flooring / North branch', owner: 'Sample sales', notes: 'Confirm quantities and planned installation date.' }, ['Overview', 'Notes & attachments', 'Status history']);
-add('visits', 'Sales visits & activity', 'Automation & tasks', '/sales/activity', 'sales.read', 'Plan local sales visits, record trusted check-in/out, outcomes and linked follow-up tasks.', [f('salesperson', 'Salesperson'), f('customer', 'Customer / branch'), f('checkin', 'Check-in', 'datetime-local', undefined, '2026-10-16T09:00'), f('checkout', 'Check-out', 'datetime-local', undefined, '2026-10-16T09:30'), f('outcome', 'Visit outcome', 'textarea'), f('location', 'Recorded location')], { name: 'Sample showroom visit', salesperson: 'Sample sales', customer: 'Sample Flooring / North branch', outcome: 'Discussed display refresh.', location: 'Sample branch location' }, ['Overview', 'Notes & tasks', 'Audit trail']);
-add('draft-review', 'Customer & contact review', 'Automation & tasks', '/contacts/review', 'sales.read', 'Review local customer, branch and contact drafts, compare duplicates and approve or link real records.', [select('kind', 'Draft type', ['Customer', 'Branch', 'Contact']), f('company', 'Customer / company'), f('branch', 'Branch'), f('email', 'Email', 'email'), f('phone', 'Phone'), select('source', 'Source', ['Sales draft', 'Selected phone contact', 'Business card OCR']), select('decision', 'Review decision', ['Pending review', 'Link existing', 'Approve new', 'Reject'])], { name: 'Sample imported contact', company: 'Sample Flooring Ltd', branch: 'North branch', email: 'sample@example.invalid', phone: '000 000 000' }, ['Overview', 'Duplicate comparison', 'Sync & review history']);
-add('templates', 'PDF & email templates', 'Documents & imports', '/documents/templates', 'accounting.read', 'Design sample invoice, quote, PO, statement and remittance layouts and email copy.', [select('kind', 'Document type', ['Invoice', 'Quotation', 'Purchase order', 'Customer statement', 'Remittance']), f('subject', 'Email subject'), f('body', 'Email body', 'textarea'), f('footer', 'PDF footer', 'textarea'), select('logo', 'Logo position', ['Left', 'Centre', 'Right']), select('paper', 'Paper size', ['A4', 'Letter'])], { name: 'Standard invoice template', subject: 'Your document {{number}}', body: 'Hello {{contact}}, please review the attached {{type}}.', footer: 'Thank you for your business.' }, ['Overview', 'PDF preview', 'Email preview']);
-add('custom-reports', 'Saved & favourite reports', 'Reports', '/reports/saved', 'accounting.read', 'Save explicit filters and ordered columns, run local data and export complete results.', [select('dataset', 'Dataset', ['Sales', 'Purchases', 'Payroll', 'Banking', 'General ledger']), f('columns', 'Columns (comma separated)'), f('filter', 'Filter expression (preview)'), select('basis', 'Basis', ['Accrual', 'Cash']), select('favourite', 'Favourite', ['Yes', 'No'])], { name: 'Monthly sales by customer', columns: 'Customer, Date, Net, GST, Total', filter: 'Date: current month' }, ['Overview', 'Report preview']);
-add('report-packs', 'Report packs', 'Reports', '/reports/packs', 'accounting.read', 'Generate combined financial reports from current local books, with ordered sections and printable exports.', [f('company', 'Company'), f('period', 'Reporting period'), f('reports', 'Included reports (comma separated)'), f('cover', 'Cover heading'), f('introduction', 'Cover note', 'textarea')], { name: 'Monthly management pack', company: 'Sample Flooring Ltd', period: 'October 2026', reports: 'Profit & loss, Balance sheet, Cash flow', cover: 'Management report', introduction: 'Illustrative management report pack.' }, ['Overview', 'Cover & contents', 'Combined preview']);
-export const previewModules = modules;
-export const previewGroups = [...new Set(modules.map(m => m.group)), 'Sales & purchases', 'Settings'];
-export const settingsForms: Record<string, { title: string; fields: PreviewField[] }> = {
- business: { title: 'Financial year, GST & branding', fields: [f('yearEnd', 'Financial year end (MM-DD)', 'text', undefined, '03-31'), select('gst', 'GST registration', ['Registered', 'Not registered']), f('gstNumber', 'GST number (sample)', 'text', undefined, '000-000-000'), select('filing', 'GST filing cycle', ['Two monthly', 'Monthly', 'Six monthly']), f('logo', 'Logo file name (preview only)', 'text', undefined, 'sample-logo.png')] },
- sales: { title: 'Sales settings', fields: [f('quotePrefix', 'Quote prefix', 'text', undefined, 'QUO-'), amount('quoteNext', 'Next quote number', '1001'), f('orderPrefix', 'Order prefix', 'text', undefined, 'SO-'), amount('orderNext', 'Next order number', '1001'), f('invoicePrefix', 'Invoice prefix', 'text', undefined, 'INV-'), amount('invoiceNext', 'Next invoice number', '1001'), f('creditPrefix', 'Credit prefix', 'text', undefined, 'CN-'), amount('creditNext', 'Next credit number', '1001'), select('terms', 'Default terms', ['20th of following month', 'Due on receipt', '30 days']), select('template', 'Default template', ['Standard invoice', 'Trade invoice']), f('sender', 'Sender email', 'email', undefined, 'accounts@example.invalid'), select('reminders', 'Overdue reminders', ['Manual only', '7 and 14 days overdue']), select('onlinePayment', 'Online payment option', ['Disabled', 'Configuration preview'])] },
- purchases: { title: 'Purchase settings', fields: [f('prefix', 'PO prefix', 'text', undefined, 'PO-'), amount('next', 'Next PO number', '1001'), select('terms', 'Default payment terms', ['20th of following month', '30 days', 'Due on receipt']), account('expense', 'Default expense account'), select('receipt', 'Bill matching', ['Require receipt match', 'Allow expense bills']), select('remittance', 'Remittance preference', ['Preview before sending', 'Manual'])] },
- payroll: { title: 'Payroll settings', fields: [select('cycle', 'Pay cycle', ['Weekly', 'Fortnightly', 'Monthly']), select('day', 'Pay day', ['Wednesday', 'Thursday', 'Friday']), account('wages', 'Wages expense account'), account('clearing', 'Payroll clearing account'), select('bank', 'Paying bank', ['Sample operating account']), select('filing', 'Filing region', ['New Zealand · Payday Filing', 'Australia · STP preview']), f('contact', 'Payroll email', 'email', undefined, 'payroll@example.invalid')] },
- reports: { title: 'Report settings', fields: [select('basis', 'Default basis', ['Accrual', 'Cash']), select('currency', 'Display currency', ['NZD', 'AUD']), f('header', 'Report header', 'text', undefined, 'HTT Flooring'), select('precision', 'Decimal places', ['2', '0']), select('negative', 'Negative number style', ['(1,234.56)', '-1,234.56']), select('comparative', 'Comparative period', ['Previous period', 'Previous year', 'None'])] },
+// Current local management routes. Legacy field examples live in legacyCatalog.ts and are not production configuration.
+import type {Permission} from '../security/rbac';
+export const previewModules = [
+  {
+    "id": "products",
+    "title": "Products & services",
+    "group": "Inventory & pricing",
+    "path": "/inventory/products",
+    "permission": "inventory.read",
+    "description": "Local product catalogue, units, prices and stock policies."
+  },
+  {
+    "id": "promotions",
+    "title": "Scheduled promotions",
+    "group": "Inventory & pricing",
+    "path": "/inventory/promotions",
+    "permission": "inventory.read",
+    "description": "Plan customer and product specials with explicit start and end times."
+  },
+  {
+    "id": "tax-codes",
+    "title": "Tax codes",
+    "group": "Accounting",
+    "path": "/accounting/tax-codes",
+    "permission": "accounting.read",
+    "description": "Review GST codes, inclusive/exclusive calculation and reporting mappings."
+  },
+  {
+    "id": "linked-accounts",
+    "title": "Linked accounts",
+    "group": "Accounting",
+    "path": "/accounting/linked-accounts",
+    "permission": "accounting.read",
+    "description": "Maintain protected posting-account mappings used by the local accounting engine."
+  },
+  {
+    "id": "jobs",
+    "title": "Jobs & projects",
+    "group": "Accounting",
+    "path": "/accounting/jobs",
+    "permission": "accounting.read",
+    "description": "Track project budgets, allocate posted revenue and costs, and compare actual profitability."
+  },
+  {
+    "id": "bank-accounts",
+    "title": "Bank account setup",
+    "group": "Banking",
+    "path": "/banking/setup/accounts",
+    "permission": "banking.read",
+    "description": "Maintain local bank accounts and ledger links; bank feeds are external and not connected."
+  },
+  {
+    "id": "bank-rules",
+    "title": "Bank rules",
+    "group": "Banking",
+    "path": "/banking/rules",
+    "permission": "banking.read",
+    "description": "Compound rules, priority/conflict review and local import classification; posting is separate."
+  },
+  {
+    "id": "payment-batches",
+    "title": "Electronic payment batches",
+    "group": "Banking",
+    "path": "/banking/payment-batches",
+    "permission": "banking.read",
+    "description": "Reviewed local supplier payment batches; CommBiz ABA instruction files use their separate approval register."
+  },
+  {
+    "id": "pay-items",
+    "title": "Pay items",
+    "group": "Payroll",
+    "path": "/payroll/pay-items",
+    "permission": "payroll.read",
+    "description": "Australian local payroll earnings, deductions, leave and employer contributions."
+  },
+  {
+    "id": "filing",
+    "title": "Payroll filing",
+    "group": "Payroll",
+    "path": "/payroll/filing",
+    "permission": "payroll.read",
+    "description": "Australian payroll filing preparation and local validation; no ATO/STP transmission."
+  },
+  {
+    "id": "recurring",
+    "title": "Recurring transactions",
+    "group": "Automation & tasks",
+    "path": "/automation/recurring",
+    "permission": "inventory.read",
+    "description": "Local due-date scanning and error recovery; generates drafts for normal approval."
+  },
+  {
+    "id": "tasks",
+    "title": "Tasks & action centre",
+    "group": "Automation & tasks",
+    "path": "/tasks",
+    "permission": "sales.read",
+    "description": "Maintain local tasks, owners and due dates with audited completion and reopening."
+  },
+  {
+    "id": "visits",
+    "title": "Sales visits & activity",
+    "group": "Automation & tasks",
+    "path": "/sales/activity",
+    "permission": "sales.read",
+    "description": "Plan local sales visits, record trusted check-in/out, outcomes and linked follow-up tasks."
+  },
+  {
+    "id": "draft-review",
+    "title": "Customer & contact review",
+    "group": "Automation & tasks",
+    "path": "/contacts/review",
+    "permission": "sales.read",
+    "description": "Review local customer, branch and contact drafts, compare duplicates and approve or link real records."
+  },
+  {
+    "id": "templates",
+    "title": "PDF & email templates",
+    "group": "Documents & imports",
+    "path": "/documents/templates",
+    "permission": "accounting.read",
+    "description": "Plain-text document templates used by versioned local sales and purchase output."
+  },
+  {
+    "id": "custom-reports",
+    "title": "Saved & favourite reports",
+    "group": "Reports",
+    "path": "/reports/saved",
+    "permission": "accounting.read",
+    "description": "Save explicit filters and ordered columns, run local data and export complete results."
+  },
+  {
+    "id": "report-packs",
+    "title": "Report packs",
+    "group": "Reports",
+    "path": "/reports/packs",
+    "permission": "accounting.read",
+    "description": "Generate combined financial reports from current local books, with ordered sections and printable exports."
+  }
+] as const;
+export const previewGroups=[...new Set(previewModules.map(m=>m.group)), 'Sales & purchases','Settings'];
+export const settingsForms:Record<string,{title:string;path:string;permission:Permission;description:string}>={
+ business:{title:'Financial year, GST & branding',path:'/settings/financial',permission:'accounting.read',description:'Local business, tax, numbering and immutable PNG branding.'},
+ sales:{title:'Sales settings',path:'/settings/sales',permission:'accounting.read',description:'Local sales numbering and defaults; external email and online payment are not connected.'},
+ purchases:{title:'Purchase settings',path:'/settings/purchases',permission:'purchases.read',description:'Local purchase terms and payment preferences for new documents.'},
+ payroll:{title:'Payroll settings',path:'/settings/payroll',permission:'payroll.read',description:'Australian local payroll settings; no electronic tax filing.'},
+ reports:{title:'Report settings',path:'/settings/reports',permission:'accounting.read',description:'Supported report defaults and frozen output presentation.'},
 };
 export const flowPages = [
  ['sales-order', '/sales/drafts/orders/new', 'New sales order', 'Sales & purchases', 'sales.read'],

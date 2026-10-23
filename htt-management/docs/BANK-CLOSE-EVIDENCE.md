@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Bank reconciliation evidence for period close
 
 Period close no longer accepts a saved COMPLETED/difference-zero label as proof by itself. A shared read-only verifier recalculates the relevant bank reconciliation chain from dated GL, bank opening balances and incremental cleared row identities. It checks unique identities, valid statement sequence/dates, whole-cent balances, source row existence and financial lifecycle, repeated clearing, exact saved book/outstanding/adjusted/difference totals, and processed imported statement amounts/matches/clearing. Internal duplicate-correction offsets remain in GL/registers and cannot be cleared as external bank activity.

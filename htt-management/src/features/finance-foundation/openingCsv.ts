@@ -1,4 +1,4 @@
-import { parseCsv } from '../page-previews/previewModel';
+import { parseCsv } from '../../lib/csv';
 import type { OpeningInput } from './openingBalanceRepository';
 export const openingCsvHeader = 'kind,id,reference,date,dueDate,debit,credit,amount,site,quantity,unitCost';
 export function parseOpeningCsv(csv: string, meta: {

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const { on } = vi.hoisted(() => ({ on: vi.fn() }));
-vi.mock('electron', () => ({ ipcMain: { on } }));
+vi.mock('electron', () => ({ app:{isPackaged:false,getAppPath:()=>'/synthetic-app'}, ipcMain: { on } }));
 import { registerSecurityIpc } from '../../../electron/security/registerSecurityIpc';
 let root: string;
 beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'htt-8c-ipc-')); on.mockClear(); });

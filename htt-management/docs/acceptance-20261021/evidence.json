@@ -416,5 +416,272 @@
     "documentation": "docs/G11-REPORT-SETTINGS.md",
     "remainingLocalPackages": "G12–G17 (6)",
     "remainingExternalBoundaries": 3
+  },
+  "g12FollowUp": {
+    "date": "2026-10-23",
+    "status": "本地支持范围已关闭",
+    "databaseSchema": 30,
+    "staticTableSurfaces": 169,
+    "completeRegisterSurfaces": 37,
+    "testFiles": 147,
+    "tests": 1979,
+    "failed": 0,
+    "skipped": 0,
+    "testSeconds": 245.17,
+    "newTests": 51,
+    "finalTargetedFiles": 11,
+    "finalTargetedTests": 236,
+    "finalTargetedSeconds": 7.37,
+    "build": "Actual project TypeScript and Vite renderer/main/preload passed; existing chunk-size warning",
+    "native": {
+      "profile": "Isolated synthetic /private/tmp/htt-g12-native; app closed",
+      "observed": "Supplier register: 10 rows/page, select all 125, page 2 retains selection. Record search: 50 rows/page, select all 125, page 2 retains selection. Export all from page 2 produces 125 rows in each CSV. Hidden supplier email omitted; private internal note absent in both.",
+      "csv": [
+        {
+          "table": "suppliers",
+          "rows": 125,
+          "headers": [
+            "Supplier",
+            "Primary Contact",
+            "Location",
+            "Payment Terms",
+            "Status"
+          ],
+          "sha256": "36d13286e172abeb8e8ed3990269e05b2911d92f52069ffd6cebeb7cbb683d9b"
+        },
+        {
+          "table": "search",
+          "rows": 125,
+          "headers": [
+            "Type",
+            "Number / code",
+            "Name",
+            "Reference",
+            "Status",
+            "Date"
+          ],
+          "sha256": "36d63a43e61666eb6b242d8fc3948f87b81689910eac7ec7427e71d083c249fb"
+        }
+      ],
+      "repositoriesAndStorageUnchanged": true,
+      "financialActionsThroughUI": false
+    },
+    "bulkDomains": [
+      "tasks",
+      "promotions",
+      "templates",
+      "jobs",
+      "bank-rules",
+      "custom-reports",
+      "report-packs"
+    ],
+    "recovery": "Main permissions, expected revisions, whole-batch rollback, idempotency, durable restart, uncertain acknowledgement retry and coherent audit backup validation tested",
+    "documentation": "docs/G12-TABLE-CAPABILITIES.md",
+    "inventory": "docs/acceptance-20261023/table-capabilities.json",
+    "baselineSourceManifestSha256": "938edb4e8fd6812a92f0a566f9e2c3a861bc6d47740dd93e7451cea1b73274ee",
+    "remainingLocalPackages": "G13–G17 (5)",
+    "remainingExternalBoundaries": 3,
+    "boundary": "No generic financial posting/payment/void/purge/approval. G15 all-role/all-state desktop QA remains pending."
+  },
+  "g13FollowUp": {
+    "date": "2026-10-23",
+    "status": "macOS 本地英文票据支持范围已关闭",
+    "databaseSchema": 31,
+    "scope": "Apple Vision local English invoice header/total extraction from PDF/PNG/JPEG; preserved immutable original and recognized text/confidence; manual field/expense assignment, authoritative totals/duplicate review then normal DRAFT.",
+    "boundaries": [
+      "No external OCR/backend",
+      "Windows manual/CSV remains",
+      "No automatic supplier/account/line-item inference",
+      "No FX conversion or automated posting",
+      "G15/G16 full role/state and signed cross-platform release remain pending"
+    ],
+    "testFiles": 150,
+    "tests": 2002,
+    "failed": 0,
+    "skipped": 0,
+    "testSeconds": 251.37,
+    "newTests": 23,
+    "finalTargetedFiles": 9,
+    "finalTargetedTests": 60,
+    "finalTargetedSeconds": 7.35,
+    "firstRun": "17 IPC mock failures in 4 files due to missing Electron app export; mocks fixed, native export session recheck covered, complete suite rerun passed.",
+    "build": "Final actual TypeScript and Vite renderer/main/preload passed; universal OCR helper compiled; existing chunk-size warning.",
+    "helper": {
+      "realHelper": true,
+      "networkUsed": false,
+      "fixtures": [
+        {
+          "format": "png",
+          "pages": 1,
+          "lines": 10,
+          "sha256": "9543a7904b480d52bd471f81712f43471eb001bab05ee1dbe57623cfcff84829",
+          "recognizedReference": "OCR-2026-001",
+          "recognizedTotal": "110.00"
+        },
+        {
+          "format": "jpg",
+          "pages": 1,
+          "lines": 10,
+          "sha256": "2f211d1b8d1124d0d0aa62d004be5fbcf1a31d22e77b701c49492ace4c17f222",
+          "recognizedReference": "OCR-2026-001",
+          "recognizedTotal": "110.00"
+        },
+        {
+          "format": "pdf",
+          "pages": 2,
+          "lines": 20,
+          "sha256": "a38c53bc872ca057e1f3cdc865aa019363ee60b3a8b349272fe3dca78ddd0698",
+          "recognizedReference": "OCR-2026-001",
+          "recognizedTotal": "110.00"
+        }
+      ],
+      "elevenPageRejected": true,
+      "blankNoText": true,
+      "corruptImageRejected": true
+    },
+    "native": {
+      "isolatedProfile": true,
+      "nativeFileDialogRecognition": true,
+      "format": "2-page scanned PDF",
+      "appliedSuggestions": true,
+      "reviewBeforeCreate": "Create disabled until explicit confirmation; net/tax/total matched 100/10/110",
+      "draftId": "ac941a89-1b54-4bb2-9591-319f4ae234e1",
+      "sourceId": "86e39727-9381-4c98-bf4c-f21230436883",
+      "originalSha256": "a38c53bc872ca057e1f3cdc865aa019363ee60b3a8b349272fe3dca78ddd0698",
+      "exportedOriginalByteIdentical": true,
+      "changedRepositories": [
+        "captureSources",
+        "expenseBillDrafts"
+      ],
+      "storageUnchanged": true,
+      "posted": false,
+      "appClosed": true,
+      "packagedMacArm64": {
+        "unsignedDirectoryPackage": true,
+        "bundledUniversalHelper": true,
+        "nativeJpegRecognition": true,
+        "recognizedReference": "OCR-2026-001",
+        "recognizedTotal": "110.00",
+        "restartDraftIdPreserved": true,
+        "restartOriginalLinkPreserved": true,
+        "appClosed": true
+      }
+    },
+    "permissions": "purchases.bill for recognition/text/read/export/capture; read denied and byte content omitted from bootstrap; session rechecked after native save dialog.",
+    "recovery": "Atomic source/draft commands, persisted retries/restart, deduplication and source links, corrupt bytes/references and schema downgrade rejected; schema30 migration preserves books and seeds empty sources.",
+    "baselineSourceManifestSha256": "426df759d1aa5445eab9a5cee242ec5121d4bb664ea80b697a8b95b485ca6f02",
+    "documentation": "docs/G13-LOCAL-DOCUMENT-RECOGNITION.md",
+    "remainingLocalPackages": "G14–G17 (4)",
+    "remainingExternalBoundaries": 3,
+    "finalPageAndCaptureVerification": {
+      "files": 7,
+      "tests": 178,
+      "seconds": 6.06,
+      "scope": "Full suite passed, then final cached-text permission guard verified with 7 actual-project files/178 tests and final production rebuild.",
+      "location": "actual project"
+    }
+  },
+  "g14FollowUp": {
+    "date": "2026-10-23",
+    "status": "当前说明与有效入口范围已关闭",
+    "databaseSchema": 31,
+    "scope": "Current status and README, dated documentation banners/follow-ups and index, live local page metadata, shared settings permission metadata, retired preview dispatch removal, CSV utility separation, real-profile environment/demo guidance and current-source demo links.",
+    "documentationCount": 60,
+    "datedRecords": 56,
+    "currentDocuments": 4,
+    "reachableSourceModulesChecked": 433,
+    "tableSurfaces": 148,
+    "completeRegisters": 37,
+    "removedRetiredTableSurfaces": 21,
+    "testFiles": 152,
+    "tests": 2009,
+    "failed": 0,
+    "skipped": 0,
+    "testSeconds": 244.28,
+    "newTests": 7,
+    "targetedFiles": 5,
+    "targetedTests": 155,
+    "targetedSeconds": 2.31,
+    "build": "Final actual project TypeScript + Vite renderer/main/preload and universal OCR helper passed; existing bundle-size warning.",
+    "native": {
+      "profile": "isolated synthetic /private/tmp/htt-g14-native",
+      "directory": "Local business labels, real descriptions, macOS OCR boundary, AU payroll, bank execution boundary and purchase settings visible; desktop cards inspected with no overlap.",
+      "help": "OCR, AU payroll and disconnected bank/STP descriptions observed",
+      "capabilities": "Local OCR, ABA/feed boundaries, sales/purchase output and local files observed; desktop cards readable.",
+      "environment": "Local desktop / Local business data · No external services",
+      "demo": "Current local profile; explicitly not a sandbox; restarting does not undo transactions",
+      "repositoriesUnchanged": true,
+      "storageUnchanged": true,
+      "baselineBusinessFileSha256": "9c3e7dacfb7160740c4bbe2814783be12bac1ab1391f1608be3b7f329ce75b78",
+      "mutatingBusinessActionsThroughUI": false,
+      "appClosed": true
+    },
+    "checks": [
+      "Every directory destination has exactly one registered route",
+      "Additional route renders never fall back to session-only samples",
+      "Purchase settings directory and route both use purchases.read",
+      "Current documents classified and relative links valid",
+      "Renderer and main dependency graphs cannot reach retired preview state/catalog/flows",
+      "Current-source and empty-book demo navigation checked; guide explicitly is not a sandbox"
+    ],
+    "baselineSourceManifestSha256": "600c80a72586ade0b03bc119434c7613041bd2e80b8e77a28ff21f3013027995",
+    "documentation": "docs/G14-CURRENT-GUIDANCE.md",
+    "remainingLocalPackages": [
+      "G15 全角色全状态桌面验收",
+      "G16 正式发布与可观测性",
+      "G17 库存差异进入财务总控"
+    ],
+    "remainingExternalBoundaries": 3
+  },
+  "g15FollowUp": {
+    "date": "2026-10-23",
+    "status": "本地验收基线已完成",
+    "databaseSchema": 31,
+    "scope": "Finite current-role/route matrix and state-class business regression; real native representative cases kept separate. Not every data/state/role combination manually clicked.",
+    "testFiles": 153,
+    "tests": 3486,
+    "failed": 0,
+    "skipped": 0,
+    "testSeconds": 245.48,
+    "newTests": 1477,
+    "routePatterns": 210,
+    "roleCount": 7,
+    "routeObservations": 1470,
+    "additionalMenuBankingCases": 7,
+    "nativeCases": 23,
+    "workflowGroups": 15,
+    "finalTargetedTests": 1527,
+    "finalTargetedSeconds": 2.83,
+    "build": "Final actual TypeScript + Vite renderer/main/preload/OCR helper passed. Last search text style verified by final native compact retest.",
+    "evidenceDirectory": "docs/acceptance-g15-20261023",
+    "native": "All 7 roles logged in to temporary synthetic profile; compact/wide layout, file export/cancel, reload session loss and separate corrupted-profile restore/restart executed. Native business views preserved all records/storage; selected backup/export/restored repositories and storage equal baseline. No live payment/posting or real profile used.",
+    "findingsFixed": [
+      "Report-library reachability for purchasing/warehouse",
+      "Payroll report and inventory-cost card/route permissions",
+      "Accounting-period menu hidden from unauthorised roles",
+      "Read-only banking action entry and new routes",
+      "Compact header long identity/search/signout layout"
+    ],
+    "baselineSourceManifestSha256": "bcf1955696afc75fd1a764e8f4d539f98989b8d83c3a6304653b4fd1d69f9410",
+    "documentation": "docs/G15-DESKTOP-ACCEPTANCE.md",
+    "remainingLocalPackages": [
+      "G16 正式发布与可观测性",
+      "G17 库存差异进入财务总控"
+    ],
+    "remainingExternalBoundaries": 3,
+    "finalTargetedFiles": 5,
+    "finalRefinements": "After full regression, independent reconciliation UI/route check and search truncation verified by final targeted regression, build and native AUDITOR/ACCOUNTANT/compact-header retests."
+  },
+  "g16FollowUp": {
+    "status": "partial-release-readiness",
+    "document": "docs/G16-RELEASE-READINESS.md",
+    "evidence": "docs/acceptance-g16-20261023/evidence.json",
+    "formalReleaseAccepted": false
+  },
+  "g17FollowUp": {
+    "status": "completed-local-scope",
+    "document": "docs/G17-INVENTORY-FINANCE-CONTROL.md",
+    "evidence": "docs/acceptance-g17-20261023/evidence.json",
+    "formalReleaseAccepted": false
   }
 }

@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 ## Operator-led Sales recovery closure — 2026-10-20
 
 The financial recovery workbench now makes the existing review/independent verified-closure path operable. Closing a verified operation removes its unresolved-intent close blocker without changing financial records. Other blockers remain. Current unresolved operations or a journal inspection failure also fail the finance dashboard's recovery control. See [FINANCIAL-RECOVERY-WORKBENCH.md](FINANCIAL-RECOVERY-WORKBENCH.md).

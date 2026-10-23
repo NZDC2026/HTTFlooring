@@ -1,3 +1,5 @@
+import {usePermission} from '../../security/usePermission';
+import { DataTable } from '../../../components/data-table/DataTable';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
@@ -39,6 +41,7 @@ import {
 } from "../data/useBanking";
 
 export function BankAccountDetailPage() {
+    const canReconcile=usePermission('banking.reconcile');
     const navigate =
         useNavigate();
 
@@ -161,7 +164,7 @@ export function BankAccountDetailPage() {
                         />
                     </label>
 
-                    <Button
+                    {canReconcile&&<Button
                         variant="secondary"
                         onClick={() =>
                             navigate(
@@ -176,7 +179,7 @@ export function BankAccountDetailPage() {
                         />
 
                         Reconcile
-                    </Button>
+                    </Button>}
                 </div>
             </div>
 
@@ -260,129 +263,7 @@ export function BankAccountDetailPage() {
                     </div>
 
                     <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
-                        <table className="w-full border-collapse">
-                            <thead>
-                                <tr className="bg-[var(--color-background-subtle)]">
-                                    <TableHeader>
-                                        Date
-                                    </TableHeader>
-
-                                    <TableHeader>
-                                        Journal
-                                    </TableHeader>
-
-                                    <TableHeader>
-                                        Description
-                                    </TableHeader>
-
-                                    <TableHeader>
-                                        Reference
-                                    </TableHeader>
-
-                                    <TableHeader align="right">
-                                        Money In
-                                    </TableHeader>
-
-                                    <TableHeader align="right">
-                                        Money Out
-                                    </TableHeader>
-
-                                    <TableHeader align="right">
-                                        Balance
-                                    </TableHeader>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {register
-                                    .transactions
-                                    .length ===
-                                    0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={
-                                                7
-                                            }
-                                            className="px-4 py-10 text-center text-sm text-[var(--color-text-muted)]"
-                                        >
-                                            No bank
-                                            transactions
-                                            exist through
-                                            this date.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    register
-                                        .transactions
-                                        .map(
-                                            (
-                                                transaction,
-                                            ) => (
-                                                <tr
-                                                    key={
-                                                        transaction.id
-                                                    }
-                                                    className="border-b border-[var(--color-border)] last:border-b-0"
-                                                >
-                                                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                                                        {
-                                                            transaction.transactionDate
-                                                        }
-                                                    </td>
-
-                                                    <td className="whitespace-nowrap px-4 py-3">
-                                                        <button
-                                                            type="button"
-                                                            className="font-medium text-[var(--color-primary)] hover:underline"
-                                                            onClick={() =>
-                                                                navigate(
-                                                                    `/accounting/journals/${transaction.journalEntryId}`,
-                                                                )
-                                                            }
-                                                        >
-                                                            {
-                                                                transaction.journalNumber
-                                                            }
-                                                        </button>
-                                                        {transaction.correctionOnly&&<p className="text-xs text-[var(--color-text-secondary)]">Internal correction offset</p>}{transaction.correctionIssue&&<p className="text-xs text-amber-700">{transaction.correctionIssue}</p>}
-                                                    </td>
-
-                                                    <td className="min-w-64 px-4 py-3 text-sm text-[var(--color-text-primary)]">
-                                                        {
-                                                            transaction.description
-                                                        }
-                                                    </td>
-
-                                                    <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                                                        {
-                                                            transaction.reference ??
-                                                            "—"
-                                                        }
-                                                    </td>
-
-                                                    <MoneyCell
-                                                        value={
-                                                            transaction.moneyIn
-                                                        }
-                                                    />
-
-                                                    <MoneyCell
-                                                        value={
-                                                            transaction.moneyOut
-                                                        }
-                                                    />
-
-                                                    <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums text-[var(--color-primary)]">
-                                                        {formatMoney(
-                                                            transaction.runningBalance,
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ),
-                                        )
-                                )}
-                            </tbody>
-                        </table>
+                        <DataTable data={register.transactions} columns={[{accessorKey:'transactionDate',header:'Date'},{accessorKey:'journalNumber',header:'Journal',cell:({row})=><div><button type="button" className="underline" onClick={()=>navigate(`/accounting/journals/${row.original.journalEntryId}`)}>{row.original.journalNumber}</button>{row.original.correctionOnly&&<p>Internal correction offset</p>}{row.original.correctionIssue&&<p className="text-amber-700">{row.original.correctionIssue}</p>}</div>},{accessorKey:'description',header:'Description'},{accessorKey:'reference',header:'Reference'},{accessorKey:'moneyIn',header:'Money In',cell:({row})=>formatMoney(row.original.moneyIn)},{accessorKey:'moneyOut',header:'Money Out',cell:({row})=>formatMoney(row.original.moneyOut)},{accessorKey:'runningBalance',header:'Balance',cell:({row})=>formatMoney(row.original.runningBalance)},{id:'correction',header:'Correction evidence',accessorFn:r=>[r.correctionOnly?'Internal correction offset':'',r.correctionIssue??''].filter(Boolean).join(' · ')}]} search={{placeholder:'Search bank register'}} pagination={{pageSize:50}} capabilities={{id:'bank-register-'+bankAccount.id,scope:'complete',permission:'banking.read',rowId:r=>r.id}}/>
                     </div>
                 </CardContent>
             </Card>
@@ -412,49 +293,9 @@ function SummaryCard({
     );
 }
 
-function TableHeader({
-    children,
-    align =
-    "left",
-}: {
-    children:
-    React.ReactNode;
 
-    align?:
-    "left"
-    | "right";
-}) {
-    return (
-        <th
-            className={
-                align ===
-                    "right"
-                    ? "border-b border-[var(--color-border)] px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.06em] text-[var(--color-text-muted)]"
-                    : "border-b border-[var(--color-border)] px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.06em] text-[var(--color-text-muted)]"
-            }
-        >
-            {children}
-        </th>
-    );
-}
 
-function MoneyCell({
-    value,
-}: {
-    value:
-    number;
-}) {
-    return (
-        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-[var(--color-text-primary)]">
-            {value ===
-                0
-                ? "—"
-                : formatMoney(
-                    value,
-                )}
-        </td>
-    );
-}
+
 
 function formatMoney(
     value:

@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Bank reversal evidence
 
 Bank statement matching, manual reconciliation, saved-statement proof, recovery and period-close checks share the same read-only journal lifecycle validation. A posted offset is eligible only with a unique reversed original, reciprocal links, an exact balanced opposite posting, matching source type/reference, a valid shared reversal timestamp, and ordered financial dates. The original remains eligible only before its proven reversal date; the offset becomes eligible on that date.

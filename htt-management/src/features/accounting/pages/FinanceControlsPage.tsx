@@ -1,3 +1,5 @@
+import {reportAsOf} from "../../../lib/reportAsOf";
+import {useSearchParams} from "react-router-dom";
 import { reportMoney } from '../../report-settings/reportPresentation';
 import { ReportContext } from '../../report-settings/ReportContext';
 import {financialOperationJournal} from '../../../lib/persistence/financialOperationJournal';
@@ -6,9 +8,6 @@ import {usePermission} from '../../security/usePermission';
 import { Link } from 'react-router-dom';
 import {businessDateKey} from '../../../lib/businessDate';
 import { runFinancialConsistencyAudit } from "../../../lib/persistence/runFinancialConsistencyAudit";
-import {
-    useState,
-} from "react";
 
 import type {
     ReactNode,
@@ -56,12 +55,10 @@ export function FinanceControlsPage() {
     const navigate =
         useNavigate();
 
-    const [
-        asOfDate,
-        setAsOfDate,
-    ] = useState(
-        getToday(),
-    );
+    const [params,setParams]=useSearchParams();
+    const dateState=reportAsOf(params.get("asOf"),getToday());
+    const asOfDate=dateState.date;
+    const setAsOfDate=(value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);next.set("asOf",value);return next;});
 
     const baseReport =
         useFinanceControls(
@@ -76,7 +73,7 @@ export function FinanceControlsPage() {
     catch (error) { auditError = error instanceof Error ? error.message : String(error); }
     const report=includePostingIntegrityControl(includeRecoveryControl(baseReport,unresolvedCount,recoveryError),auditIssues.length,auditError);
     return (
-        <div className="pb-8"><ReportContext basis="Accrual"/>{canInspectRecovery&&<Link className="mb-4 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/accounting/financial-recovery">Financial recovery workbench</Link>}
+        <div className="pb-8"><ReportContext basis="Accrual"/>{dateState.invalid&&<p role="alert">Invalid reporting date in link. Showing {asOfDate}.</p>}{canInspectRecovery&&<Link className="mb-4 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/accounting/financial-recovery">Financial recovery workbench</Link>}
             <section className="mb-5 rounded-lg border p-4" aria-label="Current posting integrity">
                 <h2 className="font-semibold">Current posting integrity</h2>
                 <p className="text-sm">{auditError ?? (auditIssues.length ? `${auditIssues.length} posting issue(s) require review.` : "Business records and GL source links checked.")}</p>
@@ -481,7 +478,7 @@ function ControlCard({
                             control.leftLabel
                         }
                         value={
-                            control.leftValue
+                            control.unavailable ? undefined : control.leftValue
                         }
                     />
 
@@ -490,14 +487,14 @@ function ControlCard({
                             control.rightLabel
                         }
                         value={
-                            control.rightValue
+                            control.unavailable ? undefined : control.rightValue
                         }
                     />
 
                     <ValueBlock
                         label="Difference"
                         value={
-                            Math.abs(
+                            control.unavailable ? undefined : Math.abs(
                                 control.difference,
                             )
                         }
@@ -527,7 +524,7 @@ function ValueBlock({
     label:
     string;
 
-    value:
+    value?:
     number;
 }) {
     return (
@@ -537,9 +534,7 @@ function ValueBlock({
             </p>
 
             <p className="mt-1 whitespace-nowrap font-semibold tabular-nums text-[var(--color-text-primary)]">
-                {formatMoney(
-                    value,
-                )}
+                {value===undefined ? "Unavailable" : formatMoney(value)}
             </p>
         </div>
     );

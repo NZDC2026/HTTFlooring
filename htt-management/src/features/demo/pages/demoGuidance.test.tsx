@@ -1,0 +1,13 @@
+import {it,expect,vi} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {MemoryRouter} from 'react-router-dom';
+const fixture=vi.hoisted(()=>({documents:[] as any[],orders:[] as any[]}));
+vi.mock('../../sales/data/useSalesDocuments',()=>({useSalesDocuments:()=>fixture.documents}));
+vi.mock('../../purchases/data/usePurchaseOrders',()=>({usePurchaseOrders:()=>fixture.orders}));
+vi.mock('../../purchases/data/useGoodsReceipts',()=>({useGoodsReceipts:()=>[]}));
+vi.mock('../../purchases/data/useSupplierBills',()=>({useSupplierBills:()=>[]}));
+import {CustomerDemoPage} from './CustomerDemoPage';
+const render=()=>renderToStaticMarkup(<MemoryRouter><CustomerDemoPage/></MemoryRouter>);
+it('explains that a walkthrough uses the real local profile and reset does not undo transactions',()=>{fixture.documents=[];fixture.orders=[];const html=render();expect(html).toContain('it is not a sandbox');expect(html).toContain('can save business records');expect(html).toContain('does not undo transactions');expect(html).not.toContain('Payroll processing, uploads, live payments and API connections are not enabled');expect(html).not.toContain('Mock data');});
+it('does not invent seed-document links when current books are empty',()=>{fixture.documents=[];fixture.orders=[];const html=render();expect(html).not.toMatch(/href="\/sales\/(?:quotes|orders|invoices)\//);expect(html).not.toMatch(/href="\/purchases\/po_/);});
+it('uses the current source IDs for linked quote/order/invoice navigation',()=>{fixture.documents=[{type:'QUOTE',id:'current-quote',documentNumber:'CURRENT-Q',convertedSalesOrderId:'current-order'},{type:'SALES_ORDER',id:'current-order',documentNumber:'CURRENT-SO',invoiceIds:['current-invoice']},{type:'INVOICE',id:'current-invoice',documentNumber:'CURRENT-INV'}];fixture.orders=[];const html=render();for(const part of ['quotes/current-quote','orders/current-order','invoices/current-invoice'])expect(html).toContain('/sales/'+part);fixture.documents=[];});

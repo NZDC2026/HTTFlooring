@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Finance control integrity status
 
 The finance controls page now includes current posting-integrity audit results in the same control summary used for totals, overall status and badges. A posting issue or failed audit inspection makes the overall status require review even if all selected-date balances agree. This current integrity control remains independent of the reporting date, alongside the existing current recovery-operation control.

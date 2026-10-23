@@ -91,6 +91,7 @@ const columns:
         {
             id:
                 "source",
+            accessorFn: r=>r.sourceType,
 
             header:
                 "Source",
@@ -106,6 +107,7 @@ const columns:
         {
             id:
                 "debit",
+            accessorFn: r=>r.totalDebit,
 
             header:
                 "Debit",
@@ -121,6 +123,7 @@ const columns:
         {
             id:
                 "credit",
+            accessorFn: r=>r.totalCredit,
 
             header:
                 "Credit",
@@ -136,6 +139,7 @@ const columns:
         {
             id:
                 "status",
+            accessorFn: r=>r.status,
 
             header:
                 "Status",
@@ -320,6 +324,7 @@ export function JournalRegisterPage() {
             </div>
 
             <DataTable
+                capabilities={{id:"journal-register",scope:"complete",permission:"accounting.read",rowId:r=>r.id}}
                 columns={
                     columns
                 }

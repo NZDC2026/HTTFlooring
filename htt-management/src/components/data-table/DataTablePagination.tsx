@@ -33,7 +33,7 @@ export function DataTablePagination<TData>({
                 {start}–{end} of {totalRows}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 print:hidden"><label className="text-xs">Rows per page <select aria-label="Rows per page" value={pageSize} onChange={e=>table.setPageSize(Number(e.target.value))}>{[...new Set([pageSize,10,25,50,100])].sort((a,b)=>a-b).map(n=><option key={n} value={n}>{n}</option>)}</select></label>
                 <span className="mr-2 text-xs text-[var(--color-text-muted)]">
                     Page {pageIndex + 1} of{" "}
                     {Math.max(table.getPageCount(), 1)}

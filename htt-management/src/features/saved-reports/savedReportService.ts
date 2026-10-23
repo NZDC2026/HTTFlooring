@@ -6,7 +6,7 @@ import { analysisEvents } from '../net-analysis/netAnalysisService';
 import { salesAnalysisSources, purchaseAnalysisSources } from '../net-analysis/analysisSources';
 import { calculateCashReport } from '../cash-reports/cashReportService';
 import { reportSourceSignature, type ReportPackSources } from '../report-packs/reportPackService';
-import { csvText } from '../page-previews/previewModel';
+import { csvText } from '../../lib/csv';
 export const savedDatasets = ['Sales', 'Purchases', 'Banking', 'General ledger'] as const;
 export type SavedDataset = typeof savedDatasets[number];
 export type ReportColumn = {

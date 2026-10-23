@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # G01 Dashboard 银行对账证据
 
 G01 实现完成。Dashboard 使用与关账、恢复相同的只读对账链证明，包含已导入流水的关联、金额和清除证据。输入变化通过现有订阅刷新。

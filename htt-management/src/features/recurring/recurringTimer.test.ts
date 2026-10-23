@@ -1,6 +1,6 @@
 import { beforeEach,afterEach,it,expect,vi } from 'vitest';
 const fixture=vi.hoisted(()=>({on:vi.fn(),scan:vi.fn(),initialize:vi.fn(),view:vi.fn(()=>({repositories:{},storage:{}})),require:vi.fn(),principal:vi.fn()}));
-vi.mock('electron',()=>({ipcMain:{on:fixture.on},dialog:{}}));
+vi.mock('electron',()=>({app:{isPackaged:false,getAppPath:()=>'/synthetic-app'},ipcMain:{on:fixture.on},dialog:{}}));
 vi.mock('../../../electron/security/localSecurity',()=>({LocalSecurity:class{require=fixture.require;principal=fixture.principal;logout=vi.fn();},atomicJson:vi.fn()}));
 vi.mock('../../../electron/security/businessHost',()=>({BusinessHost:class{initialize=fixture.initialize;scanRecurringDue=fixture.scan;view=fixture.view;}}));
 import {registerSecurityIpc} from '../../../electron/security/registerSecurityIpc';

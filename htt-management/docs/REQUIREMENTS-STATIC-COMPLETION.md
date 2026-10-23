@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 ## Executable targeted bank repair
 
 The recovery workbench now supports reviewed no-effect cancellation and isolated missing bank record/journal repair, with saved proposals, independent execution, rollback and schema-21 evidence. See [TARGETED-FINANCIAL-REPAIR.md](TARGETED-FINANCIAL-REPAIR.md) for supported cases and remaining limits.

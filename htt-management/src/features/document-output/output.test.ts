@@ -121,7 +121,7 @@ it('migrates schema 7 while retaining sources and initializing empty prepared hi
     b.schemaVersion = 7;
     writeFileSync(join(root, 'business.json'), reseal(b));
     await restart();
-    expect(host.exportBackup().schemaVersion).toBe(30);
+    expect(host.exportBackup().schemaVersion).toBe(31);
     expect(state('preparedSalesOutputs').artifacts).toEqual([]);
     expect(state('sales').invoices.some((v: any) => v.id === i.id)).toBe(true);
     prepare(state('sales').invoices.find((v: any) => v.id === i.id));

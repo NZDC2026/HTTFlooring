@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # G04 回收站范围与永久清理
 
 完成日期：2026-10-22（Pacific/Auckland）。继续沿用本地主进程、Repository、持久化、备份和审计架构，不连接独立后台。

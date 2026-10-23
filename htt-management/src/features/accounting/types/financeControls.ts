@@ -3,6 +3,8 @@ export type FinanceControlStatus =
     | "FAIL";
 
 export interface FinanceControl {
+    /** A failed check has no verified amounts; do not display synthetic zeroes. */
+    unavailable?: boolean;
     id: string;
 
     name: string;

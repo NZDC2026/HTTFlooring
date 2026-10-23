@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [G05-RECURRING-AUTOMATION.md](G05-RECURRING-AUTOMATION.md).
+
 # Local recurring invoice and expense drafts — 2026-10-18
 
 Recurring transactions now generate actual managed invoice or expense entry drafts from copied local templates. G05 subsequently adds opt-in desktop due scans, ordered catch-up, an error/retry queue and bank-transaction templates; automatic approval, posting, payment, email and an independent backend remain outside automation. See [G05 current behavior](G05-RECURRING-AUTOMATION.md).

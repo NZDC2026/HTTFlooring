@@ -1,0 +1,5 @@
+import {it,expect} from 'vitest';
+import {execFileSync} from 'node:child_process';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+it('keeps every production table surface covered by an explicit source/permission/export/bulk applicability contract',()=>{const output=execFileSync(process.execPath,['scripts/table-inventory.mjs','--check'],{cwd:process.cwd(),encoding:'utf8',timeout:20000});expect(output).toContain('audited surfaces');const rows=JSON.parse(readFileSync(join(process.cwd(),'docs/acceptance-20261023/table-capabilities.json'),'utf8'));expect(rows.filter((r:{category:string})=>r.category==='complete-register').length).toBeGreaterThanOrEqual(37);expect(rows.filter((r:{category:string})=>r.category==='summary')).toHaveLength(1);for(const r of rows){expect(r.reason.length).toBeGreaterThan(30);if(r.category==='complete-register'){expect(r.sourceContract).toContain('permission:');expect(r.sourceContract).toMatch(/scope:\s*['"](?:complete|all-filtered)['"]/);expect(r.sourceContract).toContain('row');}}});

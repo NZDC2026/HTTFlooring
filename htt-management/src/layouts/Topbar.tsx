@@ -68,15 +68,15 @@ export function Topbar() {
         backdrop-blur
       "
         >
-            <h1 className="text-sm font-semibold">
+            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">
                 {pageTitle}
             </h1>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
                 <button
                     onClick={() => navigate('/search')}
                     className="
-            mr-2 flex h-9 w-[280px] items-center gap-2
+            mr-2 flex h-9 w-[180px] xl:w-[280px] items-center gap-2
             rounded-lg border border-[var(--color-border)]
             bg-[var(--color-background-subtle)]
             px-3 text-left
@@ -88,7 +88,7 @@ export function Topbar() {
                 >
                     <Search size={15} />
 
-                    <span className="flex-1">
+                    <span className="min-w-0 flex-1 truncate whitespace-nowrap">
                         Search anything...
                     </span>
 
@@ -108,8 +108,8 @@ export function Topbar() {
 
                 <div className="ml-2 h-7 w-px bg-[var(--color-border)]" />
 
-                <Link to="/settings/security" className="ml-1 rounded px-2 py-1.5 text-sm">{session?.user.displayName ?? "Signed out"}<span className="ml-2 text-xs text-slate-500">{session?.user.roles.join(", ")}</span></Link>
-                <button className="rounded border px-3 py-1.5 text-xs" onClick={logout}>Sign out</button>
+                <Link to="/settings/security" className="ml-1 max-w-[180px] truncate whitespace-nowrap rounded px-2 py-1.5 text-sm">{session?.user.displayName ?? "Signed out"}<span className="ml-2 text-xs text-slate-500">{session?.user.roles.join(", ")}</span></Link>
+                <button className="shrink-0 whitespace-nowrap rounded border px-3 py-1.5 text-xs" onClick={logout}>Sign out</button>
             </div>
         </header>
     );

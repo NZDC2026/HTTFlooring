@@ -85,7 +85,7 @@ export function searchBusinessRecords(s: RecordSearchSources, principal: Verifie
     const terms = query.toLocaleLowerCase().split(/\s+/).filter(Boolean), needle = query.toLocaleLowerCase();
     const results = index.filter(r => (type === 'All' || r.type === type) && (status === 'All' || r.status === status) && (!filters.from || !!r.date && r.date >= filters.from) && (!filters.to || !!r.date && r.date <= filters.to) && terms.every(term => [r.type, r.number, r.name, r.reference, r.status, r.date].join(' ').toLocaleLowerCase().includes(term))).sort((a, b) => Number(b.number.toLocaleLowerCase() === needle) - Number(a.number.toLocaleLowerCase() === needle) || b.date.localeCompare(a.date) || a.number.localeCompare(b.number) || a.key.localeCompare(b.key));
     const total = results.length, pages = Math.max(1, Math.ceil(total / 50)), rawPage = filters.page ?? 1, page = Number.isSafeInteger(rawPage) ? Math.max(1, Math.min(rawPage, pages)) : 1;
-    return { types, statuses, total, pages, page, rows: results.slice((page - 1) * 50, page * 50) };
+    return { types, statuses, total, pages, page, allRows: results, rows: results.slice((page - 1) * 50, page * 50) };
 }
 export function recordSearchReturnPath(state: unknown): string | undefined {
     if (!state || typeof state !== 'object')

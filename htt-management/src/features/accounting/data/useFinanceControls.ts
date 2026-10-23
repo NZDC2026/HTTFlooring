@@ -1,3 +1,5 @@
+import {useSyncExternalStore} from "react";
+import {inventoryCostMovementRepository} from "../../inventory/data/inventoryCostMovementRepository";
 import {useSupplierPrepayments} from '../../supplier-prepayments/supplierPrepaymentRepository';
 import {calculatePrepaymentReconciliation,includePrepaymentControl} from '../../supplier-prepayments/prepaymentReconciliation';
 import {useSuppliers} from '../../contacts/data/useSuppliers';
@@ -33,6 +35,7 @@ export function useFinanceControls(
     asOfDate:
         string,
 ) {
+    const costMovements=useSyncExternalStore(inventoryCostMovementRepository.subscribe,inventoryCostMovementRepository.getSnapshot,inventoryCostMovementRepository.getSnapshot);
     const prepayments=useSupplierPrepayments(),suppliers=useSuppliers();
     const deposits=useCustomerDeposits(), customers=useCustomers();
     const accounts =
@@ -57,6 +60,7 @@ export function useFinanceControls(
     return useMemo(
         () =>
             includePrepaymentControl(includeDepositControl(calculateFinanceControls({
+                costMovements,
                 accounts,
 
                 journalEntries,
@@ -70,7 +74,7 @@ export function useFinanceControls(
                 asOfDate,
             }),calculateDepositReconciliation({deposits,accounts,journals:journalEntries,banks:bankAccounts,customers,asOfDate})),calculatePrepaymentReconciliation({prepayments,accounts,journals:journalEntries,banks:bankAccounts,suppliers,asOfDate})),
         [
-            prepayments,suppliers,deposits,customers,
+            costMovements,prepayments,suppliers,deposits,customers,
             accounts,
             journalEntries,
             bankAccounts,

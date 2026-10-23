@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Local business record search — 2026-10-18
 
 The Business record search screen at `/search/records` now reads current local repositories rather than illustrative search rows. Access it through Workspace search or the page directory. No independent backend, new snapshot register, or search-data persistence is added.

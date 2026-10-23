@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Financial recovery workbench — 2026-10-20
 
 `/accounting/financial-recovery` now exposes the existing trusted Sales recovery lifecycle instead of only flagging operations for review. Entry points are the report library, finance controls and accounting periods. Schema 19 is unchanged; operation intents, reconciliation evidence and closure history remain in the existing durable operation journal and business backups.

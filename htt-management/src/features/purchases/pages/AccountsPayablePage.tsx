@@ -1,3 +1,4 @@
+import { DataTable } from '../../../components/data-table/DataTable';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
@@ -441,130 +442,7 @@ export function AccountsPayablePage() {
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]">
-                                    <Header>
-                                        Bill
-                                    </Header>
-                                    <Header>
-                                        Supplier
-                                    </Header>
-                                    <Header>
-                                        Supplier Invoice
-                                    </Header>
-                                    <Header>
-                                        Due Date
-                                    </Header>
-                                    <Header>
-                                        Status
-                                    </Header>
-                                    <Header align="right">
-                                        Total
-                                    </Header>
-                                    <Header align="right">
-                                        Paid
-                                    </Header>
-                                    <Header align="right">
-                                        Due
-                                    </Header>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {outstandingBills.map(
-                                    ({
-                                        bill,
-                                        balance,
-                                    }) => {
-                                        const overdue =
-                                            bill.dueDate <
-                                            asOfDate;
-
-                                        return (
-                                            <tr
-                                                key={
-                                                    bill.id
-                                                }
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/purchases/bills/${bill.id}`,
-                                                    )
-                                                }
-                                                className="cursor-pointer border-b border-[var(--color-border)] transition last:border-b-0 hover:bg-[var(--color-surface-muted)]"
-                                            >
-                                                <td className="px-4 py-4 text-sm font-semibold text-[var(--color-primary)]">
-                                                    {
-                                                        bill.billNumber
-                                                    }
-                                                </td>
-
-                                                <td className="px-4 py-4">
-                                                    <div className="text-sm font-medium">
-                                                        {
-                                                            bill.supplierName
-                                                        }
-                                                    </div>
-
-                                                    <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
-                                                        {
-                                                            bill.supplierCode
-                                                        }
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-4 py-4 text-sm">
-                                                    {
-                                                        bill.supplierInvoiceNumber
-                                                    }
-                                                </td>
-
-                                                <td className="px-4 py-4 text-sm">
-                                                    <span
-                                                        className={
-                                                            overdue
-                                                                ? "font-semibold text-red-700"
-                                                                : ""
-                                                        }
-                                                    >
-                                                        {
-                                                            bill.dueDate
-                                                        }
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-4 py-4">
-                                                    <SupplierBillStatusBadge
-                                                        status={
-                                                            bill.status
-                                                        }
-                                                    />
-                                                </td>
-
-                                                <MoneyCell
-                                                    value={
-                                                        balance.total
-                                                    }
-                                                />
-
-                                                <MoneyCell
-                                                    value={
-                                                        balance.amountPaid
-                                                    }
-                                                />
-
-                                                <MoneyCell
-                                                    value={
-                                                        balance.amountDue
-                                                    }
-                                                    strong
-                                                />
-                                            </tr>
-                                        );
-                                    },
-                                )}
-                            </tbody>
-                        </table>
+                        <DataTable data={outstandingBills} columns={[{id:'bill',accessorFn:r=>r.bill.billNumber,header:'Bill'},{id:'supplier',accessorFn:r=>r.bill.supplierName,header:'Supplier'},{id:'reference',accessorFn:r=>r.bill.supplierInvoiceNumber,header:'Supplier Invoice'},{id:'dueDate',accessorFn:r=>r.bill.dueDate,header:'Due Date',cell:({row})=><span className={row.original.bill.dueDate<asOfDate?'text-red-700':''}>{row.original.bill.dueDate}</span>},{id:'status',accessorFn:r=>r.bill.status,header:'Status',cell:({row})=><SupplierBillStatusBadge status={row.original.bill.status}/>},{id:'total',accessorFn:r=>r.balance.total,header:'Total',cell:({row})=>formatMoney(row.original.balance.total)},{id:'paid',accessorFn:r=>r.balance.amountPaid,header:'Paid',cell:({row})=>formatMoney(row.original.balance.amountPaid)},{id:'due',accessorFn:r=>r.balance.amountDue,header:'Due',cell:({row})=>formatMoney(row.original.balance.amountDue)}]} pagination={{pageSize:50}} capabilities={{id:'accounts-payable-'+asOfDate,scope:'complete',permission:'purchases.read',rowId:r=>r.bill.id}} onRowClick={r=>navigate(`/purchases/bills/${r.bill.id}`)}/>
                     </div>
                 )}
             </div>
@@ -688,53 +566,9 @@ function FilterButton({
     );
 }
 
-function Header({
-    children,
-    align = "left",
-}: {
-    children:
-    React.ReactNode;
-    align?:
-    | "left"
-    | "right";
-}) {
-    return (
-        <th
-            className={[
-                "h-10 whitespace-nowrap px-4 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-muted)]",
-                align ===
-                    "right"
-                    ? "text-right"
-                    : "text-left",
-            ].join(" ")}
-        >
-            {children}
-        </th>
-    );
-}
 
-function MoneyCell({
-    value,
-    strong = false,
-}: {
-    value: number;
-    strong?: boolean;
-}) {
-    return (
-        <td
-            className={[
-                "money px-4 py-4 text-right text-sm",
-                strong
-                    ? "font-semibold"
-                    : "",
-            ].join(" ")}
-        >
-            {formatMoney(
-                value,
-            )}
-        </td>
-    );
-}
+
+
 
 function formatMoney(
     value: number,

@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # G09 公司品牌图片
 
 本地财务设置 `/settings/financial` 增加 Company branding image。沿用可信主进程、本地业务仓库、原子持久化、审计和完整备份，不上传图片、不连接独立后台，不读取或加载图片中的外部 URL。

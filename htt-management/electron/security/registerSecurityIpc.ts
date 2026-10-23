@@ -1,4 +1,5 @@
-import { ipcMain, dialog, type BrowserWindow } from 'electron';
+import {configureCaptureHelper} from './captureRecognizer';
+import { app, ipcMain, dialog, type BrowserWindow } from 'electron';
 import { readFileSync, statSync, realpathSync } from 'node:fs';
 import {attachmentBytes,atomicAttachmentExport,readSelectedAttachment} from './attachmentFiles';
 import { atomicJson } from './localSecurity';
@@ -6,7 +7,8 @@ import { join, relative, isAbsolute, dirname, basename, sep } from 'node:path';
 import { LocalSecurity } from './localSecurity';
 import { BusinessHost } from './businessHost';
 import type { Role } from '../../src/features/security/rbac';
-export function registerSecurityIpc(directory: string, getWindow: () => BrowserWindow | null) {
+export function registerSecurityIpc(directory: string, getWindow: () => BrowserWindow | null, onRecurringStopped: () => void = () => {}) {
+    configureCaptureHelper(join(app.isPackaged?process.resourcesPath:app.getAppPath(),app.isPackaged?'ocr':'dist-ocr','htt-ocr'));
     const security = new LocalSecurity(join(directory, 'security-v1.json'));
     const business = new BusinessHost(join(directory, 'business-v1.json'), security);
     let busy = false;
@@ -51,6 +53,27 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
                     value = business.prepareRestore(readFileSync(choice.filePaths[0], 'utf8')); break;
                 }
                 case 'business.restore.commit': await business.restoreBackup(input.token); value = { restartRequired: true }; break;
+                case 'capture.select': {
+                    security.require('purchases.bill');
+                    if(Object.keys(input).some(k=>k!=='operationId')||typeof input.operationId!=='string'||!input.operationId||input.operationId.length>200)throw new Error('Invalid recognition request.');
+                    const choice=await dialog.showOpenDialog(owner,{title:'Recognize supplier original locally (10 MB maximum)',properties:['openFile'],filters:[{name:'Supplier originals',extensions:['pdf','png','jpg','jpeg']}]});
+                    if(choice.canceled||!choice.filePaths[0]){value={};break;}
+                    const bytes=readSelectedAttachment(choice.filePaths[0]);
+                    const reply=business.command({repository:'captureSources',method:'recognize',args:[{operationId:input.operationId,file:{name:basename(choice.filePaths[0]),content:bytes.toString('base64')}}]});
+                    value={source:reply.result,view:reply.view};break;
+                }
+                case 'capture.export': {
+                    security.require('purchases.bill');
+                    if(Object.keys(input).some(k=>k!=='id')||typeof input.id!=='string')throw new Error('Invalid source export request.');
+                    const source=business.command({repository:'captureSources',method:'read',args:[input.id]}).result as Parameters<typeof attachmentBytes>[0];
+                    const choice=await dialog.showSaveDialog(owner,{title:'Export preserved original',defaultPath:source.name});
+                    if(choice.canceled||!choice.filePath){value={saved:false};break;}
+                    const target=relative(realpathSync(directory),join(realpathSync(dirname(choice.filePath)),basename(choice.filePath)));
+                    if(!target||(!target.startsWith('..'+sep)&&target!=='..'&&!isAbsolute(target)))throw new Error('Choose an export location outside the active local data directory.');
+                    security.audit('capture.export',input.id,'INTENT','purchases.bill');
+                    try{const current=business.command({repository:'captureSources',method:'read',args:[input.id]}).result as Parameters<typeof attachmentBytes>[0];atomicAttachmentExport(choice.filePath,attachmentBytes(current));}catch(e){security.audit('capture.export',input.id,'FAILED','purchases.bill');throw e;}
+                    security.audit('capture.export',input.id,'SUCCESS','purchases.bill');value={saved:true};break;
+                }
                 case 'attachments.select': {
                     security.require('inventory.read');
                     business.command({repository:'attachments',method:'checkTarget',args:[input.target]});
@@ -88,7 +111,7 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
         if(busy||timerStopped) return;
         busy=true;
         try { business.scanRecurringDue(); }
-        catch(error) { timerStopped=true; console.error('Local recurring scan stopped:',error instanceof Error?error.message:'Restart and inspect business data.'); }
+        catch { timerStopped=true; onRecurringStopped(); }
         finally { busy=false; }
     },60_000);
     recurringTimer.unref();

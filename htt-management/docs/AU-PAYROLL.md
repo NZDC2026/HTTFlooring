@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [G07-BANK-INSTRUCTIONS.md](G07-BANK-INSTRUCTIONS.md), [G08-PAYROLL-PROJECTS.md](G08-PAYROLL-PROJECTS.md).
+
 # Australian local payroll — 2026-10-19
 
 This phase replaces payroll session samples with a main-owned local payroll repository: employees, pay items, timesheets, leave, pay runs, payslips, settings, summary reports and filing review. The user confirmed Australia (AU). Currency is AUD. No independent backend is added.

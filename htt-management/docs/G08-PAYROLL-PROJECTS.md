@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # G08 工资工时项目维度
 
 范围：在现有本地工资、项目报表及可信主进程架构内，为工资工时加入项目引用、历史快照及自动成本归属，不连接独立后台，不修改 AU 税务、净工资付款或外部申报规则。

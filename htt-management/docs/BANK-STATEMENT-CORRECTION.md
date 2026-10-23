@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Original-date bank categorisation corrections
 
 A POSTED imported-statement classification can only be cancelled on its original statement date. The date must still pass existing accounting-period and bank reconciliation locks. Cancelling on a later date and reposting on the original date would count the original cash twice between those dates; this is now rejected before any journal or source mutation. MATCHED-line unlinking remains a metadata operation under its existing rules and is not forced to use the classification correction date.

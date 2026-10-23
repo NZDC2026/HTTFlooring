@@ -1,3 +1,5 @@
+> G14 reference status (2026-10-23): Dated implementation/acceptance record. Scope exclusions, schema and test counts below describe that delivery, not today’s remaining work. Current scope and follow-ups: [CURRENT-SYSTEM-STATUS.md](CURRENT-SYSTEM-STATUS.md).
+
 # Prevent reusing previously cleared bank movements
 
 The imported statement workbench now excludes rows already cleared by manual or imported bank reconciliation. The main match command also rejects those row IDs, including IDs submitted from a stale candidate list. A new external bank line must use its genuine receipt, payment, transfer or categorisation source; an identical amount alone does not make an earlier cleared source reusable.
