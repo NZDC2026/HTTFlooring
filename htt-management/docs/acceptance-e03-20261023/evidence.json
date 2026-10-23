@@ -1,0 +1,105 @@
+{
+  "stage": "E03",
+  "date": "2026-10-23",
+  "scope": "Local payroll filing preparation and pluggable connector framework; no production provider implementation",
+  "status": "local-framework-verified; production-provider-integration-pending",
+  "productionAdapterInstalled": false,
+  "liveFilingPerformed": false,
+  "liveMoneyMovement": false,
+  "businessSchemaVersion": 31,
+  "baseline": "Actual current project captured before E03; includes prior E01/E02 work",
+  "baselineManifestSha256": "b3fd4973e3a8580a45b100cbf7447391155b55d9c1532eca885c20a0d8164567",
+  "validation": {
+    "productionBuild": "passed",
+    "buildWarnings": [
+      "Existing large frontend chunk size warning; build exit 0"
+    ],
+    "directE03Cases": 62,
+    "previousFullRegression": {
+      "files": 168,
+      "passed": 3703,
+      "failed": 0,
+      "seconds": 253.2
+    },
+    "finalFullRegression": {
+      "command": "pnpm test:ci",
+      "files": 168,
+      "passed": 3703,
+      "failed": 0,
+      "seconds": 253.02,
+      "start": "2026-10-23 19:11:27 Pacific/Auckland"
+    },
+    "guidanceDocuments": 66,
+    "tableSurfaces": 149
+  },
+  "nativeAcceptance": {
+    "platform": "macOS arm64",
+    "window": "1100x700 compact",
+    "profile": "isolated synthetic temporary profile",
+    "screenshotsSaved": false,
+    "observations": [
+      {
+        "case": "Default state and configuration",
+        "result": "OS protected storage available. Configuration save succeeded; production connector absent; enable checkbox disabled."
+      },
+      {
+        "case": "Preflight rejects missing SG classification",
+        "result": "Pay item SG requires a reporting category. No report/transmission created."
+      },
+      {
+        "case": "Reviewed internal report",
+        "result": "After mapping SG and saving profile, internal preflight passed for one synthetic employee. Frozen report showed period/YTD GROSS AUD 1000.00, PAYG AUD 100.00, SG AUD 120.00 and masked TFN ending 789."
+      },
+      {
+        "case": "Independent manual portal note",
+        "result": "Synthetic review note persisted; transmission register still empty; provider queue button disabled."
+      },
+      {
+        "case": "Reload and encrypted persistence",
+        "result": "Reload required reauthentication. Employer profile, category mappings, immutable report and manual note remained available."
+      },
+      {
+        "case": "Independent declaration and note input",
+        "result": "On the final build, entering different declaration and manual note text retained distinct values."
+      },
+      {
+        "case": "AUDITOR privacy",
+        "result": "No payroll sidebar entry. Searching management directory for Payroll transmissions returned No matching pages. Direct main-process access and direct route denial separately verified by automated tests."
+      }
+    ],
+    "businessRepositoriesUnchanged": true,
+    "businessFileSha256": "296e0e465395c6fbc0794742c411265978ff99c8cbb37b7e573427949e428f45",
+    "journalEnvelopeFields": [
+      "version",
+      "cipher",
+      "checksum"
+    ],
+    "syntheticTfnAndIdentityNotVisibleInJournal": true
+  },
+  "sourceSha256": {
+    "scripts/payroll-filings.fixture.ts": "4fead814705186dcc7ef4cf8d6111f00b4b5d58557417f8a004b99537103394c",
+    "scripts/table-inventory.mjs": "d1493b413718577ba36c3a399299fdaf0099894997fd972bd5e4a04c11876911",
+    "scripts/payroll-filings.config.ts": "05e1b3e66e6f0978578c91700a48ccde1e82d24370950d88cf5caf798155a4f9",
+    "src/features/page-previews/directoryCatalog.ts": "a102b3528561195d462e866a20d59990ab21782822e94664a73f92c89fef9415",
+    "src/features/page-previews/previewRoutes.test.tsx": "688e42e4833d7cd4f3990a23c8cb31f64d995fb494ddc44eda6d181bc5426f8a",
+    "src/features/page-previews/previewRoutes.tsx": "3e840fe60e2145e2858af4a51ce69e14d004e530553d10c187304b8342b58a08",
+    "src/features/payroll-filing/contract.ts": "975e2ad8a54e82b95a8a8ca49c46d7bfc92b7d9d5413f415b8a7e791d6dad76a",
+    "src/features/payroll-filing/testFixtures.ts": "a231cc1766b2a829cf3aae73d8366e5146c9f7d8b8d7193e692cb7e17214c436",
+    "src/features/payroll-filing/filingLedger.test.ts": "aab574503fa6ecd71f944d04204718ac2a58a835495a7d64211cc1ee10b7eb1e",
+    "src/features/payroll-filing/PayrollFilingsPage.tsx": "0db3af1029e6647528be35661a72f694b954c3edab86ce637b7f5a8c8c34b880",
+    "src/features/payroll-filing/report.test.ts": "3b4e8e12364a9ef5dabcfd2ba0a341f4ae62c2a9faf8c1101f87531fc39b7f79",
+    "src/features/payroll-filing/filings.test.ts": "05ade23376edb81f2cf464965b7483bde771d90bbd1a4937945c61e28eb753b4",
+    "src/features/payroll/pages/PayrollPages.tsx": "fc1188b71841d1a62f60b9c489963c3832eadc9f3004e338db27bc4de72f3f91",
+    "electron/security/registerSecurityIpc.ts": "1b491dfbbc35ffcc895a571bd6640b9b790ac66f93fefde0763ddeb8052847d1",
+    "electron/payroll-filing/report.ts": "e466d4e592a094964278b6dea5dc98dd137c14987bfb900ea8d3c46ed994e9d0",
+    "electron/payroll-filing/filings.ts": "b1cf4df4b8aaae6e5bfee620c96714ba425cf154378aca09f78b144f00cbe176",
+    "electron/payroll-filing/adapter.ts": "f5cf34ae6fc3b6ac1549857263688f22eeca1deb37cf4bfd66ba540489d06070",
+    "electron/payroll-filing/store.ts": "914ff6c72901e1cb82da811f29af7a3a86111bb8a6e3a1e35270ab5521d7c8d7"
+  },
+  "remaining": [
+    "Select provider and obtain official API contract and test tenant",
+    "Implement and register production provider adapter and full supported STP Phase 2/SuperStream mappings",
+    "Product registration/certification and real provider/authority/fund acceptance",
+    "External opening YTD, paid-leave disaggregation and unsupported payroll cases remain outside local preparation"
+  ]
+}

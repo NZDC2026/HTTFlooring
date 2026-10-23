@@ -47,7 +47,7 @@ export const previewModules = [
     "group": "Banking",
     "path": "/banking/setup/accounts",
     "permission": "banking.read",
-    "description": "Maintain local bank accounts and ledger links; bank feeds are external and not connected."
+    "description": "Maintain local bank accounts and ledger links; optional Basiq AU synchronization is configured in Bank feeds."
   },
   {
     "id": "bank-rules",
@@ -141,7 +141,7 @@ export const previewModules = [
 export const previewGroups=[...new Set(previewModules.map(m=>m.group)), 'Sales & purchases','Settings'];
 export const settingsForms:Record<string,{title:string;path:string;permission:Permission;description:string}>={
  business:{title:'Financial year, GST & branding',path:'/settings/financial',permission:'accounting.read',description:'Local business, tax, numbering and immutable PNG branding.'},
- sales:{title:'Sales settings',path:'/settings/sales',permission:'accounting.read',description:'Local sales numbering and defaults; external email and online payment are not connected.'},
+ sales:{title:'Sales settings',path:'/settings/sales',permission:'accounting.read',description:'Local sales numbering and defaults; optional Resend and Stripe configuration is available in Communications.'},
  purchases:{title:'Purchase settings',path:'/settings/purchases',permission:'purchases.read',description:'Local purchase terms and payment preferences for new documents.'},
  payroll:{title:'Payroll settings',path:'/settings/payroll',permission:'payroll.read',description:'Australian local payroll settings; no electronic tax filing.'},
  reports:{title:'Report settings',path:'/settings/reports',permission:'accounting.read',description:'Supported report defaults and frozen output presentation.'},

@@ -1,0 +1,86 @@
+{
+  "stage": "E02",
+  "status": "Configurable implementation and local acceptance passed; live provider/bank acceptance pending",
+  "providerOpenApiSha256": "7b06fc20d9267a71e9dee1c80132644f7a00e55a031ed6a41c62dfb84e1827e1",
+  "date": "2026-10-23",
+  "scope": "User requested configurable code before provider signup; local runtime processing, no independent backend. No live bank calls or credentials.",
+  "targeted": {
+    "files": 6,
+    "passed": 1681,
+    "durationSeconds": 5.32,
+    "directE02Cases": 49,
+    "method": "Mock provider/transport; real BusinessHost import and ledger controls; seven-role route matrix."
+  },
+  "build": {
+    "command": "pnpm build",
+    "status": "passed",
+    "logSha256": "91d0589823e7765c58c96377ed0386d1ae2c50b971c7dd6584b2057ef36757c7"
+  },
+  "native": {
+    "method": "CUA accessibility and visible screenshot; Electron 44.5.1 macOS arm64, 1100x700, isolated synthetic profile",
+    "profile": "/private/tmp/htt-e02-acceptance",
+    "checks": [
+      {
+        "name": "Directory Banking group displays Bank feeds and opens /banking/feeds",
+        "status": "passed"
+      },
+      {
+        "name": "Default configuration has no key/user and is disabled; authorization/discovery/mapping actions disabled",
+        "status": "passed"
+      },
+      {
+        "name": "Empty disabled configuration saves with OS protected storage",
+        "status": "passed"
+      },
+      {
+        "name": "Synthetic staged review shows posting date 2026-10-22, amount AUD -11.00, reference QA-E02 and owner review controls",
+        "status": "passed"
+      },
+      {
+        "name": "Import disabled until reason and explicit confirmation; batch becomes COMPLETED after confirmation",
+        "status": "passed"
+      },
+      {
+        "name": "Existing bank workbench shows one UNMATCHED synthetic row",
+        "status": "passed"
+      },
+      {
+        "name": "Persisted profile comparison: only bankStatements changed, original journals unchanged, feed proof matches local line ID",
+        "status": "passed"
+      }
+    ],
+    "limitations": [
+      "The native fixture directly seeds a synthetic staged batch, not a real Basiq response.",
+      "No real consent browser flow, bank credentials, live bank retrieval or production authorization was tested."
+    ]
+  },
+  "sourceHashes": {
+    "scripts/bank-feeds.fixture.ts": "12bfc407179c6443ebc4716972b941fe95d1db8bdd2c600813db669f8e61c62e",
+    "scripts/bank-feeds.config.ts": "db0613b5eb38bc7d0048b8e96ced8ef0fe751307964978b12f48c99a7838c567",
+    "src/layouts/WorkspaceUtilityPages.tsx": "c05d8abdcb78b5c2f5667b167a850304a33574bd718633ccd1125d924d67580a",
+    "src/features/bank-feeds/bankFeeds.test.ts": "ae5d87b5d51e9347698b503114f83cdcf0da01be9738bd3271e78983023e55df",
+    "src/features/bank-feeds/contract.ts": "e513e16035e722313ac078d2e3a30f17c7c2836560571af17edec28a94a82d11",
+    "src/features/bank-feeds/basiq.test.ts": "bbbaf116621c22be76dfc309830789af8a8ed4d65e3b61bd74d6d0541cf92707",
+    "src/features/bank-feeds/BankFeedsPage.tsx": "d51da37957ab12179e118d3acb4115e55ba4816d8ede80e88faf453a6fde23f0",
+    "src/features/bank-feeds/bankFeedLedger.test.ts": "0c34ffbe6624ce4e1fd773736d5444236aa53ea6e71215a05ae02fd73508de4e",
+    "src/features/page-previews/directoryCatalog.ts": "3475b8bde62b0789f0396b627f5261994ca11a62a47fd151e052dd15233c5e8c",
+    "src/features/page-previews/previewRoutes.tsx": "3b4db6304fb076b742ee9d6454c3d0e93e5d56fe35765ba9c9fa085603ecb0cd",
+    "src/features/page-previews/PreviewWorkspace.tsx": "f87a0c98efa18743d11419a0f0480501f2a23219426e411dabdef751bd4e5711",
+    "src/features/page-previews/catalog.ts": "7bf2041433bdfffdfb8715af49c4b00fb3bd3fbd029c65aca56870fa4158856b",
+    "src/features/finance-closure/BankClosurePages.tsx": "582cb9debae662f4af69c8c92bb6a7e621b75c65639132edb950a2058e2bdf75",
+    "src/features/settings/pages/SettingsOverviewPage.tsx": "6b23deaff44f9218ec353cba8af040812dd110dfcd6e72c4522e4afc3968ea79",
+    "electron/security/registerSecurityIpc.ts": "e40730f103c54a3cb9e41b6b98a8afbe1e66639b8d9880fb077e771c67ad7d64",
+    "electron/bank-feeds/basiq.ts": "27fb153fd6162b531d731d83098666d7a0a1e02eb61be6900333edfcecfdd01d",
+    "electron/bank-feeds/bankFeeds.ts": "69f2e048a448c85688fc3d1b46db334e850d9a5642dfe2e283f68b32abc90797",
+    "electron/bank-feeds/store.ts": "f6ea1887f3c91416ae4c9e8aedc8877b5d5563404709184bf413251f90bca157"
+  },
+  "fullTests": {
+    "command": "pnpm test:ci",
+    "status": "passed",
+    "files": 165,
+    "passed": 3633,
+    "failed": 0,
+    "durationSeconds": 250.21,
+    "logSha256": "a97879b5e3579d056c4761827b94989ed9f0ca1820eb1ee9cbec5358bc6184ef"
+  }
+}

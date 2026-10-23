@@ -1320,6 +1320,21 @@
     "reason": "Fixed-schema report, immutable generated result, or one-record detail. Preserve grouping/totals/source context; use its full report/statement/source export or print, not a generic subset financial operation."
   },
   {
+    "surfaceDigest": "91d6061617419156f08ef6d2c4104fdd92a3de5d2bb354ea5b43cb43e05c8cc6",
+    "sourceContract": "",
+    "id": "src/features/payroll-filing/PayrollFilingsPage.tsx#1",
+    "path": "src/features/payroll-filing/PayrollFilingsPage.tsx",
+    "line": 32,
+    "component": "PayrollFilingsPage",
+    "tag": "table",
+    "headers": "",
+    "category": "payroll-filing-internal-review",
+    "columns": "Fixed schema / typed workflow",
+    "bulk": "N/A generic mutation; retain typed workflow if present",
+    "export": "Typed report/source output or N/A record/editor evidence",
+    "reason": "Immutable internal payroll report, payroll.read only. Fixed categories and exact period/YTD cents; no generic financial mutation or provider-upload export. Provider/ATO formats remain unimplemented."
+  },
+  {
     "surfaceDigest": "36d2b4a4ecdab3bd66d0370b4fc6dfa6a5d9b2fa431e0e4fb105ad7c90228702",
     "sourceContract": "{{id:'payroll-employees',scope:'all-filtered',permission:'payroll.read',rows:rows.map(e=>({id:e.id,cells:[e.code+' · '+e.name,e.position,e.basis+' · '+amount(e.rate),e.status,'Annual '+balance(s,e).annual+' · Personal '+balance(s,e).personal]}))}}",
     "id": "src/features/payroll/pages/PayrollPages.tsx#1",

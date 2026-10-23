@@ -40,12 +40,12 @@ export function HelpPage() {
  ['Local payroll', 'Employees, hours, leave, reviewed payroll, journals and recorded payments. Government/STP submission and SuperStream delivery are not connected.', '/payroll'],
  ['Document centre', 'Save files against business records, preview or export versions, and recover recycled attachments. File bytes and audit history are included in local business backups.', '/documents'],
  ['Supplier document recognition', 'macOS English PDF/PNG/JPEG recognition preserves originals and confidence. Verify fields and totals before creating an expense draft; Windows uses manual/CSV. Recognition does not post bills.', '/documents/capture'],
- ['Bank instruction files', 'CommBank/CommBiz ABA files use local preview and independent approval. Export does not execute a bank payment; bank feeds are not connected.', '/banking/instruction-files'],
+ ['Bank instruction files', 'CommBank/CommBiz ABA files use local preview and independent approval. Export does not execute a bank payment; Basiq AU feed synchronization can be configured separately, with explicit statement import review.', '/banking/instruction-files'],
  ['Personal preferences', 'Choose your sign-in home, compact or comfortable tables and reduced motion. Settings persist for your account on this device, separately from business backups.', '/settings/preferences'],
  ].map(([title, text, path]) => <Panel key={title} title={title}><p className="text-sm leading-6">{text}</p><Link className={buttonClass} to={path}>Open workspace</Link></Panel>)}</div><Panel title="Frequently asked questions">{[
  ['Why is an action unavailable?', 'Actions depend on your signed-in role, document status, accounting period and any unresolved posting operations. Review the displayed reason before retrying.'],
  ['Will changes remain after reload?', 'Business records, files and payroll persist in local main-process storage and business backups. Personal display preferences persist separately on this device for your account.'],
- ['Does the application send data to a live backend?', 'The current implementation uses local repositories and mocks. The integration page describes local capabilities and external services that are not connected.'],
+ ['Does the application send data to a live backend?', 'Business data stays in local repositories. Optional Resend email and Stripe checkout use external providers when configured and explicitly enabled. Communications and reminders run only while the application is running with the owner signed in.'],
  ].map(([question, answer]) => <details className="rounded border p-4" key={question}><summary className="font-medium">{question}</summary><p className="mt-3 text-sm">{answer}</p></details>)}</Panel></main>;
 }
 export { ActionCentrePage as NotificationsPage } from '../features/action-centre/ActionCentrePage';

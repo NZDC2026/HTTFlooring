@@ -2,6 +2,9 @@ import {previewModules,flowPages,settingsForms} from './catalog';
 import type {Permission} from '../security/rbac';
 export type DirectoryEntry={path:string;name:string;group:string;permission:Permission;description:string};
 const extras:DirectoryEntry[]=[
+ {path:'/payroll/transmissions',name:'Payroll transmissions',group:'Payroll',permission:'payroll.read',description:'Internal AU STP and super preparation, immutable review reports and connector recovery. Production adapter pending.'},
+ {path:'/banking/feeds',name:'Bank feeds',group:'Banking',permission:'banking.read',description:'Configurable Basiq AU consent, account mapping, runtime sync and reviewed statement imports.'},
+ {path:'/documents/communications',name:'Communications & online collection',group:'Documents & imports',permission:'sales.read',description:'Configurable Resend / Stripe adapters, runtime reminders and verified receipt confirmation.'},
  {path:'/purchases/prepayments',name:'Supplier prepayments',group:'Sales & purchases',permission:'purchases.read',description:'Local supplier advances, application, refund and reconciliation.'},
  {path:'/sales/customer-returns',name:'Physical customer returns',group:'Sales & purchases',permission:'inventory.cost.read',description:'Reviewed physical returns with source, inventory and credit controls.'},
  {path:'/sales/customer-deposits',name:'Customer deposits & prepayments',group:'Sales & purchases',permission:'sales.read',description:'Local customer deposits, application and refund controls.'},

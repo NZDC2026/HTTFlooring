@@ -27,3 +27,5 @@ Schema 8 adds the prepared-version register. Schema 1–7 profiles/backups migra
 Remaining separate workflows include physical supplier returns, non-stock/service sales catalogue types, generic real file attachments and external integrations.
 
 Native Electron acceptance used only a disposable synthetic profile. A draft quote with 5 m² requested, 3 boxes / 6.498 m² coverage, 300.00 net + 30.00 tax = 330.00 total and a stored accounting recipient was prepared, downloaded as HTML and saved through the macOS PDF dialog. The resulting one-page PDF was text-checked and rendered for visual review; the output contains the document without application navigation or working panels.
+
+E01 后续能力：原本地准备与打印继续保持；[通信与收款页](E01-EXTERNAL-SERVICES.md)另行提供显式配置和确认后的邮件、回执及运行时催款。仅准备/打印仍不发送，真实服务尚待开通验收。

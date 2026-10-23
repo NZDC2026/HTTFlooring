@@ -69,3 +69,8 @@
 | [G16-RELEASE-READINESS.md](G16-RELEASE-READINESS.md) | current | 发布准备、诊断与未关闭条件 |
 
 | [G17-INVENTORY-FINANCE-CONTROL.md](G17-INVENTORY-FINANCE-CONTROL.md) | current | 库存总控、同日审查与关账保护 |
+
+| [E01-EXTERNAL-SERVICES.md](E01-EXTERNAL-SERVICES.md) | current | 可配置通信/催款/Stripe 与真实服务待验收边界 |
+
+| [E02-BANK-FEEDS.md](E02-BANK-FEEDS.md) | current | Basiq AU 配置、授权、同步和待审导入；真实银行待验收 |
+| [E03-PAYROLL-FILINGS.md](E03-PAYROLL-FILINGS.md) | current | AU 工资申报本地工作台及连接器框架；生产适配器/注册/真实回执待完成 |

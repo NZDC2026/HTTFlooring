@@ -1,0 +1,23 @@
+import { z } from 'zod';
+export const feedId = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+const text = z.string().min(1).max(200);
+export const feedSettingsSchema = z.object({ enabled: z.boolean(), apiKey: z.string().max(1000), userId: z.union([feedId, z.literal('')]), production: z.boolean() }).strict();
+export type FeedSettings = z.infer<typeof feedSettingsSchema>;
+export const feedAccountSchema = z.object({ id: feedId, connectionId: feedId, institutionId: feedId, name: z.string().max(1000), masked: z.string().max(30), currency: z.literal('AUD'), lastUpdated: z.string().max(100), expiresAt: z.number().finite() }).strict();
+export type FeedAccount = z.infer<typeof feedAccountSchema>;
+export const feedRowSchema = z.object({ externalId: text, date: z.string().length(10), description: z.string().min(1).max(1000), reference: z.string().max(500), amount: z.number().finite().refine(n => n !== 0 && Math.abs(n) <= 999999999.99) }).strict();
+export type FeedRow = z.infer<typeof feedRowSchema>;
+export const feedTimeZones = ['Australia/Sydney','Australia/Melbourne','Australia/Brisbane','Australia/Adelaide','Australia/Darwin','Australia/Perth','Australia/Hobart'] as const;
+export const mappingSchema = z.object({ id: text, ownerId: text, credentialRevision: z.string().length(64), providerUserId: feedId, production: z.boolean(), retired: z.boolean(), remote: feedAccountSchema, bankAccountId: text, bankIdentity: z.string().length(64), startDate: z.string().length(10), timeZone: z.enum(feedTimeZones), enabled: z.boolean(), nextAt: z.number().finite(), lastSuccess: z.number().finite().optional(), lastThrough: z.string().optional(), error: z.string().max(500).optional(), failures: z.number().int().nonnegative(), pendingCount: z.number().int().nonnegative() }).strict();
+export type FeedMapping = z.infer<typeof mappingSchema>;
+export const batchSchema = z.object({ id: text, mappingId: text, createdAt: z.number().finite(), throughDate: z.string().length(10), status: z.enum(['REVIEW', 'IMPORTING', 'COMPLETED']), rows: z.array(feedRowSchema).min(1).max(10000), excludedIds: z.array(text).max(10000), reason: z.string().max(2000), evidence: z.array(z.object({ externalId: text, lineId: text, digest: z.string().length(64) }).strict()).max(10000), error: z.string().max(500).optional() }).strict();
+export type FeedBatch = z.infer<typeof batchSchema>;
+export const feedStateSchema = z.object({ version: z.literal(1), mappings: z.array(mappingSchema).max(100), accounts: z.array(feedAccountSchema).max(500), accountsRevision: z.string().max(64), batches: z.array(batchSchema).max(1000), request: z.object({ ownerId: text, kind: z.enum(['DISCOVER', 'AUTHORIZE']), attempted: z.boolean() }).strict().optional(), history: z.array(z.object({ at: z.number().finite(), action: z.string().max(100), resource: z.string().max(200) }).strict()).max(1000) }).strict();
+export type FeedState = z.infer<typeof feedStateSchema>;
+export type FeedView = {
+    configuration: { enabled: boolean; configured: boolean; userId: string; production: boolean; secureStorage: boolean };
+    accounts: FeedAccount[]; mappings: FeedMapping[];
+    batches: (FeedBatch & { possibleDuplicates: string[] })[];
+    banks: { id: string; name: string; currency: string; openingBalanceDate: string }[];
+    running: boolean; health: string; authorizationReady: boolean; request?: 'DISCOVER' | 'AUTHORIZE';
+};

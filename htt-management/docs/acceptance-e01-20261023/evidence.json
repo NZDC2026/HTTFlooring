@@ -1,0 +1,113 @@
+{
+  "stage": "E01 configurable local adapters",
+  "date": "2026-10-23",
+  "scope": "No independent backend. Runtime owner-session processing only. No real provider accounts or transmissions.",
+  "native": {
+    "method": "CUA accessibility observations and visible screenshot, Electron 44.5.1 macOS arm64, 1100x700 isolated synthetic profile",
+    "profile": "/private/tmp/htt-e01-acceptance",
+    "checks": [
+      {
+        "name": "Directory link visible under Documents & imports and opens /documents/communications",
+        "status": "passed"
+      },
+      {
+        "name": "Default email/checkout/live disabled; queue actions disabled without configuration",
+        "status": "passed"
+      },
+      {
+        "name": "Empty disabled configuration saves successfully using OS protected storage",
+        "status": "passed"
+      },
+      {
+        "name": "Prepared statement selection shows saved@example.test and immutable date range",
+        "status": "passed"
+      },
+      {
+        "name": "Statement preview opening 0.00, debits 6063.75, credits 3000.00, closing 3063.75 AUD",
+        "status": "passed"
+      },
+      {
+        "name": "Visible 1100x700 preview layout and readable statement rows",
+        "status": "passed"
+      }
+    ],
+    "limitations": [
+      "No native real send or real payment was attempted.",
+      "Provider responses and ledger receipt flows are covered by mocked API integration tests, not live provider acceptance."
+    ]
+  },
+  "pdf": [
+    {
+      "kind": "sales",
+      "path": "/private/tmp/htt-e01-sales.pdf",
+      "bytes": 106792,
+      "sha256": "0c367905377f6ef955f33528fbc66dfca60a27d4323a58f00146ad7dea5cdd62"
+    },
+    {
+      "kind": "statement",
+      "path": "/private/tmp/htt-e01-statement.pdf",
+      "bytes": 62862,
+      "sha256": "d7d478693c37682683da3deb1f1a850c73e671be085d46bfa401bd7d767d2b56"
+    }
+  ],
+  "pdfInspection": {
+    "method": "Actual renderDeliveryPdf in isolated Electron hidden windows plus pdfinfo",
+    "sales": {
+      "pages": 1,
+      "size": "A4",
+      "javascript": false
+    },
+    "statement": {
+      "pages": 1,
+      "size": "A4",
+      "javascript": false
+    }
+  },
+  "targetedTests": {
+    "command": "pnpm test:ci src/features/external-services src/features/page-previews/currentNavigation.test.tsx src/features/page-previews/previewRoutes.test.tsx",
+    "files": 4,
+    "passed": 179,
+    "durationSeconds": 6.48,
+    "externalServiceCases": 39
+  },
+  "fullTests": {
+    "status": "passed",
+    "command": "pnpm test:ci",
+    "files": 162,
+    "passed": 3576,
+    "failed": 0,
+    "durationSeconds": 250.22,
+    "logSha256": "63c9275f6991c6648a0661e19b888ad4f78b3b8e14040c6f7bf1b4ea01bd1ed4"
+  },
+  "sourceHashes": {
+    "scripts/external-services.config.ts": "c912c0ef3b4e99b3614935474fa1a900ee9fee258b586e487ce9704af9d79241",
+    "scripts/external-services.fixture.ts": "6d1a8dbea3c90ce3c2f9fa866a4b7ed8c396db29c6aaaf3c8409919f0acb10d9",
+    "src/app/routes.tsx": "2cb897d5cf8342789657bb414d03f2e6553d24cb2a0ec3e71a78d69a5e05dc06",
+    "src/layouts/WorkspaceUtilityPages.tsx": "4f76c4a68393b5ae71c4e987f429db5dc595bde7cee189e7c707e78ad563c428",
+    "src/layouts/AppLayout.tsx": "3d4105a08c12dbebabc0bf54f899c81f879a4dc7e31f3b2b038619f0d68dd01a",
+    "src/features/security/SecurityGate.tsx": "b3cd38a87af603eb14f0126cf7996bc7b848e4609a28c8433fba74f223347e8e",
+    "src/features/external-services/contract.ts": "9742cbd510b752555a831b0874053240692c0a713f6d96c2a4c86a7b590189f3",
+    "src/features/external-services/externalServices.test.ts": "de6d047c6127455bfca97058ab987c77d78417a36f8d4c85e1bf0d0f362cd001",
+    "src/features/external-services/CommunicationsPage.tsx": "69ac6c834d96e9787c87117e5d3a3c87c45c7ccc281df66475b336eb3a02b07b",
+    "src/features/external-services/statementHtml.ts": "8a947dcdf39ee6ac1244fd188dbb2439e0b903549205aba9736b571867e1fd19",
+    "src/features/external-services/externalLedger.test.ts": "fad301e65ca48c038458d27605030ea40ff602aa971cd6b82e16f72e18ed28f9",
+    "src/features/page-previews/directoryCatalog.ts": "57b88ef80ba0f43c381672754388f3bcde7a6149edb2e507445e9258a0511db5",
+    "src/features/page-previews/currentNavigation.test.tsx": "6ef86ecb07ace729ce71035b1bfbabc3168b2add1de35e779c8b8c8022601edb",
+    "src/features/page-previews/previewRoutes.tsx": "6ed042cc0f3569f4dd70fb66d596eeb6695684538c3b8abe7b4ca4e8c9799340",
+    "src/features/page-previews/PreviewWorkspace.tsx": "29ba24d9c4695302cda6848e218104a7e39dce2c4f9cc2ef71413a7ae5df6e8a",
+    "src/features/page-previews/catalog.ts": "f343cde746ad9d034de7c4f12d562b3a2e6f66132a7dce754b6a9ad146bb062a",
+    "src/features/document-output/OutputPage.tsx": "c2cf28e8eda82e21d127d5141937d93c88a708e9e906e0da15e1cf10353e9e68",
+    "src/features/document-output/PurchaseOutputPage.tsx": "2a73d64a2fc0536eefa3b64b37f76544c9d9233424ce965bc9fe4fa20843d8f6",
+    "src/features/settings/pages/SettingsOverviewPage.tsx": "0683ab7606ca231edc657eea6192c80ceacb2376d3d3d7222d7c0497d8e75581",
+    "electron/security/registerSecurityIpc.ts": "09590737d5847e4d7f8d3623872b4894290a9f3de33d9a92c7651fa1538e4542",
+    "electron/integrations/providers.ts": "c63b83b45207a3db4c74b2dc9e4b010cc445f0e97c44379f886b11292ec31219",
+    "electron/integrations/outputPdf.ts": "326b0f9a9c8d4b25fa3fe28f3a152ae9fe380e126a7c464548678e23373be1bc",
+    "electron/integrations/localIntegrationStore.ts": "b78351a8c89c7a8c8ceccbbb02c6d3e5006634f8b902b0febc3cabecac1f2083",
+    "electron/integrations/externalServices.ts": "8194a7c1342a4e96e5a2961cbde683d17202132d9adf4e64904a1a0d92a59225"
+  },
+  "build": {
+    "command": "pnpm build",
+    "status": "passed",
+    "logSha256": "a7f9e4090d3f369f45d7ac4b773939ec540e914072b978a229fb8258a68821aa"
+  }
+}

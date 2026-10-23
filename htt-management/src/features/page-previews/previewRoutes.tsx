@@ -1,3 +1,6 @@
+import {PayrollFilingsPage} from '../payroll-filing/PayrollFilingsPage';
+import {BankFeedsPage} from '../bank-feeds/BankFeedsPage';
+import {CommunicationsPage} from '../external-services/CommunicationsPage';
 import { ReportSettingsPage } from '../report-settings/ReportSettingsPage';
 import { PurchaseSettingsPage } from '../purchase-settings/PurchaseSettingsPage';
 import { BankInstructionPage } from '../bank-instructions/BankInstructionPage';
@@ -83,6 +86,9 @@ function CustomerReturnRoute() { const {id}=useParams(); return <PreviewAccess p
 function CustomerDepositRoute() { const {id}=useParams(); return <PreviewAccess permission="sales.read"><CustomerDepositsPage key={id??'list'}/></PreviewAccess>; }
 function SupplierPrepaymentRoute(){const {id}=useParams();return <PreviewAccess permission="purchases.read"><SupplierPrepaymentsPage key={id??'list'}/></PreviewAccess>;}
 export const additionalRoutes: RouteObject[] = [
+ {path:'payroll/transmissions',element:<PreviewAccess permission="payroll.read"><PayrollFilingsPage/></PreviewAccess>},
+ {path:'banking/feeds',element:<PreviewAccess permission="banking.read"><BankFeedsPage/></PreviewAccess>},
+ {path:'documents/communications',element:<PreviewAccess permission="sales.read"><CommunicationsPage/></PreviewAccess>},
  ...['purchases/prepayments','purchases/prepayments/:id'].map(path=>({path,element:<SupplierPrepaymentRoute/>})),
  {path:'accounting/reconciliation/prepayments',element:<PreviewAccess permission="accounting.read"><PrepaymentReconciliationPage/></PreviewAccess>},
  {path:"accounting/reconciliation/deposits",element:<PreviewAccess permission="accounting.read"><DepositReconciliationPage/></PreviewAccess>},

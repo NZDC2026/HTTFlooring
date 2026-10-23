@@ -1,3 +1,4 @@
+// Communications is registered with the permission-guarded workspace routes.
 import { PurchaseOutputPage } from '../features/document-output/PurchaseOutputPage';
 import { additionalRoutes } from '../features/page-previews/previewRoutes';
 import { WorkspaceSearchPage, HelpPage, NotificationsPage } from '../layouts/WorkspaceUtilityPages';

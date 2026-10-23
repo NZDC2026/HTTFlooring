@@ -164,6 +164,21 @@
     ]
   },
   {
+    "path": "docs/E01-EXTERNAL-SERVICES.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/E02-BANK-FEEDS.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/E03-PAYROLL-FILINGS.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
     "path": "docs/FINANCE-CLOSURE.md",
     "status": "dated-record",
     "followUps": [
