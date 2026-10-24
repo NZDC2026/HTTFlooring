@@ -1,0 +1,24 @@
+name: htt-backend-tests
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: htt_test
+      POSTGRES_USER: htt_owner
+      POSTGRES_PASSWORD: ${HTT_OWNER_PASSWORD:?Set HTT_OWNER_PASSWORD}
+      HTT_APP_PASSWORD: ${HTT_APP_PASSWORD:?Set HTT_APP_PASSWORD}
+      HTT_WORKER_PASSWORD: ${HTT_WORKER_PASSWORD:?Set HTT_WORKER_PASSWORD}
+    volumes: ["./infra/init-db.sh:/docker-entrypoint-initdb.d/10-htt.sh:ro"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U htt_owner -d htt_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    build: { context: ., target: build }
+    environment:
+      HTT_TEST_OWNER_CONNECTION: Host=db;Database=htt_test;Username=htt_owner;Password=${HTT_OWNER_PASSWORD}
+      HTT_TEST_APP_CONNECTION: Host=db;Database=htt_test;Username=htt_app;Password=${HTT_APP_PASSWORD}
+      HTT_TEST_WORKER_CONNECTION: Host=db;Database=htt_test;Username=htt_worker;Password=${HTT_WORKER_PASSWORD}
+    depends_on: { db: { condition: service_healthy } }
+    command: ["dotnet", "test", "Htt.Backend.sln", "--no-restore", "-m:1", "--logger", "console;verbosity=minimal"]

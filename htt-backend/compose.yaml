@@ -1,0 +1,43 @@
+name: htt-backend
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: htt
+      POSTGRES_USER: htt_owner
+      POSTGRES_PASSWORD: ${HTT_OWNER_PASSWORD:?Set HTT_OWNER_PASSWORD}
+      HTT_APP_PASSWORD: ${HTT_APP_PASSWORD:?Set HTT_APP_PASSWORD}
+      HTT_WORKER_PASSWORD: ${HTT_WORKER_PASSWORD:?Set HTT_WORKER_PASSWORD}
+    ports: ["127.0.0.1:${HTT_DB_PORT:-55432}:5432"]
+    volumes:
+      - htt_data:/var/lib/postgresql/data
+      - ./infra/init-db.sh:/docker-entrypoint-initdb.d/10-htt.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U htt_owner -d htt"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build: { context: ., target: migrations }
+    environment:
+      HTT_MIGRATION_CONNECTION: Host=db;Database=htt;Username=htt_owner;Password=${HTT_OWNER_PASSWORD}
+    depends_on: { db: { condition: service_healthy } }
+    restart: "no"
+  api:
+    build: { context: ., target: api }
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__Database: Host=db;Database=htt;Username=htt_app;Password=${HTT_APP_PASSWORD};Timeout=5;Command Timeout=10
+      Authentication__Authority: ${HTT_AUTHORITY:-}
+      Authentication__Audience: ${HTT_AUDIENCE:-}
+      Authentication__Mode: ${HTT_AUTH_MODE:-Oidc}
+    ports: ["127.0.0.1:${HTT_API_PORT:-5080}:8080"]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+  worker:
+    build: { context: ., target: worker }
+    environment:
+      ConnectionStrings__Database: Host=db;Database=htt;Username=htt_worker;Password=${HTT_WORKER_PASSWORD};Timeout=5
+    depends_on: { migrate: { condition: service_completed_successfully } }
+volumes:
+  htt_data:

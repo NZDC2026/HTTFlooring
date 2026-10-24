@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Htt.Modules.Foundation/Htt.Modules.Foundation.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Database/Migrations/*.sql" /></ItemGroup>
+</Project>
