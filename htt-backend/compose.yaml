@@ -8,6 +8,7 @@ services:
       POSTGRES_PASSWORD: ${HTT_OWNER_PASSWORD:?Set HTT_OWNER_PASSWORD}
       HTT_APP_PASSWORD: ${HTT_APP_PASSWORD:?Set HTT_APP_PASSWORD}
       HTT_WORKER_PASSWORD: ${HTT_WORKER_PASSWORD:?Set HTT_WORKER_PASSWORD}
+      HTT_PORTAL_PASSWORD: ${HTT_PORTAL_PASSWORD:?Set HTT_PORTAL_PASSWORD}
     ports: ["127.0.0.1:${HTT_DB_PORT:-55432}:5432"]
     volumes:
       - htt_data:/var/lib/postgresql/data
@@ -29,15 +30,23 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_HTTP_PORTS: 8080
       ConnectionStrings__Database: Host=db;Database=htt;Username=htt_app;Password=${HTT_APP_PASSWORD};Timeout=5;Command Timeout=10
+      ConnectionStrings__PortalDatabase: Host=db;Database=htt;Username=htt_portal;Password=${HTT_PORTAL_PASSWORD};Timeout=5;Command Timeout=10
+      PortalAuthentication__Authority: ${HTT_PORTAL_AUTHORITY:-}
+      PortalAuthentication__Audience: ${HTT_PORTAL_AUDIENCE:-}
+      PortalAuthentication__Mode: ${HTT_PORTAL_AUTH_MODE:-Oidc}
       Authentication__Authority: ${HTT_AUTHORITY:-}
       Authentication__Audience: ${HTT_AUDIENCE:-}
       Authentication__Mode: ${HTT_AUTH_MODE:-Oidc}
+      Documents__MailFrom: ${HTT_MAIL_FROM:-}
     ports: ["127.0.0.1:${HTT_API_PORT:-5080}:8080"]
     depends_on: { migrate: { condition: service_completed_successfully } }
   worker:
     build: { context: ., target: worker }
     environment:
       ConnectionStrings__Database: Host=db;Database=htt;Username=htt_worker;Password=${HTT_WORKER_PASSWORD};Timeout=5
+      Documents__MailApiKey: ${HTT_MAIL_API_KEY:-}
+      Documents__ClamAvHost: ${HTT_CLAMAV_HOST:-}
+      Documents__ClamAvPort: ${HTT_CLAMAV_PORT:-3310}
     depends_on: { migrate: { condition: service_completed_successfully } }
 volumes:
   htt_data:

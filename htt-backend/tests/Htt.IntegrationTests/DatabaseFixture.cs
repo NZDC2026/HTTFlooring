@@ -16,6 +16,8 @@ public sealed class DatabaseFixture : IAsyncLifetime
         ?? throw new InvalidOperationException("Set HTT_TEST_APP_CONNECTION to the restricted htt_app test login.");
     public string Worker { get; } = Environment.GetEnvironmentVariable("HTT_TEST_WORKER_CONNECTION")
         ?? throw new InvalidOperationException("Set HTT_TEST_WORKER_CONNECTION to the restricted htt_worker test login.");
+    public string Portal { get; } = Environment.GetEnvironmentVariable("HTT_TEST_PORTAL_CONNECTION")
+        ?? throw new InvalidOperationException("Set HTT_TEST_PORTAL_CONNECTION to the dedicated htt_portal login.");
     public Guid Company { get; private set; }
     public Guid OtherCompany { get; private set; }
     public Guid Actor { get; private set; }

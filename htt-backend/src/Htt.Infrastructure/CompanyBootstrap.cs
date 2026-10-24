@@ -89,6 +89,8 @@ public static class CompanyBootstrap
               PERFORM identity.seed_inventory_control_roles(c);
               PERFORM identity.seed_transit_roles(c);
               PERFORM identity.seed_reconciliation_roles(c);
+              PERFORM identity.seed_document_roles(c);
+              PERFORM identity.seed_portal_roles(c);
               INSERT INTO platform.audit_events(company_id,actor_id,action,entity_type,entity_id,request_id)
                 VALUES(c,u,'company.bootstrapped','company',c,'owner-cli');
               INSERT INTO platform.outbox_events(company_id,event_type,payload,created_by)

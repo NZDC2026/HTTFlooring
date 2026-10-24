@@ -17,7 +17,7 @@ using Xunit;
 
 namespace Htt.IntegrationTests;
 
-public sealed class TestApi(DatabaseFixture db) : WebApplicationFactory<Program>
+public sealed class TestApi(DatabaseFixture db,string portalMode="Oidc",Dictionary<string,string>? settings=null) : WebApplicationFactory<Program>
 {
     public static readonly SymmetricSecurityKey Key = new(Encoding.UTF8.GetBytes("test-only-signing-material-at-least-32-bytes-long"));
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -26,6 +26,11 @@ public sealed class TestApi(DatabaseFixture db) : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Database", db.App);
         builder.UseSetting("Authentication:Authority", DatabaseFixture.Issuer);
         builder.UseSetting("Authentication:Audience", "htt-test-api");
+        builder.UseSetting("ConnectionStrings:PortalDatabase",db.Portal);
+        builder.UseSetting("PortalAuthentication:Authority",DatabaseFixture.Issuer);
+        builder.UseSetting("PortalAuthentication:Audience","htt-test-portal");
+        builder.UseSetting("PortalAuthentication:Mode",portalMode);
+        if(settings is not null)foreach(var setting in settings)builder.UseSetting(setting.Key,setting.Value);
         builder.ConfigureServices(services => services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
         {
             options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(new() { Issuer = DatabaseFixture.Issuer });
@@ -34,6 +39,15 @@ public sealed class TestApi(DatabaseFixture db) : WebApplicationFactory<Program>
                 ValidateIssuer = true, ValidIssuer = DatabaseFixture.Issuer,
                 ValidateAudience = true, ValidAudience = "htt-test-api", ValidateLifetime = true,
                 ValidateIssuerSigningKey = true, IssuerSigningKey = Key, ClockSkew = TimeSpan.Zero
+            };
+        }));
+        builder.ConfigureServices(services=>services.PostConfigure<JwtBearerOptions>("CustomerPortal",options=>
+        {
+            options.ConfigurationManager=new StaticConfigurationManager<OpenIdConnectConfiguration>(new(){Issuer=DatabaseFixture.Issuer});
+            options.TokenValidationParameters=new TokenValidationParameters
+            {
+                ValidateIssuer=true,ValidIssuer=DatabaseFixture.Issuer,ValidateAudience=portalMode!="Cognito",ValidAudience="htt-test-portal",ValidateLifetime=true,
+                ValidateIssuerSigningKey=true,IssuerSigningKey=Key,ClockSkew=TimeSpan.Zero
             };
         }));
     }

@@ -22,6 +22,8 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
     [InlineData(13)]
     [InlineData(14)]
     [InlineData(15)]
+    [InlineData(16)]
+    [InlineData(17)]
     public async Task Existing_stage_A_database_upgrades_without_rewriting_history_or_losing_legacy_branches(int originalVersion)
     {
         var name = "htt_upgrade_test_" + Guid.NewGuid().ToString("N");
@@ -133,7 +135,7 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             await MigrationRunner.ApplyAsync(owner);
             await MigrationRunner.ApplyAsync(owner);
             await using var check = new NpgsqlConnection(owner); await check.OpenAsync();
-            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(16L, await count.ExecuteScalarAsync());
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(18L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT receivable FROM crm.customer_credit_exposures"; Assert.Equal(20m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT unbilled_orders FROM crm.customer_credit_exposures"; Assert.Equal(10m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT available_advances FROM crm.customer_credit_exposures"; Assert.Equal(5m, await count.ExecuteScalarAsync());

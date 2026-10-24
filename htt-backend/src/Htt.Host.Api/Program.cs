@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Htt.Host.Api;
 using Htt.Host.Api.Inventory;
+using Htt.Host.Api.Portal;
 using Htt.Infrastructure;
+using Htt.Infrastructure.Documents;
 using Htt.SharedKernel;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
@@ -30,6 +32,7 @@ builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(connectionString));
 builder.Services.AddScoped<CompanySession>();
 builder.Services.AddScoped<AccessResolver>();
 builder.Services.AddScoped<Idempotency>();
+builder.Services.AddSingleton(builder.Configuration.GetSection("Documents").Get<DocumentOptions>() ?? new DocumentOptions());
 builder.Services.AddDbContext<FoundationDbContext>((services, options) => options.UseNpgsql(services.GetRequiredService<CompanySession>().Connection));
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new DecimalStringConverter()));
 builder.Services.AddProblemDetails();
@@ -58,8 +61,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     };
 });
 builder.Services.AddAuthorization();
+builder.AddCustomerPortal();
 builder.Services.AddRateLimiter(options =>
 {
+    options.AddPolicy("portal",http=>RateLimitPartition.GetFixedWindowLimiter(
+        (http.User.FindFirst("iss")?.Value??"")+":"+(http.User.FindFirst("sub")?.Value??http.Connection.RemoteIpAddress?.ToString()??"unknown"),
+        _=>new FixedWindowRateLimiterOptions{PermitLimit=300,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("api", http => RateLimitPartition.GetFixedWindowLimiter(
         http.User.FindFirst("sub")?.Value ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -79,6 +86,10 @@ app.Use(async (http, next) =>
         var (status, code, message, retryable) = error switch
         {
             BusinessException e => (e.StatusCode, e.Code, e.Message, false),
+            PostgresException { SqlState: "HC409" } e => (409, "portal_conflict", e.MessageText, false),
+            PostgresException { SqlState: "HC422" } e => (422, "portal_validation", e.MessageText, false),
+            PostgresException { SqlState: "HD409" } e => (409, "document_conflict", e.MessageText, false),
+            PostgresException { SqlState: "HD422" } e => (422, "document_validation", e.MessageText, false),
             PostgresException { SqlState: "HI409" } e => (409, "inventory_control_conflict", e.MessageText, false),
             PostgresException { SqlState: "HI422" } e => (422, "inventory_control_validation", e.MessageText, false),
             BadHttpRequestException => (400, "invalid_request", "Invalid request body or parameters.", false),
@@ -112,7 +123,7 @@ app.MapGet("/health/ready", async (NpgsqlDataSource source, CancellationToken to
     try
     {
         await using var connection = await source.OpenConnectionAsync(token);
-        await using var command = new NpgsqlCommand("SELECT to_regprocedure('identity.resolve_access(text,text)') IS NOT NULL AND to_regprocedure('identity.seed_master_data_roles(uuid)') IS NOT NULL AND to_regclass('sales.orders') IS NOT NULL AND to_regprocedure('inventory.confirm_pick(uuid,bigint,text,text,text)') IS NOT NULL AND to_regprocedure('sales.post_invoice(uuid,bigint,jsonb,text)') IS NOT NULL AND to_regprocedure('accounting.post_receipt(uuid,numeric,text,text,date,jsonb,jsonb)') IS NOT NULL AND to_regprocedure('sales.post_credit_note(uuid,text,jsonb)') IS NOT NULL AND to_regprocedure('purchase.receive_order(uuid,bigint,text,text,jsonb)') IS NOT NULL AND to_regprocedure('purchase.post_bill(uuid,text,date,date,date,text,date,text,jsonb)') IS NOT NULL AND to_regprocedure('purchase.post_supplier_payment(uuid,numeric,numeric,text,text,date,text,jsonb)') IS NOT NULL AND to_regprocedure('purchase.return_goods(uuid,text,text,jsonb)') IS NOT NULL AND to_regprocedure('inventory.post_control(text,uuid,uuid,text,text,jsonb)') IS NOT NULL AND to_regprocedure('inventory.dispatch_transit(uuid,uuid,text,text,jsonb)') IS NOT NULL AND to_regprocedure('accounting.reconciliation_checks()') IS NOT NULL", connection) { CommandTimeout = 3 };
+        await using var command = new NpgsqlCommand("SELECT to_regprocedure('identity.resolve_access(text,text)') IS NOT NULL AND to_regprocedure('identity.seed_master_data_roles(uuid)') IS NOT NULL AND to_regclass('sales.orders') IS NOT NULL AND to_regprocedure('inventory.confirm_pick(uuid,bigint,text,text,text)') IS NOT NULL AND to_regprocedure('sales.post_invoice(uuid,bigint,jsonb,text)') IS NOT NULL AND to_regprocedure('accounting.post_receipt(uuid,numeric,text,text,date,jsonb,jsonb)') IS NOT NULL AND to_regprocedure('sales.post_credit_note(uuid,text,jsonb)') IS NOT NULL AND to_regprocedure('purchase.receive_order(uuid,bigint,text,text,jsonb)') IS NOT NULL AND to_regprocedure('purchase.post_bill(uuid,text,date,date,date,text,date,text,jsonb)') IS NOT NULL AND to_regprocedure('purchase.post_supplier_payment(uuid,numeric,numeric,text,text,date,text,jsonb)') IS NOT NULL AND to_regprocedure('purchase.return_goods(uuid,text,text,jsonb)') IS NOT NULL AND to_regprocedure('inventory.post_control(text,uuid,uuid,text,text,jsonb)') IS NOT NULL AND to_regprocedure('inventory.dispatch_transit(uuid,uuid,text,text,jsonb)') IS NOT NULL AND to_regprocedure('accounting.reconciliation_checks()') IS NOT NULL AND to_regprocedure('platform.claim_document_job()') IS NOT NULL AND to_regprocedure('portal.me(text,text)') IS NOT NULL", connection) { CommandTimeout = 3 };
         return (bool)(await command.ExecuteScalarAsync(token))! ? Results.Ok(new { status = "ready" }) : Results.StatusCode(503);
     }
     catch (NpgsqlException) { return Results.StatusCode(503); }
@@ -130,6 +141,9 @@ app.MapPurchasing();
 app.MapInventoryControl();
 app.MapTransit();
 app.MapReconciliation();
+app.MapDocuments();
+app.MapPortalManagement();
+app.MapPortal();
 app.Run();
 
 public partial class Program;

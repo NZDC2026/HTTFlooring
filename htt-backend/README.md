@@ -1,12 +1,12 @@
 # HTT Backend
 
-澳洲 HTT Flooring 三端统一后台。阶段 A 基础及主数据、阶段 B 报价到订单、仓库交接、销售开票、客户收款、退货贷项、采购收货与财务过账；独立于 `ledgerone-api`，现有三个客户端无需修改。
+澳洲 HTT Flooring 三端统一后台。阶段 A 基础及主数据、阶段 B 报价到订单、仓库交接、销售开票、客户收款、退货贷项、采购收货与财务过账；独立于 `ledgerone-api`，现有三个客户端暂不改动。
 
 技术：.NET 10 LTS / ASP.NET Core、PostgreSQL 17、EF Core 10 / Npgsql。模块化单体，API、Worker、迁移工具独立进程。
 
 ## 已实现
 
-- 113张业务/基础表及16个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
+- 122张业务/基础表及18个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
 - OIDC JWT验证；Cognito access token模式验证`token_use=access`及`client_id`。未配置身份服务时没有开发后门，受保护接口保持锁定；生产配置缺失时拒绝启动。
 - 公司选择、数据库RLS、复合外键、销售客户范围过滤、显式接口权限；API/Worker强制使用受限数据库账号。
 - 客户创建/查询/状态更新（版本冲突保护），商品及单位创建/查询，基础资料/科目/税率查询，客户协议/促销价格解析，审计查询。
@@ -19,11 +19,13 @@
 - 采购草稿/PO确认、分批验收、库存数量/价值与GRNI原子过账，支持不可抵扣GST资本化、非库存费用和关闭未收余量。见[采购收货API](docs/stage-b-purchasing.md)。
 - 内部会计过账函数：来源版本、开放期间、两位小数、借贷平衡、控制科目party校验、唯一过账与不可变账簿。没有公开手工Journal接口。
 - 财务只读一致性检查：库存流水/数量/估值/预留、在途、客户信用投影、AR/AP/预收预付/GRNI/采购退货清算与GL控制核对；逐实体差异、统一快照、权限及有界明细，见[一致性API](docs/stage-b-reconciliation.md)。停用仓库/商品或禁售商品的库存查询保留实物量，可售量为0。
+- 报价/发票/采购订单PDF、邮件工作队列、同单版本快照及私有附件。PDF使用ReportLab；邮件通过可配置Resend适配器；附件扫描通过后授权下载。Worker租约、幂等、重试上限及未知发送结果保护见[文档流程与配置](docs/stage-b-documents.md)。文件当前存储在有大小上限的私有数据库中，未部署S3。
+- 客户门户独立JWT受众与只读数据库账号，客户/门店/仓库显式授权，发布受众、商品搜索/详情及多仓可售库存；权限、脱敏与并发边界见[门户API及部署](docs/stage-b-portal.md)。
 - Outbox并发领取、60秒租约、指数退避、5次失败后停止自动重试，未知事件不伪装成功。
 
 本次已补齐客户、门店/联系人、供应商、商品/单位/分类、区域/仓库及标准价/客户价/促销/底价维护，含停用、版本、幂等、审计和细分权限。路由、请求示例与权限矩阵见[主数据维护API](docs/master-data-api.md)。
 
-阶段B收口结论：已交付核心交易/账务切片通过隔离账套回归；原v2阶段B整体验收尚未通过。PDF/邮件/附件、回收站、客户门户授权库存等B需求仍未交付；三个客户端未联调、正式库未迁移。当前统一状态见[验收报告与剩余事项](docs/stage-b-acceptance.md)，逐项原需求见[116条验收矩阵](docs/requirements-acceptance.md)。历史切片说明中的旧待办不是当前全项目清单。
+阶段B收口结论：已交付核心交易/账务切片通过隔离账套回归；原v2阶段B整体验收尚未通过。017已补三类单据PDF/邮件与附件，018补客户门户授权及商品库存API；回收站、仓管交接照片及其他B欠交仍保留。三个客户端未联调、正式库未迁移。当前统一状态见[验收报告与剩余事项](docs/stage-b-acceptance.md)，逐项原需求见[116条验收矩阵](docs/requirements-acceptance.md)。真实发件域/密钥和ClamAV需配置，未发送真实客户邮件；历史切片说明中的旧待办不是当前全项目清单。
 
 详细边界见[阶段A交付说明](docs/stage-a.md)。这不是已完成的销售/仓库/财务ERP。阶段B第一批报价提交、办公室转单、信用及库存预留已实现，见[销售流程API](docs/stage-b-sales.md)。仓库分批拣货、提货/发运、库存扣减和成本原子过账已实现，见[仓库流程API](docs/stage-b-warehouse.md)。销售开票、应收/GST与承诺释放已实现，见[开票流程API](docs/stage-b-invoicing.md)。客户收款、预收核销与现金GST归属已实现，见[收款流程API](docs/stage-b-receipts.md)。退货/贷项/客户退款及来源冲销已实现，见[退货退款API](docs/stage-b-returns.md)。采购订单、采购收货与暂估已实现，见[采购收货API](docs/stage-b-purchasing.md)。供应商账单、精确收货匹配、GRNI冲减、AP与进项GST已实现，见[供应商账单API](docs/stage-b-supplier-bills.md)。供应商付款、预付款核销、AP余额和现金制进项GST归属已实现，见[供应商结算API](docs/stage-b-supplier-payments.md)。采购退货、供应商贷项/退款及库存/AP/GST冲销已实现，见[采购冲销API](docs/stage-b-purchase-returns.md)。仓间直接调拨、库存盘点、盘盈盘亏及报损已实现，见[库存控制API](docs/stage-b-inventory-control.md)。在途发运、分批接收、实际退回及财务短收处理已实现，见[在途调拨API](docs/stage-b-transit-transfers.md)。价格差异调整、独立预付税票、完整BAS及云端基础设施待后续实现。
 
@@ -43,7 +45,7 @@ infra                        仅用于本地环境的角色初始化
 
 ## 本地启动（Docker）
 
-需要Docker Compose。复制配置，替换三个开发密码，使用URL安全字符避免连接串分隔符歧义：
+需要Docker Compose。复制配置，替换四个开发密码，使用URL安全字符避免连接串分隔符歧义：
 
 ```sh
 cp .env.example .env
@@ -112,7 +114,7 @@ docker compose -f compose.test.yaml --env-file .env up --build --abort-on-contai
 docker compose -f compose.test.yaml --env-file .env down
 ```
 
-已有独立测试库时，设置`HTT_TEST_OWNER_CONNECTION`、`HTT_TEST_APP_CONNECTION`、`HTT_TEST_WORKER_CONNECTION`后运行`scripts/verify.sh`。测试库名必须包含`test`，集成测试缺少配置会明确失败，不会跳过并给出虚假全绿。
+已有独立测试库时，设置`HTT_TEST_OWNER_CONNECTION`、`HTT_TEST_APP_CONNECTION`、`HTT_TEST_WORKER_CONNECTION`、`HTT_TEST_PORTAL_CONNECTION`后运行`scripts/verify.sh`。测试库名必须包含`test`，集成测试缺少配置会明确失败，不会跳过并给出虚假全绿。
 
 测试owner还需在隔离测试服务上具有CREATEDB权限，以运行旧版001—003到004的真实升级测试；该权限不得授予API/Worker。
 

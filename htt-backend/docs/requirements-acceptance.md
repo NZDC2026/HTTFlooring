@@ -23,15 +23,15 @@
 | 10 / R010 | 管理/财务端：每客户单独产品价格 | P0 / 保留 | A | 后端已实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 标准/客户协议价格维护、有效期及版本；报价由后台解析。 |
 | 11 / R011 | 管理/财务端：活动特价按开始/结束时间自动生效失效 | P0 / 保留 | A | 后端已实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 活动按服务器时刻及[start,end)查询生效，无需依赖定时器。 |
 | 12 / R012 | 管理/财务端：按商品维护包/桶/m²等销售单位及换算 | P0 / 保留 | A | 后端已实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 商品单位、换算、基础单位及整包/步长校验已实现。 |
-| 13 / R013 | 管理/财务端：Quote CRUD, status, PDF/email; sales creates Quote only; back office converts approved Quote to Sales Order | P1 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md) | 报价草稿、修订、提交快照、审批转单已实现；PDF/邮件、回收站未交付。 |
+| 13 / R013 | 管理/财务端：Quote CRUD, status, PDF/email; sales creates Quote only; back office converts approved Quote to Sales Order | P1 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-documents.md](stage-b-documents.md) | 报价草稿、提交/修订/审批已实现；017补正式版本PDF/邮件及单据附件；回收站仍未交付。 |
 | 14 / R014 | 管理/财务端：Sales Order CRUD, fulfilment/status, created from approved Quote/back office, convert to Invoice | P1 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-warehouse.md](stage-b-warehouse.md) | 批准报价转SO、信用/预留、分批履约/开票及取消已实现；办公室直接建SO、完整修改与回收站未交付。 |
-| 15 / R015 | 管理/财务端：Invoice CRUD, lines, GST, attachments, PDF/email, history/status; back-office controlled | P0 / 保留 | B | 部分实现 | [stage-b-invoicing.md](stage-b-invoicing.md)；[stage-b-returns.md](stage-b-returns.md) | 开票、来源快照、AR/收入/GST、查询及贷项冲销已实现；附件、PDF/邮件和回收站未交付。已过账不开放任意CRUD。 |
+| 15 / R015 | 管理/财务端：Invoice CRUD, lines, GST, attachments, PDF/email, history/status; back-office controlled | P0 / 保留 | B | 部分实现 | [stage-b-invoicing.md](stage-b-invoicing.md)；[stage-b-returns.md](stage-b-returns.md)；[stage-b-documents.md](stage-b-documents.md) | 开票快照/AR/收入/GST及来源冲销已实现；017补PDF/邮件及附件；回收站未交付，已过账不开放任意CRUD。 |
 | 16 / R016 | 管理/财务端：Record/allocate partial & multi-invoice payments, balances | P0 / 部分缩减 | B | 后端已实现 | [stage-b-receipts.md](stage-b-receipts.md) | 人工核实客户收款、部分/多发票分配、预收核销、余额/信用释放已实现；在线支付按源边界排除。 |
 | 17 / R017 | 管理/财务端：Invoice/Order/Credit删除进入回收站 | P0 / 保留 | B | 未实现 | — | document表/取消不等于回收站；无trash/restore API及可见性恢复规则。 |
 | 18 / R018 | 管理/财务端：Credit notes, apply credit, refunds, ledger/bank posting | P1 / 保留 | B | 部分实现 | [stage-b-returns.md](stage-b-returns.md) | 实物退回、关联原发票贷项、退款及原账冲销已实现；独立贷项跨发票抵扣、解除核销和自由金额调整未交付。 |
 | 19 / R019 | 管理/财务端：Generate, print/PDF/email statements | P2 / 保留 | C | 未实现 | — | 客户对账单生成、PDF/邮件未交付；原矩阵属C。 |
 | 20 / R020 | 管理/财务端：Bill CRUD, supplier invoice, lines, GST, attachments/status | P0 / 保留 | B | 部分实现 | [stage-b-supplier-bills.md](stage-b-supplier-bills.md) | 已实现收货精确匹配、GRNI/AP/GST及原单贷项；无独立无收货费用账单、价格差异流程及附件管理。 |
-| 21 / R021 | 管理/财务端：PO CRUD, delivery, convert to bill | P1 / 保留 | B | 后端已实现 | [stage-b-purchasing.md](stage-b-purchasing.md)；[stage-b-supplier-bills.md](stage-b-supplier-bills.md) | PO草稿维护、确认、分批收货、收货匹配账单及关闭未收量已实现；匹配仅接受精确金额。 |
+| 21 / R021 | 管理/财务端：PO CRUD, delivery, convert to bill | P1 / 保留 | B | 后端已实现 | [stage-b-purchasing.md](stage-b-purchasing.md)；[stage-b-supplier-bills.md](stage-b-supplier-bills.md)；[stage-b-documents.md](stage-b-documents.md) | PO草稿、确认、分批收货、精确匹配账单及关闭余量已实现；017补正式PO的PDF/邮件与附件，仍只接受精确匹配。 |
 | 22 / R022 | 管理/财务端：Allocate payments, partial/multiple bills, remittance | P0 / 部分缩减 | B | 后端已实现 | [stage-b-supplier-payments.md](stage-b-supplier-payments.md) | 人工核实付款、多账单分配、预付核销和现金制进项GST已实现；汇款通知/打印按源边界排除。 |
 | 23 / R023 | 管理/财务端：Supplier debits, apply debit, supplier refunds | P1 / 保留 | B | 部分实现 | [stage-b-purchase-returns.md](stage-b-purchase-returns.md) | 原收货退货、来源贷项、供应商/预付退款已实现；独立贷项跨账单抵扣及解除核销未交付。 |
 | 24 / R024 | 管理/财务端：Templates, schedules, auto-generate invoices/bills/transactions | P2 / 保留 | D | 未实现 | — | Recurring模板/调度/自动生成未实现；原矩阵属D。 |
@@ -54,10 +54,10 @@
 | 41 / R041 | 管理/财务端：Sales, purchases, receivables/payables, payroll, banking | P1 / 保留 | C/D | 部分实现 | [stage-b-invoicing.md](stage-b-invoicing.md)；[stage-b-supplier-bills.md](stage-b-supplier-bills.md) | 有单据、AR/AP/GRNI/GST来源查询；完整账龄/业务报表及导出未交付；C/D。 |
 | 42 / R042 | 管理/财务端：Filters, columns, saved reports/favourites | P2 / 保留 | D | 未实现 | — | 收藏/自定义报表未实现；D。 |
 | 43 / R043 | 管理/财务端：Multi-report packs, cover/TOC, PDF generation | P2 / 保留 | D | 未实现 | — | 报表包、封面/目录/PDF未实现；D。 |
-| 44 / R044 | 管理/财务端：Upload/preview/delete, entity attachments, document inbox | P1 / 保留 | B | 未实现 | [stage-a.md](stage-a.md) | 仅附件基础表，无上传、扫描、授权下载/预览/删除API；B缺口。 |
+| 44 / R044 | 管理/财务端：Upload/preview/delete, entity attachments, document inbox | P1 / 保留 | B | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-documents.md](stage-b-documents.md) | 017补QUOTE/INVOICE/PURCHASE_ORDER私有PDF/PNG/JPEG附件上传、扫描、版本绑定、撤销和授权下载；仓管交接照片、其他单据/实体附件、云存储接入未完成。 |
 | 45 / R045 | 管理/财务端：Receipt/bill extraction and assisted creation | P3 / 延期候选 | 候选P3 | 未实现 | — | 管理端票据OCR是候选P3，未实现；不得因此删除C销售名片OCR。 |
 | 46 / R046 | 管理/财务端：Business details, address, financial year, GST, logo | P0 / 保留 | A | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-invoicing.md](stage-b-invoicing.md) | AU/AUD/ABN、财年、时区、GST种子/受控CLI已实现；完整公司地址/logo与管理设置未交付。 |
-| 47 / R047 | 管理/财务端：Numbering, terms, templates, email, reminders, online payment config | P1 / 部分缩减 | A/B | 部分实现 | [stage-b-sales.md](stage-b-sales.md) | 事务编号、默认账期、报价有效期已实现；办公室编号配置、模板/邮件未交付；源边界排除在线支付/独立催收。 |
+| 47 / R047 | 管理/财务端：Numbering, terms, templates, email, reminders, online payment config | P1 / 部分缩减 | A/B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-documents.md](stage-b-documents.md) | 事务编号/账期及017默认PDF/邮件模板已实现；办公室编号/模板配置界面未交付；在线支付/独立催收仍按原边界排除。 |
 | 48 / R048 | 管理/财务端：Numbering, defaults, payment terms/preferences | P1 / 保留 | A/B | 部分实现 | [stage-b-purchasing.md](stage-b-purchasing.md) | 默认采购编号/账期和映射已实现；完整可维护采购设置API未交付。 |
 | 49 / R049 | 管理/财务端：Pay cycles, defaults, banking, filing config | P1 / 保留 | D | 未实现 | — | 工资配置未实现；D。 |
 | 50 / R050 | 管理/财务端：Basis, currency, headers, number formatting | P2 / 保留 | D | 未实现 | — | 独立报表口径/页眉/格式设置未实现；D。 |
@@ -65,9 +65,9 @@
 | 52 / R052 | 管理/财务端：Search/filter/sort/pagination/columns/bulk/export | P0 / 保留 | A起贯穿 | 部分实现 | [master-data-api.md](master-data-api.md) | 列表稳定分页与部分过滤已实现；完整白名单搜索排序/批量/导出契约未实现。 |
 | 53 / R053 | 管理/财务端：System reminders, due items, action centre | P2 / 部分缩减 | C | 未实现 | [stage-a.md](stage-a.md) | Outbox基础消费者不等于业务Task/推送；C。 |
 | 54 / R054 | 管理/财务端：CSV import mapping/validation/errors + data exports | P1 / 保留 | A起贯穿 | 未实现 | — | CSV映射/预览/逐行错误和业务数据导出未实现；受控期初CLI不是通用导入。 |
-| 55 / R055 | 管理/财务端：Invoice/quote/PO/statement/remittance document generation | P1 / 部分缩减 | B/C | 未实现 | — | 报价/发票/PO输出属B、statement属C，均无生成/投递实现；排除Remittance/收据专用模板。 |
-| 56 / R056 | 管理/财务端：Unit/integration/E2E, permission tests, financial regression, security hardening | P0 / 保留 | 全阶段 | 部分实现 | [verification.md](verification.md)；[stage-b-acceptance.md](stage-b-acceptance.md) | 真实PostgreSQL权限/幂等/并发及账务回归已覆盖；三个客户端E2E、真实身份服务、安全/生产容量验收未完成。 |
-| 57 / R057 | 管理/财务端：CI/CD, environments, backup, logging, monitoring, release | P0 / 保留 | A起贯穿 | 部分实现 | [stage-a.md](stage-a.md) | Docker、迁移、日志、健康检查、测试脚本已实现；正式CI/CD、云部署、监控告警、备份恢复演练未验证。 |
+| 55 / R055 | 管理/财务端：Invoice/quote/PO/statement/remittance document generation | P1 / 部分缩减 | B/C | 部分实现 | —；[stage-b-documents.md](stage-b-documents.md) | 017已实现报价/发票/PO固定版本模板、PDF生成及邮件接受回执；statement仍属C待交付；自定义模板管理未提供，Remittance/收据专用模板仍排除。 |
+| 56 / R056 | 管理/财务端：Unit/integration/E2E, permission tests, financial regression, security hardening | P0 / 保留 | 全阶段 | 部分实现 | [verification.md](verification.md)；[stage-b-acceptance.md](stage-b-acceptance.md)；[stage-b-documents.md](stage-b-documents.md) | 真实PostgreSQL权限/幂等/并发/财务回归及017文档/协议/重试专项已实现；客户端E2E、真实外部身份/发件服务及生产安全/容量验收未完成。 |
+| 57 / R057 | 管理/财务端：CI/CD, environments, backup, logging, monitoring, release | P0 / 保留 | A起贯穿 | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-documents.md](stage-b-documents.md) | Docker/迁移/健康检查/日志/测试脚本及017PDF运行时镜像已验证；正式CI/CD、云部署、监控告警、备份恢复和真实扫描/发件运营未验收。 |
 | 58 / S-01 | 销售端：销售人员登录 | P0 / 保留 | A | 部分实现 | [stage-a.md](stage-a.md) | 员工JWT及DB成员权限校验已实现；真实身份提供商、移动登录联调未完成。 |
 | 59 / S-02 | 销售端：销售工作台 | P1 / 保留 | C | 未实现 | — | 销售工作台聚合接口未实现；C。 |
 | 60 / S-03 | 销售端：按客户名、编号、门店、联系人、电话或Email搜索；支持最近访问、区域/状态筛选。 | P0 / 保留 | A/B | 部分实现 | [master-data-api.md](master-data-api.md) | 客户名称/编号搜索及授权范围已实现；跨门店/联系人/电话/email搜索、最近访问、区域筛选未实现。 |
@@ -96,7 +96,7 @@
 | 83 / S-26 | 销售端：销售从客户+门店+商品创建Quotation，录入包数或m²、价格、折扣、备注。 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 客户/门店报价、数量或面积输入、后台定价/折扣/备注及底价权限已实现；客户端录入未联调。 |
 | 84 / S-27 | 销售端：报价列表/详情 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 授权报价列表/详情/状态已实现。 |
 | 85 / S-28 | 销售端：报价草稿与提交 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 草稿、提交、正式编号、不可变快照和修订已实现。 |
-| 86 / S-29 | 销售端：照片/附件 | P2 / 保留 | B/C | 未实现 | [stage-a.md](stage-a.md) | 附件表不等于照片功能；报价/交接附件B、CRM照片C，均未实现。 |
+| 86 / S-29 | 销售端：照片/附件 | P2 / 保留 | B/C | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-documents.md](stage-b-documents.md) | 017已实现报价单据附件上传/扫描/授权访问；其他CRM照片及仓管交接凭证流程未接入。 |
 | 87 / S-30 | 销售端：弱网缓存 | P2 / 保留 | C | 未实现 | — | 客户端离线缓存及同步协议未交付；C。 |
 | 88 / S-31 | 销售端：销售数据隔离 | P0 / 保留 | A起贯穿 | 后端已实现 | [stage-a.md](stage-a.md)；[stage-b-sales.md](stage-b-sales.md) | 公司及销售授权客户隔离，成本另授权；未来接口仍须单独验证。 |
 | 89 / S-32 | 销售端：操作记录 | P0 / 保留 | A起贯穿 | 部分实现 | [stage-a.md](stage-a.md) | 已交付命令的操作者/请求/版本及审计已实现；移动设备上下文、业务日志聚合未完整交付。 |
@@ -108,18 +108,18 @@
 | 95 / S-44 | 销售端：同一客户/老板名下关联多家店面 | P0 / 保留 | A/B | 后端已实现 | [master-data-api.md](master-data-api.md) | 同一客户关联多门店及跨主体校验已实现。 |
 | 96 / S-45 | 销售端：一个门店维护多个不同联系人 | P0 / 保留 | A/B | 后端已实现 | [master-data-api.md](master-data-api.md) | 多联系人及门店关联集合维护、会计联系人用途已实现。 |
 | 97 / S-46 | 销售端：Quotation包数与m²双向换算 | P0 / 保留 | A/B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 包/m²权威输入、向上整包、覆盖面积和步长校验已实现；客户端交互未联调。 |
-| 98 / C-01 | 客户端：客户登录 | P0 / 保留 | A/B | 未实现 | [stage-a.md](stage-a.md) | 客户grant仅结构；无客户专用登录/授权会话与真实OIDC联调，不能复用员工权限冒充客户。 |
-| 99 / C-02 | 客户端：库存查询入口 | P0 / 保留 | B | 未实现 | — | 门户库存入口未接入；本轮按指令不改客户端。 |
-| 100 / C-03 | 客户端：商品搜索 | P0 / 保留 | B | 未实现 | — | 门户专用授权商品搜索API未交付；员工商品接口不能直接作为客户接口。 |
-| 101 / C-04 | 客户端：商品列表 | P0 / 保留 | B | 未实现 | — | 门户专用列表/字段契约未交付。 |
-| 102 / C-05 | 客户端：商品详情 | P0 / 保留 | B | 未实现 | — | 门户商品详情/规格/单位授权接口未交付。 |
-| 103 / C-06 | 客户端：实时可售库存 | P0 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-reconciliation.md](stage-b-reconciliation.md) | 共享可售计算已实现且修复停用错误；客户grant/门户专用数量字段及展示未交付。 |
-| 104 / C-07 | 客户端：多仓库库存 | P1 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md) | 员工仓库授权库存已有；客户多仓授权与门户API未交付。 |
-| 105 / C-08 | 客户端：库存状态 | P0 / 保留 | B | 未实现 | — | 门户库存状态/阈值统一派生接口及展示未交付。 |
-| 106 / C-09 | 客户端：筛选与排序 | P1 / 保留 | B | 未实现 | — | 门户白名单筛选排序契约未实现。 |
-| 107 / C-10 | 客户端：客户数据隔离 | P0 / 保留 | A起贯穿 | 未实现 | [stage-a.md](stage-a.md) | 员工隔离已测；客户grant/门店/仓库授权HTTP流程及越权测试未交付。 |
-| 108 / C-11 | 客户端：库存API集成 | P0 / 保留 | B | 未实现 | — | 客户库存API与Dart/TS契约联调未交付；三个客户端未改。 |
-| 109 / C-12 | 客户端：异常与空状态 | P0 / 保留 | B | 未实现 | — | 门户空数据/权限/失败/过期缓存联调未交付；API错误结构已有。 |
+| 98 / C-01 | 客户端：客户登录 | P0 / 保留 | A/B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018完成独立JWT受众/外部身份绑定、上下文选择；真实OIDC/Cognito应用、邀请/登录页面及续期联调待交付。 |
+| 99 / C-02 | 客户端：库存查询入口 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018提供门户库存入口所需上下文及仓库API；客户端入口页面未接入。 |
+| 100 / C-03 | 客户端：商品搜索 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018实现门户SKU/名称/条码字面搜索；客户端搜索界面未接入。 |
+| 101 / C-04 | 客户端：商品列表 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018实现分页列表与脱敏字段契约；客户端展示未接入。 |
+| 102 / C-05 | 客户端：商品详情 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018实现授权商品详情、公开描述、分类/单位/换算/条码；商品图片及客户端展示未接入。 |
+| 103 / C-06 | 客户端：实时可售库存 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018实现只读语句快照的授权可售量和dataAsOf；不承诺未来库存，客户端展示未接入。 |
+| 104 / C-07 | 客户端：多仓库库存 | P1 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018实现门店显式多仓授权、合法零库存及同快照汇总；客户端未接入。 |
+| 105 / C-08 | 客户端：库存状态 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018按公开阈值派生三种库存状态；客户端展示未接入。 |
+| 106 / C-09 | 客户端：筛选与排序 | P1 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018实现分类/库存状态筛选及SKU/名称/可售量排序白名单；客户端未接入。 |
+| 107 / C-10 | 客户端：客户数据隔离 | P0 / 保留 | A起贯穿 | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018完成客户/公司/门店/仓库与商品受众隔离HTTP专项；真实客户端身份联调未完成。 |
+| 108 / C-11 | 客户端：库存API集成 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018已提供专用库存API及真实HTTP契约测试；Dart/TS客户端联调未交付，三个客户端未改。 |
+| 109 / C-12 | 客户端：异常与空状态 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018覆盖空商品/合法零库存、401/400/403/404/422及no-store；客户端异常/缓存呈现和真实服务故障联调未交付。 |
 | 110 / R110 | 管理/财务端：客户返点规则与结算 | P1 / 新增 | C/D | 未实现 | — | 返点规则/计提/审批/结算未实现；C/D。 |
 | 111 / R111 | 管理/财务端：销售代表分红/佣金 | P1 / 新增 | C/D | 未实现 | — | 佣金归属/计提/审批/结算未实现；C/D。 |
 | 112 / R112 | 管理/财务端：客户×产品销量趋势分析 | P1 / 新增 | C | 未实现 | — | 客户×SKU净销量趋势未实现；C。 |
@@ -131,10 +131,14 @@
 
 ## 完整性核对
 
-116源行一一对应，无漏行/重复。后台状态数量：后端已实现 21；排除 3；未实现 58；部分实现 34。这些是需求行数量，不是项目进度百分比。
+116源行一一对应，无漏行/重复。后台状态数量：后端已实现 21；排除 3；未实现 55；部分实现 37。这些是需求行数量，不是项目进度百分比。
 
 “需求增删与边界”sheet第2—9行保留基础依赖并排除独立加工、Time Billing、在线支付引导、电子支付/支票/汇款通知、手工Journal UI及Send to Accountant；未把删除页面解释成删除库存入账/底层会计。第10—13行的返点、佣金、趋势、办公室共享均保留并列C/D待办。
 
 “新功能验收口径”第2—6行的规则版本、净销售、归属、授权和重复保护作为后续激励验收条件，当前均未宣称完成；第7行待确认语义保留。概览sheet的人日/复用假设未被当作交付证据。
 
 仓管W-01—W-06为原v2补充，不占116行：仓库范围/采购收货/拣货/出库/来源退货已实现；批次货位、扫码输入协议、少拣原因及交接照片证据尚缺；选定SKU盘点/审核和在途调拨已实现，整仓盲盘/复盘流程未实现。详见阶段B验收报告。
+
+017文档后续：QUOTE/INVOICE/PURCHASE_ORDER输出及附件的最新边界见stage-b-documents.md。上述三类单据可用不代表W-04仓管照片或全部附件实体均已接入，也未改变原B/C/D阶段归属。
+
+018门户后续：C-01—C-12补齐本批后端授权/商品/库存切片；状态仍为部分实现以保留真实身份服务和客户端联调。员工端S-23通用条码搜索不因门户搜索自动完成。

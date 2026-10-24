@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至016共113张业务/基础表及16个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至018共122张业务/基础表及18个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -672,3 +672,12 @@ platform.documents是编号与版本锚点，报价/订单独立实体；quote_s
 ## 016_reconciliation.sql（阶段B控制一致性）
 
 不增加业务表或科目，维持113张。新增accounting.reconciliation.read权限、ADMIN/FINANCE新旧公司种子、固定search_path权限检查辅助函数，以及SECURITY INVOKER/STABLE的accounting.reconciliation_checks()。单语句读取不可变业务流水、可变余额与GL；覆盖库存/估值/预留/在途、客户信用投影、发票AR与账单AP来源、预收预付、GRNI、采购退货清算及Journal。API将逐实体比较结果聚合并限制每项20条差异样本，不自动补差或改写凭证。001—015摘要保持不变，ready要求016函数存在。公式/范围见[一致性API](stage-b-reconciliation.md)，验收与剩余事项见[阶段B收口](stage-b-acceptance.md)。
+
+
+## 017_document_delivery.sql（PDF、邮件及私有附件）
+
+新增platform.file_contents、file_assets、document_jobs、document_job_attempts四表，总数117；复用files/file_links。bytea字节、SHA/size、版本与单据链接同事务且字节不可变，扫描通过后才能下载。来源/载荷不可改写，PDF每单每版本唯一；Worker只可通过租约fencing函数跨公司领取及完成，表本身不授予广泛Worker访问。ADMIN等按单据读取/客户范围及采购成本权限组合，邮件另按类型send权限；重试保留历史，过期邮件租约/未知结果阻止自动重发。新增权限和新旧公司种子；001—016不改。完整API、配置及边界见[文档流程](stage-b-documents.md)。
+
+## 018_customer_portal.sql
+
+新增identity.portal_principals、identity.customer_user_warehouse_scopes、portal.product_publications、portal.product_audiences及catalog.product_barcodes共5表；旧grant增加默认关闭的portal_enabled。新表公司范围FORCE RLS、复合外键及唯一条码，客户身份与员工membership互斥锁/触发器；portal schema对白名单读取函数授予htt_portal EXECUTE，不开放原始表。管理员身份授权、发布受众维护及只读快照API详见[门户流程](stage-b-portal.md)。001—017不改。
