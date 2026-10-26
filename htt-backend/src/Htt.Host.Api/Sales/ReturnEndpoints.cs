@@ -17,6 +17,7 @@ internal static class ReturnEndpoints
 {
     public static void Map(RouteGroupBuilder g)
     {
+        CustomerCreditApplicationEndpoints.Map(g);
         g.MapGet("/warehouse/orders/{id:guid}/returnable", async (Guid id, CompanySession s, CancellationToken ct) =>
         {
             await WarehouseOrder(s, id, "inventory.returns.read", ct);
@@ -37,7 +38,7 @@ internal static class ReturnEndpoints
         }).WithMetadata(new Permission("sales.credits.read"));
         g.MapGet("/sales-invoices/{id:guid}/credit-notes", async (Guid id, HttpContext h, CompanySession s, CancellationToken ct) =>
         {
-            await Invoice(h, s, id, ct); return Results.Ok(new { items = (await Read(s, "SELECT cn.id,d.number,cn.reason,cn.net,cn.tax,cn.gross FROM sales.credit_notes cn JOIN platform.documents d ON d.company_id=cn.company_id AND d.id=cn.id WHERE cn.company_id=@company AND cn.invoice_id=@id ORDER BY cn.created_at,cn.id", ct, new DbArg("id", id))).Select(PublicRow) });
+            await Invoice(h, s, id, ct); return Results.Ok(new { items = (await Read(s, "SELECT cn.id,d.number,cn.reason,cn.net,cn.tax,cn.gross FROM sales.credit_notes cn JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=cn.company_id AND d.id=cn.id WHERE cn.company_id=@company AND cn.invoice_id=@id ORDER BY cn.created_at,cn.id", ct, new DbArg("id", id))).Select(PublicRow) });
         }).WithMetadata(new Permission("sales.credits.read"));
         g.MapPost("/customers/{id:guid}/refunds", Refund).WithMetadata(new Permission("accounting.refunds.write"));
         g.MapGet("/customer-refunds/{id:guid}", async (Guid id, HttpContext h, CompanySession s, CancellationToken ct) => Results.Ok(await RefundView(h, s, id, ct))).WithMetadata(new Permission("accounting.refunds.read"));
@@ -93,9 +94,9 @@ internal static class ReturnEndpoints
     }
     private static async Task<object> CreditView(HttpContext h, CompanySession s, Guid id, CancellationToken ct)
     {
-        var cn = await One(s, "SELECT cn.*,d.number,d.state,d.version,d.business_date::text FROM sales.credit_notes cn JOIN platform.documents d ON d.company_id=cn.company_id AND d.id=cn.id WHERE cn.company_id=@company AND cn.id=@id", ct, new DbArg("id", id));
+        var cn = await One(s, "SELECT cn.*,d.number,d.state,d.version,d.business_date::text FROM sales.credit_notes cn JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=cn.company_id AND d.id=cn.id WHERE cn.company_id=@company AND cn.id=@id", ct, new DbArg("id", id));
         var invoice = await Invoice(h, s, (Guid)cn["invoice_id"]!, ct);
-        return new { id, number = cn["number"], state = cn["state"], version = cn["version"], invoiceId = cn["invoice_id"], invoiceNumber = invoice["number"], businessDate = cn["business_date"], title = (string)invoice["title"]! == "TAX_INVOICE" ? "ADJUSTMENT_NOTE" : "CREDIT_NOTE", issuer = Element(invoice["issuer_snapshot"]!), customer = Element(invoice["customer_snapshot"]!), reason = cn["reason"], net = cn["net"], tax = cn["tax"], gross = cn["gross"], lines = (await Read(s, "SELECT cl.id,cl.invoice_line_id,cl.return_line_id,cl.quantity,cl.net,cl.tax,cl.gross,cl.gross-coalesce((SELECT sum(amount) FROM accounting.customer_refunds WHERE company_id=cl.company_id AND credit_line_id=cl.id),0) AS unrefunded_credit FROM sales.credit_note_lines cl WHERE cl.company_id=@company AND cl.credit_note_id=@id ORDER BY cl.id", ct, new DbArg("id", id))).Select(PublicRow) };
+        return new { id, number = cn["number"], state = cn["state"], version = cn["version"], invoiceId = cn["invoice_id"], invoiceNumber = invoice["number"], businessDate = cn["business_date"], title = (string)invoice["title"]! == "TAX_INVOICE" ? "ADJUSTMENT_NOTE" : "CREDIT_NOTE", issuer = Element(invoice["issuer_snapshot"]!), customer = Element(invoice["customer_snapshot"]!), reason = cn["reason"], net = cn["net"], tax = cn["tax"], gross = cn["gross"], lines = (await Read(s, "SELECT cl.id,cl.invoice_line_id,cl.return_line_id,cl.quantity,cl.net,cl.tax,cl.gross,cl.unallocated_amount AS unrefunded_credit,cl.unallocated_amount,cl.applied_amount,cl.refunded_amount,cl.available_apply_amount FROM sales.customer_credit_line_balances cl WHERE cl.company_id=@company AND cl.credit_note_id=@id ORDER BY cl.id", ct, new DbArg("id", id))).Select(PublicRow) };
     }
     private static async Task<IResult> Refund(Guid id, CustomerRefundInput input, HttpContext h, CompanySession s, Idempotency idem, CancellationToken ct)
     {

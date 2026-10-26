@@ -24,6 +24,12 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
     [InlineData(15)]
     [InlineData(16)]
     [InlineData(17)]
+    [InlineData(18)]
+    [InlineData(19)]
+    [InlineData(20)]
+    [InlineData(21)]
+    [InlineData(22)]
+    [InlineData(23)]
     public async Task Existing_stage_A_database_upgrades_without_rewriting_history_or_losing_legacy_branches(int originalVersion)
     {
         var name = "htt_upgrade_test_" + Guid.NewGuid().ToString("N");
@@ -131,17 +137,107 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
                         END $stock$;
                         """,con);await oldStock.ExecuteNonQueryAsync();
                 }
+                if(originalVersion>=21)
+                {
+                    await using var expense=new NpgsqlCommand("""
+                        SELECT identity.seed_expense_bill_roles(core.current_company()),identity.seed_supplier_payment_roles(core.current_company()),identity.seed_purchase_return_roles(core.current_company());
+                        INSERT INTO accounting.accounts(company_id,code,name,kind) VALUES(core.current_company(),'6060','Legacy expense','EXPENSE');
+                        INSERT INTO accounting.accounts(company_id,code,name,kind,control_kind) VALUES(core.current_company(),'1000','Bank','ASSET','BANK');
+                        INSERT INTO accounting.account_mappings(company_id,purpose,account_id) SELECT company_id,'BANK',id FROM accounting.accounts WHERE company_id=core.current_company() AND code='1000';
+                        SELECT purchase.post_expense_bill(s.id,'LEGACY-EXPENSE',current_date,current_date+30,current_date,NULL,NULL,'Original 021 expense',jsonb_build_array(jsonb_build_object('expenseAccountId',a.id,'description','Legacy operating expense','net',20,'tax',0,'taxCodeId',t.id))) FROM crm.suppliers s JOIN accounting.accounts a ON a.company_id=s.company_id AND a.code='6060' JOIN accounting.tax_codes t ON t.company_id=s.company_id AND t.code='FRE' WHERE s.company_id=core.current_company();
+                        SELECT purchase.post_supplier_payment(b.supplier_id,10,0,'BANK_TRANSFER','LEGACY-EXPENSE-PAYMENT',current_date,'',jsonb_build_array(jsonb_build_object('billLineId',bl.id,'amount',10))) FROM purchase.bills b JOIN purchase.bill_lines bl ON bl.company_id=b.company_id AND bl.bill_id=b.id WHERE b.company_id=core.current_company() AND b.supplier_invoice='LEGACY-EXPENSE';
+                        """,con);await expense.ExecuteNonQueryAsync();
+                }
+                if(originalVersion==22)
+                {
+                    await using var oldCredit=new NpgsqlCommand("""
+                        SELECT purchase.post_expense_credit(b.id,'LEGACY-EXPENSE-CREDIT','Original 022 adjustment',jsonb_build_array(jsonb_build_object('billLineId',bl.id,'amount',20))) FROM purchase.bills b JOIN purchase.bill_lines bl ON bl.bill_id=b.id WHERE b.supplier_invoice='LEGACY-EXPENSE';
+                        """,con);await oldCredit.ExecuteNonQueryAsync();
+                }
+                if(originalVersion==18)
+                {
+                    await using var oldDeleted=new NpgsqlCommand("""
+                        INSERT INTO platform.documents(id,company_id,document_type,business_date,deleted_at,deleted_by,created_by)
+                        SELECT '90000000-0000-0000-0000-000000000001',core.current_company(),'QUOTE',current_date,now(),id,id FROM identity.users WHERE issuer='upgrade' AND subject='buyer';
+                        INSERT INTO sales.quotes(id,company_id,customer_id,customer_branch_id,warehouse_id,expires_on,customer_snapshot,net,tax,gross,pricing_at,created_by)
+                        SELECT '90000000-0000-0000-0000-000000000001',core.current_company(),'30000000-0000-0000-0000-000000000001',b.id,w.id,current_date+10,'{}',0,0,0,now(),u.id
+                        FROM crm.customer_branches b CROSS JOIN catalog.warehouses w CROSS JOIN identity.users u WHERE b.code='OLD' AND w.code='OLD-WH' AND u.issuer='upgrade' AND u.subject='buyer';
+                        """,con);await oldDeleted.ExecuteNonQueryAsync();
+                }
+                if(originalVersion==23)
+                {
+                    await using var oldSales=new NpgsqlCommand("""
+                        DO $old$ DECLARE c uuid:=core.current_company();a uuid;pa uuid;cu uuid;br uuid;pu uuid;prod uuid;wh uuid;o uuid;l uuid;i uuid;il uuid;n int;BEGIN
+                        SELECT id INTO a FROM identity.users WHERE issuer='upgrade' AND subject='buyer';PERFORM set_config('htt.actor_id',a::text,true);PERFORM identity.seed_receipt_roles(c);PERFORM identity.seed_return_roles(c);
+                        INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT c,r.id,p.code FROM identity.roles r CROSS JOIN identity.permissions p WHERE r.company_id=c AND r.code='ADMIN' ON CONFLICT DO NOTHING;
+                        INSERT INTO accounting.accounts(company_id,code,name,kind,control_kind) VALUES(c,'1100','AR','ASSET','AR'),(c,'4000','Revenue','REVENUE',NULL);
+                        INSERT INTO accounting.account_mappings(company_id,purpose,account_id) SELECT c,CASE code WHEN '1100' THEN 'AR' ELSE 'REVENUE' END,id FROM accounting.accounts WHERE company_id=c AND code IN('1100','4000');
+                        INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES(c,'SALES_ORDER','SO-'),(c,'INVOICE','INV-') ON CONFLICT DO NOTHING;
+                        INSERT INTO crm.parties(company_id,legal_name) VALUES(c,'Legacy sales customer') RETURNING id INTO pa;INSERT INTO crm.customers(company_id,party_id,code,credit_limit) VALUES(c,pa,'OLD-SALES',1000) RETURNING id INTO cu;INSERT INTO crm.customer_credit_exposures(company_id,customer_id) VALUES(c,cu);
+                        INSERT INTO crm.customer_branches(company_id,customer_id,code,name,address_line1,state,postcode) VALUES(c,cu,'OLD-SALES','Original store','10 Test St','NSW','2000') RETURNING id INTO br;
+                        SELECT id INTO wh FROM catalog.warehouses WHERE company_id=c AND code='OLD-WH';SELECT p.id,u.id INTO prod,pu FROM catalog.products p JOIN catalog.product_units u ON u.company_id=p.company_id AND u.product_id=p.id WHERE p.company_id=c AND p.sku='OLD-SERVICE';
+                        FOR n IN 1..2 LOOP
+                         o:=gen_random_uuid();l:=gen_random_uuid();INSERT INTO platform.documents(id,company_id,document_type,number,business_date,state,created_by) VALUES(o,c,'SALES_ORDER',sales.next_number('SALES_ORDER'),current_date,'CONFIRMED',a);
+                         INSERT INTO sales.orders(id,company_id,order_origin,creation_reason,pricing_at,customer_id,customer_branch_id,warehouse_id,customer_snapshot,net,tax,gross,approved_by,created_by) VALUES(o,c,'DIRECT','Legacy sale',now(),cu,br,wh,'{}',10,0,10,a,a);
+                         INSERT INTO platform.document_lines(id,company_id,document_id,line_no,created_by) VALUES(l,c,o,1,a);
+                         INSERT INTO sales.order_lines(id,company_id,order_id,product_id,product_unit_id,item_type,quantity,base_quantity,unit_price,net,tax,gross,snapshot,created_by) VALUES(l,c,o,prod,pu,'SERVICE',1,1,10,10,0,10,'{"taxRate":0,"taxCode":"FRE","quantity":1,"baseQuantity":1,"unitPrice":10,"quantityStep":1}',a);
+                         PERFORM sales.lock_credit(cu);INSERT INTO sales.credit_decisions(company_id,order_id,customer_id,credit_limit,receivable,unbilled_before,advances,order_amount,exposure_after,created_by) SELECT c,o,cu,1000,receivable,unbilled_orders,available_advances,10,greatest(0,receivable+unbilled_orders+10-available_advances),a FROM crm.customer_credit_exposures WHERE company_id=c AND customer_id=cu;INSERT INTO sales.credit_commitments(company_id,order_id,customer_id,amount,created_by) VALUES(c,o,cu,10,a);UPDATE crm.customer_credit_exposures SET unbilled_orders=unbilled_orders+10 WHERE company_id=c AND customer_id=cu;
+                         i:=sales.post_invoice(o,1,jsonb_build_array(jsonb_build_object('orderLineId',l,'quantity',1)),'LEGACY-SALES-'||n);SELECT id INTO il FROM sales.invoice_lines WHERE company_id=c AND invoice_id=i;
+                         IF n=1 THEN PERFORM accounting.post_receipt(cu,10,'BANK_TRANSFER','LEGACY-CUSTOMER-RECEIPT',(SELECT invoice_date FROM sales.invoices WHERE id=i),jsonb_build_array(jsonb_build_object('invoiceLineId',il,'amount',10)),'[]');PERFORM sales.post_credit_note(i,'LEGACY-CUSTOMER-CREDIT',jsonb_build_array(jsonb_build_object('invoiceLineId',il,'quantity',1)));END IF;
+                        END LOOP;END $old$;
+                        """,con);await oldSales.ExecuteNonQueryAsync();
+                }
             }
             await MigrationRunner.ApplyAsync(owner);
             await MigrationRunner.ApplyAsync(owner);
             await using var check = new NpgsqlConnection(owner); await check.OpenAsync();
-            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(18L, await count.ExecuteScalarAsync());
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(24L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT receivable FROM crm.customer_credit_exposures"; Assert.Equal(20m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT unbilled_orders FROM crm.customer_credit_exposures"; Assert.Equal(10m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT available_advances FROM crm.customer_credit_exposures"; Assert.Equal(5m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT count(*) FROM crm.customer_branches WHERE code='OLD'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT count(*) FROM identity.roles WHERE code='OFFICE'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT count(*) FROM identity.role_permissions p JOIN identity.roles r ON r.id=p.role_id WHERE r.code='ADMIN' AND p.permission_code='pricing.floor.write'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
+            count.CommandText="SELECT count(*) FROM identity.role_permissions WHERE permission_code IN('documents.trash.read','documents.trash.write','documents.trash.restore') AND role_id=(SELECT id FROM identity.roles WHERE code='ADMIN')";Assert.Equal(3L,await count.ExecuteScalarAsync());
+            if(originalVersion==23)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT available_apply_amount FROM sales.customer_credit_line_balances";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sales.apply_customer_credit(cn.id,'UPGRADED-CUSTOMER-APPLY','Old paid credit',jsonb_build_array(jsonb_build_object('creditLineId',cl.id,'invoiceLineId',il.id,'amount',10))) FROM sales.credit_notes cn JOIN sales.credit_note_lines cl ON cl.credit_note_id=cn.id CROSS JOIN sales.invoices i JOIN sales.invoice_lines il ON il.invoice_id=i.id WHERE i.fulfilment_reference='LEGACY-SALES-2'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(outstanding_amount) FROM sales.invoice_line_balances";Assert.Equal(0m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sales.unapply_customer_credit(id,'UPGRADED-CUSTOMER-UNDO','Restore old balances') FROM sales.credit_applications";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(outstanding_amount) FROM sales.invoice_line_balances";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(amount) FROM accounting.payment_allocations";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT receivable FROM crm.customer_credit_exposures e JOIN crm.customers c ON c.id=e.customer_id WHERE c.code='OLD-SALES'";Assert.Equal(0m,await count.ExecuteScalarAsync());
+            }
+            if(originalVersion==22)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT refundable_amount FROM purchase.supplier_credit_line_balances cl JOIN purchase.supplier_credit_notes cn ON cn.id=cl.credit_note_id WHERE cn.reference='LEGACY-EXPENSE-CREDIT'";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT purchase.apply_supplier_credit(cn.id,'UPGRADED-APPLY','Verified old credit transfer',jsonb_build_array(jsonb_build_object('creditLineId',cl.id,'billLineId',bl.id,'amount',10))) FROM purchase.supplier_credit_notes cn JOIN purchase.supplier_credit_lines cl ON cl.credit_note_id=cn.id JOIN purchase.bills b ON b.supplier_invoice='LEGACY-BILL' JOIN purchase.bill_lines bl ON bl.bill_id=b.id WHERE cn.reference='LEGACY-EXPENSE-CREDIT'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT outstanding_amount FROM purchase.bill_line_balances bl JOIN purchase.bills b ON b.id=bl.bill_id WHERE b.supplier_invoice='LEGACY-BILL'";Assert.Equal(0m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT purchase.unapply_supplier_credit(id,'UPGRADED-UNAPPLY','Verified old transfer correction') FROM purchase.credit_applications WHERE reference='UPGRADED-APPLY'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT outstanding_amount FROM purchase.bill_line_balances bl JOIN purchase.bills b ON b.id=bl.bill_id WHERE b.supplier_invoice='LEGACY-BILL'";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT expense_amount FROM purchase.bills WHERE supplier_invoice='LEGACY-EXPENSE'";Assert.Equal(20m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT gross FROM purchase.supplier_credit_notes WHERE reference='LEGACY-EXPENSE-CREDIT'";Assert.Equal(20m,await count.ExecuteScalarAsync());
+            }
+            if(originalVersion==21)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT expense_amount FROM purchase.bills WHERE supplier_invoice='LEGACY-EXPENSE' AND bill_type='EXPENSE'";Assert.Equal(20m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT outstanding_amount FROM purchase.bill_line_balances bl JOIN purchase.bills b ON b.id=bl.bill_id WHERE b.supplier_invoice='LEGACY-EXPENSE'";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT purchase.post_expense_credit(b.id,'UPGRADED-EXPENSE-CREDIT','Verified old expense adjustment',jsonb_build_array(jsonb_build_object('billLineId',bl.id,'amount',20))) FROM purchase.bills b JOIN purchase.bill_lines bl ON bl.bill_id=b.id WHERE b.supplier_invoice='LEGACY-EXPENSE'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT purchase.receive_supplier_refund(cl.id,NULL,10,'UPGRADED-EXPENSE-REFUND','Verified incoming old expense refund',NULL) FROM purchase.supplier_credit_lines cl JOIN purchase.supplier_credit_notes cn ON cn.id=cl.credit_note_id WHERE cn.reference='UPGRADED-EXPENSE-CREDIT'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT net_paid_amount FROM purchase.bill_line_balances bl JOIN purchase.bills b ON b.id=bl.bill_id WHERE b.supplier_invoice='LEGACY-EXPENSE'";Assert.Equal(0m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT expense_amount FROM purchase.bills WHERE supplier_invoice='LEGACY-EXPENSE'";Assert.Equal(20m,await count.ExecuteScalarAsync());
+            }
+            if(originalVersion==18)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT platform.document_visible('90000000-0000-0000-0000-000000000001')";Assert.Equal(false,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT platform.trash_items('QUOTE',1,25)->>'totalItems'";Assert.Equal("1",await count.ExecuteScalarAsync());
+                count.CommandText="SELECT platform.change_visibility('90000000-0000-0000-0000-000000000001',1,1,true,'Review old marker')";var denied=await Assert.ThrowsAsync<PostgresException>(()=>count.ExecuteScalarAsync());Assert.Equal("HX409",denied.SqlState);
+            }
             if (originalVersion == 10)
             {
                 count.CommandText="SELECT sum(amount) FROM accounting.grni_items";Assert.Equal(10m,await count.ExecuteScalarAsync());

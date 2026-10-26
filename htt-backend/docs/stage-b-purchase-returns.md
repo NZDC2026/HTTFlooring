@@ -108,3 +108,7 @@ CASH若净已付不超过贷后净账单金额，按剩余可抵扣税/净账单
 013新增6表：purchase.returns、return_lines、supplier_credit_notes、supplier_credit_lines、accounting.supplier_refunds、purchase_gst_adjustments，另有bill_line_balances安全视图。补种1600/5200映射、权限和PRT/SC/SR序列；扩展原reversal_links允许采购类型。所有新增表强制公司RLS、复合FK和不可变；应用仅SELECT及受控命令EXECUTE，Worker无金融命令执行权。总计105张业务/基础表、13个迁移，另有迁移历史；001—012原文件不改写。
 
 本批不提供采购换货自动补货、转仓后跨仓退货、无来源库存负出库、自由金额贷项、价格差异审批、贷项跨账单调拨、任意Journal作废、供应商银行联调、退款撤销、独立预付税票、外币和完整BAS。正式账套未执行迁移，三个客户端未改。
+
+## 023后续：贷项抵扣
+
+收货来源与费用来源的贷项可使用已有AP借方余额跨其他账单抵扣，并以新凭证整笔解除。现有退款会扣除抵扣占用；原价退货/贷项与真实付款记录保持不变。见[供应商贷项抵扣及解除](stage-b-credit-applications.md)。本说明中历史跨账单待办以该增量和当前验收矩阵为准。

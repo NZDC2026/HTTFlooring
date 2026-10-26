@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至018共122张业务/基础表及18个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至024共129张业务/基础表及24个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -681,3 +681,30 @@ platform.documents是编号与版本锚点，报价/订单独立实体；quote_s
 ## 018_customer_portal.sql
 
 新增identity.portal_principals、identity.customer_user_warehouse_scopes、portal.product_publications、portal.product_audiences及catalog.product_barcodes共5表；旧grant增加默认关闭的portal_enabled。新表公司范围FORCE RLS、复合外键及唯一条码，客户身份与员工membership互斥锁/触发器；portal schema对白名单读取函数授予htt_portal EXECUTE，不开放原始表。管理员身份授权、发布受众维护及只读快照API详见[门户流程](stage-b-portal.md)。001—017不改。
+
+## 019_document_trash.sql
+
+新增platform.document_visibility（独立版本、同公司复合外键、FORCE RLS）。019权限种子与受控可见性函数，普通业务列表/详情隐藏、文件授权联动及注册/源行/新任务并发保护。生命周期不修改原documents注册或业务版本，不写GL/库存/往来账；退款不视为撤销贷项。旧001—018不改，详见[回收站流程](stage-b-trash.md)。
+
+## 020_direct_sales_orders.sql
+
+不增表。sales.orders增加order_origin、creation_reason、notes和pricing_at，允许DIRECT来源的报价引用为空，同时CHECK约束QUOTE/DIRECT配对规则；订单行来源须与父单匹配。确认事实不可变，DIRECT须有匹配信用决定。新建权限仅默认ADMIN/OFFICE。直接订单开票和预收读取冻结订单行税务快照，报价订单保留原报价事实；旧001—019文件不改。接口及兼容边界见[直接订单流程](stage-b-direct-orders.md)。
+
+## 021_supplier_expense_bills.sql
+
+不新增表，仍123张业务/基础表、21个迁移。purchase.bills增加RECEIPT/EXPENSE类型及费用借方总额；bill_lines允许费用来源的receipt/grni引用为空，增加本公司费用账户/描述/金额。互斥来源及借方守恒CHECK、公司复合FK、插入权限/来源触发器、延迟AP/GST/费用GL校验保护；旧收货行默认RECEIPT且费用为0。新受控post_expense_bill生成SB、费用/AP/GST/GL，既有只读余额视图及付款核销继续工作，不改其列序。权限默认ADMIN/FINANCE，旧001—020文件不变。详见[独立费用账单](stage-b-expense-bills.md)。
+
+## 022_supplier_expense_credits.sql
+
+扩展supplier_credit_notes的RECEIPT/EXPENSE类型与费用总额，supplier_credit_lines增加原费用账户/金额及JSON快照；费用行return_line_id/quantity为null，实物来源仍强制非空。来源互斥CHECK、公司FK、每贷项行来源唯一、插入权限/来源触发器及延迟金额/原费用GL校验；新post_expense_credit直接冲原费用/AP/GST，复用现有供应商退款、余额与GST调整。旧001—021不变，不新增表，仍123张业务/基础表、22个迁移。详见[费用贷项与退款](stage-b-expense-credits.md)。
+
+## 023_supplier_credit_applications.sql
+
+新增purchase.credit_applications/credit_application_lines/credit_unapplications三张不可变、公司RLS表，总数126、迁移23。SCA有效分配与SCU整笔解除分离；复合FK、源/目标AP账户冻结、唯一参考及唯一解除、延迟金额/来源/AP/GST凭证检查。bill_line_balances保留原列序，净已结算/未付/可退额包含有效抵扣；贷项行余额扣除退款及有效抵扣。purchase_gst_adjustments扩展抵扣/解除来源，CASH按变化后余额重算，NON_CASH不重复确认。退款函数扣占用、原核销继续复用余额；一致性查询新增金额/容量/资金检查。001—022不改，详见[贷项抵扣与解除](stage-b-credit-applications.md)。
+
+
+## 024_customer_credit_applications.sql
+
+新增sales.credit_applications、credit_application_lines、credit_unapplications三张不可变、FORCE RLS表；累计129张业务/基础表、24迁移。CCA/CCU是独立已过账事件，保留原信用贷项、付款、预收核销及退款事实。复合FK、源/目标AR账户冻结、唯一参考/唯一整笔解除及延迟来源/金额/余额/凭证检查保护。
+
+新增active_credit_application_lines、invoice_line_balances、customer_credit_line_balances及invoice_ar_accounts视图；净结算额包含有效转入/转出。GST调整新增customer_credit_application_id及CREDIT_APPLICATION/CREDIT_UNAPPLICATION来源，仅CASH归属差额，无GST总账重复过账。既有收款/预收核销、贷项、退款、回收站和AR一致性查询复用有效余额。客户信用投影总额不因内部转移改变。修正旧销售角色初始化，OFFICE不自动获得新财务权限。001—023原文件不变。见[客户贷项抵扣](stage-b-customer-credit-applications.md)。

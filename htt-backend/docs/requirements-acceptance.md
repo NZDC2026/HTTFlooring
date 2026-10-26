@@ -1,6 +1,6 @@
 # 原需求逐行验收矩阵（后台范围）
 
-验收日期：2026-10-24。仅核查并修改 htt-backend；现有三个客户端均未联调/修改。来源中的建议和待确认内容视为参考，不自动执行，也不重新承诺人日。
+初验日期：2026-10-24；024增量核查：2026-10-26。仅核查并修改 htt-backend；现有三个客户端均未联调/修改。来源中的建议和待确认内容视为参考，不自动执行，也不重新承诺人日。
 
 原工作簿：`HTT%E4%B8%89%E7%AB%AF%E7%B3%BB%E7%BB%9F_%E5%88%A0%E5%87%8F%E4%B8%8E%E6%96%B0%E5%A2%9E%E5%8A%9F%E8%83%BD_%E5%B7%A5%E6%97%B6%E9%87%8D%E4%BC%B0_20261017.xlsx`；SHA-256 `c06eb26520401892f61655de601cb9e8e53eeddb439050259f8d6b32bffa28e1`。读取4个sheet，逐项工时重估A2:Q117共116条；保留优先级、增删边界及新功能验收口径。
 
@@ -23,17 +23,17 @@
 | 10 / R010 | 管理/财务端：每客户单独产品价格 | P0 / 保留 | A | 后端已实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 标准/客户协议价格维护、有效期及版本；报价由后台解析。 |
 | 11 / R011 | 管理/财务端：活动特价按开始/结束时间自动生效失效 | P0 / 保留 | A | 后端已实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 活动按服务器时刻及[start,end)查询生效，无需依赖定时器。 |
 | 12 / R012 | 管理/财务端：按商品维护包/桶/m²等销售单位及换算 | P0 / 保留 | A | 后端已实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 商品单位、换算、基础单位及整包/步长校验已实现。 |
-| 13 / R013 | 管理/财务端：Quote CRUD, status, PDF/email; sales creates Quote only; back office converts approved Quote to Sales Order | P1 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-documents.md](stage-b-documents.md) | 报价草稿、提交/修订/审批已实现；017补正式版本PDF/邮件及单据附件；回收站仍未交付。 |
-| 14 / R014 | 管理/财务端：Sales Order CRUD, fulfilment/status, created from approved Quote/back office, convert to Invoice | P1 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-warehouse.md](stage-b-warehouse.md) | 批准报价转SO、信用/预留、分批履约/开票及取消已实现；办公室直接建SO、完整修改与回收站未交付。 |
-| 15 / R015 | 管理/财务端：Invoice CRUD, lines, GST, attachments, PDF/email, history/status; back-office controlled | P0 / 保留 | B | 部分实现 | [stage-b-invoicing.md](stage-b-invoicing.md)；[stage-b-returns.md](stage-b-returns.md)；[stage-b-documents.md](stage-b-documents.md) | 开票快照/AR/收入/GST及来源冲销已实现；017补PDF/邮件及附件；回收站未交付，已过账不开放任意CRUD。 |
+| 13 / R013 | 管理/财务端：Quote CRUD, status, PDF/email; sales creates Quote only; back office converts approved Quote to Sales Order | P1 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-documents.md](stage-b-documents.md) | 报价草稿、提交/修订/审批已实现；017补正式版本PDF/邮件及单据附件；019补报价草稿回收站，见stage-b-trash.md。 |
+| 14 / R014 | 管理/财务端：Sales Order CRUD, fulfilment/status, created from approved Quote/back office, convert to Invoice | P1 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-direct-orders.md](stage-b-direct-orders.md)；[stage-b-trash.md](stage-b-trash.md) | 020补办公室直接正式建SO，与报价转单共用编号/信用/预留；分批履约/开票/取消已实现，019补取消后回收站。确认订单不开放任意编辑；完整变更流程与客户端联调仍未交付。 |
+| 15 / R015 | 管理/财务端：Invoice CRUD, lines, GST, attachments, PDF/email, history/status; back-office controlled | P0 / 保留 | B | 部分实现 | [stage-b-invoicing.md](stage-b-invoicing.md)；[stage-b-returns.md](stage-b-returns.md)；[stage-b-documents.md](stage-b-documents.md) | 开票快照/AR/收入/GST及来源冲销已实现；017补PDF/邮件及附件；019补合法冲销后可见性回收站，已过账不开放任意CRUD。 |
 | 16 / R016 | 管理/财务端：Record/allocate partial & multi-invoice payments, balances | P0 / 部分缩减 | B | 后端已实现 | [stage-b-receipts.md](stage-b-receipts.md) | 人工核实客户收款、部分/多发票分配、预收核销、余额/信用释放已实现；在线支付按源边界排除。 |
-| 17 / R017 | 管理/财务端：Invoice/Order/Credit删除进入回收站 | P0 / 保留 | B | 未实现 | — | document表/取消不等于回收站；无trash/restore API及可见性恢复规则。 |
-| 18 / R018 | 管理/财务端：Credit notes, apply credit, refunds, ledger/bank posting | P1 / 保留 | B | 部分实现 | [stage-b-returns.md](stage-b-returns.md) | 实物退回、关联原发票贷项、退款及原账冲销已实现；独立贷项跨发票抵扣、解除核销和自由金额调整未交付。 |
+| 17 / R017 | 管理/财务端：Invoice/Order/Credit删除进入回收站 | P0 / 保留 | B | 部分实现 | [stage-b-trash.md](stage-b-trash.md) | 019补草稿软删除/恢复、取消订单、合法完整贷项/退款发票的隐藏及文件联动；恢复不重新记账。已过账贷项无合法撤销/借项流程时必须保留，不能以退款代替撤销；客户端交互及进一步归档规则仍未接入。 |
+| 18 / R018 | 管理/财务端：Credit notes, apply credit, refunds, ledger/bank posting | P1 / 保留 | B | 部分实现 | [stage-b-returns.md](stage-b-returns.md) | 实物退回、关联原发票贷项、退款及原账冲销已实现；024已补同客户可用贷项跨发票抵扣及整笔解除、应收/额度保护及销项GST归属，兼容原收款/预收核销/退款，见[客户贷项抵扣](stage-b-customer-credit-applications.md)。自由金额/税额调整仍待后续。 |
 | 19 / R019 | 管理/财务端：Generate, print/PDF/email statements | P2 / 保留 | C | 未实现 | — | 客户对账单生成、PDF/邮件未交付；原矩阵属C。 |
-| 20 / R020 | 管理/财务端：Bill CRUD, supplier invoice, lines, GST, attachments/status | P0 / 保留 | B | 部分实现 | [stage-b-supplier-bills.md](stage-b-supplier-bills.md) | 已实现收货精确匹配、GRNI/AP/GST及原单贷项；无独立无收货费用账单、价格差异流程及附件管理。 |
+| 20 / R020 | 管理/财务端：Bill CRUD, supplier invoice, lines, GST, attachments/status | P0 / 保留 | B | 部分实现 | [stage-b-supplier-bills.md](stage-b-supplier-bills.md) | 已实现收货精确匹配、GRNI/AP/GST及原单贷项；021补独立费用账单、费用/AP/进项GST及共用付款/预付核销，见stage-b-expense-bills.md。022补原费用贷项、退款与费用/AP/GST冲销。费用草稿CRUD、自由价格/税额差异流程及账单附件管理仍待后续。 |
 | 21 / R021 | 管理/财务端：PO CRUD, delivery, convert to bill | P1 / 保留 | B | 后端已实现 | [stage-b-purchasing.md](stage-b-purchasing.md)；[stage-b-supplier-bills.md](stage-b-supplier-bills.md)；[stage-b-documents.md](stage-b-documents.md) | PO草稿、确认、分批收货、精确匹配账单及关闭余量已实现；017补正式PO的PDF/邮件与附件，仍只接受精确匹配。 |
 | 22 / R022 | 管理/财务端：Allocate payments, partial/multiple bills, remittance | P0 / 部分缩减 | B | 后端已实现 | [stage-b-supplier-payments.md](stage-b-supplier-payments.md) | 人工核实付款、多账单分配、预付核销和现金制进项GST已实现；汇款通知/打印按源边界排除。 |
-| 23 / R023 | 管理/财务端：Supplier debits, apply debit, supplier refunds | P1 / 保留 | B | 部分实现 | [stage-b-purchase-returns.md](stage-b-purchase-returns.md) | 原收货退货、来源贷项、供应商/预付退款已实现；独立贷项跨账单抵扣及解除核销未交付。 |
+| 23 / R023 | 管理/财务端：Supplier debits, apply debit, supplier refunds | P1 / 保留 | B | 后端已实现 | [stage-b-purchase-returns.md](stage-b-purchase-returns.md)；[stage-b-credit-applications.md](stage-b-credit-applications.md) | 原收货退货、来源贷项、供应商/预付退款已实现；022补独立费用账单来源的金额贷项、退款及费用/AP/GST冲销，见stage-b-expense-credits.md。023已补同供应商/party可用贷项跨账单抵扣及整笔解除，含AP/GST、权限、幂等和并发；限制实际未退款/未转用余额，目标已退款或转用导致资金不足时拒绝解除。 |
 | 24 / R024 | 管理/财务端：Templates, schedules, auto-generate invoices/bills/transactions | P2 / 保留 | D | 未实现 | — | Recurring模板/调度/自动生成未实现；原矩阵属D。 |
 | 25 / R025 | 管理/财务端：Accounts, balances, feeds status, attention items | P0 / 保留 | B/C | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-receipts.md](stage-b-receipts.md) | 已有默认Bank总账科目及收付款自动分录；无独立银行账户档案/账户选择、register/Hub，不能把COA当银行模块完成。 |
 | 26 / R026 | 管理/财务端：Import/feed transactions, categorise, match, split | P0 / 保留 | C/D | 未实现 | — | 银行流水导入、分类、匹配、拆分和Feeds未实现；原矩阵属C/D。 |
@@ -142,3 +142,7 @@
 017文档后续：QUOTE/INVOICE/PURCHASE_ORDER输出及附件的最新边界见stage-b-documents.md。上述三类单据可用不代表W-04仓管照片或全部附件实体均已接入，也未改变原B/C/D阶段归属。
 
 018门户后续：C-01—C-12补齐本批后端授权/商品/库存切片；状态仍为部分实现以保留真实身份服务和客户端联调。员工端S-23通用条码搜索不因门户搜索自动完成。
+
+019回收站后续：只改变可见性；原AR/GST/GL控制与来源链不因隐藏丢失。R017保留部分实现，以明确贷项撤销/进一步归档及客户端交互仍未交付，不能将拒绝非法删除描述为完成新财务撤销流程。
+
+020直接订单后续：R014办公室入口已补，共用信用/库存/编号核心，显式DIRECT来源及冻结税务事实；没有新增任意编辑、超信用豁免或新的财务交易。其他B欠交仍按验收表保留。

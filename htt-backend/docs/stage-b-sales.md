@@ -97,3 +97,7 @@ docker compose run --rm migrate stock-opening \
 新增005迁移，001—004保持原校验和。新增sales与inventory两个schema、10张表（总计63张业务/基础表，另有迁移历史）。提交快照、订单行、信用决策和库存开账不可变；预留/信用承诺只能单调消费或释放，不能改身份、数量或逆向复活。
 
 API、Worker的连接池现在由依赖注入容器创建并释放，避免反复启停主机累积连接。Worker消费本切片事件仅作诊断；没有冒充邮件、PDF或客户通知已发送。真实外部身份/云部署及三个客户端仍未改动。
+
+## 后续进展：办公室直接建单
+
+020新增POST /sales-orders，直接创建正式CONFIRMED订单并记录DIRECT来源。直接创建与本篇报价转单已共用OrderConfirmation核心，复用SO编号、信用锁/公式、SKU库存检查及原子预留。报价仍要求本篇提交/审批；新入口不会生成伪报价，销售人员默认仍无直接建单权限。请求及税务快照兼容见[stage-b-direct-orders.md](stage-b-direct-orders.md)。

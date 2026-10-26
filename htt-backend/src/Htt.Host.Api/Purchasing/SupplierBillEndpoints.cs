@@ -14,12 +14,13 @@ internal static class SupplierBillEndpoints
 {
     public static void Map(RouteGroupBuilder g)
     {
+        ExpenseBillEndpoints.Map(g);
         g.MapPost("/supplier-bills", Post).WithMetadata(new Permission("purchase.bills.post"));
         g.MapGet("/supplier-bills/{id:guid}", async (Guid id, CompanySession s, CancellationToken ct) => Results.Ok(await View(id, s, ct))).WithMetadata(new Permission("purchase.bills.read"));
         g.MapGet("/supplier-bills", async (Guid? supplierId, int? page, int? pageSize, CompanySession s, CancellationToken ct) =>
         {
             var (offset,size)=Page(page,pageSize);
-            return Results.Ok(new { items=(await Read(s,"SELECT b.id,d.number,d.state,d.version,b.supplier_id,b.supplier_invoice,b.invoice_date::text,b.due_on::text,b.net,b.tax,b.gross,b.recoverable_tax,b.gst_basis FROM purchase.bills b JOIN platform.documents d ON d.company_id=b.company_id AND d.id=b.id WHERE b.company_id=@company AND (@supplier IS NULL OR b.supplier_id=@supplier) ORDER BY b.created_at DESC,b.id LIMIT @size OFFSET @offset",ct,new DbArg("supplier",supplierId,NpgsqlDbType.Uuid),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow), page=page??1,pageSize=size });
+            return Results.Ok(new { items=(await Read(s,"SELECT b.id,d.number,d.state,d.version,b.supplier_id,b.supplier_invoice,b.invoice_date::text,b.due_on::text,b.net,b.tax,b.gross,b.recoverable_tax,b.gst_basis,b.bill_type,b.expense_amount FROM purchase.bills b JOIN platform.documents d ON d.company_id=b.company_id AND d.id=b.id WHERE b.company_id=@company AND (@supplier IS NULL OR b.supplier_id=@supplier) ORDER BY b.created_at DESC,b.id LIMIT @size OFFSET @offset",ct,new DbArg("supplier",supplierId,NpgsqlDbType.Uuid),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow), page=page??1,pageSize=size });
         }).WithMetadata(new Permission("purchase.bills.read"));
         g.MapGet("/accounting/ap", async (Guid? supplierId, int? page, int? pageSize, CompanySession s, CancellationToken ct) =>
         {
@@ -42,11 +43,11 @@ internal static class SupplierBillEndpoints
                 """,ct,new DbArg("supplier",supplierId),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow),page=page??1,pageSize=size});
         }).WithMetadata(new Permission("purchase.grni.read"));
     }
-    private static async Task<object> View(Guid id, CompanySession s, CancellationToken ct)
+    internal static async Task<object> View(Guid id, CompanySession s, CancellationToken ct)
     {
         var b=await One(s,"SELECT b.*,b.invoice_date::text,b.due_on::text,b.tax_invoice_held_on::text,d.number,d.state,d.version,d.business_date::text FROM purchase.bills b JOIN platform.documents d ON d.company_id=b.company_id AND d.id=b.id WHERE b.company_id=@company AND b.id=@id",ct,new DbArg("id",id));
         b["supplier_snapshot"]=Element(b["supplier_snapshot"]!);
-        return new {bill=PublicRow(b),lines=(await Read(s,"SELECT id,receipt_line_id,grni_item_id,quantity,net,tax,grni_amount,recoverable_tax,tax_code_id,tax_rate,paid_amount,outstanding_amount,credited_quantity,credited_amount,refunded_amount,net_paid_amount,remaining_gross,refundable_amount FROM purchase.bill_line_balances WHERE company_id=@company AND bill_id=@id ORDER BY id",ct,new DbArg("id",id))).Select(PublicRow)};
+        return new {bill=PublicRow(b),lines=(await Read(s,"SELECT v.id,v.receipt_line_id,v.grni_item_id,v.quantity,v.net,v.tax,v.grni_amount,v.recoverable_tax,v.tax_code_id,v.tax_rate,v.paid_amount,v.outstanding_amount,v.credited_quantity,v.credited_amount,v.refunded_amount,v.net_paid_amount,v.remaining_gross,v.refundable_amount,l.expense_account_id,l.description,l.expense_amount,v.credit_received_amount,v.credit_used_amount FROM purchase.bill_line_balances v JOIN purchase.bill_lines l ON l.company_id=v.company_id AND l.id=v.id WHERE v.company_id=@company AND v.bill_id=@id ORDER BY v.id",ct,new DbArg("id",id))).Select(PublicRow)};
     }
     private static async Task<IResult> Post(SupplierBillInput input,HttpContext h,CompanySession s,Idempotency idem,CancellationToken ct)
     {

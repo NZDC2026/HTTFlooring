@@ -98,3 +98,8 @@ receivables查询新增credited、refunded、creditBalance；paid保留实际历
 ## 迁移
 
 新增009与7表：inventory.sales_returns、sales_return_lines，sales.credit_notes、credit_note_lines，accounting.customer_refunds、gst_adjustments、reversal_links；总计85张业务/基础表，另有迁移历史。所有新表强制公司RLS、公司复合外键、不可变保护；应用角色无直接写权限。009以新版本函数补齐既有开票、收款、核销、信用一致性及预收保护，001—008原文件不改写。
+
+
+## 024后续：客户贷项跨发票抵扣
+
+原贷项自动减少原发票，实际已结算且尚未退款/转用的信用余额现可转到同客户另一张发票，并可整笔解除。原收款/预收核销及退款继续共用有效余额，已占用资金不能重复退款；存在活动抵扣的发票不能归档。新增apply/unapply权限默认仅ADMIN/FINANCE，OFFICE原贷项创建权限不隐含新权限。详见[客户贷项抵扣与解除](stage-b-customer-credit-applications.md)。

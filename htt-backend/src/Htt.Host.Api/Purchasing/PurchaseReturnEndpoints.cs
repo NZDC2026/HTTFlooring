@@ -16,6 +16,8 @@ internal static class PurchaseReturnEndpoints
 {
     public static void Map(RouteGroupBuilder g)
     {
+        ExpenseCreditEndpoints.Map(g);
+        CreditApplicationEndpoints.Map(g);
         g.MapPost("/purchase-receipts/{id:guid}/returns",Return).WithMetadata(new Permission("purchase.returns.post"));
         g.MapGet("/purchase-returns/{id:guid}",async(Guid id,HttpContext h,CompanySession s,CancellationToken ct)=>Results.Ok(await ReturnView(id,h,s,ct,false))).WithMetadata(new Permission("purchase.returns.read"));
         g.MapGet("/accounting/purchase-returns/{id:guid}",async(Guid id,HttpContext h,CompanySession s,CancellationToken ct)=>Results.Ok(await ReturnView(id,h,s,ct,true))).WithMetadata(new Permission("purchase.credits.read"));
@@ -32,7 +34,7 @@ internal static class PurchaseReturnEndpoints
         g.MapGet("/supplier-credits/{id:guid}",async(Guid id,CompanySession s,CancellationToken ct)=>Results.Ok(await CreditView(id,s,ct))).WithMetadata(new Permission("purchase.credits.read"));
         g.MapGet("/supplier-credits",async(Guid? supplierId,int? page,int? pageSize,CompanySession s,CancellationToken ct)=>
         {
-            var(offset,size)=Page(page,pageSize);return Results.Ok(new{items=(await Read(s,"SELECT cn.id,cn.bill_id,cn.supplier_id,cn.reference,cn.net,cn.tax,cn.gross,d.number,d.business_date::text FROM purchase.supplier_credit_notes cn JOIN platform.documents d ON d.company_id=cn.company_id AND d.id=cn.id WHERE cn.company_id=@company AND (@supplier IS NULL OR cn.supplier_id=@supplier) ORDER BY cn.created_at DESC,cn.id LIMIT @size OFFSET @offset",ct,new DbArg("supplier",supplierId,NpgsqlDbType.Uuid),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow),page=page??1,pageSize=size});
+            var(offset,size)=Page(page,pageSize);return Results.Ok(new{items=(await Read(s,"SELECT cn.id,cn.bill_id,cn.supplier_id,cn.reference,cn.net,cn.tax,cn.gross,cn.credit_type,cn.expense_amount,d.number,d.business_date::text FROM purchase.supplier_credit_notes cn JOIN platform.documents d ON d.company_id=cn.company_id AND d.id=cn.id WHERE cn.company_id=@company AND (@supplier IS NULL OR cn.supplier_id=@supplier) ORDER BY cn.created_at DESC,cn.id LIMIT @size OFFSET @offset",ct,new DbArg("supplier",supplierId,NpgsqlDbType.Uuid),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow),page=page??1,pageSize=size});
         }).WithMetadata(new Permission("purchase.credits.read"));
         g.MapPost("/supplier-refunds",Refund).WithMetadata(new Permission("purchase.refunds.post"));
         g.MapGet("/supplier-refunds/{id:guid}",async(Guid id,CompanySession s,CancellationToken ct)=>Results.Ok(await RefundView(id,s,ct))).WithMetadata(new Permission("purchase.refunds.read"));
@@ -71,9 +73,12 @@ internal static class PurchaseReturnEndpoints
         var r=await One(s,"SELECT r.*,d.number,d.state,d.version,d.business_date::text FROM purchase.returns r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id WHERE r.company_id=@company AND r.id=@id",ct,new DbArg("id",id));if(!financial)await Read(s,"SELECT inventory.require_access('purchase.returns.read',@warehouse)",ct,new DbArg("warehouse",r["warehouse_id"]));var cost=financial || Access(h).Has("purchase.cost.read");
         var lines=await Read(s,"SELECT * FROM purchase.return_lines WHERE company_id=@company AND return_id=@id ORDER BY id",ct,new DbArg("id",id));if(!cost){r.Remove("journal_entry_id");foreach(var l in lines)foreach(var field in new[]{"net","tax","recoverable_tax","valuation_amount","cost","value_after","contra_account_id"})l.Remove(field);}return new{@return=PublicRow(r),lines=lines.Select(PublicRow)};
     }
-    private static async Task<object> CreditView(Guid id,CompanySession s,CancellationToken ct)
+    internal static async Task<object> CreditView(Guid id,CompanySession s,CancellationToken ct)
     {
-        var c=await One(s,"SELECT cn.*,d.number,d.state,d.version,d.business_date::text FROM purchase.supplier_credit_notes cn JOIN platform.documents d ON d.company_id=cn.company_id AND d.id=cn.id WHERE cn.company_id=@company AND cn.id=@id",ct,new DbArg("id",id));return new{credit=PublicRow(c),lines=(await Read(s,"SELECT cl.*,coalesce(r.amount,0) AS refunded_amount,least(cl.gross-coalesce(r.amount,0),bl.refundable_amount) AS refundable_amount FROM purchase.supplier_credit_lines cl JOIN purchase.bill_line_balances bl ON bl.company_id=cl.company_id AND bl.id=cl.bill_line_id LEFT JOIN LATERAL(SELECT sum(amount) AS amount FROM accounting.supplier_refunds WHERE company_id=cl.company_id AND credit_line_id=cl.id)r ON true WHERE cl.company_id=@company AND cl.credit_note_id=@id ORDER BY cl.id",ct,new DbArg("id",id))).Select(PublicRow)};
+        var c=await One(s,"SELECT cn.*,d.number,d.state,d.version,d.business_date::text FROM purchase.supplier_credit_notes cn JOIN platform.documents d ON d.company_id=cn.company_id AND d.id=cn.id WHERE cn.company_id=@company AND cn.id=@id",ct,new DbArg("id",id));
+        var lines=await Read(s,"SELECT *,refundable_amount AS available_apply_amount FROM purchase.supplier_credit_line_balances WHERE company_id=@company AND credit_note_id=@id ORDER BY id",ct,new DbArg("id",id));
+        foreach(var line in lines)if(line["snapshot"] is not null)line["snapshot"]=Element(line["snapshot"]!);
+        return new{credit=PublicRow(c),lines=lines.Select(PublicRow)};
     }
     private static async Task<object> RefundView(Guid id,CompanySession s,CancellationToken ct)=>new{refund=PublicRow(await One(s,"SELECT r.*,r.received_on::text,d.number,d.state,d.version FROM accounting.supplier_refunds r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id WHERE r.company_id=@company AND r.id=@id",ct,new DbArg("id",id)))};
 }

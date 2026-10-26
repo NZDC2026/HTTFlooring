@@ -91,6 +91,12 @@ public static class CompanyBootstrap
               PERFORM identity.seed_reconciliation_roles(c);
               PERFORM identity.seed_document_roles(c);
               PERFORM identity.seed_portal_roles(c);
+              PERFORM identity.seed_trash_roles(c);
+              PERFORM identity.seed_direct_order_roles(c);
+              PERFORM identity.seed_expense_bill_roles(c);
+              PERFORM identity.seed_expense_credit_roles(c);
+              PERFORM identity.seed_credit_application_roles(c);
+              PERFORM identity.seed_customer_credit_application_roles(c);
               INSERT INTO platform.audit_events(company_id,actor_id,action,entity_type,entity_id,request_id)
                 VALUES(c,u,'company.bootstrapped','company',c,'owner-cli');
               INSERT INTO platform.outbox_events(company_id,event_type,payload,created_by)

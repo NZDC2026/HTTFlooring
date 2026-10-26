@@ -46,6 +46,8 @@ internal static class DocumentEndpoints
     {
         await Authorize(s,id,action,ct);
         var d=await One(s,"SELECT id,document_type,number,business_date::text,state,version FROM platform.documents WHERE company_id=@company AND id=@id AND deleted_at IS NULL FOR SHARE",ct,new DbArg("id",id));
+        // A trash command may have committed while this request waited for the registry lock.
+        await Authorize(s,id,action,ct);
         if((long)d["version"]! != expected)throw new BusinessException("version_conflict","Document changed; refresh before requesting output.",409);
         if(action is "PDF" or "EMAIL" && (d["number"] is not string || (string)d["state"]! is not ("CONFIRMED" or "POSTED")))
             throw new BusinessException("document_not_final","Submit/confirm the document before generating or sending its PDF.",409);

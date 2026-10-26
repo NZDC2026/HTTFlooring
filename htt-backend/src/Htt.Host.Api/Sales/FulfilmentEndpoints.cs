@@ -19,7 +19,7 @@ internal static class FulfilmentEndpoints
             await Warehouse(s, warehouseId, "inventory.picks.read", ct);
             var (offset, size) = Page(page, pageSize);
             return Results.Ok(new { items = (await Read(s, """
-                SELECT o.id,d.number,d.version,o.customer_snapshot FROM sales.orders o JOIN platform.documents d ON d.company_id=o.company_id AND d.id=o.id
+                SELECT o.id,d.number,d.version,o.customer_snapshot FROM sales.orders o JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=o.company_id AND d.id=o.id
                 WHERE o.company_id=@company AND o.warehouse_id=@warehouse AND d.state='CONFIRMED' AND EXISTS(
                  SELECT 1 FROM sales.order_lines l WHERE l.company_id=o.company_id AND l.order_id=o.id AND l.item_type='STOCK' AND l.base_quantity>
                  coalesce((SELECT sum(pl.base_quantity) FROM inventory.pick_lines pl JOIN inventory.picks p ON p.company_id=pl.company_id AND p.id=pl.pick_id WHERE pl.company_id=l.company_id AND pl.order_line_id=l.id AND p.state='DISPATCHED'),0))
@@ -37,7 +37,7 @@ internal static class FulfilmentEndpoints
                 LEFT JOIN inventory.picks p ON p.company_id=pl.company_id AND p.id=pl.pick_id
                 WHERE l.company_id=@company AND l.order_id=@id AND l.item_type='STOCK' GROUP BY l.id ORDER BY l.id
                 """, ct, new DbArg("id", id));
-            var picks = await Read(s, "SELECT p.id,p.state,d.number,d.version FROM inventory.picks p JOIN platform.documents d ON d.company_id=p.company_id AND d.id=p.id WHERE p.company_id=@company AND p.order_id=@id ORDER BY p.created_at,p.id", ct, new DbArg("id", id));
+            var picks = await Read(s, "SELECT p.id,p.state,d.number,d.version FROM inventory.picks p JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=p.company_id AND d.id=p.id WHERE p.company_id=@company AND p.order_id=@id ORDER BY p.created_at,p.id", ct, new DbArg("id", id));
             return Results.Ok(new { id, number = o["number"], version = o["version"], state = o["state"], warehouseId = o["warehouse_id"], customer = Element(o["customer_snapshot"]!), lines = lines.Select(PublicRow), picks = picks.Select(PublicRow) });
         }).WithMetadata(new Permission("inventory.picks.read"));
         g.MapPost("/warehouse/orders/{id:guid}/picks", Create).WithMetadata(new Permission("inventory.picks.write"));
@@ -54,14 +54,14 @@ internal static class FulfilmentEndpoints
         Read(s, "SELECT inventory.require_access(@permission,@id)", ct, new DbArg("permission", permission), new DbArg("id", id));
     private static async Task<Dictionary<string, object?>> ScopedOrder(CompanySession s, Guid id, string permission, bool write, CancellationToken ct)
     {
-        var o = await One(s, "SELECT d.number,d.version,d.state,o.warehouse_id,o.customer_snapshot FROM sales.orders o JOIN platform.documents d ON d.company_id=o.company_id AND d.id=o.id WHERE o.company_id=@company AND o.id=@id", ct, new DbArg("id", id));
+        var o = await One(s, "SELECT d.number,d.version,d.state,o.warehouse_id,o.customer_snapshot FROM sales.orders o JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=o.company_id AND d.id=o.id WHERE o.company_id=@company AND o.id=@id", ct, new DbArg("id", id));
         await Warehouse(s, (Guid)o["warehouse_id"]!, permission, ct);
-        if (write) o = await One(s, "SELECT d.number,d.version,d.state,o.warehouse_id,o.customer_snapshot FROM sales.orders o JOIN platform.documents d ON d.company_id=o.company_id AND d.id=o.id WHERE o.company_id=@company AND o.id=@id FOR UPDATE OF d", ct, new DbArg("id", id));
+        if (write) o = await One(s, "SELECT d.number,d.version,d.state,o.warehouse_id,o.customer_snapshot FROM sales.orders o JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=o.company_id AND d.id=o.id WHERE o.company_id=@company AND o.id=@id FOR UPDATE OF d", ct, new DbArg("id", id));
         return o;
     }
     private static async Task<Dictionary<string, object?>> ScopedPick(CompanySession s, Guid id, string permission, CancellationToken ct)
     {
-        var p = await One(s, "SELECT p.*,d.number,d.version FROM inventory.picks p JOIN platform.documents d ON d.company_id=p.company_id AND d.id=p.id WHERE p.company_id=@company AND p.id=@id", ct, new DbArg("id", id));
+        var p = await One(s, "SELECT p.*,d.number,d.version FROM inventory.picks p JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=p.company_id AND d.id=p.id WHERE p.company_id=@company AND p.id=@id", ct, new DbArg("id", id));
         await ScopedOrder(s, (Guid)p["order_id"]!, permission, false, ct); return p;
     }
     private static async Task<object> View(CompanySession s, Guid id, CancellationToken ct)

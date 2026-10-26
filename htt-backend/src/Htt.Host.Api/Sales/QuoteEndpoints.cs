@@ -21,7 +21,7 @@ internal static class QuoteEndpoints
             var (offset, size) = Page(page, pageSize); var a = Access(h);
             return Results.Ok(new { items = (await Read(s, """
                 SELECT q.id,d.number,d.version,q.status,q.customer_id,q.customer_branch_id,q.warehouse_id,q.expires_on,q.gross
-                FROM sales.quotes q JOIN platform.documents d ON d.company_id=q.company_id AND d.id=q.id
+                FROM sales.quotes q JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=q.company_id AND d.id=q.id
                 WHERE q.company_id=@company AND (@all OR EXISTS(SELECT 1 FROM identity.customer_assignments ca WHERE ca.company_id=q.company_id AND ca.customer_id=q.customer_id AND ca.membership_id=@membership))
                 ORDER BY q.created_at DESC,q.id LIMIT @size OFFSET @offset
                 """, ct, new DbArg("all", a.Has("customers.all")), new DbArg("membership", a.MembershipId), new DbArg("size", size), new DbArg("offset", offset))).Select(PublicRow), page = page ?? 1, pageSize = size });

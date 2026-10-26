@@ -34,7 +34,7 @@ internal static class InvoiceEndpoints
             var (offset, size) = Page(page, pageSize); var a = Access(h);
             return Results.Ok(new { items = (await Read(s, """
                 SELECT i.id,d.number,d.version,d.state,i.order_id,i.customer_id,i.invoice_date::text,i.due_on::text,i.net,i.tax,i.gross
-                FROM sales.invoices i JOIN platform.documents d ON d.company_id=i.company_id AND d.id=i.id
+                FROM sales.invoices i JOIN platform.documents d ON platform.document_visible(d.id) AND d.company_id=i.company_id AND d.id=i.id
                 WHERE i.company_id=@company AND (@customer IS NULL OR i.customer_id=@customer) AND (@order IS NULL OR i.order_id=@order)
                  AND (@all OR EXISTS(SELECT 1 FROM identity.customer_assignments ca WHERE ca.company_id=i.company_id AND ca.customer_id=i.customer_id AND ca.membership_id=@membership))
                 ORDER BY i.created_at DESC,i.id LIMIT @size OFFSET @offset
@@ -49,8 +49,10 @@ internal static class InvoiceEndpoints
                  coalesce((SELECT sum(p.amount) FROM accounting.payment_allocations p JOIN sales.invoice_lines il ON il.company_id=p.company_id AND il.id=p.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0) AS paid,
                  coalesce((SELECT sum(cl.gross) FROM sales.credit_note_lines cl JOIN sales.invoice_lines il ON il.company_id=cl.company_id AND il.id=cl.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0) AS credited,
                  coalesce((SELECT sum(rf.amount) FROM accounting.customer_refunds rf JOIN sales.credit_note_lines cl ON cl.company_id=rf.company_id AND cl.id=rf.credit_line_id JOIN sales.invoice_lines il ON il.company_id=cl.company_id AND il.id=cl.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0) AS refunded,
-                 greatest(0,r.amount-coalesce((SELECT sum(p.amount) FROM accounting.payment_allocations p JOIN sales.invoice_lines il ON il.company_id=p.company_id AND il.id=p.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0)-coalesce((SELECT sum(accounting.line_credited(il.id)-accounting.line_refunded(il.id)) FROM sales.invoice_lines il WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0)) AS outstanding,
-                 greatest(0,-r.amount+coalesce((SELECT sum(p.amount) FROM accounting.payment_allocations p JOIN sales.invoice_lines il ON il.company_id=p.company_id AND il.id=p.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0)+coalesce((SELECT sum(accounting.line_credited(il.id)-accounting.line_refunded(il.id)) FROM sales.invoice_lines il WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0)) AS credit_balance
+                 coalesce((SELECT sum(outstanding_amount) FROM sales.invoice_line_balances WHERE company_id=r.company_id AND invoice_id=r.invoice_id),0) AS outstanding,
+                 coalesce((SELECT sum(refundable_amount) FROM sales.invoice_line_balances WHERE company_id=r.company_id AND invoice_id=r.invoice_id),0) AS credit_balance,
+                 coalesce((SELECT sum(credit_received_amount) FROM sales.invoice_line_balances WHERE company_id=r.company_id AND invoice_id=r.invoice_id),0) AS credit_received,
+                 coalesce((SELECT sum(credit_used_amount) FROM sales.invoice_line_balances WHERE company_id=r.company_id AND invoice_id=r.invoice_id),0) AS credit_used
                 FROM accounting.receivable_items r JOIN sales.invoices i ON i.company_id=r.company_id AND i.id=r.invoice_id JOIN platform.documents d ON d.company_id=i.company_id AND d.id=i.id
                 WHERE r.company_id=@company AND r.customer_id=@id ORDER BY r.due_on,r.id LIMIT @size OFFSET @offset
                 """, ct, new DbArg("id", id), new DbArg("size", size), new DbArg("offset", offset));

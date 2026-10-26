@@ -41,6 +41,7 @@ public sealed class CompanyFilter : IEndpointFilter
         var session = services.GetRequiredService<CompanySession>();
         await session.BeginAsync(company, access.ActorId, http.TraceIdentifier, http.RequestAborted);
         await services.GetRequiredService<FoundationDbContext>().Database.UseTransactionAsync(session.Transaction, http.RequestAborted);
+        await DocumentTrashEndpoints.CheckVisible(http, session, http.RequestAborted);
         var result = await next(context);
         if (result is IStatusCodeHttpResult { StatusCode: >= 400 })
             await session.Transaction.RollbackAsync(http.RequestAborted);
