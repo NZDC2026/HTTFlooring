@@ -17,6 +17,7 @@ internal static class PurchaseReturnEndpoints
     public static void Map(RouteGroupBuilder g)
     {
         ExpenseCreditEndpoints.Map(g);
+        SupplierRefundCorrectionEndpoints.Map(g);
         CreditApplicationEndpoints.Map(g);
         g.MapPost("/purchase-receipts/{id:guid}/returns",Return).WithMetadata(new Permission("purchase.returns.post"));
         g.MapGet("/purchase-returns/{id:guid}",async(Guid id,HttpContext h,CompanySession s,CancellationToken ct)=>Results.Ok(await ReturnView(id,h,s,ct,false))).WithMetadata(new Permission("purchase.returns.read"));
@@ -40,7 +41,7 @@ internal static class PurchaseReturnEndpoints
         g.MapGet("/supplier-refunds/{id:guid}",async(Guid id,CompanySession s,CancellationToken ct)=>Results.Ok(await RefundView(id,s,ct))).WithMetadata(new Permission("purchase.refunds.read"));
         g.MapGet("/supplier-refunds",async(Guid? supplierId,int? page,int? pageSize,CompanySession s,CancellationToken ct)=>
         {
-            var(offset,size)=Page(page,pageSize);return Results.Ok(new{items=(await Read(s,"SELECT r.id,r.supplier_id,r.credit_line_id,r.advance_id,r.amount,r.gst_amount,r.received_on::text,r.reference,d.number FROM accounting.supplier_refunds r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id WHERE r.company_id=@company AND (@supplier IS NULL OR r.supplier_id=@supplier) ORDER BY r.created_at DESC,r.id LIMIT @size OFFSET @offset",ct,new DbArg("supplier",supplierId,NpgsqlDbType.Uuid),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow),page=page??1,pageSize=size});
+            var(offset,size)=Page(page,pageSize);return Results.Ok(new{items=(await Read(s,"SELECT r.id,r.supplier_id,r.credit_line_id,r.advance_id,r.amount,r.gst_amount,r.received_on::text,r.reference,d.number,CASE WHEN EXISTS(SELECT 1 FROM accounting.supplier_refund_reversals v WHERE v.company_id=r.company_id AND v.refund_id=r.id) THEN 'REVERSED' ELSE 'ACTIVE' END AS refund_status FROM accounting.supplier_refunds r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id WHERE r.company_id=@company AND (@supplier IS NULL OR r.supplier_id=@supplier) ORDER BY r.created_at DESC,r.id LIMIT @size OFFSET @offset",ct,new DbArg("supplier",supplierId,NpgsqlDbType.Uuid),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow),page=page??1,pageSize=size});
         }).WithMetadata(new Permission("purchase.refunds.read"));
     }
     private static async Task<IResult> Return(Guid id,PurchaseReturnInput input,HttpContext h,CompanySession s,Idempotency idem,CancellationToken ct)
@@ -80,5 +81,6 @@ internal static class PurchaseReturnEndpoints
         foreach(var line in lines)if(line["snapshot"] is not null)line["snapshot"]=Element(line["snapshot"]!);
         return new{credit=PublicRow(c),lines=lines.Select(PublicRow)};
     }
-    private static async Task<object> RefundView(Guid id,CompanySession s,CancellationToken ct)=>new{refund=PublicRow(await One(s,"SELECT r.*,r.received_on::text,d.number,d.state,d.version FROM accounting.supplier_refunds r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id WHERE r.company_id=@company AND r.id=@id",ct,new DbArg("id",id)))};
+    internal static async Task<object> RefundView(Guid id,CompanySession s,CancellationToken ct)=>new{refund=await RefundData(id,s,ct)};
+    internal static async Task<object> RefundData(Guid id,CompanySession s,CancellationToken ct)=>PublicRow(await One(s,"SELECT r.*,r.received_on::text,d.number,d.state,d.version,v.id AS reversal_id,x.original_refund_id,CASE WHEN v.id IS NULL THEN 'ACTIVE' ELSE 'REVERSED' END AS refund_status FROM accounting.supplier_refunds r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id LEFT JOIN accounting.supplier_refund_reversals v ON v.company_id=r.company_id AND v.refund_id=r.id LEFT JOIN accounting.supplier_refund_corrections x ON x.company_id=r.company_id AND x.id=r.id WHERE r.company_id=@company AND r.id=@id",ct,new DbArg("id",id)));
 }

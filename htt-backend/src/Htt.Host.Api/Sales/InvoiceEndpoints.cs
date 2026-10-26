@@ -46,9 +46,9 @@ internal static class InvoiceEndpoints
             var totals = await One(s, "SELECT receivable,unbilled_orders,available_advances FROM crm.customer_credit_exposures WHERE company_id=@company AND customer_id=@id", ct, new DbArg("id", id));
             var items = await Read(s, """
                 SELECT r.id,r.invoice_id,d.number,i.invoice_date::text,r.due_on::text,r.amount,r.journal_entry_id,
-                 coalesce((SELECT sum(p.amount) FROM accounting.payment_allocations p JOIN sales.invoice_lines il ON il.company_id=p.company_id AND il.id=p.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0) AS paid,
+                 coalesce((SELECT sum(p.amount) FROM accounting.active_payment_allocations p JOIN sales.invoice_lines il ON il.company_id=p.company_id AND il.id=p.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0) AS paid,
                  coalesce((SELECT sum(cl.gross) FROM sales.credit_note_lines cl JOIN sales.invoice_lines il ON il.company_id=cl.company_id AND il.id=cl.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0) AS credited,
-                 coalesce((SELECT sum(rf.amount) FROM accounting.customer_refunds rf JOIN sales.credit_note_lines cl ON cl.company_id=rf.company_id AND cl.id=rf.credit_line_id JOIN sales.invoice_lines il ON il.company_id=cl.company_id AND il.id=cl.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0) AS refunded,
+                 coalesce((SELECT sum(rf.amount) FROM accounting.active_customer_refunds rf JOIN sales.credit_note_lines cl ON cl.company_id=rf.company_id AND cl.id=rf.credit_line_id JOIN sales.invoice_lines il ON il.company_id=cl.company_id AND il.id=cl.invoice_line_id WHERE il.company_id=r.company_id AND il.invoice_id=r.invoice_id),0) AS refunded,
                  coalesce((SELECT sum(outstanding_amount) FROM sales.invoice_line_balances WHERE company_id=r.company_id AND invoice_id=r.invoice_id),0) AS outstanding,
                  coalesce((SELECT sum(refundable_amount) FROM sales.invoice_line_balances WHERE company_id=r.company_id AND invoice_id=r.invoice_id),0) AS credit_balance,
                  coalesce((SELECT sum(credit_received_amount) FROM sales.invoice_line_balances WHERE company_id=r.company_id AND invoice_id=r.invoice_id),0) AS credit_received,

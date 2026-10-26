@@ -90,3 +90,8 @@ paidOn可省略，默认公司澳洲时区今天；不得未来、必须处于�
 SP/SA编号、结算与分配明细、预付余额、Journal、GST、审计/Outbox和成功键同事务。晚期失败整笔回滚，无部分成功。AP与预付余额为不可变明细的派生视图，不直接改原账单/原应付；历史原AP金额仍可追溯。
 
 新增012迁移与5张表：accounting.supplier_payments、supplier_advances、supplier_advance_applications、supplier_payment_allocations、purchase_gst_attributions；新增两个security_invoker余额视图、1500及SUPPLIER_ADVANCES映射、SP/SA序列。共99张业务/基础表、12个迁移，另有迁移历史。001—011不改写。新旧公司补种权限/科目/序列；htt_app仅SELECT和受保护命令EXECUTE，htt_worker无付款执行权。
+
+
+## 026后续：撤销与重新核销
+
+新增SPR付款录入更正、关联重核销/一步原子更正和SAU预付款核销整笔解除；保留原支付、分配、GST和凭证。查询增加有效状态及反向关联，AP/预付/退款共用有效余额，原apply可用新键/参考重新分配。完整规则见[供应商结算更正](stage-b-supplier-settlement-reversals.md)。

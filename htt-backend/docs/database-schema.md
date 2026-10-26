@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至024共129张业务/基础表及24个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至029共139张业务/基础表及29个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -708,3 +708,32 @@ platform.documents是编号与版本锚点，报价/订单独立实体；quote_s
 新增sales.credit_applications、credit_application_lines、credit_unapplications三张不可变、FORCE RLS表；累计129张业务/基础表、24迁移。CCA/CCU是独立已过账事件，保留原信用贷项、付款、预收核销及退款事实。复合FK、源/目标AR账户冻结、唯一参考/唯一整笔解除及延迟来源/金额/余额/凭证检查保护。
 
 新增active_credit_application_lines、invoice_line_balances、customer_credit_line_balances及invoice_ar_accounts视图；净结算额包含有效转入/转出。GST调整新增customer_credit_application_id及CREDIT_APPLICATION/CREDIT_UNAPPLICATION来源，仅CASH归属差额，无GST总账重复过账。既有收款/预收核销、贷项、退款、回收站和AR一致性查询复用有效余额。客户信用投影总额不因内部转移改变。修正旧销售角色初始化，OFFICE不自动获得新财务权限。001—023原文件不变。见[客户贷项抵扣](stage-b-customer-credit-applications.md)。
+
+
+## 025_customer_settlement_reversals.sql
+
+新增accounting.receipt_reversals、advance_unapplications、receipt_reapplications三张不可变公司RLS表，累计132张业务/基础表、25迁移。RCR/AAU独立反向编号、原收款/核销唯一撤销及唯一关联重新核销；复合FK、当前期间、原科目及来源/余额/凭证/GST延迟校验。
+
+active_customer_receipts/advances、active_advance_applications、active_payment_allocations和customer_advance_balances提供当前有效资金；原始收款/分配/凭证不改。AR余额保留CASH原始税记录加调整、NON_CASH有效分配税，防多次重核销将历史税重复计算。原收款、预收核销/退款、退货、开票预收GST清算、订单取消、信用及一致性查询接入有效视图。新增GST调整来源settlement_reversal_id，旧来源不变。现金制预收解除恢复已消耗税份额，发票税按当前净结算重算；非现金制已发生开票清算保留。001—024原文件摘要不变。见[收款撤销与重核销](stage-b-settlement-reversals.md)。
+
+
+## 026_supplier_settlement_reversals.sql
+
+新增accounting.supplier_payment_reversals、supplier_advance_unapplications、supplier_payment_reapplications三张不可变FORCE RLS表，累计135张业务/基础表、26迁移。SPR/SAU独立反向编号、原单唯一撤销及关联重新核销；同公司复合FK、唯一参考、延迟来源/金额/逐账户party借贷/GST/注册状态校验。
+
+active_supplier_payments/advances、active_supplier_advance_applications/payment_allocations保留原历史并提供有效资金。bill_line_balances金额扣失效分配，CASH税保留原归属加不可变调整；supplier_advance_balances排除已撤销付款并扣有效核销/实际退款。原付款、预付核销、退款、AP和对账接入该口径；purchase_gst_adjustments扩展反向单来源及索引。001—025摘要不变。见[供应商结算更正](stage-b-supplier-settlement-reversals.md)。
+
+
+## 027_customer_refund_corrections.sql
+
+新增accounting.customer_refund_reversals、customer_refund_corrections两张不可变FORCE RLS表，累计137张业务/基础表、27迁移。CFR独立反向编号、唯一原退款撤销及替代退款关联，复合FK、来源/金额/原银行/逐账户party分录/GST延迟校验。active_customer_refunds为有效金额唯一口径，退款源索引及GST反向单索引补齐。
+
+line_refunded/advance_refunded、AR/贷项余额、预收可用额和一致性查询排除失效退款；advance_refund_tax使用原税归属加不可变反向调整，保留非现金制订单取消税务效果。现金制贷项按当前发票净结算重算，现金制预收按当前有效核销/退款累计重算税额。退款更正复用原校验，固定原银行、同客户，可更改合法金额及来源；已取消订单保持取消且不重复释放库存，不能用CancelOrder绕过其他订单资金保护。001—026摘要不变。详见[客户退款更正](stage-b-customer-refund-corrections.md)。
+
+## 028：供应商退款撤销与更正
+
+新增accounting.supplier_refund_reversals和supplier_refund_corrections两张不可变公司RLS表，累计139张业务/基础表、28个迁移。有效退款视图贯穿AP、预付余额、付款撤销和核销；CASH进项GST按当前净结算和原Input/Deferred重算，原采购/退货/费用/库存事件不改。001—027摘要不变，见[接口与规则](stage-b-supplier-refund-corrections.md)。
+
+## 029_customer_amount_credits.sql
+
+业务/基础表仍139张，累计29迁移。credit_notes/credit_note_lines增加QUANTITY/AMOUNT类型，金额行quantity为空、无return_line_id且有不可变adjustment_snapshot；旧行默认QUANTITY。独立净额和税额受原发票行各自累计可冲减上限保护，延迟校验来源、类型、余额、快照和原账户精确分录。旧数量贷项按剩余净额/税额封顶，原付款/核销/抵扣/退款余额视图和RLS不变。001—028摘要不变，详见[金额贷项规则](stage-b-customer-amount-credits.md)。

@@ -14,11 +14,12 @@ internal static class SupplierPaymentEndpoints
 {
     public static void Map(RouteGroupBuilder g)
     {
+        SupplierSettlementReversalEndpoints.Map(g);
         g.MapPost("/suppliers/{id:guid}/payments",Post).WithMetadata(new Permission("purchase.payments.post"));
         g.MapGet("/supplier-payments/{id:guid}",async(Guid id,CompanySession s,CancellationToken ct)=>Results.Ok(await PaymentView(id,s,ct))).WithMetadata(new Permission("purchase.payments.read"));
         g.MapGet("/suppliers/{id:guid}/payments",async(Guid id,int? page,int? pageSize,CompanySession s,CancellationToken ct)=>
         {
-            await Supplier(id,s,ct);var(offset,size)=Page(page,pageSize);return Results.Ok(new{items=(await Read(s,"SELECT p.id,d.number,d.state,d.version,p.paid_on::text,p.amount,p.allocated_amount,p.advance_amount,p.method,p.reference FROM accounting.supplier_payments p JOIN platform.documents d ON d.company_id=p.company_id AND d.id=p.id WHERE p.company_id=@company AND p.supplier_id=@id ORDER BY p.created_at DESC,p.id LIMIT @size OFFSET @offset",ct,new DbArg("id",id),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow),page=page??1,pageSize=size});
+            await Supplier(id,s,ct);var(offset,size)=Page(page,pageSize);return Results.Ok(new{items=(await Read(s,"SELECT p.id,d.number,d.state,d.version,p.paid_on::text,p.amount,p.allocated_amount,p.advance_amount,p.method,p.reference,CASE WHEN EXISTS(SELECT 1 FROM accounting.supplier_payment_reversals r WHERE r.company_id=p.company_id AND r.payment_id=p.id) THEN 'REVERSED' ELSE 'ACTIVE' END AS settlement_status FROM accounting.supplier_payments p JOIN platform.documents d ON d.company_id=p.company_id AND d.id=p.id WHERE p.company_id=@company AND p.supplier_id=@id ORDER BY p.created_at DESC,p.id LIMIT @size OFFSET @offset",ct,new DbArg("id",id),new DbArg("size",size),new DbArg("offset",offset))).Select(PublicRow),page=page??1,pageSize=size});
         }).WithMetadata(new Permission("purchase.payments.read"));
         g.MapGet("/suppliers/{id:guid}/advances",async(Guid id,int? page,int? pageSize,CompanySession s,CancellationToken ct)=>
         {
@@ -30,7 +31,7 @@ internal static class SupplierPaymentEndpoints
         MapGst(g);
     }
     private static Task<Dictionary<string,object?>> Supplier(Guid id,CompanySession s,CancellationToken ct)=>One(s,"SELECT id FROM crm.suppliers WHERE company_id=@company AND id=@id",ct,new DbArg("id",id));
-    private static SupplierPaymentAllocation[] Normalize(IReadOnlyList<SupplierPaymentAllocation>? input,bool required)
+    internal static SupplierPaymentAllocation[] Normalize(IReadOnlyList<SupplierPaymentAllocation>? input,bool required)
     {
         input??=[];Check.That(input.Count<=50 && (!required || input.Count>0) && input.All(x=>x is not null && x.BillLineId!=Guid.Empty) && input.Select(x=>x.BillLineId).Distinct().Count()==input.Count,"allocations","Supply up to 50 distinct bill lines.");
         foreach(var item in input){Check.Amount(item.Amount,"amount",2);Check.That(item.Amount>0,"amount","Allocation must be positive.");}return input.OrderBy(x=>x.BillLineId).ToArray();
@@ -56,15 +57,15 @@ internal static class SupplierPaymentEndpoints
             await Sql.AuditAsync(s,"purchase.supplier_advance_applied","supplier_advance_application",aid,h.TraceIdentifier,ct,new{advanceId=id,reference});return ApiJson.Stored(await ApplicationView(aid,s,ct));
         },ct);return ApiJson.Result(result);
     }
-    private static async Task<object> PaymentView(Guid id,CompanySession s,CancellationToken ct)
+    internal static async Task<object> PaymentView(Guid id,CompanySession s,CancellationToken ct,Guid? reversalId=null)
     {
-        var p=await One(s,"SELECT p.*,p.paid_on::text,d.number,d.state,d.version FROM accounting.supplier_payments p JOIN platform.documents d ON d.company_id=p.company_id AND d.id=p.id WHERE p.company_id=@company AND p.id=@id",ct,new DbArg("id",id));
-        return new{payment=PublicRow(p),allocations=(await Allocations(id,s,ct)).Select(PublicRow),advances=(await Read(s,"SELECT id,amount,available,account_id,gst_basis,gst_registered FROM accounting.supplier_advance_balances WHERE company_id=@company AND payment_id=@id",ct,new DbArg("id",id))).Select(PublicRow)};
+        var p=await One(s,"SELECT p.*,p.paid_on::text,d.number,d.state,d.version,r.id AS reversal_id,x.original_payment_id,CASE WHEN r.id IS NULL THEN 'ACTIVE' ELSE 'REVERSED' END AS settlement_status FROM accounting.supplier_payments p JOIN platform.documents d ON d.company_id=p.company_id AND d.id=p.id LEFT JOIN accounting.supplier_payment_reversals r ON r.company_id=p.company_id AND r.payment_id=p.id LEFT JOIN accounting.supplier_payment_reapplications x ON x.company_id=p.company_id AND x.id=p.id WHERE p.company_id=@company AND p.id=@id",ct,new DbArg("id",id));
+        var allocations=(await Allocations(id,s,ct)).Select(PublicRow);var advances=(await Read(s,"SELECT id,amount,available,account_id,gst_basis,gst_registered FROM accounting.supplier_advance_balances WHERE company_id=@company AND payment_id=@id",ct,new DbArg("id",id))).Select(PublicRow);return reversalId is null?(object)new{payment=PublicRow(p),allocations,advances}:new{payment=PublicRow(p),allocations,advances,reversalId};
     }
     private static Task<List<Dictionary<string,object?>>> Allocations(Guid id,CompanySession s,CancellationToken ct)=>Read(s,"SELECT a.id,a.bill_line_id,bl.bill_id,a.amount,a.gst_amount,a.payment_id,a.advance_id FROM accounting.supplier_payment_allocations a JOIN purchase.bill_lines bl ON bl.company_id=a.company_id AND bl.id=a.bill_line_id WHERE a.company_id=@company AND a.source_document_id=@id ORDER BY a.bill_line_id",ct,new DbArg("id",id));
     private static async Task<object> ApplicationView(Guid id,CompanySession s,CancellationToken ct)
     {
-        var p=await One(s,"SELECT a.*,d.number,d.state,d.version,d.business_date::text FROM accounting.supplier_advance_applications a JOIN platform.documents d ON d.company_id=a.company_id AND d.id=a.id WHERE a.company_id=@company AND a.id=@id",ct,new DbArg("id",id));return new{application=PublicRow(p),allocations=(await Allocations(id,s,ct)).Select(PublicRow)};
+        var p=await One(s,"SELECT a.*,d.number,d.state,d.version,d.business_date::text,u.id AS unapplication_id,CASE WHEN u.id IS NULL THEN 'APPLIED' ELSE 'UNAPPLIED' END AS application_status FROM accounting.supplier_advance_applications a JOIN platform.documents d ON d.company_id=a.company_id AND d.id=a.id LEFT JOIN accounting.supplier_advance_unapplications u ON u.company_id=a.company_id AND u.application_id=a.id WHERE a.company_id=@company AND a.id=@id",ct,new DbArg("id",id));return new{application=PublicRow(p),allocations=(await Allocations(id,s,ct)).Select(PublicRow)};
     }
     private static void MapGst(RouteGroupBuilder g)
     {

@@ -16,20 +16,21 @@ internal static class ReceiptEndpoints
 {
     public static void Map(RouteGroupBuilder g)
     {
+        SettlementReversalEndpoints.Map(g);
         g.MapPost("/customers/{id:guid}/receipts", Receive).WithMetadata(new Permission("accounting.receipts.write"));
         g.MapGet("/customer-receipts/{id:guid}", async (Guid id, HttpContext h, CompanySession s, CancellationToken ct) => Results.Ok(await ReceiptView(h, s, id, ct))).WithMetadata(new Permission("accounting.receipts.read"));
         g.MapGet("/customers/{id:guid}/receipts", async (Guid id, int? page, int? pageSize, HttpContext h, CompanySession s, CancellationToken ct) =>
         {
             await Customer(h, s, id, ct); var (offset, size) = Page(page, pageSize);
-            return Results.Ok(new { items = (await Read(s, "SELECT r.id,d.number,r.received_on::text,r.method,r.reference,r.amount,r.allocated_amount,r.advance_amount FROM accounting.customer_receipts r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id WHERE r.company_id=@company AND r.customer_id=@id ORDER BY r.created_at DESC,r.id LIMIT @size OFFSET @offset", ct, new DbArg("id", id), new DbArg("size", size), new DbArg("offset", offset))).Select(PublicRow), page = page ?? 1, pageSize = size });
+            return Results.Ok(new { items = (await Read(s, "SELECT r.id,d.number,r.received_on::text,r.method,r.reference,r.amount,r.allocated_amount,r.advance_amount,CASE WHEN EXISTS(SELECT 1 FROM accounting.receipt_reversals x WHERE x.company_id=r.company_id AND x.receipt_id=r.id) THEN 'REVERSED' ELSE 'ACTIVE' END AS settlement_status FROM accounting.customer_receipts r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id WHERE r.company_id=@company AND r.customer_id=@id ORDER BY r.created_at DESC,r.id LIMIT @size OFFSET @offset", ct, new DbArg("id", id), new DbArg("size", size), new DbArg("offset", offset))).Select(PublicRow), page = page ?? 1, pageSize = size });
         }).WithMetadata(new Permission("accounting.receipts.read"));
         g.MapGet("/customers/{id:guid}/advances", async (Guid id, int? page, int? pageSize, HttpContext h, CompanySession s, CancellationToken ct) =>
         {
             await Customer(h, s, id, ct); var (offset, size) = Page(page, pageSize);
             return Results.Ok(new { items = (await Read(s, """
                 SELECT a.id,a.receipt_id,r.received_on::text,a.order_line_id,a.amount,a.gst_amount,a.gst_basis,a.tax_code_id,
-                 a.amount-accounting.advance_refunded(a.id)-coalesce((SELECT sum(amount) FROM accounting.advance_applications WHERE company_id=a.company_id AND advance_id=a.id),0) AS available
-                FROM accounting.customer_advances a JOIN accounting.customer_receipts r ON r.company_id=a.company_id AND r.id=a.receipt_id WHERE r.company_id=@company AND r.customer_id=@id ORDER BY r.created_at DESC,a.id LIMIT @size OFFSET @offset
+                 a.available,a.applied_amount,a.refunded_amount,a.reversal_id
+                FROM accounting.customer_advance_balances a JOIN accounting.customer_receipts r ON r.company_id=a.company_id AND r.id=a.receipt_id WHERE r.company_id=@company AND r.customer_id=@id ORDER BY r.created_at DESC,a.id LIMIT @size OFFSET @offset
                 """, ct, new DbArg("id", id), new DbArg("size", size), new DbArg("offset", offset))).Select(PublicRow), page = page ?? 1, pageSize = size });
         }).WithMetadata(new Permission("accounting.receipts.read"));
         g.MapPost("/customer-advances/{id:guid}/apply", Apply).WithMetadata(new Permission("accounting.advances.apply"));
@@ -51,7 +52,7 @@ internal static class ReceiptEndpoints
                 """, ct, new DbArg("from", from), new DbArg("to", to), new DbArg("customer", customerId, NpgsqlDbType.Uuid), new DbArg("all", a.Has("customers.all")), new DbArg("membership", a.MembershipId), new DbArg("size", size), new DbArg("offset", offset))).Select(PublicRow), page = page ?? 1, pageSize = size });
         }).WithMetadata(new Permission("accounting.gst.read"));
     }
-    private static ReceiptAllocationInput[] Allocations(IReadOnlyList<ReceiptAllocationInput>? lines, bool required)
+    internal static ReceiptAllocationInput[] Allocations(IReadOnlyList<ReceiptAllocationInput>? lines, bool required)
     {
         lines ??= [];
         Check.That(lines.Count <= 50 && (!required || lines.Count > 0) && lines.All(l => l is not null && l.InvoiceLineId != Guid.Empty) && lines.Select(l => l.InvoiceLineId).Distinct().Count() == lines.Count, "allocations", "Supply up to 50 distinct invoice lines.");
@@ -89,16 +90,16 @@ internal static class ReceiptEndpoints
         await Customer(h, s, (Guid)r["customer_id"]!, ct);
     }
     private static Task<List<Dictionary<string, object?>>> Allocated(CompanySession s, Guid id, CancellationToken ct) => Read(s, "SELECT invoice_line_id,amount,gst_amount,receipt_id,advance_id FROM accounting.payment_allocations WHERE company_id=@company AND source_document_id=@id ORDER BY invoice_line_id", ct, new DbArg("id", id));
-    private static async Task<object> ReceiptView(HttpContext h, CompanySession s, Guid id, CancellationToken ct)
+    internal static async Task<object> ReceiptView(HttpContext h, CompanySession s, Guid id, CancellationToken ct)
     {
-        var r = await One(s, "SELECT r.*,r.received_on::text AS received_on,d.number,d.state,d.version FROM accounting.customer_receipts r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id WHERE r.company_id=@company AND r.id=@id", ct, new DbArg("id", id));
+        var r = await One(s, "SELECT r.*,r.received_on::text AS received_on,d.number,d.state,d.version,x.id AS reversal_id,p.original_receipt_id,CASE WHEN x.id IS NULL THEN 'ACTIVE' ELSE 'REVERSED' END AS settlement_status FROM accounting.customer_receipts r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id LEFT JOIN accounting.receipt_reversals x ON x.company_id=r.company_id AND x.receipt_id=r.id LEFT JOIN accounting.receipt_reapplications p ON p.company_id=r.company_id AND p.id=r.id WHERE r.company_id=@company AND r.id=@id", ct, new DbArg("id", id));
         await Customer(h, s, (Guid)r["customer_id"]!, ct);
-        return new { id, number = r["number"], state = r["state"], version = r["version"], customerId = r["customer_id"], receivedOn = r["received_on"], method = r["method"], reference = r["reference"], amount = r["amount"], allocatedAmount = r["allocated_amount"], advanceAmount = r["advance_amount"], allocations = (await Allocated(s, id, ct)).Select(PublicRow), advances = (await Read(s, "SELECT id,order_line_id,amount,gst_amount,gst_basis FROM accounting.customer_advances WHERE company_id=@company AND receipt_id=@id ORDER BY id", ct, new DbArg("id", id))).Select(PublicRow) };
+        return new { id, number = r["number"], state = r["state"], version = r["version"], customerId = r["customer_id"], receivedOn = r["received_on"], method = r["method"], reference = r["reference"], amount = r["amount"], allocatedAmount = r["allocated_amount"], advanceAmount = r["advance_amount"], settlementStatus=r["settlement_status"],reversalId=r["reversal_id"],originalReceiptId=r["original_receipt_id"], allocations = (await Allocated(s, id, ct)).Select(PublicRow), advances = (await Read(s, "SELECT id,order_line_id,amount,gst_amount,gst_basis FROM accounting.customer_advances WHERE company_id=@company AND receipt_id=@id ORDER BY id", ct, new DbArg("id", id))).Select(PublicRow) };
     }
     private static async Task<object> ApplicationView(HttpContext h, CompanySession s, Guid id, CancellationToken ct)
     {
-        var r = await One(s, "SELECT a.*,d.number,d.state,d.version FROM accounting.advance_applications a JOIN platform.documents d ON d.company_id=a.company_id AND d.id=a.id WHERE a.company_id=@company AND a.id=@id", ct, new DbArg("id", id));
+        var r = await One(s, "SELECT a.*,d.number,d.state,d.version,u.id AS unapplication_id,CASE WHEN u.id IS NULL THEN 'APPLIED' ELSE 'UNAPPLIED' END AS application_status FROM accounting.advance_applications a JOIN platform.documents d ON d.company_id=a.company_id AND d.id=a.id LEFT JOIN accounting.advance_unapplications u ON u.company_id=a.company_id AND u.application_id=a.id WHERE a.company_id=@company AND a.id=@id", ct, new DbArg("id", id));
         await Advance(h, s, (Guid)r["advance_id"]!, ct);
-        return new { id, number = r["number"], state = r["state"], version = r["version"], advanceId = r["advance_id"], amount = r["amount"], reference = r["reference"], allocations = (await Allocated(s, id, ct)).Select(PublicRow) };
+        return new { id, number = r["number"], state = r["state"], version = r["version"], applicationStatus=r["application_status"],unapplicationId=r["unapplication_id"],advanceId = r["advance_id"], amount = r["amount"], reference = r["reference"], allocations = (await Allocated(s, id, ct)).Select(PublicRow) };
     }
 }

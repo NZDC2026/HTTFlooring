@@ -6,7 +6,7 @@
 
 ## 已实现
 
-- 129张业务/基础表及24个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
+- 139张业务/基础表及29个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
 - OIDC JWT验证；Cognito access token模式验证`token_use=access`及`client_id`。未配置身份服务时没有开发后门，受保护接口保持锁定；生产配置缺失时拒绝启动。
 - 公司选择、数据库RLS、复合外键、销售客户范围过滤、显式接口权限；API/Worker强制使用受限数据库账号。
 - 客户创建/查询/状态更新（版本冲突保护），商品及单位创建/查询，基础资料/科目/税率查询，客户协议/促销价格解析，审计查询。
@@ -15,12 +15,17 @@
 - 阶段B报价草稿/版本提交、正式Q/SO编号、不可变快照、办公室审批转单、信用检查、库存预留及取消释放。通过受控owner CLI分别初始化数量和对应期初价值。
 - 办公室直接创建正式销售订单，复用报价转单的确认核心、SO编号、信用检查及按SKU库存预留；独立DIRECT来源及冻结税务快照，见[直接建单API](docs/stage-b-direct-orders.md)。
 - 销售分批开票、INV编号、AR/收入/GST过账、未开票承诺按含税额释放、发票/应收/GST查询；显式GST登记配置与现金制快照。见[开票流程API](docs/stage-b-invoicing.md)。
+- 客户贷项独立净额/税额调整，支持纯金额折让及只调税，复用AR/信用、GST、核销、贷项抵扣和退款，见[金额贷项API](docs/stage-b-customer-amount-credits.md)。
+- 客户退款撤销、关联替代退款及一步金额/来源更正，恢复有效AR/预收余额并重算销项GST；保留订单取消和库存动作，见[退款更正API](docs/stage-b-customer-refund-corrections.md)。
+- 客户收款录入撤销、关联重新核销及一步更正，预收款核销整笔解除后可重新分配；有效余额、信用、双GST口径及贷项/退款资金保护，见[收款更正API](docs/stage-b-settlement-reversals.md)。
 - 客户收款、订单预收款、分批应收核销、信用额度释放、CASH收款日GST归属及NON_CASH预付GST清算。见[收款流程API](docs/stage-b-receipts.md)。
 - 销售原成本退货（可售/隔离）、贷项/Adjustment Note、客户/预收退款、库存/收入/AR/GST对冲与批次追溯。见[退货退款API](docs/stage-b-returns.md)。
 - 采购草稿/PO确认、分批验收、库存数量/价值与GRNI原子过账，支持不可抵扣GST资本化、非库存费用和关闭未收余量。见[采购收货API](docs/stage-b-purchasing.md)。
 - 独立供应商费用账单，无需PO/收货，费用/AP/进项GST原子过账；复用现有付款和预付核销，支持与收货账单混合结算。见[费用账单API](docs/stage-b-expense-bills.md)。
 - 独立费用贷项通知单与供应商退款，按原费用/AP/GST冲销，兼容付款和预付核销及原SC/SR流程。见[费用贷项与退款API](docs/stage-b-expense-credits.md)。
 - 客户贷项跨发票抵扣与整笔解除，沿用原AR科目，更新各发票余额并重算现金制销项GST归属；客户总应收和额度不重复释放，兼容收款、预收核销及退款。见[客户贷项抵扣API](docs/stage-b-customer-credit-applications.md)。
+- 供应商退款撤销、关联替代退款及一步金额/合法来源更正，恢复有效AP借方余额或可用预付并重算现金制进项GST，见[供应商退款更正API](docs/stage-b-supplier-refund-corrections.md)。
+- 供应商付款录入撤销、关联重新核销及一步原子更正，预付款核销整笔解除后重新分配；有效AP/预付余额、原科目和进项GST及贷项/退款资金保护，见[供应商结算更正API](docs/stage-b-supplier-settlement-reversals.md)。
 - 供应商贷项跨账单抵扣与整笔解除，使用可用AP借方余额，原科目过账、双GST口径重算，防退款/抵扣重复使用。见[贷项抵扣API](docs/stage-b-credit-applications.md)。
 - 内部会计过账函数：来源版本、开放期间、两位小数、借贷平衡、控制科目party校验、唯一过账与不可变账簿。没有公开手工Journal接口。
 - 财务只读一致性检查：库存流水/数量/估值/预留、在途、客户信用投影、AR/AP/预收预付/GRNI/采购退货清算与GL控制核对；逐实体差异、统一快照、权限及有界明细，见[一致性API](docs/stage-b-reconciliation.md)。停用仓库/商品或禁售商品的库存查询保留实物量，可售量为0。

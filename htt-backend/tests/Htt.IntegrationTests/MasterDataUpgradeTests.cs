@@ -30,6 +30,11 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
     [InlineData(21)]
     [InlineData(22)]
     [InlineData(23)]
+    [InlineData(24)]
+    [InlineData(25)]
+    [InlineData(26)]
+    [InlineData(27)]
+    [InlineData(28)]
     public async Task Existing_stage_A_database_upgrades_without_rewriting_history_or_losing_legacy_branches(int originalVersion)
     {
         var name = "htt_upgrade_test_" + Guid.NewGuid().ToString("N");
@@ -148,6 +153,13 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
                         SELECT purchase.post_supplier_payment(b.supplier_id,10,0,'BANK_TRANSFER','LEGACY-EXPENSE-PAYMENT',current_date,'',jsonb_build_array(jsonb_build_object('billLineId',bl.id,'amount',10))) FROM purchase.bills b JOIN purchase.bill_lines bl ON bl.company_id=b.company_id AND bl.bill_id=b.id WHERE b.company_id=core.current_company() AND b.supplier_invoice='LEGACY-EXPENSE';
                         """,con);await expense.ExecuteNonQueryAsync();
                 }
+                if(originalVersion==27)
+                {
+                    await using var oldRefund=new NpgsqlCommand("""
+                        SELECT purchase.post_expense_credit(b.id,'LEGACY-REFUND-CREDIT','Original paid expense credit',jsonb_build_array(jsonb_build_object('billLineId',bl.id,'amount',20))) FROM purchase.bills b JOIN purchase.bill_lines bl ON bl.bill_id=b.id WHERE b.supplier_invoice='LEGACY-EXPENSE';
+                        SELECT purchase.receive_supplier_refund(cl.id,NULL,5,'LEGACY-SUPPLIER-REFUND','Original incoming supplier refund',NULL) FROM purchase.supplier_credit_lines cl JOIN purchase.supplier_credit_notes cn ON cn.id=cl.credit_note_id WHERE cn.reference='LEGACY-REFUND-CREDIT';
+                        """,con);await oldRefund.ExecuteNonQueryAsync();
+                }
                 if(originalVersion==22)
                 {
                     await using var oldCredit=new NpgsqlCommand("""
@@ -164,7 +176,7 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
                         FROM crm.customer_branches b CROSS JOIN catalog.warehouses w CROSS JOIN identity.users u WHERE b.code='OLD' AND w.code='OLD-WH' AND u.issuer='upgrade' AND u.subject='buyer';
                         """,con);await oldDeleted.ExecuteNonQueryAsync();
                 }
-                if(originalVersion==23)
+                if(originalVersion>=23)
                 {
                     await using var oldSales=new NpgsqlCommand("""
                         DO $old$ DECLARE c uuid:=core.current_company();a uuid;pa uuid;cu uuid;br uuid;pu uuid;prod uuid;wh uuid;o uuid;l uuid;i uuid;il uuid;n int;BEGIN
@@ -186,12 +198,21 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
                          IF n=1 THEN PERFORM accounting.post_receipt(cu,10,'BANK_TRANSFER','LEGACY-CUSTOMER-RECEIPT',(SELECT invoice_date FROM sales.invoices WHERE id=i),jsonb_build_array(jsonb_build_object('invoiceLineId',il,'amount',10)),'[]');PERFORM sales.post_credit_note(i,'LEGACY-CUSTOMER-CREDIT',jsonb_build_array(jsonb_build_object('invoiceLineId',il,'quantity',1)));END IF;
                         END LOOP;END $old$;
                         """,con);await oldSales.ExecuteNonQueryAsync();
+                                if(originalVersion==26)
+                    {
+                        await using var refund=new NpgsqlCommand("""
+                            SELECT set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false);
+                            SELECT accounting.post_receipt(i.customer_id,10,'BANK_TRANSFER','LEGACY-SECOND-CUSTOMER-RECEIPT',i.invoice_date,jsonb_build_array(jsonb_build_object('invoiceLineId',il.id,'amount',10)),'[]') FROM sales.invoices i JOIN sales.invoice_lines il ON il.invoice_id=i.id WHERE i.fulfilment_reference='LEGACY-SALES-2';
+                            SELECT accounting.post_customer_refund(id,NULL,5,'LEGACY-CUSTOMER-REFUND','Verified old bank refund',false) FROM sales.credit_note_lines;
+                            """,con);await refund.ExecuteNonQueryAsync();
+                    }
+
                 }
             }
             await MigrationRunner.ApplyAsync(owner);
             await MigrationRunner.ApplyAsync(owner);
             await using var check = new NpgsqlConnection(owner); await check.OpenAsync();
-            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(24L, await count.ExecuteScalarAsync());
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(29L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT receivable FROM crm.customer_credit_exposures"; Assert.Equal(20m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT unbilled_orders FROM crm.customer_credit_exposures"; Assert.Equal(10m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT available_advances FROM crm.customer_credit_exposures"; Assert.Equal(5m, await count.ExecuteScalarAsync());
@@ -199,8 +220,9 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             count.CommandText = "SELECT count(*) FROM identity.roles WHERE code='OFFICE'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT count(*) FROM identity.role_permissions p JOIN identity.roles r ON r.id=p.role_id WHERE r.code='ADMIN' AND p.permission_code='pricing.floor.write'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM identity.role_permissions WHERE permission_code IN('documents.trash.read','documents.trash.write','documents.trash.restore') AND role_id=(SELECT id FROM identity.roles WHERE code='ADMIN')";Assert.Equal(3L,await count.ExecuteScalarAsync());
-            if(originalVersion==23)
+            if(originalVersion>=23 && originalVersion!=26)
             {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false);SELECT identity.seed_customer_credit_application_roles(core.current_company())";await count.ExecuteNonQueryAsync();
                 count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
                 count.CommandText="SELECT available_apply_amount FROM sales.customer_credit_line_balances";Assert.Equal(10m,await count.ExecuteScalarAsync());
                 count.CommandText="SELECT sales.apply_customer_credit(cn.id,'UPGRADED-CUSTOMER-APPLY','Old paid credit',jsonb_build_array(jsonb_build_object('creditLineId',cl.id,'invoiceLineId',il.id,'amount',10))) FROM sales.credit_notes cn JOIN sales.credit_note_lines cl ON cl.credit_note_id=cn.id CROSS JOIN sales.invoices i JOIN sales.invoice_lines il ON il.invoice_id=i.id WHERE i.fulfilment_reference='LEGACY-SALES-2'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
@@ -209,6 +231,56 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
                 count.CommandText="SELECT sum(outstanding_amount) FROM sales.invoice_line_balances";Assert.Equal(10m,await count.ExecuteScalarAsync());
                 count.CommandText="SELECT sum(amount) FROM accounting.payment_allocations";Assert.Equal(10m,await count.ExecuteScalarAsync());
                 count.CommandText="SELECT receivable FROM crm.customer_credit_exposures e JOIN crm.customers c ON c.id=e.customer_id WHERE c.code='OLD-SALES'";Assert.Equal(0m,await count.ExecuteScalarAsync());
+                if(originalVersion==24)
+                {
+                    count.CommandText="SELECT accounting.reverse_receipt(id,'UPGRADED-RECEIPT-REVERSAL','Correct historical receipt') FROM accounting.customer_receipts WHERE reference='LEGACY-CUSTOMER-RECEIPT'";var reversal=(Guid)(await count.ExecuteScalarAsync())!;
+                    count.CommandText="SELECT sum(outstanding_amount) FROM sales.invoice_line_balances";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                    count.CommandText=$"SELECT accounting.reapply_receipt('{reversal}','UPGRADED-RECEIPT-REAPPLY','Correct old allocation',jsonb_build_array(jsonb_build_object('invoiceLineId',il.id,'amount',10)),'[]') FROM sales.invoice_lines il JOIN sales.invoices i ON i.id=il.invoice_id WHERE i.fulfilment_reference='LEGACY-SALES-2'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                    count.CommandText="SELECT sum(outstanding_amount) FROM sales.invoice_line_balances";Assert.Equal(0m,await count.ExecuteScalarAsync());
+                    count.CommandText="SELECT count(*) FROM accounting.receipt_reversals";Assert.Equal(1L,await count.ExecuteScalarAsync());
+                }
+
+            }
+            if(originalVersion==28)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT credit_type FROM sales.credit_notes";Assert.Equal("QUANTITY",await count.ExecuteScalarAsync());
+                count.CommandText="SELECT quantity FROM sales.credit_note_lines";Assert.Equal(1m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sales.post_amount_credit_note(i.id,'Verified migrated price adjustment',jsonb_build_array(jsonb_build_object('invoiceLineId',il.id,'net',3,'tax',0,'description','Original 028 invoice price credit'))) FROM sales.invoices i JOIN sales.invoice_lines il ON il.invoice_id=i.id WHERE i.fulfilment_reference='LEGACY-SALES-2'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT remaining_gross FROM sales.invoice_line_balances bl JOIN sales.invoices i ON i.id=bl.invoice_id WHERE i.fulfilment_reference='LEGACY-SALES-2'";Assert.Equal(7m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT count(*) FROM sales.credit_note_lines WHERE credit_type='AMOUNT' AND quantity IS NULL AND tax=0 AND net=3";Assert.Equal(1L,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(amount) FROM accounting.payment_allocations";Assert.Equal(10m,await count.ExecuteScalarAsync());
+            }
+            if(originalVersion==27)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT amount FROM accounting.supplier_refunds WHERE reference='LEGACY-SUPPLIER-REFUND'";Assert.Equal(5m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT purchase.reverse_supplier_refund(id,'UPGRADED-SUPPLIER-REFUND-REVERSE','Correct old refund') FROM accounting.supplier_refunds WHERE reference='LEGACY-SUPPLIER-REFUND'";var reversed=(Guid)(await count.ExecuteScalarAsync())!;
+                count.CommandText="SELECT refundable_amount FROM purchase.bill_line_balances bl JOIN purchase.bills b ON b.id=bl.bill_id WHERE b.supplier_invoice='LEGACY-EXPENSE'";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText=$"SELECT purchase.replace_supplier_refund('{reversed}',cl.id,NULL,3,'UPGRADED-SUPPLIER-REFUND-CORRECT','Correct original amount') FROM purchase.supplier_credit_lines cl JOIN purchase.supplier_credit_notes cn ON cn.id=cl.credit_note_id WHERE cn.reference='LEGACY-REFUND-CREDIT'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT refundable_amount FROM purchase.bill_line_balances bl JOIN purchase.bills b ON b.id=bl.bill_id WHERE b.supplier_invoice='LEGACY-EXPENSE'";Assert.Equal(7m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(amount) FROM accounting.active_supplier_refunds";Assert.Equal(3m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(amount) FROM accounting.supplier_payment_allocations";Assert.Equal(10m,await count.ExecuteScalarAsync());
+            }
+            if(originalVersion==26)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT amount FROM accounting.customer_refunds WHERE reference='LEGACY-CUSTOMER-REFUND'";Assert.Equal(5m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT accounting.reverse_customer_refund(id,'UPGRADED-REFUND-REVERSE','Correct old refund') FROM accounting.customer_refunds WHERE reference='LEGACY-CUSTOMER-REFUND'";var reversed=(Guid)(await count.ExecuteScalarAsync())!;
+                count.CommandText="SELECT receivable FROM crm.customer_credit_exposures e JOIN crm.customers c ON c.id=e.customer_id WHERE c.code='OLD-SALES'";Assert.Equal(-10m,await count.ExecuteScalarAsync());
+                count.CommandText=$"SELECT accounting.replace_customer_refund('{reversed}',id,NULL,3,'UPGRADED-REFUND-CORRECT','Correct original amount',false) FROM sales.credit_note_lines";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT receivable FROM crm.customer_credit_exposures e JOIN crm.customers c ON c.id=e.customer_id WHERE c.code='OLD-SALES'";Assert.Equal(-7m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(amount) FROM accounting.active_customer_refunds";Assert.Equal(3m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(amount) FROM accounting.payment_allocations";Assert.Equal(20m,await count.ExecuteScalarAsync());
+            }
+            if(originalVersion==25)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false),set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT purchase.reverse_supplier_payment(id,'UPGRADED-SUPPLIER-REVERSE','Correct old payment') FROM accounting.supplier_payments WHERE reference='LEGACY-EXPENSE-PAYMENT'";var reversed=(Guid)(await count.ExecuteScalarAsync())!;
+                count.CommandText="SELECT sum(amount) FROM accounting.supplier_payment_allocations";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText=$"SELECT purchase.reapply_supplier_payment('{reversed}','UPGRADED-SUPPLIER-REAPPLY','Correct allocation',0,jsonb_build_array(jsonb_build_object('billLineId',bl.id,'amount',10))) FROM purchase.bill_lines bl JOIN purchase.bills b ON b.id=bl.bill_id WHERE b.supplier_invoice='LEGACY-BILL'";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
+                count.CommandText="SELECT outstanding_amount FROM accounting.ap_balances a JOIN purchase.bills b ON b.id=a.bill_id WHERE b.supplier_invoice='LEGACY-BILL'";Assert.Equal(0m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT count(*) FROM accounting.supplier_payment_reapplications";Assert.Equal(1L,await count.ExecuteScalarAsync());
             }
             if(originalVersion==22)
             {
