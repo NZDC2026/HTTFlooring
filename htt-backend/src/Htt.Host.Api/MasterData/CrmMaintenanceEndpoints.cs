@@ -7,7 +7,7 @@ using static Htt.Host.Api.MasterData.MasterDataSupport;
 namespace Htt.Host.Api.MasterData;
 
 public sealed record CustomerMaintenance(string Code, string LegalName, string? Abn, string Status, [property: JsonRequired] decimal CreditLimit, [property: JsonRequired] int PaymentTermsDays);
-public sealed record SupplierMaintenance(string Code, string LegalName, string? Abn, int PaymentTermsDays = 30, string Status = "ACTIVE");
+public sealed record SupplierMaintenance(string Code, string LegalName, string? Abn, int? PaymentTermsDays = null, string Status = "ACTIVE");
 public sealed record BranchMaintenance(string Code, string Name, string AddressLine1, string? Suburb, string? State, string? Postcode, string Country = "AU", bool Active = true);
 public sealed record ContactMaintenance(string Name, string? Email = null, string? Phone = null, string? Mobile = null, string? JobTitle = null, bool IsAccounting = false, bool Active = true, Guid[]? BranchIds = null);
 
@@ -125,8 +125,8 @@ internal static class CrmMaintenanceEndpoints
     private static DbArg[] BranchArgs(BranchMaintenance d, Guid id, Guid customer) => [new DbArg("id", id), new DbArg("customer", customer), new DbArg("code", d.Code), new DbArg("name", d.Name), new DbArg("address", d.AddressLine1), new DbArg("suburb", d.Suburb, NpgsqlDbType.Text), new DbArg("state", d.State, NpgsqlDbType.Text), new DbArg("postcode", d.Postcode, NpgsqlDbType.Text), new DbArg("country", d.Country), new DbArg("active", d.Active)];
     private static async Task<IResult> CreateSupplier(SupplierMaintenance input, HttpContext h, CompanySession s, Idempotency idem, CancellationToken ct)
     {
-        var d = Normalize(input);
-        return await Create(h, s, idem, "crm.suppliers", d, async id =>
+        var requestedTerms=input.PaymentTermsDays;var d = Normalize(input with{PaymentTermsDays=input.PaymentTermsDays??await DiscoverySettingsEndpoints.DefaultTerms(s,true,ct)});
+        return await Create(h, s, idem, "crm.suppliers", d with{PaymentTermsDays=requestedTerms}, async id =>
         {
             var party = Guid.NewGuid();
             await Read(s, "INSERT INTO crm.parties(id,company_id,legal_name,abn,created_by) VALUES(@party,@company,@name,@abn,@actor); INSERT INTO crm.suppliers(id,company_id,party_id,code,status,payment_terms_days,created_by) VALUES(@id,@company,@party,@code,@status,@terms,@actor)", ct, new DbArg("party", party), new DbArg("name", d.LegalName), new DbArg("abn", d.Abn, NpgsqlDbType.Varchar), new DbArg("id", id), new DbArg("code", d.Code), new DbArg("status", d.Status), new DbArg("terms", d.PaymentTermsDays));
@@ -134,8 +134,8 @@ internal static class CrmMaintenanceEndpoints
     }
     private static async Task<IResult> UpdateSupplier(Guid id, SupplierMaintenance input, HttpContext h, CompanySession s, Idempotency idem, CancellationToken ct)
     {
-        var d = Normalize(input);
-        return await Update(h, s, idem, "crm.suppliers", id, d, async before =>
+        var requestedTerms=input.PaymentTermsDays;var d = Normalize(input with{PaymentTermsDays=input.PaymentTermsDays??await DiscoverySettingsEndpoints.DefaultTerms(s,true,ct)});
+        return await Update(h, s, idem, "crm.suppliers", id, d with{PaymentTermsDays=requestedTerms}, async before =>
         {
             var party = (Guid)before["party_id"]!; await SharedPartyPermission(h, s, party, false, ct);
             before["party"] = PublicRow(await One(s, "SELECT legal_name,abn FROM crm.parties WHERE company_id=@company AND id=@party FOR UPDATE", ct, new DbArg("party", party)));

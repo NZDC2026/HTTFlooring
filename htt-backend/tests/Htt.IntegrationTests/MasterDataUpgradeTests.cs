@@ -35,6 +35,9 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
     [InlineData(26)]
     [InlineData(27)]
     [InlineData(28)]
+    [InlineData(29)]
+    [InlineData(30)]
+    [InlineData(31)]
     public async Task Existing_stage_A_database_upgrades_without_rewriting_history_or_losing_legacy_branches(int originalVersion)
     {
         var name = "htt_upgrade_test_" + Guid.NewGuid().ToString("N");
@@ -212,7 +215,7 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             await MigrationRunner.ApplyAsync(owner);
             await MigrationRunner.ApplyAsync(owner);
             await using var check = new NpgsqlConnection(owner); await check.OpenAsync();
-            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(29L, await count.ExecuteScalarAsync());
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(32L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT receivable FROM crm.customer_credit_exposures"; Assert.Equal(20m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT unbilled_orders FROM crm.customer_credit_exposures"; Assert.Equal(10m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT available_advances FROM crm.customer_credit_exposures"; Assert.Equal(5m, await count.ExecuteScalarAsync());
@@ -220,6 +223,12 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             count.CommandText = "SELECT count(*) FROM identity.roles WHERE code='OFFICE'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT count(*) FROM identity.role_permissions p JOIN identity.roles r ON r.id=p.role_id WHERE r.code='ADMIN' AND p.permission_code='pricing.floor.write'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM identity.role_permissions WHERE permission_code IN('documents.trash.read','documents.trash.write','documents.trash.restore') AND role_id=(SELECT id FROM identity.roles WHERE code='ADMIN')";Assert.Equal(3L,await count.ExecuteScalarAsync());
+            if(originalVersion>=13)
+            {
+                count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT sum(quantity) FROM inventory.positions p JOIN inventory.bins b ON b.id=p.bin_id JOIN inventory.lots l ON l.id=p.lot_id WHERE b.code='UNASSIGNED' AND l.code='UNASSIGNED'";Assert.Equal(10m,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT sum(quantity) FROM inventory.position_movements WHERE reason='LEGACY_UNASSIGNED_OPENING'";Assert.Equal(10m,await count.ExecuteScalarAsync());
+            }
             if(originalVersion>=23 && originalVersion!=26)
             {
                 count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false);SELECT identity.seed_customer_credit_application_roles(core.current_company())";await count.ExecuteNonQueryAsync();

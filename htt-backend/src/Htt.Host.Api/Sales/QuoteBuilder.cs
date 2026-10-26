@@ -53,6 +53,7 @@ internal static class QuoteBuilder
     public static async Task<BuiltQuote> Build(HttpContext h, CompanySession s, QuoteInput input, CancellationToken ct)
     {
         var context = await Context(h, s, input.CustomerId, input.CustomerBranchId, input.WarehouseId, ct);
+        if(input.ExpiresOn is null){var defaults=await One(s,"SELECT quote_valid_days FROM core.business_preferences WHERE company_id=@company",ct);input=input with{ExpiresOn=context.Today.AddDays((int)defaults["quote_valid_days"]!)};}
         var d = Normalize(input, context.Today);
         // Price maintenance locks the same units before changing rules. Stabilize this quote without locking unrelated products.
         foreach (var unit in d.Lines.Select(x => x.ProductUnitId).Distinct().Order())

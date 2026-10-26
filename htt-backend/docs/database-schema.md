@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至029共139张业务/基础表及29个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至032共149张业务/基础表及32个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -737,3 +737,7 @@ line_refunded/advance_refunded、AR/贷项余额、预收可用额和一致性�
 ## 029_customer_amount_credits.sql
 
 业务/基础表仍139张，累计29迁移。credit_notes/credit_note_lines增加QUANTITY/AMOUNT类型，金额行quantity为空、无return_line_id且有不可变adjustment_snapshot；旧行默认QUANTITY。独立净额和税额受原发票行各自累计可冲减上限保护，延迟校验来源、类型、余额、快照和原账户精确分录。旧数量贷项按剩余净额/税额封顶，原付款/核销/抵扣/退款余额视图和RLS不变。001—028摘要不变，详见[金额贷项规则](stage-b-customer-amount-credits.md)。
+
+## 030—032 本批增量
+
+030：供应商独立净额/税额贷项、实际采购账单价差及不可变 purchase_value_adjustments；031：business_preferences、unit_barcodes、编号维护及员工搜索授权；032：bins、lots、positions、position_movements、location_moves、pick_positions、pick_shortages。全部新业务表强制公司 RLS；来源与数量/价值/GL约束见迁移。旧库存自动进入未分配位置，原001—029不修改。

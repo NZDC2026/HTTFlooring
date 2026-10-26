@@ -6,9 +6,10 @@ using static Htt.Host.Api.Sales.SalesSupport;
 
 namespace Htt.Host.Api.Sales;
 
-public sealed record PickLineInput(Guid OrderLineId, decimal Quantity);
+public sealed record PickPositionInput(Guid PositionId,decimal BaseQuantity);
+public sealed record PickLineInput(Guid OrderLineId, decimal Quantity,string? ShortPickReason=null,IReadOnlyList<PickPositionInput>? Positions=null);
 public sealed record PickInput(IReadOnlyList<PickLineInput>? Lines);
-public sealed record DispatchInput(string Mode, string Recipient, string Reference);
+public sealed record DispatchInput(string? Mode, string Recipient, string Reference);
 
 internal static class FulfilmentEndpoints
 {
@@ -67,7 +68,7 @@ internal static class FulfilmentEndpoints
     private static async Task<object> View(CompanySession s, Guid id, CancellationToken ct)
     {
         var p = await ScopedPick(s, id, "inventory.picks.read", ct);
-        return new { id, orderId = p["order_id"], number = p["number"], version = p["version"], state = p["state"], mode = p["mode"], recipient = p["recipient"], reference = p["reference"], confirmedAt = p["confirmed_at"], lines = (await Read(s, "SELECT order_line_id,quantity,base_quantity FROM inventory.pick_lines WHERE company_id=@company AND pick_id=@id ORDER BY order_line_id", ct, new DbArg("id", id))).Select(PublicRow) };
+        return new { positions=(await Read(s,"SELECT a.pick_line_id,a.position_id,a.quantity FROM inventory.pick_positions a JOIN inventory.pick_lines pl ON pl.company_id=a.company_id AND pl.id=a.pick_line_id WHERE a.company_id=@company AND pl.pick_id=@id ORDER BY a.id",ct,new DbArg("id",id))).Select(PublicRow),shortages=(await Read(s,"SELECT id,order_line_id,missing_quantity,reason,created_at FROM inventory.pick_shortages WHERE company_id=@company AND pick_id=@id ORDER BY created_at,id",ct,new DbArg("id",id))).Select(PublicRow), id, orderId = p["order_id"], number = p["number"], version = p["version"], state = p["state"], mode = p["mode"], recipient = p["recipient"], reference = p["reference"], confirmedAt = p["confirmed_at"], lines = (await Read(s, "SELECT order_line_id,quantity,base_quantity FROM inventory.pick_lines WHERE company_id=@company AND pick_id=@id ORDER BY order_line_id", ct, new DbArg("id", id))).Select(PublicRow) };
     }
     private static async Task<IResult> Create(Guid id, PickInput input, HttpContext h, CompanySession s, Idempotency idem, CancellationToken ct)
     {
@@ -89,16 +90,25 @@ internal static class FulfilmentEndpoints
                 if (decimal.Round(baseQty, 6) != baseQty) throw new BusinessException("invalid_base_quantity", "Quantity cannot be represented in base units.");
                 await Read(s, "INSERT INTO inventory.pick_lines(company_id,pick_id,order_line_id,quantity,base_quantity) VALUES(@company,@pick,@line,@quantity,@base)", ct, new DbArg("pick", pick), new DbArg("line", l.OrderLineId), new DbArg("quantity", l.Quantity), new DbArg("base", baseQty));
             }
+            await Read(s,"SELECT inventory.assign_pick_positions(@pick,@lines)",ct,new DbArg("pick",pick),new DbArg("lines",Json(input.Lines),NpgsqlTypes.NpgsqlDbType.Jsonb));
+            foreach(var l in input.Lines)
+            {
+                if(l.ShortPickReason is not null)
+                {
+                    var reason=Check.Text(l.ShortPickReason,"shortPickReason",500);var missing=await One(s,"SELECT l.quantity-coalesce((SELECT sum(pl.quantity) FROM inventory.pick_lines pl JOIN inventory.picks p ON p.company_id=pl.company_id AND p.id=pl.pick_id WHERE pl.company_id=l.company_id AND pl.order_line_id=l.id AND p.state IN('PICKED','DISPATCHED')),0) AS missing FROM sales.order_lines l WHERE l.company_id=@company AND l.id=@line",ct,new DbArg("line",l.OrderLineId));
+                    Check.That((decimal)missing["missing"]!>0,"shortPickReason","No short-picked remainder exists.");await Read(s,"INSERT INTO inventory.pick_shortages(company_id,pick_id,order_line_id,missing_quantity,reason,created_by) VALUES(@company,@pick,@line,@qty,@reason,@actor)",ct,new DbArg("pick",pick),new DbArg("line",l.OrderLineId),new DbArg("qty",missing["missing"]),new DbArg("reason",reason));
+                }
+            }
             await Sql.AuditAsync(s, "inventory.picked", "pick", pick, h.TraceIdentifier, ct, new { orderId = id });
             return ApiJson.Stored(await View(s, pick, ct));
         }, ct); return ApiJson.Result(response);
     }
     private static async Task<IResult> Confirm(Guid id, DispatchInput input, HttpContext h, CompanySession s, Idempotency idem, CancellationToken ct)
     {
-        var expected = Version(h); var mode = Check.OneOf(input.Mode, "mode", "PICKUP", "DELIVERY");
+        var expected = Version(h); var mode = Check.OneOf(input.Mode??(string)(await One(s,"SELECT default_dispatch_mode FROM core.business_preferences WHERE company_id=@company",ct))["default_dispatch_mode"]!, "mode", "PICKUP", "DELIVERY");
         var recipient = Check.Text(input.Recipient, "recipient", 200); var reference = Check.Text(input.Reference, "reference", 200);
         await ScopedPick(s, id, "inventory.dispatch", ct);
-        var response = await idem.ExecuteAsync($"POST /warehouse/picks/{id}/confirm", h.Request.Headers["Idempotency-Key"].ToString(), Json(new { expected, mode, recipient, reference }), async () =>
+        var response = await idem.ExecuteAsync($"POST /warehouse/picks/{id}/confirm", h.Request.Headers["Idempotency-Key"].ToString(), Json(new { expected, mode=input.Mode, recipient, reference }), async () =>
         {
             await Read(s, "SELECT inventory.confirm_pick(@id,@version,@mode,@recipient,@reference)", ct, new DbArg("id", id), new DbArg("version", expected), new DbArg("mode", mode), new DbArg("recipient", recipient), new DbArg("reference", reference));
             await Sql.AuditAsync(s, "inventory.dispatched", "pick", id, h.TraceIdentifier, ct, new { mode, recipient, reference });

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Htt.Infrastructure;
+using Htt.Host.Api.MasterData;
 using Htt.Modules.Foundation;
 using Htt.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,7 @@ using NpgsqlTypes;
 
 namespace Htt.Host.Api;
 
-public sealed record CustomerDraft(string Code, string LegalName, string? Abn, decimal CreditLimit = 0, int PaymentTermsDays = 30);
+public sealed record CustomerDraft(string Code, string LegalName, string? Abn, decimal CreditLimit = 0, int? PaymentTermsDays = null);
 public sealed record CustomerState(string Status);
 public sealed record UnitDraft(Guid UomId, decimal ConversionToBase, decimal QuantityStep = 1);
 public sealed record ProductDraft(string Sku, string Name, Guid BaseUomId, Guid TaxCodeId, bool WholePacks, UnitDraft[] Units);
@@ -23,6 +24,8 @@ public static partial class FoundationEndpoints
     public static void MapFoundation(this WebApplication app)
     {
         var group = app.MapGroup("/api/v1").RequireAuthorization().RequireRateLimiting("api").AddEndpointFilter<CompanyFilter>();
+        DiscoverySettingsEndpoints.Map(group);
+        Inventory.WarehouseDetailEndpoints.Map(group);
         group.MapGet("/foundation", async (CompanySession session, CancellationToken token) => Results.Ok(new
         {
             companies = await Sql.RowsAsync(session, "SELECT id,name,abn,country,base_currency,timezone,financial_year_start_month,gst_basis,gst_registered FROM core.companies", token),
@@ -93,15 +96,16 @@ public static partial class FoundationEndpoints
 
     private static async Task<IResult> CreateCustomer(CustomerDraft draft, HttpContext http, CompanySession session, Idempotency idempotency, CancellationToken token)
     {
+        var requestedTerms=draft.PaymentTermsDays;var defaultTerms=await DiscoverySettingsEndpoints.DefaultTerms(session,false,token);draft=draft with{PaymentTermsDays=draft.PaymentTermsDays??defaultTerms};
         var code = (draft.Code ?? "").Trim().ToUpperInvariant();
         if (!CodePattern().IsMatch(code) || string.IsNullOrWhiteSpace(draft.LegalName) || draft.LegalName.Length > 200
             || draft.CreditLimit < 0 || decimal.Round(draft.CreditLimit, 2) != draft.CreditLimit || draft.PaymentTermsDays is < 0 or > 365)
             throw new BusinessException("invalid_customer", "Provide a code, legal name, nonnegative two-decimal credit limit, and valid terms.");
         var abn = string.IsNullOrWhiteSpace(draft.Abn) ? null : AustralianBusinessNumber.Normalize(draft.Abn);
         var normalized = draft with { Code = code, LegalName = draft.LegalName.Trim(), Abn = abn };
-        if ((draft.CreditLimit > 0 || draft.PaymentTermsDays != 30) && !Access(http).Has("customers.credit.write"))
+        if ((draft.CreditLimit > 0 || draft.PaymentTermsDays != defaultTerms) && !Access(http).Has("customers.credit.write"))
             throw new BusinessException("permission_denied", "Initial credit and nondefault terms require credit permission.", 403);
-        var response = await idempotency.ExecuteAsync("POST /customers", http.Request.Headers["Idempotency-Key"].ToString(), JsonSerializer.Serialize(normalized), async () =>
+        var response = await idempotency.ExecuteAsync("POST /customers", http.Request.Headers["Idempotency-Key"].ToString(), JsonSerializer.Serialize(normalized with{PaymentTermsDays=requestedTerms}), async () =>
         {
             var id = Guid.NewGuid();
             var party = Guid.NewGuid();
@@ -119,7 +123,7 @@ public static partial class FoundationEndpoints
             command.Parameters.AddWithValue("id", id);
             command.Parameters.AddWithValue("code", code);
             command.Parameters.AddWithValue("credit", normalized.CreditLimit);
-            command.Parameters.AddWithValue("terms", normalized.PaymentTermsDays);
+            command.Parameters.AddWithValue("terms", normalized.PaymentTermsDays!.Value);
             await command.ExecuteNonQueryAsync(token);
             await Sql.AuditAsync(session, "foundation.customer_created", "customer", id, http.TraceIdentifier, token);
             return ApiJson.Stored(new { id, version = 1 });

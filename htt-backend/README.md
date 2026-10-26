@@ -136,3 +136,5 @@ docker compose -f compose.test.yaml --env-file .env down
 SQL迁移是数据库结构的唯一权威。EF Core用于映射与查询，受控SQL用于关键事务/锁/约束；**不使用EnsureCreated，也不额外运行另一套EF自动迁移**。已有迁移只读，新变更新增编号SQL；迁移工具按SHA256校验并以数据库advisory lock防并发迁移，每个文件一个事务。
 
 本地Compose不是生产AWS部署。上线前仍需Cognito真实接入、实际授权配置、TLS/域名、RDS Multi-AZ、备份恢复演练、密钥管理、告警/OTel后端及生产压测。当前健康检查和JSON日志可用于后续运维集成，不代表已达到设计中的SLO/RPO/RTO。
+
+本批 030—032：[采购差异与金额贷项](docs/stage-b-purchase-adjustments.md)、[搜索及设置](docs/stage-b-search-settings.md)、[仓管货位批次及照片](docs/stage-b-warehouse-locations.md)。仅后端，客户端未联调。
