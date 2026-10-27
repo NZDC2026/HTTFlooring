@@ -144,3 +144,5 @@ SQL迁移是数据库结构的唯一权威。EF Core用于映射与查询，受�
 034：[阶段C银行流水导入、收付款匹配及银行对账](docs/stage-c-bank-reconciliation.md)。
 
 035：[利润表、资产负债表及历史应收应付账龄](docs/stage-c-financial-reports.md)。
+
+036：[直接法现金流、活动分类及银行/总账核对](docs/stage-c-cash-flow.md)。

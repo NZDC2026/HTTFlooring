@@ -99,7 +99,7 @@ public static class CompanyBootstrap
               PERFORM identity.seed_customer_credit_application_roles(c);
               PERFORM identity.seed_settlement_reversal_roles(c);
               PERFORM identity.seed_supplier_reversal_roles(c);
-              PERFORM identity.seed_customer_refund_roles(c); PERFORM identity.seed_supplier_refund_roles(c); PERFORM identity.seed_amount_credit_roles(c); PERFORM identity.seed_purchase_adjustment_roles(c); PERFORM identity.seed_business_preferences(c); PERFORM identity.seed_location_roles(c); PERFORM identity.seed_bank_ledger_roles(c); PERFORM identity.seed_bank_reconciliation_roles(c); PERFORM identity.seed_financial_report_roles(c);
+              PERFORM identity.seed_customer_refund_roles(c); PERFORM identity.seed_supplier_refund_roles(c); PERFORM identity.seed_amount_credit_roles(c); PERFORM identity.seed_purchase_adjustment_roles(c); PERFORM identity.seed_business_preferences(c); PERFORM identity.seed_location_roles(c); PERFORM identity.seed_bank_ledger_roles(c); PERFORM identity.seed_bank_reconciliation_roles(c); PERFORM identity.seed_financial_report_roles(c); PERFORM identity.seed_cash_flow_roles(c);
               INSERT INTO platform.audit_events(company_id,actor_id,action,entity_type,entity_id,request_id)
                 VALUES(c,u,'company.bootstrapped','company',c,'owner-cli');
               INSERT INTO platform.outbox_events(company_id,event_type,payload,created_by)

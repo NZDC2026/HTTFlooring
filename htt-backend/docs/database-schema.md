@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至035共162张业务/基础表及35个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至036共165张业务/基础表及36个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -753,3 +753,7 @@ line_refunded/advance_refunded、AR/贷项余额、预收可用额和一致性�
 ## 035 财务报表与历史账龄
 
 不新增业务表，保持162张、累计35个迁移。新增只读 security_invoker 视图 accounting.report_open_item_movements、report_control_dates，按既有不可变原单、核销及冲销记录与AR/AP凭证过账日期重建截止日余额。新增 accounting.reports.read，ADMIN/FINANCE 默认授权；接口另要求 ledger.read。利润表、资产负债表、账龄均以单条SQL快照计算明细与总计，不写报表缓存或调整账务。见 stage-c-financial-reports.md。
+
+## 036 现金流范围、分类及直接法报表
+
+新增 accounting.cash_flow_scopes、cash_flow_classifications、cash_flow_allocations 共3表（累计165表、36迁移），全部FORCE RLS；分类及分配append-only。旧现金账户首次待确认，使用并确认后范围冻结，过账行锁防止并发改变历史范围。受限分类函数按凭证修订、延迟约束校验完整覆盖/内部划转，撤销继承原分类。security_invoker视图包含已过账现金、最新分类、前序更正复核及有效分配，物化CTE控制查询展开。新增分类/范围权限、审计/Outbox；报表在单SQL快照内核对现金期初期末、全部BANK控制余额和银行未达快照。见 stage-c-cash-flow.md。

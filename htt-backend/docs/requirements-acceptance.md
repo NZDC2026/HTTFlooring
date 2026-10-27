@@ -50,7 +50,7 @@
 | 37 / R037 | 管理/财务端：Periods, employee calculation, review, record, journal posting | P1 / 保留 | D | 未实现 | — | 工资计算/审批/锁定/Journal未实现；D。 |
 | 38 / R038 | 管理/财务端：Hours, pay items, jobs, import into pay run | P2 / 保留 | D | 未实现 | — | Payroll Timesheets未实现；不恢复Time Billing；D。 |
 | 39 / R039 | 管理/财务端：STP equivalent / NZ Payday Filing integration layer | P2 / 保留 | D | 未实现 | — | 仅保留澳洲STP方向；工作簿中的NZ Payday字样不适用。AU申报服务未接入；D。 |
-| 40 / R040 | 管理/财务端：P&L, Balance Sheet, Cash Flow, Trial Balance, GL | P0 / 保留 | C | 部分实现 | [stage-c-financial-reports.md](stage-c-financial-reports.md) | GL/TB查询、利润表、资产负债表及历史AR/AP账龄API已交付；现金流量表、导出、客户端与生产验收仍待后续。 |
+| 40 / R040 | 管理/财务端：P&L, Balance Sheet, Cash Flow, Trial Balance, GL | P0 / 保留 | C | 部分实现 | [stage-c-financial-reports.md](stage-c-financial-reports.md) | GL/TB、利润表、资产负债表、直接法现金流及历史AR/AP账龄API已交付；法定模板、导出、客户端与生产验收仍待后续。 |
 | 41 / R041 | 管理/财务端：Sales, purchases, receivables/payables, payroll, banking | P1 / 保留 | C/D | 部分实现 | [stage-b-invoicing.md](stage-b-invoicing.md)；[stage-b-supplier-bills.md](stage-b-supplier-bills.md) | 有单据、AR/AP/GRNI/GST来源查询；完整账龄/业务报表及导出未交付；C/D。 |
 | 42 / R042 | 管理/财务端：Filters, columns, saved reports/favourites | P2 / 保留 | D | 未实现 | — | 收藏/自定义报表未实现；D。 |
 | 43 / R043 | 管理/财务端：Multi-report packs, cover/TOC, PDF generation | P2 / 保留 | D | 未实现 | — | 报表包、封面/目录/PDF未实现；D。 |
@@ -171,3 +171,7 @@
 ## 035 阶段C财务报表覆盖（2026-10-27）
 
 R040基础利润表、资产负债表与应收/应付账龄后端API已补；采用已过账总账、历史核销/冲销与单语句快照，单列贷项并核对控制科目。现金流量表、BAS及其他完整财务报表、导出、维度、客户端与生产验收仍按原规划保留。准确范围、日期和财年口径见 stage-c-financial-reports.md；测试证据见 verification.md。
+
+## 036 阶段C现金流覆盖（2026-10-27）
+
+R040补齐基础直接法现金流、经营/投资/筹资分类、内部划转剔除、现金范围、未分类/迁移待确认提示及银行/总账核对。历史金额不因分类变更重记账，冲销继承、后续更正复核及并发快照已纳入测试。间接法、合并/外币、法定模板、导出/归档、真实银行feed/BAS、客户端及生产验收仍保留。准确口径及操作见 stage-c-cash-flow.md，证据见 verification.md。

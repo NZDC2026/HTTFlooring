@@ -41,6 +41,7 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
     [InlineData(32)]
     [InlineData(33)]
     [InlineData(34)]
+    [InlineData(35)]
     public async Task Existing_stage_A_database_upgrades_without_rewriting_history_or_losing_legacy_branches(int originalVersion)
     {
         var name = "htt_upgrade_test_" + Guid.NewGuid().ToString("N");
@@ -218,7 +219,7 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             await MigrationRunner.ApplyAsync(owner);
             await MigrationRunner.ApplyAsync(owner);
             await using var check = new NpgsqlConnection(owner); await check.OpenAsync();
-            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(35L, await count.ExecuteScalarAsync());
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(36L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT receivable FROM crm.customer_credit_exposures"; Assert.Equal(20m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT unbilled_orders FROM crm.customer_credit_exposures"; Assert.Equal(10m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT available_advances FROM crm.customer_credit_exposures"; Assert.Equal(5m, await count.ExecuteScalarAsync());
@@ -227,6 +228,8 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             count.CommandText = "SELECT count(*) FROM identity.role_permissions p JOIN identity.roles r ON r.id=p.role_id WHERE r.code='ADMIN' AND p.permission_code='pricing.floor.write'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM identity.role_permissions WHERE permission_code IN('documents.trash.read','documents.trash.write','documents.trash.restore') AND role_id=(SELECT id FROM identity.roles WHERE code='ADMIN')";Assert.Equal(3L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false)";await count.ExecuteNonQueryAsync();
+            count.CommandText="SELECT count(*) FROM accounting.bank_accounts b LEFT JOIN accounting.cash_flow_scopes s ON s.company_id=b.company_id AND s.bank_account_id=b.id WHERE s.bank_account_id IS NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());
+            count.CommandText="SELECT count(*) FROM accounting.cash_flow_scopes s WHERE s.review_required IS DISTINCT FROM EXISTS(SELECT 1 FROM accounting.journal_lines l WHERE l.company_id=s.company_id AND l.account_id=s.bank_account_id)";Assert.Equal(0L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM accounting.accounts a LEFT JOIN accounting.bank_accounts b ON b.company_id=a.company_id AND b.id=a.id WHERE a.kind='ASSET' AND a.control_kind='BANK' AND b.id IS NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM accounting.bank_accounts WHERE kind<>'LEGACY' OR bsb IS NOT NULL OR account_number IS NOT NULL OR account_holder IS NOT NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM accounting.customer_receipts r LEFT JOIN accounting.bank_accounts b ON b.company_id=r.company_id AND b.id=r.bank_account_id WHERE b.id IS NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());
@@ -378,6 +381,15 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
                 count.CommandText=$"SELECT inventory.post_transit_event('{transfer}','RECEIPT','UPGRADE-ARRIVAL','Actual receipt',jsonb_build_array(jsonb_build_object('transferLineId',id,'quantity',1))) FROM inventory.transit_transfer_lines";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
                 count.CommandText=$"SELECT inventory.post_transit_event('{transfer}','SHORTAGE','UPGRADE-SHORT','Loss verified',jsonb_build_array(jsonb_build_object('transferLineId',id,'quantity',1))) FROM inventory.transit_transfer_lines";Assert.IsType<Guid>(await count.ExecuteScalarAsync());
                 count.CommandText="SELECT state FROM inventory.transit_transfer_balances";Assert.Equal("CLOSED",await count.ExecuteScalarAsync());count.CommandText="SELECT remaining_cost FROM inventory.transit_transfer_balances";Assert.Equal(0m,await count.ExecuteScalarAsync());count.CommandText="SELECT sum(on_hand) FROM inventory.stock_balances";Assert.Equal(9m,await count.ExecuteScalarAsync());count.CommandText="SELECT sum(value) FROM inventory.stock_values";Assert.Equal(90m,await count.ExecuteScalarAsync());
+            }
+            if(originalVersion==12)
+            {
+                count.CommandText="SELECT set_config('htt.actor_id',(SELECT id::text FROM identity.users WHERE issuer='upgrade' AND subject='buyer'),false)";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT sum(l.debit-l.credit) FROM accounting.journal_lines l JOIN accounting.accounts a ON a.company_id=l.company_id AND a.id=l.account_id WHERE a.control_kind='BANK'";var cashBefore=await count.ExecuteScalarAsync();
+                count.CommandText="SELECT accounting.configure_cash_scope(bank_account_id,version,false,'Migrated restricted deposit reviewed') FROM accounting.cash_flow_scopes";await count.ExecuteNonQueryAsync();
+                count.CommandText="SELECT count(*) FROM accounting.cash_flow_scopes WHERE included OR review_required";Assert.Equal(0L,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT accounting.configure_cash_scope(bank_account_id,version,true,'Cannot change approved history') FROM accounting.cash_flow_scopes";var frozen=await Assert.ThrowsAsync<PostgresException>(()=>count.ExecuteNonQueryAsync());Assert.Equal("HR409",frozen.SqlState);
+                count.CommandText="SELECT sum(l.debit-l.credit) FROM accounting.journal_lines l JOIN accounting.accounts a ON a.company_id=l.company_id AND a.id=l.account_id WHERE a.control_kind='BANK'";Assert.Equal(cashBefore,await count.ExecuteScalarAsync());
             }
         }
         finally
