@@ -1,3 +1,4 @@
+using Htt.Host.Api.Accounting;
 using Htt.Host.Api.MasterData;
 using Htt.Infrastructure;
 using Htt.SharedKernel;
@@ -13,7 +14,7 @@ public sealed record CreditNoteLineInput(Guid InvoiceLineId, decimal Quantity, G
 public sealed record AmountCreditLineInput(Guid InvoiceLineId,decimal Net,decimal Tax,string Description);
 public sealed record AmountCreditInput(string Reason,IReadOnlyList<AmountCreditLineInput>? Lines);
 public sealed record CreditNoteInput(string Reason, IReadOnlyList<CreditNoteLineInput>? Lines);
-public sealed record CustomerRefundInput(decimal Amount, string Reference, string Reason, Guid? CreditLineId = null, Guid? AdvanceId = null, bool CancelOrder = false);
+public sealed record CustomerRefundInput(decimal Amount, string Reference, string Reason, Guid? CreditLineId = null, Guid? AdvanceId = null, bool CancelOrder = false, Guid? BankAccountId = null);
 
 internal static class ReturnEndpoints
 {
@@ -122,16 +123,17 @@ internal static class ReturnEndpoints
         var reference = Check.Text(input.Reference, "reference", 200); var reason = Check.Text(input.Reason, "reason", 2000);
         if (input.CreditLineId is { } cl) await One(s, "SELECT cl.id FROM sales.credit_note_lines cl JOIN sales.invoice_lines il ON il.company_id=cl.company_id AND il.id=cl.invoice_line_id JOIN sales.invoices i ON i.company_id=il.company_id AND i.id=il.invoice_id WHERE cl.company_id=@company AND cl.id=@id AND i.customer_id=@customer", ct, new DbArg("id", cl), new DbArg("customer", id));
         else await One(s, "SELECT a.id FROM accounting.customer_advances a JOIN accounting.customer_receipts r ON r.company_id=a.company_id AND r.id=a.receipt_id WHERE a.company_id=@company AND a.id=@id AND r.customer_id=@customer", ct, new DbArg("id", input.AdvanceId), new DbArg("customer", id));
-        var response = await idem.ExecuteAsync($"POST /customers/{id}/refunds", h.Request.Headers["Idempotency-Key"].ToString(), Json(new { input.Amount, reference, reason, input.CreditLineId, input.AdvanceId, input.CancelOrder }), async () =>
+        BankingEndpoints.CheckChoice(h,input.BankAccountId);
+        var response = await idem.ExecuteAsync($"POST /customers/{id}/refunds", h.Request.Headers["Idempotency-Key"].ToString(), BankingEndpoints.Body(new { input.Amount, reference, reason, input.CreditLineId, input.AdvanceId, input.CancelOrder },input.BankAccountId), async () =>
         {
-            var row = await One(s, "SELECT accounting.post_customer_refund(@credit,@advance,@amount,@reference,@reason,@cancel) AS id", ct, new DbArg("credit", input.CreditLineId, NpgsqlDbType.Uuid), new DbArg("advance", input.AdvanceId, NpgsqlDbType.Uuid), new DbArg("amount", input.Amount), new DbArg("reference", reference), new DbArg("reason", reason), new DbArg("cancel", input.CancelOrder));
+            var row = await One(s, input.BankAccountId is null?"SELECT accounting.post_customer_refund(@credit,@advance,@amount,@reference,@reason,@cancel) AS id":"SELECT accounting.post_customer_refund_to_bank(@credit,@advance,@amount,@reference,@reason,@cancel,@bank) AS id", ct, new DbArg("credit", input.CreditLineId, NpgsqlDbType.Uuid), new DbArg("advance", input.AdvanceId, NpgsqlDbType.Uuid), new DbArg("amount", input.Amount), new DbArg("reference", reference), new DbArg("reason", reason), new DbArg("cancel", input.CancelOrder),new DbArg("bank",input.BankAccountId,NpgsqlDbType.Uuid));
             var refund = (Guid)row["id"]!; await Sql.AuditAsync(s, "accounting.customer_refunded", "customer_refund", refund, h.TraceIdentifier, ct, new { customerId = id, input.Amount, reference, reason });
             return ApiJson.Stored(await RefundView(h, s, refund, ct));
         }, ct); return ApiJson.Result(response);
     }
     internal static async Task<object> RefundView(HttpContext h, CompanySession s, Guid id, CancellationToken ct)
     {
-        var r = await One(s, "SELECT r.*,d.number,d.state,d.version,d.business_date::text,v.id AS reversal_id,x.original_refund_id,CASE WHEN v.id IS NULL THEN 'ACTIVE' ELSE 'REVERSED' END AS refund_status FROM accounting.customer_refunds r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id LEFT JOIN accounting.customer_refund_reversals v ON v.company_id=r.company_id AND v.refund_id=r.id LEFT JOIN accounting.customer_refund_corrections x ON x.company_id=r.company_id AND x.id=r.id WHERE r.company_id=@company AND r.id=@id", ct, new DbArg("id", id));
+        var r = await One(s, "SELECT r.*,(SELECT l.account_id FROM accounting.posting_batches b JOIN accounting.journal_entries e ON e.company_id=b.company_id AND e.posting_batch_id=b.id JOIN accounting.journal_lines l ON l.company_id=e.company_id AND l.journal_entry_id=e.id JOIN accounting.accounts a ON a.company_id=l.company_id AND a.id=l.account_id WHERE b.company_id=r.company_id AND b.source_document_id=r.id AND b.posting_kind='CUSTOMER_REFUND' AND a.control_kind='BANK' AND l.credit>0 LIMIT 1) AS bank_account_id,d.number,d.state,d.version,d.business_date::text,v.id AS reversal_id,x.original_refund_id,CASE WHEN v.id IS NULL THEN 'ACTIVE' ELSE 'REVERSED' END AS refund_status FROM accounting.customer_refunds r JOIN platform.documents d ON d.company_id=r.company_id AND d.id=r.id LEFT JOIN accounting.customer_refund_reversals v ON v.company_id=r.company_id AND v.refund_id=r.id LEFT JOIN accounting.customer_refund_corrections x ON x.company_id=r.company_id AND x.id=r.id WHERE r.company_id=@company AND r.id=@id", ct, new DbArg("id", id));
         await Customer(h, s, (Guid)r["customer_id"]!, ct); return PublicRow(r);
     }
 }

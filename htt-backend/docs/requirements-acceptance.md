@@ -50,7 +50,7 @@
 | 37 / R037 | 管理/财务端：Periods, employee calculation, review, record, journal posting | P1 / 保留 | D | 未实现 | — | 工资计算/审批/锁定/Journal未实现；D。 |
 | 38 / R038 | 管理/财务端：Hours, pay items, jobs, import into pay run | P2 / 保留 | D | 未实现 | — | Payroll Timesheets未实现；不恢复Time Billing；D。 |
 | 39 / R039 | 管理/财务端：STP equivalent / NZ Payday Filing integration layer | P2 / 保留 | D | 未实现 | — | 仅保留澳洲STP方向；工作簿中的NZ Payday字样不适用。AU申报服务未接入；D。 |
-| 40 / R040 | 管理/财务端：P&L, Balance Sheet, Cash Flow, Trial Balance, GL | P0 / 保留 | C | 部分实现 | [stage-b-reconciliation.md](stage-b-reconciliation.md) | 本批提供B所需库存/往来/GL控制核对；完整TB/GL查询、P&L/BS/CF未交付，财务报表属C。 |
+| 40 / R040 | 管理/财务端：P&L, Balance Sheet, Cash Flow, Trial Balance, GL | P0 / 保留 | C | 部分实现 | [stage-c-financial-reports.md](stage-c-financial-reports.md) | GL/TB查询、利润表、资产负债表及历史AR/AP账龄API已交付；现金流量表、导出、客户端与生产验收仍待后续。 |
 | 41 / R041 | 管理/财务端：Sales, purchases, receivables/payables, payroll, banking | P1 / 保留 | C/D | 部分实现 | [stage-b-invoicing.md](stage-b-invoicing.md)；[stage-b-supplier-bills.md](stage-b-supplier-bills.md) | 有单据、AR/AP/GRNI/GST来源查询；完整账龄/业务报表及导出未交付；C/D。 |
 | 42 / R042 | 管理/财务端：Filters, columns, saved reports/favourites | P2 / 保留 | D | 未实现 | — | 收藏/自定义报表未实现；D。 |
 | 43 / R043 | 管理/财务端：Multi-report packs, cover/TOC, PDF generation | P2 / 保留 | D | 未实现 | — | 报表包、封面/目录/PDF未实现；D。 |
@@ -159,3 +159,15 @@
 - W-03/W-04及基础批次货位：可选少拣原因、位置分配/批次流水、BIN/LOT/产品扫码、PICK私有扫描附件已补；旧库存未分配、盘点后分配。强制相机交接、硬件验证、分货位盲盘/复盘未包含。
 
 所有条目的真实客户端、身份服务、外部邮件/扫描服务与生产运行验收仍按原限制保留。见三个新增专项文档及 verification.md。
+
+## 033 最新覆盖（2026-10-27）
+
+银行档案、四类收付账户选择、原账户冲销，以及基础GL/TB/凭证追溯已补。R040完整财务报表仍归C，本次仅交付B依赖的基础查询。原116条状态不因后端基线签署全部改为完成；已知深化限制、客户端与生产验收分别保留，见 stage-b-backend-final-acceptance.md。
+
+## 034 阶段C首批覆盖（2026-10-27）
+
+银行流水 CSV/JSON 导入、已过账收付款的部分/批量匹配、解除匹配、连续期间银行对账、历史未达、最新对账重开及已结期间现金过账保护已补。新增权限、幂等、公司隔离和并发专项，见 stage-c-bank-reconciliation.md 与 verification.md。此为阶段C首批后端范围；银行feed、自动手续费/利息、混合收支净额、跨币种、完整报表/申报及三个客户端不在本批验收范围。历史阶段B验收记录保持其当时范围。
+
+## 035 阶段C财务报表覆盖（2026-10-27）
+
+R040基础利润表、资产负债表与应收/应付账龄后端API已补；采用已过账总账、历史核销/冲销与单语句快照，单列贷项并核对控制科目。现金流量表、BAS及其他完整财务报表、导出、维度、客户端与生产验收仍按原规划保留。准确范围、日期和财年口径见 stage-c-financial-reports.md；测试证据见 verification.md。

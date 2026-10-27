@@ -6,6 +6,7 @@ using Htt.Host.Api.MasterData;
 using Htt.Host.Api.Purchasing;
 using Htt.Host.Api.Sales;
 using Htt.Infrastructure;
+using Htt.Host.Api.Accounting;
 using Npgsql;
 using Xunit;
 using static Htt.IntegrationTests.SalesFlowSupport;
@@ -15,8 +16,10 @@ namespace Htt.IntegrationTests;
 public sealed class ReconciliationTests(DatabaseFixture db) : IClassFixture<DatabaseFixture>
 {
     private Task<object?> S(string sql, params (string,object)[] args) => db.OwnerScalarAsync(sql,args);
+    private static Task<Guid> AcceptanceBank(HttpClient c)=>Create(c,"/bank-accounts",new BankAccountInput(Code(),"Acceptance cash account","CASH"));
     private static async Task<JsonElement> Consistent(HttpClient c)
     {
+        await FinancialReportAssertions.Check(c);
         var report=await Expect(await c.GetAsync("/api/v1/accounting/reconciliation"),HttpStatusCode.OK);
         Assert.True(report.GetProperty("status").GetString()=="CONSISTENT",report.GetRawText());
         Assert.All(report.GetProperty("checks").EnumerateArray(),check=>Assert.Equal(0,check.GetProperty("mismatchCount").GetInt32()));
@@ -45,10 +48,10 @@ public sealed class ReconciliationTests(DatabaseFixture db) : IClassFixture<Data
     {
         await using var api=new TestApi(db);using var c=api.Authenticated();
         await S("UPDATE core.companies SET gst_registered=true,gst_basis=@basis WHERE id=@company",("company",db.Company),("basis",basis));
-        var d=await Stock(c);await Consistent(c);
+        var d=await Stock(c);await Consistent(c);var receiptBank=await AcceptanceBank(c);var refundBank=await AcceptanceBank(c);
         var q=await Submitted(c,d.Draft(2));var order=(await Expect(await Approve(c,q.Id,q.Version),HttpStatusCode.Created)).GetProperty("orderId").GetGuid();
         var line=(await Get(c,$"/sales-orders/{order}")).GetProperty("lines")[0].GetProperty("id").GetGuid();await Consistent(c);
-        var receipt=await Expect(await Send(c,HttpMethod.Post,$"/customers/{d.Customer}/receipts",new CustomerReceiptInput(24.2m,"BANK_TRANSFER",Code(),[],[new(line,24.2m)])),HttpStatusCode.Created);
+        var receipt=await Expect(await Send(c,HttpMethod.Post,$"/customers/{d.Customer}/receipts",new CustomerReceiptInput(24.2m,"BANK_TRANSFER",Code(),[],[new(line,24.2m)],BankAccountId:receiptBank)),HttpStatusCode.Created);
         var advance=receipt.GetProperty("advances")[0].GetProperty("id").GetGuid();await Consistent(c);
         var pick=(await Expect(await Send(c,HttpMethod.Post,$"/warehouse/orders/{order}/picks",new PickInput([new(line,2)]),1),HttpStatusCode.Created)).GetProperty("id").GetGuid();await Consistent(c);
         await Expect(await Send(c,HttpMethod.Post,$"/warehouse/picks/{pick}/confirm",new DispatchInput("PICKUP","Customer",Code()),1),HttpStatusCode.OK);await Consistent(c);
@@ -56,11 +59,11 @@ public sealed class ReconciliationTests(DatabaseFixture db) : IClassFixture<Data
         var invoice=await Expect(await Send(c,HttpMethod.Post,$"/sales-orders/{order}/invoices",new InvoiceInput([new(line,2)],"Delivered"),version),HttpStatusCode.Created);
         var iid=invoice.GetProperty("id").GetGuid();var il=invoice.GetProperty("lines")[0].GetProperty("id").GetGuid();await Consistent(c);
         await Expect(await Send(c,HttpMethod.Post,$"/customer-advances/{advance}/apply",new AdvanceApplicationInput(Code(),[new(il,24.2m)])),HttpStatusCode.Created);await Consistent(c);
-        await Expect(await Send(c,HttpMethod.Post,$"/customers/{d.Customer}/receipts",new CustomerReceiptInput(24.2m,"BANK_TRANSFER",Code(),[new(il,24.2m)],[])),HttpStatusCode.Created);await Consistent(c);
+        await Expect(await Send(c,HttpMethod.Post,$"/customers/{d.Customer}/receipts",new CustomerReceiptInput(24.2m,"BANK_TRANSFER",Code(),[new(il,24.2m)],[],BankAccountId:receiptBank)),HttpStatusCode.Created);await Consistent(c);
         var movement=(await Get(c,$"/warehouse/orders/{order}/returnable")).GetProperty("movements")[0].GetProperty("stockMovementId").GetGuid();
         var ret=await Expect(await Send(c,HttpMethod.Post,$"/sales-orders/{order}/returns",new SalesReturnInput(d.Warehouse,"RESTOCK","Accepted return",[new(movement,1,il)])),HttpStatusCode.Created);await Consistent(c);
         var credit=await Expect(await Send(c,HttpMethod.Post,$"/sales-invoices/{iid}/credit-notes",new CreditNoteInput("Returned",[new(il,1,ret.GetProperty("lines")[0].GetProperty("id").GetGuid())])),HttpStatusCode.Created);await Consistent(c);
-        await Expect(await Send(c,HttpMethod.Post,$"/customers/{d.Customer}/refunds",new CustomerRefundInput(24.2m,Code(),"Verified refund",credit.GetProperty("lines")[0].GetProperty("id").GetGuid())),HttpStatusCode.Created);await Consistent(c);
+        await Expect(await Send(c,HttpMethod.Post,$"/customers/{d.Customer}/refunds",new CustomerRefundInput(24.2m,Code(),"Verified refund",credit.GetProperty("lines")[0].GetProperty("id").GetGuid(),BankAccountId:refundBank)),HttpStatusCode.Created);await Consistent(c);
     }
     [Theory]
     [InlineData("CASH",true)]
@@ -70,8 +73,8 @@ public sealed class ReconciliationTests(DatabaseFixture db) : IClassFixture<Data
     {
         await using var api=new TestApi(db);using var c=api.Authenticated();
         await S("UPDATE core.companies SET gst_registered=@registered,gst_basis=@basis WHERE id=@company",("company",db.Company),("basis",basis),("registered",registered));
-        var d=await Setup(db,c,0);var supplier=await Create(c,"/suppliers",new SupplierMaintenance(Code(),"Acceptance supplier",null));
-        var prepay=await Expect(await Send(c,HttpMethod.Post,$"/suppliers/{supplier}/payments",new SupplierPaymentInput(22,"BANK_TRANSFER",Code(),22,Notes:"Deposit")),HttpStatusCode.Created);await Consistent(c);
+        var paymentBank=await AcceptanceBank(c);var refundBank=await AcceptanceBank(c);var d=await Setup(db,c,0);var supplier=await Create(c,"/suppliers",new SupplierMaintenance(Code(),"Acceptance supplier",null));
+        var prepay=await Expect(await Send(c,HttpMethod.Post,$"/suppliers/{supplier}/payments",new SupplierPaymentInput(22,"BANK_TRANSFER",Code(),22,Notes:"Deposit",BankAccountId:paymentBank)),HttpStatusCode.Created);await Consistent(c);
         var advance=prepay.GetProperty("advances")[0].GetProperty("id").GetGuid();
         var po=await Expect(await Send(c,HttpMethod.Post,"/purchase-orders",new PurchaseOrderInput(supplier,d.Warehouse,[new(d.BoxUnit,4,10)])),HttpStatusCode.Created);
         var oid=po.GetProperty("order").GetProperty("id").GetGuid();po=await Expect(await Send(c,HttpMethod.Post,$"/purchase-orders/{oid}/confirm",version:1),HttpStatusCode.OK);
@@ -81,12 +84,12 @@ public sealed class ReconciliationTests(DatabaseFixture db) : IClassFixture<Data
         var b=await Expect(await Send(c,HttpMethod.Post,"/supplier-bills",new SupplierBillInput(supplier,Code(),today,today.AddDays(30),today,[new(rl,2,20,2)],registered?"Original invoice":null,registered?today:null)),HttpStatusCode.Created);await Consistent(c);
         var bid=b.GetProperty("bill").GetProperty("id").GetGuid();var bl=b.GetProperty("lines")[0].GetProperty("id").GetGuid();
         await Expect(await Send(c,HttpMethod.Post,$"/supplier-advances/{advance}/apply",new SupplierAdvanceApplicationInput(Code(),[new(bl,11)])),HttpStatusCode.Created);await Consistent(c);
-        await Expect(await Send(c,HttpMethod.Post,$"/suppliers/{supplier}/payments",new SupplierPaymentInput(11,"BANK_TRANSFER",Code(),Allocations:[new(bl,11)])),HttpStatusCode.Created);await Consistent(c);
+        await Expect(await Send(c,HttpMethod.Post,$"/suppliers/{supplier}/payments",new SupplierPaymentInput(11,"BANK_TRANSFER",Code(),Allocations:[new(bl,11)],BankAccountId:paymentBank)),HttpStatusCode.Created);await Consistent(c);
         var ret=await Expect(await Send(c,HttpMethod.Post,$"/purchase-receipts/{rid}/returns",new PurchaseReturnInput(Code(),"Accepted supplier return",[new(rl,1,bl)])),HttpStatusCode.Created);await Consistent(c);
         var credit=await Expect(await Send(c,HttpMethod.Post,$"/supplier-bills/{bid}/credits",new SupplierCreditInput(Code(),"Adjustment note",[new(ret.GetProperty("lines")[0].GetProperty("id").GetGuid(),1)])),HttpStatusCode.Created);await Consistent(c);
-        await Expect(await Send(c,HttpMethod.Post,"/supplier-refunds",new SupplierRefundInput(11,Code(),"Bank receipt verified",credit.GetProperty("lines")[0].GetProperty("id").GetGuid())),HttpStatusCode.Created);await Consistent(c);
+        await Expect(await Send(c,HttpMethod.Post,"/supplier-refunds",new SupplierRefundInput(11,Code(),"Bank receipt verified",credit.GetProperty("lines")[0].GetProperty("id").GetGuid(),BankAccountId:refundBank)),HttpStatusCode.Created);await Consistent(c);
         await Expect(await Send(c,HttpMethod.Post,$"/purchase-receipts/{rid}/returns",new PurchaseReturnInput(Code(),"Unbilled goods returned",[new(rl,1)])),HttpStatusCode.Created);await Consistent(c);
-        await Expect(await Send(c,HttpMethod.Post,"/supplier-refunds",new SupplierRefundInput(11,Code(),"Unused deposit refunded",AdvanceId:advance)),HttpStatusCode.Created);await Consistent(c);
+        await Expect(await Send(c,HttpMethod.Post,"/supplier-refunds",new SupplierRefundInput(11,Code(),"Unused deposit refunded",AdvanceId:advance,BankAccountId:refundBank)),HttpStatusCode.Created);await Consistent(c);
     }
     [Fact]
     public async Task Inventory_transfers_counts_and_transit_partial_arrivals_losses_and_returns_reconcile()

@@ -35,6 +35,7 @@ public sealed class ExpenseBillTests : IAsyncLifetime
     private async Task<decimal> Journal(Guid id,string code,string side)=>Convert.ToDecimal(await S($"SELECT coalesce(sum(l.{side}),0) FROM purchase.bills b JOIN accounting.journal_lines l ON l.company_id=b.company_id AND l.journal_entry_id=b.journal_entry_id JOIN accounting.accounts a ON a.company_id=l.company_id AND a.id=l.account_id WHERE b.company_id=@company AND b.id=@id AND a.code=@code",("company",db.Company),("id",id),("code",code)));
     private static async Task Consistent(HttpClient c)
     {
+        await FinancialReportAssertions.Check(c);
         var r=await Get(c,"/accounting/reconciliation");Assert.True(r.GetProperty("status").GetString()=="CONSISTENT",r.GetRawText());
     }
     private static Task<HttpResponseMessage> Pay(HttpClient c,Data d,Guid line,decimal amount,string? key=null)=>Send(c,HttpMethod.Post,$"/suppliers/{d.Supplier}/payments",new SupplierPaymentInput(amount,"BANK_TRANSFER",Code(),Allocations:[new(line,amount)]),key:key);

@@ -1,3 +1,4 @@
+using Htt.Host.Api.Accounting;
 using Htt.Host.Api.MasterData;
 using Htt.Infrastructure;
 using NpgsqlTypes;
@@ -7,7 +8,7 @@ using static Htt.Host.Api.Sales.SalesSupport;
 namespace Htt.Host.Api.Purchasing;
 
 public sealed record SupplierPaymentAllocation(Guid BillLineId,decimal Amount);
-public sealed record SupplierPaymentInput(decimal Amount,string Method,string Reference,decimal AdvanceAmount=0,IReadOnlyList<SupplierPaymentAllocation>? Allocations=null,DateOnly? PaidOn=null,string? Notes=null);
+public sealed record SupplierPaymentInput(decimal Amount,string Method,string Reference,decimal AdvanceAmount=0,IReadOnlyList<SupplierPaymentAllocation>? Allocations=null,DateOnly? PaidOn=null,string? Notes=null,Guid? BankAccountId=null);
 public sealed record SupplierAdvanceApplicationInput(string Reference,IReadOnlyList<SupplierPaymentAllocation>? Allocations);
 
 internal static class SupplierPaymentEndpoints
@@ -42,9 +43,10 @@ internal static class SupplierPaymentEndpoints
         Check.That(input.Amount>0 && input.Amount==input.AdvanceAmount+lines.Sum(x=>x.Amount),"amount","Payment must equal allocations plus explicit advance amount.");
         var method=Check.OneOf(input.Method,"method","BANK_TRANSFER","CARD","CASH");var reference=Check.Text(input.Reference,"reference",200);var notes=Check.Optional(input.Notes,"notes",2000)??"";
         Check.That(input.AdvanceAmount==0 || notes.Length>0,"notes","Prepayment purpose is required.");
-        var result=await idem.ExecuteAsync($"POST /suppliers/{id}/payments",h.Request.Headers["Idempotency-Key"].ToString(),Json(new{id,input.Amount,input.AdvanceAmount,method,reference,input.PaidOn,notes,allocations=lines}),async()=>
+        BankingEndpoints.CheckChoice(h,input.BankAccountId);
+        var result=await idem.ExecuteAsync($"POST /suppliers/{id}/payments",h.Request.Headers["Idempotency-Key"].ToString(),BankingEndpoints.Body(new{id,input.Amount,input.AdvanceAmount,method,reference,input.PaidOn,notes,allocations=lines},input.BankAccountId),async()=>
         {
-            var row=await One(s,"SELECT purchase.post_supplier_payment(@supplier,@amount,@advance,@method,@reference,@paid,@notes,@lines) AS id",ct,new DbArg("supplier",id),new DbArg("amount",input.Amount),new DbArg("advance",input.AdvanceAmount),new DbArg("method",method),new DbArg("reference",reference),new DbArg("paid",input.PaidOn,NpgsqlDbType.Date),new DbArg("notes",notes),new DbArg("lines",Json(lines),NpgsqlDbType.Jsonb));var pid=(Guid)row["id"]!;
+            var row=await One(s,input.BankAccountId is null?"SELECT purchase.post_supplier_payment(@supplier,@amount,@advance,@method,@reference,@paid,@notes,@lines) AS id":"SELECT purchase.post_supplier_payment_to_bank(@supplier,@amount,@advance,@method,@reference,@paid,@notes,@lines,@bank) AS id",ct,new DbArg("supplier",id),new DbArg("amount",input.Amount),new DbArg("advance",input.AdvanceAmount),new DbArg("method",method),new DbArg("reference",reference),new DbArg("paid",input.PaidOn,NpgsqlDbType.Date),new DbArg("notes",notes),new DbArg("lines",Json(lines),NpgsqlDbType.Jsonb),new DbArg("bank",input.BankAccountId,NpgsqlDbType.Uuid));var pid=(Guid)row["id"]!;
             await Sql.AuditAsync(s,"purchase.supplier_paid","supplier_payment",pid,h.TraceIdentifier,ct,new{supplierId=id,input.Amount,reference});return ApiJson.Stored(await PaymentView(pid,s,ct));
         },ct);return ApiJson.Result(result);
     }

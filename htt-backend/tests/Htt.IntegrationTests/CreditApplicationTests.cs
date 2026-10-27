@@ -34,7 +34,8 @@ public sealed class CreditApplicationTests : IAsyncLifetime
     private static Task<HttpResponseMessage> Refund(HttpClient c,Data d,decimal amount)=>Send(c,HttpMethod.Post,"/supplier-refunds",new SupplierRefundInput(amount,Code(),"Verified incoming refund",CreditLineId:d.CreditLine));
     private static Guid App(JsonElement e)=>e.GetProperty("application").GetProperty("id").GetGuid();
     private static Guid Unapp(JsonElement e)=>e.GetProperty("unapplication").GetProperty("id").GetGuid();
-    private static async Task Consistent(HttpClient c){var r=await Get(c,"/accounting/reconciliation");Assert.True(r.GetProperty("status").GetString()=="CONSISTENT",r.GetRawText());}
+    private static async Task Consistent(HttpClient c){
+        await FinancialReportAssertions.Check(c);var r=await Get(c,"/accounting/reconciliation");Assert.True(r.GetProperty("status").GetString()=="CONSISTENT",r.GetRawText());}
     private static async Task<JsonElement> CreditLine(HttpClient c,Data d)=>(await Get(c,$"/supplier-credits/{d.Credit}")).GetProperty("lines").EnumerateArray().Single(x=>x.GetProperty("id").GetGuid()==d.CreditLine);
     private async Task<decimal> Balance(Guid line,string col)=>Convert.ToDecimal(await S($"SELECT {col} FROM purchase.bill_line_balances WHERE company_id=@company AND id=@id",("company",db.Company),("id",line)));
     private async Task<decimal> Journal(Guid doc,string code,string side)=>Convert.ToDecimal(await S($"SELECT coalesce(sum(l.{side}),0) FROM accounting.posting_batches b JOIN accounting.journal_entries j ON j.company_id=b.company_id AND j.posting_batch_id=b.id JOIN accounting.journal_lines l ON l.company_id=j.company_id AND l.journal_entry_id=j.id JOIN accounting.accounts a ON a.company_id=l.company_id AND a.id=l.account_id WHERE b.company_id=@company AND b.source_document_id=@id AND a.code=@code",("company",db.Company),("id",doc),("code",code)));

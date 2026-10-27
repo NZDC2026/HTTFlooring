@@ -25,6 +25,10 @@ public static partial class FoundationEndpoints
     {
         var group = app.MapGroup("/api/v1").RequireAuthorization().RequireRateLimiting("api").AddEndpointFilter<CompanyFilter>();
         DiscoverySettingsEndpoints.Map(group);
+        Accounting.BankingEndpoints.Map(group);
+        Accounting.LedgerEndpoints.Map(group);
+        Accounting.FinancialReportEndpoints.Map(group);
+        Accounting.BankReconciliationEndpoints.Map(group);
         Inventory.WarehouseDetailEndpoints.Map(group);
         group.MapGet("/foundation", async (CompanySession session, CancellationToken token) => Results.Ok(new
         {

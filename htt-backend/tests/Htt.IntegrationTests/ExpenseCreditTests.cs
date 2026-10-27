@@ -35,7 +35,8 @@ public sealed class ExpenseCreditTests : IAsyncLifetime
     private static Guid Fid(JsonElement e)=>e.GetProperty("refund").GetProperty("id").GetGuid();
     private static Task<JsonElement> Ap(HttpClient c,Data d)=>Get(c,$"/accounting/ap?supplierId={d.Supplier}");
     private static Task<JsonElement> Gst(HttpClient c,Data d)=>Get(c,$"/accounting/purchase-gst?supplierId={d.Supplier}");
-    private static async Task Consistent(HttpClient c){var r=await Get(c,"/accounting/reconciliation");Assert.True(r.GetProperty("status").GetString()=="CONSISTENT",r.GetRawText());}
+    private static async Task Consistent(HttpClient c){
+        await FinancialReportAssertions.Check(c);var r=await Get(c,"/accounting/reconciliation");Assert.True(r.GetProperty("status").GetString()=="CONSISTENT",r.GetRawText());}
     private async Task<decimal> Journal(Guid doc,string code,string side)=>Convert.ToDecimal(await S($"SELECT coalesce(sum(l.{side}),0) FROM accounting.posting_batches pb JOIN accounting.journal_entries je ON je.company_id=pb.company_id AND je.posting_batch_id=pb.id JOIN accounting.journal_lines l ON l.company_id=je.company_id AND l.journal_entry_id=je.id JOIN accounting.accounts a ON a.company_id=l.company_id AND a.id=l.account_id WHERE pb.company_id=@company AND pb.source_document_id=@doc AND a.code=@code",("company",db.Company),("doc",doc),("code",code)));
     [Theory]
     [InlineData("CASH",0)][InlineData("CASH",55)][InlineData("CASH",110)]

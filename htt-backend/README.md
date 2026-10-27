@@ -138,3 +138,9 @@ SQL迁移是数据库结构的唯一权威。EF Core用于映射与查询，受�
 本地Compose不是生产AWS部署。上线前仍需Cognito真实接入、实际授权配置、TLS/域名、RDS Multi-AZ、备份恢复演练、密钥管理、告警/OTel后端及生产压测。当前健康检查和JSON日志可用于后续运维集成，不代表已达到设计中的SLO/RPO/RTO。
 
 本批 030—032：[采购差异与金额贷项](docs/stage-b-purchase-adjustments.md)、[搜索及设置](docs/stage-b-search-settings.md)、[仓管货位批次及照片](docs/stage-b-warehouse-locations.md)。仅后端，客户端未联调。
+
+033：[银行账户及基础账务查询](docs/stage-b-bank-ledger.md)、[阶段B后端基线最终验收](docs/stage-b-backend-final-acceptance.md)。
+
+034：[阶段C银行流水导入、收付款匹配及银行对账](docs/stage-c-bank-reconciliation.md)。
+
+035：[利润表、资产负债表及历史应收应付账龄](docs/stage-c-financial-reports.md)。

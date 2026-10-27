@@ -1,3 +1,4 @@
+using Htt.Host.Api.Accounting;
 using Htt.Host.Api.MasterData;
 using Htt.Infrastructure;
 using NpgsqlTypes;
@@ -10,7 +11,7 @@ public sealed record PurchaseReturnLineInput(Guid ReceiptLineId,decimal Quantity
 public sealed record PurchaseReturnInput(string Reference,string Reason,IReadOnlyList<PurchaseReturnLineInput>? Lines);
 public sealed record SupplierCreditLineInput(Guid ReturnLineId,decimal Quantity);
 public sealed record SupplierCreditInput(string Reference,string Reason,IReadOnlyList<SupplierCreditLineInput>? Lines);
-public sealed record SupplierRefundInput(decimal Amount,string Reference,string Reason,Guid? CreditLineId=null,Guid? AdvanceId=null,DateOnly? ReceivedOn=null);
+public sealed record SupplierRefundInput(decimal Amount,string Reference,string Reason,Guid? CreditLineId=null,Guid? AdvanceId=null,DateOnly? ReceivedOn=null,Guid? BankAccountId=null);
 
 internal static class PurchaseReturnEndpoints
 {
@@ -64,9 +65,10 @@ internal static class PurchaseReturnEndpoints
     private static async Task<IResult> Refund(SupplierRefundInput input,HttpContext h,CompanySession s,Idempotency idem,CancellationToken ct)
     {
         Check.That((input.CreditLineId is null)!=(input.AdvanceId is null) && input.CreditLineId!=Guid.Empty && input.AdvanceId!=Guid.Empty,"source","Supply exactly one credit line or prepayment source.");Check.Amount(input.Amount,"amount",2);Check.That(input.Amount>0,"amount","Positive refund amount required.");var reference=Check.Text(input.Reference,"reference",200);var reason=Check.Text(input.Reason,"reason",2000);
-        var result=await idem.ExecuteAsync("POST /supplier-refunds",h.Request.Headers["Idempotency-Key"].ToString(),Json(new{input.CreditLineId,input.AdvanceId,input.Amount,reference,reason,input.ReceivedOn}),async()=>
+        BankingEndpoints.CheckChoice(h,input.BankAccountId);
+        var result=await idem.ExecuteAsync("POST /supplier-refunds",h.Request.Headers["Idempotency-Key"].ToString(),BankingEndpoints.Body(new{input.CreditLineId,input.AdvanceId,input.Amount,reference,reason,input.ReceivedOn},input.BankAccountId),async()=>
         {
-            var row=await One(s,"SELECT purchase.receive_supplier_refund(@credit,@advance,@amount,@reference,@reason,@date) AS id",ct,new DbArg("credit",input.CreditLineId,NpgsqlDbType.Uuid),new DbArg("advance",input.AdvanceId,NpgsqlDbType.Uuid),new DbArg("amount",input.Amount),new DbArg("reference",reference),new DbArg("reason",reason),new DbArg("date",input.ReceivedOn,NpgsqlDbType.Date));var fid=(Guid)row["id"]!;await Sql.AuditAsync(s,"purchase.supplier_refunded","supplier_refund",fid,h.TraceIdentifier,ct,new{input.CreditLineId,input.AdvanceId,input.Amount,reference});return ApiJson.Stored(await RefundView(fid,s,ct));
+            var row=await One(s,input.BankAccountId is null?"SELECT purchase.receive_supplier_refund(@credit,@advance,@amount,@reference,@reason,@date) AS id":"SELECT purchase.receive_supplier_refund_to_bank(@credit,@advance,@amount,@reference,@reason,@date,@bank) AS id",ct,new DbArg("credit",input.CreditLineId,NpgsqlDbType.Uuid),new DbArg("advance",input.AdvanceId,NpgsqlDbType.Uuid),new DbArg("amount",input.Amount),new DbArg("reference",reference),new DbArg("reason",reason),new DbArg("date",input.ReceivedOn,NpgsqlDbType.Date),new DbArg("bank",input.BankAccountId,NpgsqlDbType.Uuid));var fid=(Guid)row["id"]!;await Sql.AuditAsync(s,"purchase.supplier_refunded","supplier_refund",fid,h.TraceIdentifier,ct,new{input.CreditLineId,input.AdvanceId,input.Amount,reference});return ApiJson.Stored(await RefundView(fid,s,ct));
         },ct);return ApiJson.Result(result);
     }
     private static async Task<object> ReturnView(Guid id,HttpContext h,CompanySession s,CancellationToken ct,bool financial)

@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至032共149张业务/基础表及32个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至035共162张业务/基础表及35个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -741,3 +741,15 @@ line_refunded/advance_refunded、AR/贷项余额、预收可用额和一致性�
 ## 030—032 本批增量
 
 030：供应商独立净额/税额贷项、实际采购账单价差及不可变 purchase_value_adjustments；031：business_preferences、unit_barcodes、编号维护及员工搜索授权；032：bins、lots、positions、position_movements、location_moves、pick_positions、pick_shortages。全部新业务表强制公司 RLS；来源与数量/价值/GL约束见迁移。旧库存自动进入未分配位置，原001—029不修改。
+
+## 033 银行账户与基础账务查询
+
+新增强制公司RLS的 accounting.bank_accounts，与原BANK科目一对一，原现金交易银行FK不变。四类收付新增可选账户包装函数，复用原过账核心；GL/TB直接查询不可变凭证、不增设余额投影。见 stage-b-bank-ledger.md。
+
+## 034 银行流水与对账
+
+新增 accounting.bank_statements、bank_statement_controls、bank_statement_lines、bank_external_keys、bank_matches、bank_match_allocations、bank_match_releases、bank_reconciliations、bank_opening_allocations、bank_reconciliation_reopens、bank_reconciliation_matches、bank_reconciliation_outstanding 共12表。现金分配关联不可变 journal_lines，不另外过账；现金清算视图从有效匹配及对账派生可用/已清算金额。来源文件、对账与未达快照不可变，控制状态及外部ID占用投影可变，全部强制RLS。银行级事务锁联动既有现金过账，防止对账后补写截止日前现金。权限、协议、首期迁移口径和边界见 stage-c-bank-reconciliation.md。
+
+## 035 财务报表与历史账龄
+
+不新增业务表，保持162张、累计35个迁移。新增只读 security_invoker 视图 accounting.report_open_item_movements、report_control_dates，按既有不可变原单、核销及冲销记录与AR/AP凭证过账日期重建截止日余额。新增 accounting.reports.read，ADMIN/FINANCE 默认授权；接口另要求 ledger.read。利润表、资产负债表、账龄均以单条SQL快照计算明细与总计，不写报表缓存或调整账务。见 stage-c-financial-reports.md。
