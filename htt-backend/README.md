@@ -6,9 +6,12 @@
 
 ## 当前阶段C核查
 
-阶段C后端整体尚未完成。截至042，银行对账、五类核心财务报表、C01通用银行收支/分类/成对转账、C02规则/例外及追加的GST/BAS、关账切片已交付；原C/B-C/C-D相关39行当前为后端已实现6、部分实现7、未实现26。计数不是完成率，三个客户端及生产运行另验。当前逐行状态、证据和九个实施包见[阶段C收口核查](docs/stage-c-acceptance.md)及[机器可读记录](docs/stage-c-audit.json)。C01增量见[通用银行收支API](docs/stage-c-general-banking.md)；C02规则/例外已完成，见[规则API](docs/stage-c-bank-rules.md)；C03已补对账单/经营报表与导出，见[C03说明](docs/stage-c-statements-operating-reports.md)；后续CRM/销售事实/激励等仍未完成。
+阶段C后端整体尚未完成。截至044，银行对账、五类核心财务报表、C01通用银行收支/分类/成对转账、C02规则/例外及追加的GST/BAS、关账切片已交付；原C/B-C/C-D相关39行当前为后端已实现9、部分实现8、未实现22。计数不是完成率，三个客户端及生产运行另验。当前逐行状态、证据和九个实施包见[阶段C收口核查](docs/stage-c-acceptance.md)及[机器可读记录](docs/stage-c-audit.json)。C01增量见[通用银行收支API](docs/stage-c-general-banking.md)；C02规则/例外已完成，见[规则API](docs/stage-c-bank-rules.md)；C03已补对账单/经营报表与导出，见[C03说明](docs/stage-c-statements-operating-reports.md)；W-06分货位盲盘/复盘审批见[仓管深化](docs/stage-c-bin-counts.md)，C04草稿/同步/通讯录/OCR后台见[CRM移动基础](docs/stage-c-crm-mobile.md)。C05/C06后续CRM对象、销售事实/激励等仍未完成。
 
 ## 已实现
+
+- W-06：分货位/批次盲盘、独立复盘/审批、预留保护及成本/会计过账；净额为0的位置差异不会产生损益，见[W-06](docs/stage-c-bin-counts.md)。
+- C04：销售客户/门店/联系人草稿及办公室审核、连续设备操作/增量游标/删除和冲突、授权选择通讯录预览确认、私有名片扫描与OCR建议/人工确认；真实设备和OCR另验，见[C04](docs/stage-c-crm-mobile.md)。
 
 - 阶段C C03：不可变客户对账单、PDF和授权邮件，采购/ARAP/库存及在途/银行经营报表和冻结CSV导出；权限/范围/成本重查、租约幂等与失败重试，见[C03接口](docs/stage-c-statements-operating-reports.md)。
 
@@ -22,7 +25,7 @@
 
 - 阶段C GST/BAS：现金制/非现金制 Simpler BAS G1/1A/1B、税额总账独立核对、申报期间定版/外部申报登记/重开修订及冻结来源；见 [GST/BAS API](docs/stage-c-gst-bas.md)。Full BAS 增量见[Full BAS说明](docs/stage-c-full-bas.md)；不向 ATO 发送申报。
 
-- 185张业务/基础表及42个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
+- 197张业务/基础表及44个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
 - OIDC JWT验证；Cognito access token模式验证`token_use=access`及`client_id`。未配置身份服务时没有开发后门，受保护接口保持锁定；生产配置缺失时拒绝启动。
 - 公司选择、数据库RLS、复合外键、销售客户范围过滤、显式接口权限；API/Worker强制使用受限数据库账号。
 - 客户创建/查询/状态更新（版本冲突保护），商品及单位创建/查询，基础资料/科目/税率查询，客户协议/促销价格解析，审计查询。

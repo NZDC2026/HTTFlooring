@@ -1,6 +1,6 @@
 # 原需求逐行验收矩阵（后台范围）
 
-初验日期：2026-10-24；阶段C逐行刷新：2026-10-29（截至042；C03增量）。仅核查并修改 htt-backend；现有三个客户端均未联调/修改。来源中的建议和待确认内容视为参考，不自动执行，也不重新承诺人日。
+初验日期：2026-10-24；阶段C逐行刷新：2026-10-29（截至044；W-06及C04增量）。仅核查并修改 htt-backend；现有三个客户端均未联调/修改。来源中的建议和待确认内容视为参考，不自动执行，也不重新承诺人日。
 
 原工作簿：`HTT%E4%B8%89%E7%AB%AF%E7%B3%BB%E7%BB%9F_%E5%88%A0%E5%87%8F%E4%B8%8E%E6%96%B0%E5%A2%9E%E5%8A%9F%E8%83%BD_%E5%B7%A5%E6%97%B6%E9%87%8D%E4%BC%B0_20261017.xlsx`；SHA-256 `c06eb26520401892f61655de601cb9e8e53eeddb439050259f8d6b32bffa28e1`。读取4个sheet，逐项工时重估A2:Q117共116条；保留优先级、增删边界及新功能验收口径。
 
@@ -89,9 +89,9 @@
 | 74 / S-17 | 销售端：完成/更新Task | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有Task状态机。 更新/完成、版本、幂等、变更历史及并发测试。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
 | 75 / S-18 | 销售端：Task/Note推送 | P1 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 文档邮件适配和Outbox不代表移动Task/Note推送。 通知收件人、设备令牌、投递作业、重试去重及真实提供商验证。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
 | 76 / S-19 | 销售端：系统消息中心 | P2 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有业务消息/已读记录。 授权消息中心、游标/分页、已读/未读与同步。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
-| 77 / S-20 | 销售端：销售扫描客户名片，识别姓名、公司/门店、电话、Email并生成联系人草稿。 | P1 / 保留 | C | 未实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md)；[stage-b-documents.md](stage-b-documents.md)；[stage-b-warehouse-locations.md](stage-b-warehouse-locations.md) | 正式联系人维护和附件底座可复用，没有名片识别确认链。 名片OCR供应商作业、联系人草稿、预览/去重、人工确认。销售名片P1不能随管理端票据OCR候选P3延期。 实施包：C04。详见[本次C核查](stage-c-acceptance.md)。 |
-| 78 / S-21 | 销售端：手工新增客户、门店或联系人，并关联到已有客户主体。 | P1 / 保留 | C | 部分实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 办公室可维护正式客户/门店/联系人及关联；SALES无正式写权限。 销售创建草稿、关联已知主体、去重、办公室审核和批准落正式主数据。 实施包：C04。详见[本次C核查](stage-c-acceptance.md)。 |
-| 79 / S-22 | 销售端：移动端Note、Task、拜访、客户/门店/联系人草稿及通讯录导入结果同步到管理平台。 | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 单一数据库和普通HTTP幂等不等于移动同步协议。 设备操作ID、服务端游标、tombstone、冲突、授权变化与重放；覆盖所有CRM对象。 实施包：C04、C05、C06、C09。详见[本次C核查](stage-c-acceptance.md)。 |
+| 77 / S-20 | 销售端：销售扫描客户名片，识别姓名、公司/门店、电话、Email并生成联系人草稿。 | P1 / 保留 | C | 后端已实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044私有名片图片、扫描/OCR作业、HTTPS网关适配、重试/租约、姓名/公司/门店等建议及人工确认联系人草稿，复用独立办公室审核。 真实OCR网关合同/识别质量及手机拍照联调另验；不自动建公司或合并客户。 |
+| 78 / S-21 | 销售端：手工新增客户、门店或联系人，并关联到已有客户主体。 | P1 / 保留 | C | 后端已实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044销售客户/门店/联系人草稿、目标客户/门店授权、重复建议、版本审核、一次生成正式数据及客户信用初始化/默认账期/销售分配。 三个客户端接入及业务UAT另验；正式信用与非默认账期仍沿用既有专门权限。 |
+| 79 / S-22 | 销售端：移动端Note、Task、拜访、客户/门店/联系人草稿及通讯录导入结果同步到管理平台。 | P0 / 保留 | C | 部分实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044设备操作UUID/连续序号、提交有序增量、tombstone、冲突、游标过期/重置、撤权及通讯录/名片生成的草稿同步。 C05 Note/拜访/展板与C06 Task/消息对象逐项接入及C09办公室聚合；移动端联调未做。 |
 | 80 / S-23 | 销售端：销售通过SKU、名称、条码快速查询商品库存。 | P0 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md) | 员工商品分页/按productId库存读取已实现；SKU/名称/条码快速搜索接口未完成。 |
 | 81 / S-24 | 销售端：门店/仓库库存 | P0 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-reconciliation.md](stage-b-reconciliation.md) | 授权仓库实物/预留/可售及dataAsOf已实现；停用可售错误本批修复；客户端展示未联调。 |
 | 82 / S-25 | 销售端：从客户/门店详情进入库存时自动展示该客户实际销售价格及当前有效活动价。 | P0 / 保留 | B | 部分实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 价格解析和库存查询分别可用；无客户上下文的库存+价格聚合接口，三个客户端未接入。 |
@@ -99,14 +99,14 @@
 | 84 / S-27 | 销售端：报价列表/详情 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 授权报价列表/详情/状态已实现。 |
 | 85 / S-28 | 销售端：报价草稿与提交 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 草稿、提交、正式编号、不可变快照和修订已实现。 |
 | 86 / S-29 | 销售端：照片/附件 | P2 / 保留 | B/C | 部分实现 | [stage-b-documents.md](stage-b-documents.md)；[stage-b-warehouse-locations.md](stage-b-warehouse-locations.md) | QUOTE/PICK及供应商单据私有扫描附件已有授权访问。 C Note/展板/拜访/草稿等CRM实体附件绑定、撤销及离线上传关联；不把现有文件底座当已完成。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
-| 87 / S-30 | 销售端：弱网缓存 | P2 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 已有事务幂等和版本保护，没有离线草稿/同步协议。 后端增量/冲突协议在C04；设备缓存、离线呈现和实机验证独立客户端待办。财务过账/出库保持在线。 实施包：C04、C09。详见[本次C核查](stage-c-acceptance.md)。 |
+| 87 / S-30 | 销售端：弱网缓存 | P2 / 保留 | C | 部分实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044后端CRM草稿离线操作契约：设备序号、重放、版本冲突、30天游标、权限变更重置和删除保护；财务/出库无离线命令。 客户端本地缓存、弱网呈现/恢复及实机验证；C05/C06新对象同步后续补齐。 |
 | 88 / S-31 | 销售端：销售数据隔离 | P0 / 保留 | A起贯穿 | 后端已实现 | [stage-a.md](stage-a.md)；[stage-b-sales.md](stage-b-sales.md) | 公司及销售授权客户隔离，成本另授权；未来接口仍须单独验证。 |
 | 89 / S-32 | 销售端：操作记录 | P0 / 保留 | A起贯穿 | 部分实现 | [stage-a.md](stage-a.md) | 已交付命令的操作者/请求/版本及审计已实现；移动设备上下文、业务日志聚合未完整交付。 |
 | 90 / S-33 | 销售端：销售端直接创建Invoice | OUT / 保留 | 排除 | 排除 | [stage-b-invoicing.md](stage-b-invoicing.md) | 销售不能直接创建Invoice，权限测试覆盖；源优先级OUT覆盖保留标签。 |
 | 91 / S-40 | 销售端：Quotation草稿编号策略 | P0 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 草稿UUID不占正式号；提交事务编号、重试同号。 |
 | 92 / S-41 | 销售端：Quotation编号配置 | P1 / 保留 | A/B | 部分实现 | [stage-b-sales.md](stage-b-sales.md) | 公司级序列及前缀已实现；办公室编号规则配置API未交付。 |
 | 93 / S-42 | 销售端：Quotation提交失败保护 | P0 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 提交失败事务回滚、幂等摘要、草稿保留与结果查询已实现。 |
-| 94 / S-43 | 销售端：销售员授权后从手机通讯录选择联系人导入 | P0 / 保留 | C | 未实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 正式联系人API不是手机通讯录导入。 授权选择结果上传、预览/规范化、去重和确认、幂等及草稿审核；设备授权选择需客户端。 实施包：C04。详见[本次C核查](stage-c-acceptance.md)。 |
+| 94 / S-43 | 销售端：销售员授权后从手机通讯录选择联系人导入 | P0 / 保留 | C | 后端已实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044只接受授权选择结果及consentReference、1—100人规范化/批内和正式去重预览、选择确认及一次落草稿、独立审核链。 手机OS授权和联系人选择由客户端实现并联调；后端不把consent文本当设备授权完成证明。 |
 | 95 / S-44 | 销售端：同一客户/老板名下关联多家店面 | P0 / 保留 | A/B | 后端已实现 | [master-data-api.md](master-data-api.md) | 同一客户关联多门店及跨主体校验已实现。 |
 | 96 / S-45 | 销售端：一个门店维护多个不同联系人 | P0 / 保留 | A/B | 后端已实现 | [master-data-api.md](master-data-api.md) | 多联系人及门店关联集合维护、会计联系人用途已实现。 |
 | 97 / S-46 | 销售端：Quotation包数与m²双向换算 | P0 / 保留 | A/B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 包/m²权威输入、向上整包、覆盖面积和步长校验已实现；客户端交互未联调。 |
@@ -128,7 +128,7 @@
 | 113 / R113 | 管理/财务端：办公室统一客户视图 | P1 / 新增 | C | 部分实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 办公室正式客户、多门店联系人、报价/订单和价格库存聚合可查。 CRM Notes/拜访/展板/Task/趋势整合及字段成本权限。 实施包：C05、C06、C07、C09。详见[本次C核查](stage-c-acceptance.md)。 |
 | 114 / R114 | 销售端：客户产品销售曲线（销售端） | P1 / 新增 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有共用净销售趋势API。 复用R112事实，按销售授权客户过滤；上期0显示无可比。 实施包：C07。详见[本次C核查](stage-c-acceptance.md)。 |
 | 115 / R115 | 销售端：返点/佣金展示（授权范围） | P1 / 新增 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有返点/佣金数据源或查询授权模型。 本人佣金/状态、额外授权客户返点、对其他人员/成本字段的隔离。 实施包：C08。详见[本次C核查](stage-c-acceptance.md)。 |
-| 116 / R116 | 销售端：客户销售资料办公室同步完善 | P1 / 新增 | C | 部分实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 同一后台正式主数据可由办公室维护。 销售草稿、Note/拜访等移动操作同步、审核冲突及办公室统一补全。 实施包：C04、C05、C06、C09。详见[本次C核查](stage-c-acceptance.md)。 |
+| 116 / R116 | 销售端：客户销售资料办公室同步完善 | P1 / 新增 | C | 部分实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044销售草稿与办公室审核、冲突、同步增量、正式客户/门店/联系人完善和销售归属已实现。 C05 Note/拜访、C06 Task等移动对象及C09办公室统一视图仍待实现。 |
 | 117 / R117 | 管理/财务端：返点与佣金结算回归测试 | P1 / 新增 | C/D | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 现有退货/贷项/付款回归不是激励模块回归。 C基础规则的来源去重、版本切换、归属、退货与贷项只净冲一次、跨期调整/锁账/结算权限；D阶梯专项。 实施包：C08、D。详见[本次C核查](stage-c-acceptance.md)。 |
 
 ## 完整性核对

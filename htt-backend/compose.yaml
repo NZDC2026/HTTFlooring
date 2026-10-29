@@ -44,6 +44,8 @@ services:
     build: { context: ., target: worker }
     environment:
       ConnectionStrings__Database: Host=db;Database=htt;Username=htt_worker;Password=${HTT_WORKER_PASSWORD};Timeout=5
+      CardOcr__Endpoint: ${HTT_CARD_OCR_ENDPOINT:-}
+      CardOcr__ApiKey: ${HTT_CARD_OCR_API_KEY:-}
       Documents__MailApiKey: ${HTT_MAIL_API_KEY:-}
       Documents__ClamAvHost: ${HTT_CLAMAV_HOST:-}
       Documents__ClamAvPort: ${HTT_CLAMAV_PORT:-3310}

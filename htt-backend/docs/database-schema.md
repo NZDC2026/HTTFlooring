@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至042共185张业务/基础表及42个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至044共197张业务/基础表及44个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -783,3 +783,14 @@ line_refunded/advance_refunded、AR/贷项余额、预收可用额和一致性�
 ## 042 客户对账单与经营报表
 
 新增accounting.customer_statements、operating_report_runs两张FORCE RLS不可变快照表，当前185表、42迁移；SHA、冻结注册单和输出载荷证明绑定来源。预收/预付不可变事件按凭证日期重建，独立与总账核对；客户对账单AR按来源/GL核对。新增EXPORT作业/文件类型，复用claim/租约/fencing和重试，受控CSV载荷/列定义与快照一致，文件私有校验下载；statement PDF模板版本2，未知或未完成邮件不可换键重复排队。001—041不改，既有函数OID/ACL保留，见[C03说明](stage-c-statements-operating-reports.md)。
+
+
+## 043_bin_counts.sql（W-06）
+
+新增inventory.bin_counts、bin_count_lines、bin_count_rounds、bin_count_readings、bin_count_decisions，共5张公司FORCE RLS表。头表版本化、冻结位置与每轮读数/决定不可变。受控函数执行盲盘→独立复盘→审批→过账，014原过账仅对已批准新表开放；位置总量和原库存/GL事实在同一事务验证。截止点后库存/成本/位置/占用变化拒绝旧表过账。见[仓管深化](stage-c-bin-counts.md)。
+
+## 044_crm_mobile_drafts.sql（C04）
+
+新增crm.mobile_heads、mobile_devices、mobile_drafts、mobile_changes、mobile_operations、contact_imports、card_jobs，共7张公司FORCE RLS表。公司head锁在写入前取得，以提交顺序生成增量；设备连续序号/操作UUID唯一，事件和操作结果append-only，删除为tombstone、设备epoch/30天期限及授权变化重置同步。正式主数据只由独立办公室审核生成，初始化原信用投影、采用公司默认账期并分配原销售；无新财务副本。
+
+card_jobs图片私有，app不能直接SELECT/DML；Worker仅USAGE及认领/读取/完成3个definer函数，无CRM表权限。扫描后识别、限次重试/租约、完成时重查权限；只有人工确认才生联系人草稿。应用其他新表无直接DML，所有业务变更与审计/幂等同事务。见[C04](stage-c-crm-mobile.md)。累计197张业务表、44条迁移，历史001—042保持原字节。

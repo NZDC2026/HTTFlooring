@@ -1,6 +1,6 @@
 {
   "reviewDate": "2026-10-29",
-  "reviewType": "039逐行核查基线；040—042 C01/C02/C03实现与针对性回归增量，实际范围见verification.md",
+  "reviewType": "039逐行核查基线；040—044 C01/C02/C03、W-06及C04后端增量；非全量/生产验收，执行范围见verification.md",
   "source": {
     "document": "HTT-AU-需求追踪矩阵-v2.md",
     "sha256": "48ab6b6784016ba164e688543f93cf3339bbea0973e43388f48edce77d7e0b91",
@@ -9,9 +9,9 @@
     "selectionRule": "原交付阶段包含C：C、B/C、C/D；非编号中的C-xx"
   },
   "summary": {
-    "未实现": 26,
-    "后端已实现": 6,
-    "部分实现": 7
+    "未实现": 22,
+    "后端已实现": 9,
+    "部分实现": 8
   },
   "evidence": {
     "BANK": {
@@ -131,6 +131,32 @@
         "tests/Htt.IntegrationTests/InventoryControlTests.cs",
         "tests/Htt.IntegrationTests/TransitTests.cs",
         "tests/Htt.IntegrationTests/WarehouseDetailTests.cs"
+      ]
+    },
+    "CRM_MOBILE": {
+      "docs": [
+        "docs/stage-c-crm-mobile.md"
+      ],
+      "code": [
+        "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "src/Htt.Infrastructure/Documents/CardOcrWorker.cs",
+        "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql"
+      ],
+      "tests": [
+        "tests/Htt.IntegrationTests/CrmDraftTests.cs",
+        "tests/Htt.IntegrationTests/CardOcrTests.cs"
+      ]
+    },
+    "BIN_COUNT": {
+      "docs": [
+        "docs/stage-c-bin-counts.md"
+      ],
+      "code": [
+        "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "src/Htt.Infrastructure/Database/Migrations/043_bin_counts.sql"
+      ],
+      "tests": [
+        "tests/Htt.IntegrationTests/BinCountTests.cs"
       ]
     }
   },
@@ -671,13 +697,11 @@
       "phase": "C",
       "module": "Customers/OCR",
       "originalBoundary": "名片扫描识别为草稿，人工确认、去重；不能随票据OCR一起延期",
-      "backendStatus": "未实现",
-      "implemented": "正式联系人维护和附件底座可复用，没有名片识别确认链。",
-      "remaining": "名片OCR供应商作业、联系人草稿、预览/去重、人工确认。销售名片P1不能随管理端票据OCR候选P3延期。",
+      "backendStatus": "后端已实现",
+      "implemented": "044私有名片图片、扫描/OCR作业、HTTPS网关适配、重试/租约、姓名/公司/门店等建议及人工确认联系人草稿，复用独立办公室审核。",
+      "remaining": "真实OCR网关合同/识别质量及手机拍照联调另验；不自动建公司或合并客户。",
       "evidence": [
-        "CRM_BASE",
-        "DOC",
-        "GAP"
+        "CRM_MOBILE"
       ],
       "implementationOrder": [
         "C04"
@@ -694,11 +718,11 @@
       "phase": "C",
       "module": "Customers",
       "originalBoundary": "销售客户/门店/联系人草稿关联，办公室审核后作为正式主数据",
-      "backendStatus": "部分实现",
-      "implemented": "办公室可维护正式客户/门店/联系人及关联；SALES无正式写权限。",
-      "remaining": "销售创建草稿、关联已知主体、去重、办公室审核和批准落正式主数据。",
+      "backendStatus": "后端已实现",
+      "implemented": "044销售客户/门店/联系人草稿、目标客户/门店授权、重复建议、版本审核、一次生成正式数据及客户信用初始化/默认账期/销售分配。",
+      "remaining": "三个客户端接入及业务UAT另验；正式信用与非默认账期仍沿用既有专门权限。",
       "evidence": [
-        "CRM_BASE"
+        "CRM_MOBILE"
       ],
       "implementationOrder": [
         "C04"
@@ -715,11 +739,11 @@
       "phase": "C",
       "module": "Platform/CRM",
       "originalBoundary": "单一后台、操作ID去重、游标/tombstone和冲突处理",
-      "backendStatus": "未实现",
-      "implemented": "单一数据库和普通HTTP幂等不等于移动同步协议。",
-      "remaining": "设备操作ID、服务端游标、tombstone、冲突、授权变化与重放；覆盖所有CRM对象。",
+      "backendStatus": "部分实现",
+      "implemented": "044设备操作UUID/连续序号、提交有序增量、tombstone、冲突、游标过期/重置、撤权及通讯录/名片生成的草稿同步。",
+      "remaining": "C05 Note/拜访/展板与C06 Task/消息对象逐项接入及C09办公室聚合；移动端联调未做。",
       "evidence": [
-        "GAP"
+        "CRM_MOBILE"
       ],
       "implementationOrder": [
         "C04",
@@ -760,11 +784,11 @@
       "phase": "C",
       "module": "Platform",
       "originalBoundary": "缓存与离线草稿；财务过账/正式出库保持在线",
-      "backendStatus": "未实现",
-      "implemented": "已有事务幂等和版本保护，没有离线草稿/同步协议。",
-      "remaining": "后端增量/冲突协议在C04；设备缓存、离线呈现和实机验证独立客户端待办。财务过账/出库保持在线。",
+      "backendStatus": "部分实现",
+      "implemented": "044后端CRM草稿离线操作契约：设备序号、重放、版本冲突、30天游标、权限变更重置和删除保护；财务/出库无离线命令。",
+      "remaining": "客户端本地缓存、弱网呈现/恢复及实机验证；C05/C06新对象同步后续补齐。",
       "evidence": [
-        "GAP"
+        "CRM_MOBILE"
       ],
       "implementationOrder": [
         "C04",
@@ -782,12 +806,11 @@
       "phase": "C",
       "module": "Customers",
       "originalBoundary": "仅经授权选择联系人，预览去重确认，不整本自动上传",
-      "backendStatus": "未实现",
-      "implemented": "正式联系人API不是手机通讯录导入。",
-      "remaining": "授权选择结果上传、预览/规范化、去重和确认、幂等及草稿审核；设备授权选择需客户端。",
+      "backendStatus": "后端已实现",
+      "implemented": "044只接受授权选择结果及consentReference、1—100人规范化/批内和正式去重预览、选择确认及一次落草稿、独立审核链。",
+      "remaining": "手机OS授权和联系人选择由客户端实现并联调；后端不把consent文本当设备授权完成证明。",
       "evidence": [
-        "CRM_BASE",
-        "GAP"
+        "CRM_MOBILE"
       ],
       "implementationOrder": [
         "C04"
@@ -939,10 +962,10 @@
       "module": "Customers/Sync",
       "originalBoundary": "客户及拜访/Note实时入同一后台，离线标明待同步",
       "backendStatus": "部分实现",
-      "implemented": "同一后台正式主数据可由办公室维护。",
-      "remaining": "销售草稿、Note/拜访等移动操作同步、审核冲突及办公室统一补全。",
+      "implemented": "044销售草稿与办公室审核、冲突、同步增量、正式客户/门店/联系人完善和销售归属已实现。",
+      "remaining": "C05 Note/拜访、C06 Task等移动对象及C09办公室统一视图仍待实现。",
       "evidence": [
-        "CRM_BASE"
+        "CRM_MOBILE"
       ],
       "implementationOrder": [
         "C04",
@@ -976,193 +999,201 @@
       "productionStatus": "未验收"
     }
   ],
-  "implementationFingerprint": "58db99b663345094b482f2a13c5cbf9de29170a8a86dae28e5686bca5a991695",
+  "implementationFingerprint": "4834e4fbe5bf80c8d9b5fb3d51b9af637b43b6347ad9c953bf10ece85ac44ae5",
   "fingerprintAlgorithm": "SHA256(UTF-8 JSON of sorted relative src/tests paths -> SHA256, separators comma/colon, ensure_ascii default)",
   "inspectedImplementationFiles": {
-    "src/Htt.Modules.Foundation/packages.lock.json": "b1459c14bb986a6307e36e96a4572f972ccc12b32e8766a16c3963c09e544bc0",
-    "src/Htt.Modules.Foundation/Calculations.cs": "3693a20aef5bac433fd1b2d1c9490638135d0172ac84d4d89fa13533ba95e048",
-    "src/Htt.Modules.Foundation/Entities.cs": "594d02b778193695bb914d700ba91139ea70ff1e13c0f88b6bd0ad02bac3bba0",
-    "src/Htt.Modules.Foundation/Htt.Modules.Foundation.csproj": "7adb823b54f662997be9035adb17ef7f1dd0d46cc3eeb941f5c1311996248b1b",
-    "src/Htt.Host.Migrations/packages.lock.json": "aff78fb02ad02aa2422bfaa183c98f1ce17e7a7502c0099c3fa2dc58dc8eb90a",
-    "src/Htt.Host.Migrations/Htt.Host.Migrations.csproj": "f74553528cd11e5bec5d49e179605f50dc419680bab2d97431afb2e7da9002b7",
-    "src/Htt.Host.Migrations/Program.cs": "9ded5ebda506df372d6f257afdea7bfe7e954eebd20efe0c728654d1041f7618",
-    "src/Htt.Host.Worker/packages.lock.json": "b7edac370820c9a570fcc81f888823965a5a26ed094c1cf7fd5cf36e6602680f",
-    "src/Htt.Host.Worker/Htt.Host.Worker.csproj": "a20db9e19866eab99faa15cbd682dee6582ade06ff6d4d89a4ea02cb8efdfd0d",
-    "src/Htt.Host.Worker/Program.cs": "330115a836ddd383bb30be5bae3611427ad2fbbade69c378477bbe568d89c5cd",
-    "src/Htt.SharedKernel/AustralianBusinessNumber.cs": "3bdcde99ab7c97cfa9a3aae34bda54357a63fd1f25a9f70a306f86fbe56d6ecf",
-    "src/Htt.SharedKernel/packages.lock.json": "03eeadc5ef377c17f787ab65f41fb4c8a9c936bb7f7f4171111fdeec8a81cb46",
-    "src/Htt.SharedKernel/BusinessException.cs": "d42e489b5d839530bc42cd90d9ba5eaaac2c108b83b554bfc70f3680f7a7dc2d",
-    "src/Htt.SharedKernel/Htt.SharedKernel.csproj": "d61e4d3475005272986858ecc487fad00cdb8fa25771a7b043b290d5f7c3f36e",
-    "src/Htt.Host.Api/packages.lock.json": "5467d5ab8b235b3e4d55fd3db92f55d623b56de78fc01919011bca185dd544dc",
-    "src/Htt.Host.Api/SalesEndpoints.cs": "d1f8d54ca974f3306d9b56b616813a2d7490ac328267e1675f5e62fde71c8bb5",
-    "src/Htt.Host.Api/PurchasingEndpoints.cs": "d4c6b4e7190e21b7e3d6e79d0057cf9c9452e4e66df3b4d46cf6106f28baae7a",
-    "src/Htt.Host.Api/ApiInfrastructure.cs": "5d331dc244749220b60139e01d60ede85c1df90f54af7bf9d447d2d057d29206",
-    "src/Htt.Host.Api/appsettings.json": "d7d237daa8e3a6b40f57eb82f0b4b2926ef43f2ae80c439ea57d704c151730bb",
-    "src/Htt.Host.Api/FoundationEndpoints.cs": "eb5fd126239d1c94403204c6a16d0730713ed9508c449e6061c58e39c43122ca",
-    "src/Htt.Host.Api/ReconciliationEndpoints.cs": "befd200b32a3bdbe110593f7500618688da4727fa40aa61b53fa385fe60868fc",
-    "src/Htt.Host.Api/DocumentEndpoints.cs": "6e6a26846b0bec47c68ecae5feae3e2bec11bc1f0fa6fe367fa83e6cc424ee02",
-    "src/Htt.Host.Api/DocumentTrashEndpoints.cs": "0155eaf766237fd898417a204bd58de0b7eca7b104fc113076befe8f237002fb",
-    "src/Htt.Host.Api/MasterDataEndpoints.cs": "6c0c0d7347fa4147434266d97302da5a6b245c741a4d354da604dfefb594d75a",
-    "src/Htt.Host.Api/Htt.Host.Api.csproj": "b1e09ab0e5afe79804548baf6fe0a7808d1bc471fcdf96aa114159ff0c9f0f81",
-    "src/Htt.Host.Api/Program.cs": "f56634503d1c3832cba90d1fd51fecd25551c683fa21448ddcf85a789b9dcddf",
-    "src/Htt.Infrastructure/packages.lock.json": "e7605c5e6858c4a7d7cf14885a65520f2728ac85f705796e5b71888f0b97edc1",
-    "src/Htt.Infrastructure/Idempotency.cs": "775114cf4541bf818359c20d020996035d52cc5bf3500e04a77ea7fb93d0aafb",
-    "src/Htt.Infrastructure/CompanyTaxSettings.cs": "24fa896de12c4013ea945bc341c12a9af7829fd8019140d65425ad19c2817de6",
-    "src/Htt.Infrastructure/MigrationRunner.cs": "46bdb288ece3baf24dae29b3517601fd22949702210076a77a2df0c74df89e45",
-    "src/Htt.Infrastructure/Htt.Infrastructure.csproj": "902541f3ee133d9883e87c898aac4e011bdca1267f9c6b386d3a1f1010f70df9",
-    "src/Htt.Infrastructure/StockValuation.cs": "87fe05f887adffe84aef97a4fb31032d47812d7dc1e2dbebbbd5d93f4d6c402f",
-    "src/Htt.Infrastructure/FoundationDbContext.cs": "466ac16211d9259c574950829e9b64b9f0b1b93be593c17ceb43858269c82e89",
-    "src/Htt.Infrastructure/AccessResolver.cs": "df4f6fdec35f26b323d6cb8de3493703183223858e8efd90b88616b1582f15bf",
-    "src/Htt.Infrastructure/Sql.cs": "07ec3b30699fbfa81ab860254851bcc46cd3281f6870e7bb78dcf29844f15ce4",
-    "src/Htt.Infrastructure/CompanySession.cs": "af00b4e8be168bc7455b99fd8b8b5b5e9b4216f4b7275e872ea044feabcde8d3",
-    "src/Htt.Infrastructure/StockOpening.cs": "a22b0b6b8af34226bc2763e14e4822d13771c9006cf6db48c61d2f308a47665b",
-    "src/Htt.Infrastructure/CompanyBootstrap.cs": "5df275daaad3cf4c453f48b96c932eab4c6f1cc6afa2c1cd7be0a60128314162",
-    "src/Htt.Infrastructure/PortalSession.cs": "db9c1d34b9774266dd1b46f3cded93fcb261d17fc8ee9b795990fd712cf7fd7f",
-    "src/Htt.Infrastructure/Documents/render_pdf.py": "c9c5a73e79e0622e13d3f59bc7a6b64dc90cba19090cc3e67fa9d7324c1c3bcd",
-    "src/Htt.Infrastructure/Documents/CsvReportExporter.cs": "d9b909450b2a614bd9f44f4472e7b18acd9c017ea4435f2b903b08f3d71bb397",
-    "src/Htt.Infrastructure/Documents/DocumentWorker.cs": "9c9c13f8e756534ada4e2edfc8f810b099232637651bafc0c8d87019da5b9d24",
-    "src/Htt.Infrastructure/Documents/DocumentRuntime.cs": "2783fde2626232d7bb277608b66cc73d71a0bd08c392463138da8f5d5abf24b6",
-    "src/Htt.Infrastructure/Database/Migrations/040_general_banking.sql": "a04a923e7b3f09b25e941d0d2dfae985444bbb1c310dc225430cec32526cc9b5",
-    "src/Htt.Infrastructure/Database/Migrations/041_bank_rules.sql": "340d48031967734bea5bd708a93d4e9c8f234f98f6b319ec6127bfb641193340",
-    "src/Htt.Infrastructure/Database/Migrations/001_foundation.sql": "4d3f618d357982a536116485e07959b2f43c4b91d38ce1abc75bf09cafb872ae",
-    "src/Htt.Infrastructure/Database/Migrations/027_customer_refund_corrections.sql": "045b0af804639d0007f4de8faf28398f80348bb1cc6fe65b87d4c10597236adb",
-    "src/Htt.Infrastructure/Database/Migrations/004_master_data_maintenance.sql": "d15bb1eda483c59c4369dde641e7eac5776e1f75e7b39f6ab552561e82bd082e",
-    "src/Htt.Infrastructure/Database/Migrations/021_supplier_expense_bills.sql": "68f95a22500cbc6980f7aca5d28f5517842a5ed5ddccdd43490b0e4505dcee5b",
-    "src/Htt.Infrastructure/Database/Migrations/023_supplier_credit_applications.sql": "eaee1cf8b47f1b9b1fdcdb81947ecf3c4a2a26e1c44aede2c611f40bb8309f6e",
-    "src/Htt.Infrastructure/Database/Migrations/024_customer_credit_applications.sql": "17cf8f54dab625cfb544513f9d5c624573f5cd64950bcdcb67e1a5fe700954ee",
-    "src/Htt.Infrastructure/Database/Migrations/029_customer_amount_credits.sql": "6e078ebb8d9cab61ac810ef517854d8223fff916f1cbaa934040b30a5794c80d",
-    "src/Htt.Infrastructure/Database/Migrations/002_controlled_operations.sql": "7304ca6eb5403caae364aad1018bf7a7640e090f437838b166fa9146c54140f4",
-    "src/Htt.Infrastructure/Database/Migrations/007_sales_invoicing.sql": "fe93863e52918edcb9679aea2454066308de94f5cdc24aded68eb1a522e0ec1a",
-    "src/Htt.Infrastructure/Database/Migrations/018_customer_portal.sql": "0a191108f0cb9c9b0cd0a4e4de1f3b67f2d82315efa44bf1425dbd0f7e70b022",
-    "src/Htt.Infrastructure/Database/Migrations/031_search_business_preferences.sql": "c1723e7f61b8166e72f984af0b9e784d8fc753a797533d380396cb40116760d3",
-    "src/Htt.Infrastructure/Database/Migrations/005_quotes_orders_reservations.sql": "67fa07c7f3d5e94367f3b8d0143dac142bd1ead0f3e1a7e7ccaa4deb55552f63",
-    "src/Htt.Infrastructure/Database/Migrations/022_supplier_expense_credits.sql": "68e792cddbe9a8ca310ed1812f0766902897b0582c143a6f82fc075fd4b047e2",
-    "src/Htt.Infrastructure/Database/Migrations/011_supplier_bills.sql": "8398b366a8685fa8dbb54a14786cb30526b4f533fde7c37fdfb5e9bb992deac5",
-    "src/Htt.Infrastructure/Database/Migrations/017_document_delivery.sql": "7461fd0103d5d3951630fabbabcdfdbc01cf9f53a59d7e2aa02caafc437285a7",
-    "src/Htt.Infrastructure/Database/Migrations/034_bank_statement_reconciliation.sql": "de8ca74005fe2f6c7b193e20c006e0e01fce5ad07ac06b42d38a50ea1eba6d31",
-    "src/Htt.Infrastructure/Database/Migrations/013_purchase_returns.sql": "66b05b7fd9b0c8634f75a001ac018d25b64f7df57cadc68d750fd923af0c77d8",
-    "src/Htt.Infrastructure/Database/Migrations/012_supplier_payments.sql": "6027de57e07c72b6be6e1b2ab8dd030d634829b6c79be601e04c8b9972a773f3",
-    "src/Htt.Infrastructure/Database/Migrations/042_statements_operating_reports.sql": "1033d17983d6a7862183858d8516e51725b3de65b47161b637918196dfd4f71d",
-    "src/Htt.Infrastructure/Database/Migrations/010_purchasing_receipts.sql": "5c1e09b0e647e28850730bb5357ad2205f9c9ba2ee45b26816a578603bafa58a",
-    "src/Htt.Infrastructure/Database/Migrations/038_full_bas.sql": "42adfae520ab6715324afb3b8c09c3ea1cead004cba3858f2ba291f03b602510",
-    "src/Htt.Infrastructure/Database/Migrations/015_transit_transfers.sql": "ba68f37eac8cf9d3fff9d794b99cfa6abae50b154b1f24fed34b6713c42b30f2",
-    "src/Htt.Infrastructure/Database/Migrations/028_supplier_refund_corrections.sql": "9f704e5a4d3bf864a1bc3b2bc380ba93321b379a7e1e91f884a15b0717c7e692",
-    "src/Htt.Infrastructure/Database/Migrations/035_financial_reports.sql": "bee8a345c41a74b910f6eaf16a28cc2bf69faf06ad447a02cdf019b566362258",
-    "src/Htt.Infrastructure/Database/Migrations/039_period_close.sql": "b27ca81516761eb6e475e5e9e2248b6816401ced6f18598f04351707569fd2c9",
-    "src/Htt.Infrastructure/Database/Migrations/030_supplier_adjustments.sql": "335b8834fb5ec6d2982f4f72a013fa254255d5061935667ee5ff0d8b3b8e47a3",
-    "src/Htt.Infrastructure/Database/Migrations/020_direct_sales_orders.sql": "95cb492b47aa4624770d9459f325d99d2d4596a2b587c8a7b269047d2f377199",
-    "src/Htt.Infrastructure/Database/Migrations/037_gst_bas.sql": "9e81e6e3863c7a485385efbdb5254f56d2dd1690c5bab71d23b87c34b5e3c407",
-    "src/Htt.Infrastructure/Database/Migrations/008_customer_receipts.sql": "7f209449e8cc4ad97edc595881ab1bd48e97644c057f782415069f0c3fac13ca",
-    "src/Htt.Infrastructure/Database/Migrations/019_document_trash.sql": "01123470cb925bfa6614e13317ea5b185a781045b5532a2a59437d401c50b05d",
-    "src/Htt.Infrastructure/Database/Migrations/014_inventory_control.sql": "01699c4e2b93eea3a175c7b5cc2dc6883477d546669de36419641a5db3ae4f09",
-    "src/Htt.Infrastructure/Database/Migrations/036_cash_flow.sql": "e080f193d33dd67d0e1bf951e6969ca3d9a737ce12c0121385f3d0dbb4d8dfbb",
-    "src/Htt.Infrastructure/Database/Migrations/016_reconciliation.sql": "fed491fb8934531eef205d58828b9df327525ca02f8173deb364986e0d1fa834",
-    "src/Htt.Infrastructure/Database/Migrations/006_warehouse_fulfilment.sql": "609c566cc768ad2bdd064aad261186cde75d80f3727998f4ce31ba4916ed0892",
-    "src/Htt.Infrastructure/Database/Migrations/033_bank_accounts_and_ledger.sql": "8a33f898ad8526323cffad69bd3ecdc107a6bcce91239466598119b8b30c8450",
-    "src/Htt.Infrastructure/Database/Migrations/003_master_data_extensions.sql": "b094f9d67fbd31c5dfaf2af858cbc16e2209ac97391e813faca827023cb70673",
-    "src/Htt.Infrastructure/Database/Migrations/026_supplier_settlement_reversals.sql": "5b48f17fbb07969f2f66d131359d3e77752f4215ad195ec06947afd1f3575910",
-    "src/Htt.Infrastructure/Database/Migrations/025_customer_settlement_reversals.sql": "3861ed41d5729dc3accd78a66106603731beee31fea406cc01647d5273e610dd",
-    "src/Htt.Infrastructure/Database/Migrations/032_warehouse_locations.sql": "8db03ca7b6aab10af74840c2aa85d0db0ba356f7bc2450ecbbbbf64176f60fa6",
-    "src/Htt.Infrastructure/Database/Migrations/009_sales_returns.sql": "15e0e67d0fddc8530d0a18b328667777ea6ce10930db8ef8ff03df93b1bf2b24",
-    "src/Htt.Host.Api/Accounting/GeneralBankingEndpoints.cs": "cc4213459c6091785434957bff3a5f37e79aaf7436174bf972e212d9b1847b39",
-    "src/Htt.Host.Api/Accounting/BankingEndpoints.cs": "ad1d3773f4ab9e5a24405e1c734eb5dc54994585edf6161ae3c071c9e807767f",
-    "src/Htt.Host.Api/Accounting/BankRuleEndpoints.cs": "63dae8a8e94270d82b4356c57e01cf37dfdab5b917b5c707fc6cc1ef98ed018d",
-    "src/Htt.Host.Api/Accounting/OperatingReportEndpoints.cs": "9298ae47ed5d6b02bb3fef125989f7e039e0edabea0c2cc85d056512228564ba",
-    "src/Htt.Host.Api/Accounting/BankStatementCsv.cs": "fdd9648aa716b919095b02cfdbe5ffd0a53b8794fad92bf896a5982e3c22f7e0",
-    "src/Htt.Host.Api/Accounting/FinancialReportEndpoints.cs": "a51aacdccf38561fa2d7703536573f6f3a596337d898edafcb4515a949c34891",
-    "src/Htt.Host.Api/Accounting/LedgerEndpoints.cs": "8ae53282930c3cf4c13c9ba04fd839b93a476b686a50d69d472501aad0aebbf1",
-    "src/Htt.Host.Api/Accounting/PeriodCloseEndpoints.cs": "7ee659235edc5efaf31847c9dd7c41f877f9409a5b5d5ab5e6862f4dfc79f564",
     "src/Htt.Host.Api/Accounting/BankReconciliationEndpoints.cs": "49d35dcc63453978fbcaed2f5c992acde9a3cdd891f657daf54a18b492c805eb",
+    "src/Htt.Host.Api/Accounting/BankRuleEndpoints.cs": "63dae8a8e94270d82b4356c57e01cf37dfdab5b917b5c707fc6cc1ef98ed018d",
+    "src/Htt.Host.Api/Accounting/BankStatementCsv.cs": "fdd9648aa716b919095b02cfdbe5ffd0a53b8794fad92bf896a5982e3c22f7e0",
+    "src/Htt.Host.Api/Accounting/BankingEndpoints.cs": "ad1d3773f4ab9e5a24405e1c734eb5dc54994585edf6161ae3c071c9e807767f",
     "src/Htt.Host.Api/Accounting/BasEndpoints.cs": "fd88b756826ada31f021fca86357b97476521d9466354c45b3bc1600c02ab1cd",
     "src/Htt.Host.Api/Accounting/CashFlowEndpoints.cs": "b2a67dcc6ec08701aaa129e0d845013ac390f9fac108378c133b0cf5696db280",
+    "src/Htt.Host.Api/Accounting/FinancialReportEndpoints.cs": "a51aacdccf38561fa2d7703536573f6f3a596337d898edafcb4515a949c34891",
+    "src/Htt.Host.Api/Accounting/GeneralBankingEndpoints.cs": "cc4213459c6091785434957bff3a5f37e79aaf7436174bf972e212d9b1847b39",
+    "src/Htt.Host.Api/Accounting/LedgerEndpoints.cs": "8ae53282930c3cf4c13c9ba04fd839b93a476b686a50d69d472501aad0aebbf1",
+    "src/Htt.Host.Api/Accounting/OperatingReportEndpoints.cs": "9298ae47ed5d6b02bb3fef125989f7e039e0edabea0c2cc85d056512228564ba",
+    "src/Htt.Host.Api/Accounting/PeriodCloseEndpoints.cs": "7ee659235edc5efaf31847c9dd7c41f877f9409a5b5d5ab5e6862f4dfc79f564",
+    "src/Htt.Host.Api/ApiInfrastructure.cs": "5d331dc244749220b60139e01d60ede85c1df90f54af7bf9d447d2d057d29206",
+    "src/Htt.Host.Api/DocumentEndpoints.cs": "6e6a26846b0bec47c68ecae5feae3e2bec11bc1f0fa6fe367fa83e6cc424ee02",
+    "src/Htt.Host.Api/DocumentTrashEndpoints.cs": "0155eaf766237fd898417a204bd58de0b7eca7b104fc113076befe8f237002fb",
+    "src/Htt.Host.Api/FoundationEndpoints.cs": "1c3fdfb5b4a1aeea7ee1daa3d4af5d87317955bfd7f91b4d2ccea6126b3b213a",
+    "src/Htt.Host.Api/Htt.Host.Api.csproj": "b1e09ab0e5afe79804548baf6fe0a7808d1bc471fcdf96aa114159ff0c9f0f81",
+    "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs": "40eac5299e5e3a653d10c378a1596a841ce1efb8a20bdb31606c2074ce9d79ea",
+    "src/Htt.Host.Api/Inventory/InventoryControlEndpoints.cs": "3020c43ee96f8e65a91ce9724bcb2191c82fdfaf9c8899f7760b0d3dff1224cd",
+    "src/Htt.Host.Api/Inventory/TransitEndpoints.cs": "615a451f68cb74d9f846c98caf5c05b1a3bfe891b41941516f9a2a09e5b154a3",
+    "src/Htt.Host.Api/Inventory/WarehouseDetailEndpoints.cs": "e975274b1ba3fc6541245c63aded1273d192049ce6ba716558331a439ea8cefb",
+    "src/Htt.Host.Api/MasterData/CatalogMaintenanceEndpoints.cs": "0630cf71c8fd0ea96421329c9b3ade82e1d38ccac92e76318a09836dfecc1499",
+    "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs": "cf7abf551bdc4c906067255d7c904bc9faccec3959f3cf5b728a9bc2f6409df0",
+    "src/Htt.Host.Api/MasterData/CrmMaintenanceEndpoints.cs": "a204af5de72bc44ca8de176896f32b70b47bb15f345afa2abc83862596de4c2b",
+    "src/Htt.Host.Api/MasterData/DiscoverySettingsEndpoints.cs": "e380587e7f31232d9277fc827a519f342e63f9f8956dd0d8f64d8098dca3000c",
+    "src/Htt.Host.Api/MasterData/MasterDataSupport.cs": "24fbf019366e6b9c0080df75814c63777598847d675f47c549df3ef3e6b8f39f",
+    "src/Htt.Host.Api/MasterData/PricingMaintenanceEndpoints.cs": "42cd95ef7bf54dbf87d1999ad38881289793a6899a841876b84abe35751faf7f",
+    "src/Htt.Host.Api/MasterDataEndpoints.cs": "6c0c0d7347fa4147434266d97302da5a6b245c741a4d354da604dfefb594d75a",
+    "src/Htt.Host.Api/Portal/PortalAuthentication.cs": "377879aba1957fd0f69bd0a897c1d0d1fb21e548b182e2d5de058ab543529e8c",
     "src/Htt.Host.Api/Portal/PortalEndpoints.cs": "9381d965e4a234ded45a6e10c72c05727c56fc3e052c62792138a3589eb718ac",
     "src/Htt.Host.Api/Portal/PortalManagementEndpoints.cs": "9672b5d7f9d027f9e5f1f9dab07491abe6d85f9c1d9de3633e10d7a49eee80f1",
-    "src/Htt.Host.Api/Portal/PortalAuthentication.cs": "377879aba1957fd0f69bd0a897c1d0d1fb21e548b182e2d5de058ab543529e8c",
-    "src/Htt.Host.Api/Sales/CustomerRefundCorrectionEndpoints.cs": "888e02c962dcbc1efd35e64d6f0a9f6c7c0e072723bd2a7e06ba1833b56a3170",
-    "src/Htt.Host.Api/Sales/ReceiptEndpoints.cs": "53eb43dc10c750541aec317178c53088699bc23671441629b23abfae2b765f7d",
-    "src/Htt.Host.Api/Sales/OrderConfirmation.cs": "4e60836b581430e798d04b0238c2c0d63d032be0aba75e88836de8ecceb2f36e",
-    "src/Htt.Host.Api/Sales/SalesSupport.cs": "26886d835341a2f9a3e40b9bb0be54ef018aed2204974c762721bcafc6aaf70b",
-    "src/Htt.Host.Api/Sales/DirectOrderEndpoints.cs": "96a1a4a28e019f72a54c3fe738f790542963dfda6fcfcf475a1144cbcb51fb53",
-    "src/Htt.Host.Api/Sales/InvoiceEndpoints.cs": "a675a4a9c74112a9cabf100fbc29c31f321b87614add46d1a7fc2d361e58cb9c",
-    "src/Htt.Host.Api/Sales/OrderEndpoints.cs": "ee4e891a0417198dd2fe22137bc7191ee96e2eb88e600da9e2cd1db7f73c346f",
-    "src/Htt.Host.Api/Sales/QuoteEndpoints.cs": "9273eccecc9d7f023b12667fac88d32b774599d0044730bd748f9d4a6c54555d",
-    "src/Htt.Host.Api/Sales/FulfilmentEndpoints.cs": "eb208df98fa2c8f59f0e70a5732128019fd318134bc1614bbe0a614aa7dca99d",
-    "src/Htt.Host.Api/Sales/InventoryEndpoints.cs": "a51d9f4d683470f02f98fef96b42d861837dca39137fce492452d3082540841c",
-    "src/Htt.Host.Api/Sales/QuotePricing.cs": "e35cfd4e70351625c1d55cccad50241707cdf01b353283c92685259f82cf05b5",
-    "src/Htt.Host.Api/Sales/QuoteBuilder.cs": "de4b40d025d8cdbec3e268729f064a53e8172bd6cfeee25bc2fe11399058bfd8",
-    "src/Htt.Host.Api/Sales/SettlementReversalEndpoints.cs": "e28b80dab792293224182a9ebe078fafcccf1afcc32c679585733aec6ea6f654",
-    "src/Htt.Host.Api/Sales/CustomerCreditApplicationEndpoints.cs": "b9945e10d090a828a29f890a19b8c08664ab4f0574dc00a203437b9a3689f5b8",
-    "src/Htt.Host.Api/Sales/ReturnEndpoints.cs": "5f161a7378a8b9c5f81803d452f02ac01768c37b85b70ea6404b255906096605",
-    "src/Htt.Host.Api/Purchasing/PurchaseEndpoints.cs": "d8dd0b757c340f856c823b74851749c2b3c34696f83ba6dfaf4cf9f5e15eb983",
-    "src/Htt.Host.Api/Purchasing/SupplierPaymentEndpoints.cs": "eecc8df53164ff373933cf40d85f0cf225da9327eb1ddd0f0381c7eb1391004b",
-    "src/Htt.Host.Api/Purchasing/SupplierBillEndpoints.cs": "f61fe2dbb9a986e91889eae176e24b6d297afa8fe62dcc153a0f7d95bcfb0cc2",
-    "src/Htt.Host.Api/Purchasing/SupplierRefundCorrectionEndpoints.cs": "e32b320ce7b695456de71b632297b2769f5edefa66fd65eca61d37839a6312ec",
-    "src/Htt.Host.Api/Purchasing/PurchaseReturnEndpoints.cs": "25b7bf49a1145ad9271d54007dd62f6967f7265d1ae9e113139f0727fb275025",
-    "src/Htt.Host.Api/Purchasing/SupplierSettlementReversalEndpoints.cs": "0a6cf799d6eba944eba3eb62f57d3dc6ce6a6c05c9121633dc00c7bb2a0935be",
+    "src/Htt.Host.Api/Program.cs": "8cca982227d328b46280f50ec342800e72deb04be8272244b013242ce826131b",
     "src/Htt.Host.Api/Purchasing/CreditApplicationEndpoints.cs": "acd07e4dd7ab347db4c795b7a7dc8e873bc66394a2091ec2e32ddf1e2d58fd24",
     "src/Htt.Host.Api/Purchasing/ExpenseBillEndpoints.cs": "ac6c9113d28f9b9fdc3562f1b63f1354e5fffe005ecd5517c3600120c0f484f9",
     "src/Htt.Host.Api/Purchasing/ExpenseCreditEndpoints.cs": "493b543a038c182aef1e21d0197e3e849a6e954412606e109a4cd02a48fe0b8b",
-    "src/Htt.Host.Api/Inventory/InventoryControlEndpoints.cs": "1e3d9fe0cab879a8416a1f48faac094ebdfffeb5fcdd0fa0727ce56e0cbc7bc6",
-    "src/Htt.Host.Api/Inventory/WarehouseDetailEndpoints.cs": "e975274b1ba3fc6541245c63aded1273d192049ce6ba716558331a439ea8cefb",
-    "src/Htt.Host.Api/Inventory/TransitEndpoints.cs": "615a451f68cb74d9f846c98caf5c05b1a3bfe891b41941516f9a2a09e5b154a3",
-    "src/Htt.Host.Api/MasterData/PricingMaintenanceEndpoints.cs": "42cd95ef7bf54dbf87d1999ad38881289793a6899a841876b84abe35751faf7f",
-    "src/Htt.Host.Api/MasterData/CatalogMaintenanceEndpoints.cs": "0630cf71c8fd0ea96421329c9b3ade82e1d38ccac92e76318a09836dfecc1499",
-    "src/Htt.Host.Api/MasterData/DiscoverySettingsEndpoints.cs": "e380587e7f31232d9277fc827a519f342e63f9f8956dd0d8f64d8098dca3000c",
-    "src/Htt.Host.Api/MasterData/MasterDataSupport.cs": "24fbf019366e6b9c0080df75814c63777598847d675f47c549df3ef3e6b8f39f",
-    "src/Htt.Host.Api/MasterData/CrmMaintenanceEndpoints.cs": "a204af5de72bc44ca8de176896f32b70b47bb15f345afa2abc83862596de4c2b",
-    "tests/Htt.UnitTests/packages.lock.json": "d0df1b8f23d3677d014ee7f69051e2b20f69ffe2a5fee22ccceb1d2e0843de12",
-    "tests/Htt.UnitTests/Htt.UnitTests.csproj": "f71d2a572d4103ac0c12783e05b0d6c199dd2337a809fbfa3b391199a4440a72",
-    "tests/Htt.UnitTests/CalculationTests.cs": "c1574dc221fbefe0bd3910d5396e9fae341be5092962e37b99604f38c76facb0",
+    "src/Htt.Host.Api/Purchasing/PurchaseEndpoints.cs": "d8dd0b757c340f856c823b74851749c2b3c34696f83ba6dfaf4cf9f5e15eb983",
+    "src/Htt.Host.Api/Purchasing/PurchaseReturnEndpoints.cs": "25b7bf49a1145ad9271d54007dd62f6967f7265d1ae9e113139f0727fb275025",
+    "src/Htt.Host.Api/Purchasing/SupplierBillEndpoints.cs": "f61fe2dbb9a986e91889eae176e24b6d297afa8fe62dcc153a0f7d95bcfb0cc2",
+    "src/Htt.Host.Api/Purchasing/SupplierPaymentEndpoints.cs": "eecc8df53164ff373933cf40d85f0cf225da9327eb1ddd0f0381c7eb1391004b",
+    "src/Htt.Host.Api/Purchasing/SupplierRefundCorrectionEndpoints.cs": "e32b320ce7b695456de71b632297b2769f5edefa66fd65eca61d37839a6312ec",
+    "src/Htt.Host.Api/Purchasing/SupplierSettlementReversalEndpoints.cs": "0a6cf799d6eba944eba3eb62f57d3dc6ce6a6c05c9121633dc00c7bb2a0935be",
+    "src/Htt.Host.Api/PurchasingEndpoints.cs": "d4c6b4e7190e21b7e3d6e79d0057cf9c9452e4e66df3b4d46cf6106f28baae7a",
+    "src/Htt.Host.Api/ReconciliationEndpoints.cs": "befd200b32a3bdbe110593f7500618688da4727fa40aa61b53fa385fe60868fc",
+    "src/Htt.Host.Api/Sales/CustomerCreditApplicationEndpoints.cs": "b9945e10d090a828a29f890a19b8c08664ab4f0574dc00a203437b9a3689f5b8",
+    "src/Htt.Host.Api/Sales/CustomerRefundCorrectionEndpoints.cs": "888e02c962dcbc1efd35e64d6f0a9f6c7c0e072723bd2a7e06ba1833b56a3170",
+    "src/Htt.Host.Api/Sales/DirectOrderEndpoints.cs": "96a1a4a28e019f72a54c3fe738f790542963dfda6fcfcf475a1144cbcb51fb53",
+    "src/Htt.Host.Api/Sales/FulfilmentEndpoints.cs": "eb208df98fa2c8f59f0e70a5732128019fd318134bc1614bbe0a614aa7dca99d",
+    "src/Htt.Host.Api/Sales/InventoryEndpoints.cs": "a51d9f4d683470f02f98fef96b42d861837dca39137fce492452d3082540841c",
+    "src/Htt.Host.Api/Sales/InvoiceEndpoints.cs": "a675a4a9c74112a9cabf100fbc29c31f321b87614add46d1a7fc2d361e58cb9c",
+    "src/Htt.Host.Api/Sales/OrderConfirmation.cs": "4e60836b581430e798d04b0238c2c0d63d032be0aba75e88836de8ecceb2f36e",
+    "src/Htt.Host.Api/Sales/OrderEndpoints.cs": "ee4e891a0417198dd2fe22137bc7191ee96e2eb88e600da9e2cd1db7f73c346f",
+    "src/Htt.Host.Api/Sales/QuoteBuilder.cs": "de4b40d025d8cdbec3e268729f064a53e8172bd6cfeee25bc2fe11399058bfd8",
+    "src/Htt.Host.Api/Sales/QuoteEndpoints.cs": "9273eccecc9d7f023b12667fac88d32b774599d0044730bd748f9d4a6c54555d",
+    "src/Htt.Host.Api/Sales/QuotePricing.cs": "e35cfd4e70351625c1d55cccad50241707cdf01b353283c92685259f82cf05b5",
+    "src/Htt.Host.Api/Sales/ReceiptEndpoints.cs": "53eb43dc10c750541aec317178c53088699bc23671441629b23abfae2b765f7d",
+    "src/Htt.Host.Api/Sales/ReturnEndpoints.cs": "5f161a7378a8b9c5f81803d452f02ac01768c37b85b70ea6404b255906096605",
+    "src/Htt.Host.Api/Sales/SalesSupport.cs": "26886d835341a2f9a3e40b9bb0be54ef018aed2204974c762721bcafc6aaf70b",
+    "src/Htt.Host.Api/Sales/SettlementReversalEndpoints.cs": "e28b80dab792293224182a9ebe078fafcccf1afcc32c679585733aec6ea6f654",
+    "src/Htt.Host.Api/SalesEndpoints.cs": "d1f8d54ca974f3306d9b56b616813a2d7490ac328267e1675f5e62fde71c8bb5",
+    "src/Htt.Host.Api/appsettings.json": "d7d237daa8e3a6b40f57eb82f0b4b2926ef43f2ae80c439ea57d704c151730bb",
+    "src/Htt.Host.Api/packages.lock.json": "5467d5ab8b235b3e4d55fd3db92f55d623b56de78fc01919011bca185dd544dc",
+    "src/Htt.Host.Migrations/Htt.Host.Migrations.csproj": "f74553528cd11e5bec5d49e179605f50dc419680bab2d97431afb2e7da9002b7",
+    "src/Htt.Host.Migrations/Program.cs": "9ded5ebda506df372d6f257afdea7bfe7e954eebd20efe0c728654d1041f7618",
+    "src/Htt.Host.Migrations/packages.lock.json": "aff78fb02ad02aa2422bfaa183c98f1ce17e7a7502c0099c3fa2dc58dc8eb90a",
+    "src/Htt.Host.Worker/Htt.Host.Worker.csproj": "a20db9e19866eab99faa15cbd682dee6582ade06ff6d4d89a4ea02cb8efdfd0d",
+    "src/Htt.Host.Worker/Program.cs": "330b189d27f338d05a57b15929a344abfddab67c0b2911dc081a8d4cc9a34f8a",
+    "src/Htt.Host.Worker/packages.lock.json": "b7edac370820c9a570fcc81f888823965a5a26ed094c1cf7fd5cf36e6602680f",
+    "src/Htt.Infrastructure/AccessResolver.cs": "df4f6fdec35f26b323d6cb8de3493703183223858e8efd90b88616b1582f15bf",
+    "src/Htt.Infrastructure/CompanyBootstrap.cs": "ab640fe5d857954c3fcc476ca542401864a4f3fb7a6b76012fd0a51d9834a10f",
+    "src/Htt.Infrastructure/CompanySession.cs": "af00b4e8be168bc7455b99fd8b8b5b5e9b4216f4b7275e872ea044feabcde8d3",
+    "src/Htt.Infrastructure/CompanyTaxSettings.cs": "24fa896de12c4013ea945bc341c12a9af7829fd8019140d65425ad19c2817de6",
+    "src/Htt.Infrastructure/Database/Migrations/001_foundation.sql": "4d3f618d357982a536116485e07959b2f43c4b91d38ce1abc75bf09cafb872ae",
+    "src/Htt.Infrastructure/Database/Migrations/002_controlled_operations.sql": "7304ca6eb5403caae364aad1018bf7a7640e090f437838b166fa9146c54140f4",
+    "src/Htt.Infrastructure/Database/Migrations/003_master_data_extensions.sql": "b094f9d67fbd31c5dfaf2af858cbc16e2209ac97391e813faca827023cb70673",
+    "src/Htt.Infrastructure/Database/Migrations/004_master_data_maintenance.sql": "d15bb1eda483c59c4369dde641e7eac5776e1f75e7b39f6ab552561e82bd082e",
+    "src/Htt.Infrastructure/Database/Migrations/005_quotes_orders_reservations.sql": "67fa07c7f3d5e94367f3b8d0143dac142bd1ead0f3e1a7e7ccaa4deb55552f63",
+    "src/Htt.Infrastructure/Database/Migrations/006_warehouse_fulfilment.sql": "609c566cc768ad2bdd064aad261186cde75d80f3727998f4ce31ba4916ed0892",
+    "src/Htt.Infrastructure/Database/Migrations/007_sales_invoicing.sql": "fe93863e52918edcb9679aea2454066308de94f5cdc24aded68eb1a522e0ec1a",
+    "src/Htt.Infrastructure/Database/Migrations/008_customer_receipts.sql": "7f209449e8cc4ad97edc595881ab1bd48e97644c057f782415069f0c3fac13ca",
+    "src/Htt.Infrastructure/Database/Migrations/009_sales_returns.sql": "15e0e67d0fddc8530d0a18b328667777ea6ce10930db8ef8ff03df93b1bf2b24",
+    "src/Htt.Infrastructure/Database/Migrations/010_purchasing_receipts.sql": "5c1e09b0e647e28850730bb5357ad2205f9c9ba2ee45b26816a578603bafa58a",
+    "src/Htt.Infrastructure/Database/Migrations/011_supplier_bills.sql": "8398b366a8685fa8dbb54a14786cb30526b4f533fde7c37fdfb5e9bb992deac5",
+    "src/Htt.Infrastructure/Database/Migrations/012_supplier_payments.sql": "6027de57e07c72b6be6e1b2ab8dd030d634829b6c79be601e04c8b9972a773f3",
+    "src/Htt.Infrastructure/Database/Migrations/013_purchase_returns.sql": "66b05b7fd9b0c8634f75a001ac018d25b64f7df57cadc68d750fd923af0c77d8",
+    "src/Htt.Infrastructure/Database/Migrations/014_inventory_control.sql": "01699c4e2b93eea3a175c7b5cc2dc6883477d546669de36419641a5db3ae4f09",
+    "src/Htt.Infrastructure/Database/Migrations/015_transit_transfers.sql": "ba68f37eac8cf9d3fff9d794b99cfa6abae50b154b1f24fed34b6713c42b30f2",
+    "src/Htt.Infrastructure/Database/Migrations/016_reconciliation.sql": "fed491fb8934531eef205d58828b9df327525ca02f8173deb364986e0d1fa834",
+    "src/Htt.Infrastructure/Database/Migrations/017_document_delivery.sql": "7461fd0103d5d3951630fabbabcdfdbc01cf9f53a59d7e2aa02caafc437285a7",
+    "src/Htt.Infrastructure/Database/Migrations/018_customer_portal.sql": "0a191108f0cb9c9b0cd0a4e4de1f3b67f2d82315efa44bf1425dbd0f7e70b022",
+    "src/Htt.Infrastructure/Database/Migrations/019_document_trash.sql": "01123470cb925bfa6614e13317ea5b185a781045b5532a2a59437d401c50b05d",
+    "src/Htt.Infrastructure/Database/Migrations/020_direct_sales_orders.sql": "95cb492b47aa4624770d9459f325d99d2d4596a2b587c8a7b269047d2f377199",
+    "src/Htt.Infrastructure/Database/Migrations/021_supplier_expense_bills.sql": "68f95a22500cbc6980f7aca5d28f5517842a5ed5ddccdd43490b0e4505dcee5b",
+    "src/Htt.Infrastructure/Database/Migrations/022_supplier_expense_credits.sql": "68e792cddbe9a8ca310ed1812f0766902897b0582c143a6f82fc075fd4b047e2",
+    "src/Htt.Infrastructure/Database/Migrations/023_supplier_credit_applications.sql": "eaee1cf8b47f1b9b1fdcdb81947ecf3c4a2a26e1c44aede2c611f40bb8309f6e",
+    "src/Htt.Infrastructure/Database/Migrations/024_customer_credit_applications.sql": "17cf8f54dab625cfb544513f9d5c624573f5cd64950bcdcb67e1a5fe700954ee",
+    "src/Htt.Infrastructure/Database/Migrations/025_customer_settlement_reversals.sql": "3861ed41d5729dc3accd78a66106603731beee31fea406cc01647d5273e610dd",
+    "src/Htt.Infrastructure/Database/Migrations/026_supplier_settlement_reversals.sql": "5b48f17fbb07969f2f66d131359d3e77752f4215ad195ec06947afd1f3575910",
+    "src/Htt.Infrastructure/Database/Migrations/027_customer_refund_corrections.sql": "045b0af804639d0007f4de8faf28398f80348bb1cc6fe65b87d4c10597236adb",
+    "src/Htt.Infrastructure/Database/Migrations/028_supplier_refund_corrections.sql": "9f704e5a4d3bf864a1bc3b2bc380ba93321b379a7e1e91f884a15b0717c7e692",
+    "src/Htt.Infrastructure/Database/Migrations/029_customer_amount_credits.sql": "6e078ebb8d9cab61ac810ef517854d8223fff916f1cbaa934040b30a5794c80d",
+    "src/Htt.Infrastructure/Database/Migrations/030_supplier_adjustments.sql": "335b8834fb5ec6d2982f4f72a013fa254255d5061935667ee5ff0d8b3b8e47a3",
+    "src/Htt.Infrastructure/Database/Migrations/031_search_business_preferences.sql": "c1723e7f61b8166e72f984af0b9e784d8fc753a797533d380396cb40116760d3",
+    "src/Htt.Infrastructure/Database/Migrations/032_warehouse_locations.sql": "8db03ca7b6aab10af74840c2aa85d0db0ba356f7bc2450ecbbbbf64176f60fa6",
+    "src/Htt.Infrastructure/Database/Migrations/033_bank_accounts_and_ledger.sql": "8a33f898ad8526323cffad69bd3ecdc107a6bcce91239466598119b8b30c8450",
+    "src/Htt.Infrastructure/Database/Migrations/034_bank_statement_reconciliation.sql": "de8ca74005fe2f6c7b193e20c006e0e01fce5ad07ac06b42d38a50ea1eba6d31",
+    "src/Htt.Infrastructure/Database/Migrations/035_financial_reports.sql": "bee8a345c41a74b910f6eaf16a28cc2bf69faf06ad447a02cdf019b566362258",
+    "src/Htt.Infrastructure/Database/Migrations/036_cash_flow.sql": "e080f193d33dd67d0e1bf951e6969ca3d9a737ce12c0121385f3d0dbb4d8dfbb",
+    "src/Htt.Infrastructure/Database/Migrations/037_gst_bas.sql": "9e81e6e3863c7a485385efbdb5254f56d2dd1690c5bab71d23b87c34b5e3c407",
+    "src/Htt.Infrastructure/Database/Migrations/038_full_bas.sql": "42adfae520ab6715324afb3b8c09c3ea1cead004cba3858f2ba291f03b602510",
+    "src/Htt.Infrastructure/Database/Migrations/039_period_close.sql": "b27ca81516761eb6e475e5e9e2248b6816401ced6f18598f04351707569fd2c9",
+    "src/Htt.Infrastructure/Database/Migrations/040_general_banking.sql": "a04a923e7b3f09b25e941d0d2dfae985444bbb1c310dc225430cec32526cc9b5",
+    "src/Htt.Infrastructure/Database/Migrations/041_bank_rules.sql": "340d48031967734bea5bd708a93d4e9c8f234f98f6b319ec6127bfb641193340",
+    "src/Htt.Infrastructure/Database/Migrations/042_statements_operating_reports.sql": "1033d17983d6a7862183858d8516e51725b3de65b47161b637918196dfd4f71d",
+    "src/Htt.Infrastructure/Database/Migrations/043_bin_counts.sql": "79ff0f67b9391cc258970bde64779c70a5d3b35435eef4400c5df8704ecc068e",
+    "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql": "6834863d88b9ffd41f5a3fd562779bf8ee66152a9b1aa665b4c1b4460af04265",
+    "src/Htt.Infrastructure/Documents/CardOcrWorker.cs": "73ca8f6ebd28ce50c7186733e2103a498bb27d0ad3e8e4818c96e7af837ef4b4",
+    "src/Htt.Infrastructure/Documents/CsvReportExporter.cs": "d9b909450b2a614bd9f44f4472e7b18acd9c017ea4435f2b903b08f3d71bb397",
+    "src/Htt.Infrastructure/Documents/DocumentRuntime.cs": "2783fde2626232d7bb277608b66cc73d71a0bd08c392463138da8f5d5abf24b6",
+    "src/Htt.Infrastructure/Documents/DocumentWorker.cs": "9c9c13f8e756534ada4e2edfc8f810b099232637651bafc0c8d87019da5b9d24",
+    "src/Htt.Infrastructure/Documents/render_pdf.py": "c9c5a73e79e0622e13d3f59bc7a6b64dc90cba19090cc3e67fa9d7324c1c3bcd",
+    "src/Htt.Infrastructure/FoundationDbContext.cs": "466ac16211d9259c574950829e9b64b9f0b1b93be593c17ceb43858269c82e89",
+    "src/Htt.Infrastructure/Htt.Infrastructure.csproj": "902541f3ee133d9883e87c898aac4e011bdca1267f9c6b386d3a1f1010f70df9",
+    "src/Htt.Infrastructure/Idempotency.cs": "775114cf4541bf818359c20d020996035d52cc5bf3500e04a77ea7fb93d0aafb",
+    "src/Htt.Infrastructure/MigrationRunner.cs": "46bdb288ece3baf24dae29b3517601fd22949702210076a77a2df0c74df89e45",
+    "src/Htt.Infrastructure/PortalSession.cs": "db9c1d34b9774266dd1b46f3cded93fcb261d17fc8ee9b795990fd712cf7fd7f",
+    "src/Htt.Infrastructure/Sql.cs": "07ec3b30699fbfa81ab860254851bcc46cd3281f6870e7bb78dcf29844f15ce4",
+    "src/Htt.Infrastructure/StockOpening.cs": "a22b0b6b8af34226bc2763e14e4822d13771c9006cf6db48c61d2f308a47665b",
+    "src/Htt.Infrastructure/StockValuation.cs": "87fe05f887adffe84aef97a4fb31032d47812d7dc1e2dbebbbd5d93f4d6c402f",
+    "src/Htt.Infrastructure/packages.lock.json": "e7605c5e6858c4a7d7cf14885a65520f2728ac85f705796e5b71888f0b97edc1",
+    "src/Htt.Modules.Foundation/Calculations.cs": "3693a20aef5bac433fd1b2d1c9490638135d0172ac84d4d89fa13533ba95e048",
+    "src/Htt.Modules.Foundation/Entities.cs": "594d02b778193695bb914d700ba91139ea70ff1e13c0f88b6bd0ad02bac3bba0",
+    "src/Htt.Modules.Foundation/Htt.Modules.Foundation.csproj": "7adb823b54f662997be9035adb17ef7f1dd0d46cc3eeb941f5c1311996248b1b",
+    "src/Htt.Modules.Foundation/packages.lock.json": "b1459c14bb986a6307e36e96a4572f972ccc12b32e8766a16c3963c09e544bc0",
+    "src/Htt.SharedKernel/AustralianBusinessNumber.cs": "3bdcde99ab7c97cfa9a3aae34bda54357a63fd1f25a9f70a306f86fbe56d6ecf",
+    "src/Htt.SharedKernel/BusinessException.cs": "d42e489b5d839530bc42cd90d9ba5eaaac2c108b83b554bfc70f3680f7a7dc2d",
+    "src/Htt.SharedKernel/Htt.SharedKernel.csproj": "d61e4d3475005272986858ecc487fad00cdb8fa25771a7b043b290d5f7c3f36e",
+    "src/Htt.SharedKernel/packages.lock.json": "03eeadc5ef377c17f787ab65f41fb4c8a9c936bb7f7f4171111fdeec8a81cb46",
     "tests/Htt.IntegrationTests/AmountCreditTests.cs": "c2b74d7964c3fff77b2587341399a44bdb8aee07f6f1e360e7e21e855de08a3f",
-    "tests/Htt.IntegrationTests/packages.lock.json": "e8692e20235e6e81a51c8fa8794e81f0a7cd426a3aadf93ebed3a324c8a34f50",
-    "tests/Htt.IntegrationTests/BankStatementTests.cs": "dcf7011b0f419618df61931b00bb4773ffe5a608eb9bdfe7deed625ef8b6a34c",
-    "tests/Htt.IntegrationTests/ExpenseBillTests.cs": "c652a482d3418462bc33d6b462bb5d57752016279294014e105c009261808843",
-    "tests/Htt.IntegrationTests/GeneralBankingTests.cs": "d315e54829cb95307998bd873dc4d33cd1e91a2d9c3aff218117ea7240f321ed",
-    "tests/Htt.IntegrationTests/FullBasTests.cs": "bdedf60d45f2f414caf0d6a4efc083730e292a13b7f49cd9be86496e92118021",
-    "tests/Htt.IntegrationTests/CustomerRefundCorrectionTests.cs": "3f32c820a7948cb013b1041da28dc5ac888e360ce09fcd14dfb0f74274d2edb3",
-    "tests/Htt.IntegrationTests/CashFlowTests.cs": "c216f58671dd52220a253bd6b2467666fd5278e9ad3df929aedb2ba79bcb5bd6",
-    "tests/Htt.IntegrationTests/PurchaseReturnTests.cs": "f0fbb11f0d9a9c1cf5d0768ef706c876d10d6119cdfad898ae04d04be3cdae62",
-    "tests/Htt.IntegrationTests/CreditApplicationTests.cs": "69c50ab56a0f1e314b45fb68afe0dc3b3ddac28bb24ad8e660e7277355561ae4",
-    "tests/Htt.IntegrationTests/DiscoverySettingsTests.cs": "a3ff7cb829ee19ab0d5c4b40adfe1ccc44cf9a90e2ced17febaa159b06ab8684",
-    "tests/Htt.IntegrationTests/MasterDataUpgradeTests.cs": "e832c7975997aee817b2a6eabc262f9a4df6bf4bbe51c9a206382e11c2681022",
-    "tests/Htt.IntegrationTests/SupplierPaymentTests.cs": "e7f591877bbfd1a6f83aaffee9481c1290876069e7c3afc8a99094f1570b65c0",
-    "tests/Htt.IntegrationTests/DocumentDeliveryTests.cs": "2c770c9d33bf3cd48f6f4d42e93923f292f71bb17265d2fd782540a3005985be",
-    "tests/Htt.IntegrationTests/SupplierRefundCorrectionTests.cs": "439722ceefe9b4675cb538914b043fedcb5b5d3d0e2c9cf380a888ceeb306ed2",
-    "tests/Htt.IntegrationTests/BankLedgerTests.cs": "35f1e584b2806829b9e4b5d4bd7ecd479487514f04a10b6b54d42ba07e443c1a",
-    "tests/Htt.IntegrationTests/SupplierBillTests.cs": "5e448e039da9962d6c9885e67658ae48e2cb5cb37653030d02afd6247aa2b407",
-    "tests/Htt.IntegrationTests/BasTests.cs": "fc94de66bff4ae8957b383e08b5e2aa7b81acea4991359ace4bb4de576419066",
-    "tests/Htt.IntegrationTests/WarehouseDetailTests.cs": "72ee3ae6b0b307d5f542376a49edb214e442bdf49cbac803a1bb0cccdb7c6b67",
-    "tests/Htt.IntegrationTests/PortalTests.cs": "7b246bb29fc41d20bb7724c43ab59de8bd9bb44a044f0afdcceda52070b00c85",
-    "tests/Htt.IntegrationTests/InventoryControlTests.cs": "8b73c6fe489ab0a38a0070f12270896c1780177c00feb397da57ddd6d9f22746",
-    "tests/Htt.IntegrationTests/DocumentTrashTests.cs": "475488a264fb8f31bc34cbee902d4c8bb705bb026410f06def13645fb3d3b374",
-    "tests/Htt.IntegrationTests/ReturnTests.cs": "f661848411d589bba248068e80dea8e0467fce0e2604789d3de2d0fe9a3ce950",
-    "tests/Htt.IntegrationTests/PeriodCloseTests.cs": "ae686e1d8e7ebab8be2bb96846ba4f35ae90a30be1a876368898437330018bdc",
-    "tests/Htt.IntegrationTests/FulfilmentTests.cs": "07fb450968f5d91eae8539d98301ddd70bbb2105658bfad438ac6ca3ab8f6731",
-    "tests/Htt.IntegrationTests/ExpenseCreditTests.cs": "99e136ef6efa49eaea28aba0132ac7ed1582bf5a765c0098b70a13c365a5b328",
-    "tests/Htt.IntegrationTests/TransitTests.cs": "c84a1d890f246e9a8a82a47e3a23af2f33693c8e5aa35b590d4dde4c572326c3",
-    "tests/Htt.IntegrationTests/BankRuleTests.cs": "7350dff616f97d1ceb1ea0e8fb97f0fd85ab2c041072aa370617a07c1f746d0b",
-    "tests/Htt.IntegrationTests/SettlementReversalTests.cs": "1d494bbd7e5249a354332e3ac16b06fe41936f21f73fa8af01b823566eb37a00",
-    "tests/Htt.IntegrationTests/DirectOrderTests.cs": "eafbc8d8b7c5a9b54352bf09d818d60878eef3050a1768d64b00c0d447e2066c",
-    "tests/Htt.IntegrationTests/OperatingReportTests.cs": "3b6f06efd3f5e77c8a670667d99c5b7ae5521d9504a23dcd99a42942cee194a3",
-    "tests/Htt.IntegrationTests/ReconciliationTests.cs": "2d365b2fb36573e5920c8a211ea4408a5589e05a36e3b9d1a6dfb1b59da9d404",
-    "tests/Htt.IntegrationTests/PurchaseAdjustmentTests.cs": "97a9e4d224c1bb1fa5be08a3739aeb9490e6ba6c8dbac025b5529f98fdee71d4",
-    "tests/Htt.IntegrationTests/DatabaseFixture.cs": "dd880aee6a165367f4acf179b9d4ded14a8ac342df989fd625d4c047c1726c66",
-    "tests/Htt.IntegrationTests/SalesConcurrencyTests.cs": "bf3dfdd62a2b6dd2aaec3cff78df0154587d969424c6ecce7df1aacd413d76da",
-    "tests/Htt.IntegrationTests/DocumentProtocolTests.cs": "369453263a4a2a7edb441c8166fed400eea6d313033c23a1376d5dc04735d785",
-    "tests/Htt.IntegrationTests/QuoteOrderTests.cs": "3f0c939bf2db808f700f1c3e14dc3715cddde497d53e825ab4c5aae8e6a4db5b",
-    "tests/Htt.IntegrationTests/FinancialReportTests.cs": "853f971ca4b1abc642dd54a85640707eb62f782daea851fce3e3c775c3026b75",
-    "tests/Htt.IntegrationTests/DatabaseTests.cs": "af79dd8ceed767ea7288cdb4abfa03d56c16b14aa762a0602ae5bf6f73d82623",
-    "tests/Htt.IntegrationTests/PurchasingTests.cs": "0d5b15beefa695366202ea87eab3688862124a182a55ca7ad82034a702c18ceb",
-    "tests/Htt.IntegrationTests/Htt.IntegrationTests.csproj": "31f476d647a6bca0c3469008c3f2a1dc62a709ea175e386e2e26585789c5543b",
     "tests/Htt.IntegrationTests/ApiTests.cs": "9e4e64937f87ac31cf4f64fde6ec2d2dad8f0bbee530850ea80e42b0befc460c",
+    "tests/Htt.IntegrationTests/BankLedgerTests.cs": "35f1e584b2806829b9e4b5d4bd7ecd479487514f04a10b6b54d42ba07e443c1a",
+    "tests/Htt.IntegrationTests/BankRuleTests.cs": "7350dff616f97d1ceb1ea0e8fb97f0fd85ab2c041072aa370617a07c1f746d0b",
+    "tests/Htt.IntegrationTests/BankStatementTests.cs": "dcf7011b0f419618df61931b00bb4773ffe5a608eb9bdfe7deed625ef8b6a34c",
+    "tests/Htt.IntegrationTests/BasTests.cs": "fc94de66bff4ae8957b383e08b5e2aa7b81acea4991359ace4bb4de576419066",
+    "tests/Htt.IntegrationTests/BinCountTests.cs": "0fe152972a672173bd78289ec1d632c00d2f28c8576de652809afe9c77dffe22",
+    "tests/Htt.IntegrationTests/CardOcrTests.cs": "0f032ac658cbac38561108a14fb240036fb2c0b1e1fd4688e8aceced2589d67f",
+    "tests/Htt.IntegrationTests/CashFlowTests.cs": "c216f58671dd52220a253bd6b2467666fd5278e9ad3df929aedb2ba79bcb5bd6",
+    "tests/Htt.IntegrationTests/CreditApplicationTests.cs": "69c50ab56a0f1e314b45fb68afe0dc3b3ddac28bb24ad8e660e7277355561ae4",
+    "tests/Htt.IntegrationTests/CrmDraftTests.cs": "b920d140c3106088bc9f067eb1856030d913faecc8f54cb964eca23edf41da9c",
     "tests/Htt.IntegrationTests/CustomerCreditApplicationTests.cs": "3e7334e63a84c6e8ee5f71f4039a939b6dc12dc2fcee81136cc46d9bd3adec0d",
-    "tests/Htt.IntegrationTests/InvoicingTests.cs": "6387a6f6f24967df22d4a400cff9266e8392c868a125033134a17159df4206f8",
-    "tests/Htt.IntegrationTests/SupplierSettlementReversalTests.cs": "99083fece14981cd871503c6a7b66db3155ba57c77eae28b941f8ecbdda3c9f8",
-    "tests/Htt.IntegrationTests/SalesFlowSupport.cs": "cd9a5a83f55868ae98e116f7bca98d4b9b3b997fd6da9d13090d29521428f977",
+    "tests/Htt.IntegrationTests/CustomerRefundCorrectionTests.cs": "3f32c820a7948cb013b1041da28dc5ac888e360ce09fcd14dfb0f74274d2edb3",
+    "tests/Htt.IntegrationTests/DatabaseFixture.cs": "dd880aee6a165367f4acf179b9d4ded14a8ac342df989fd625d4c047c1726c66",
+    "tests/Htt.IntegrationTests/DatabaseTests.cs": "3f23cae677fae7b3008cbf6c9ca99c1e8ea92a933e53b825126fcebeb0d7685d",
+    "tests/Htt.IntegrationTests/DirectOrderTests.cs": "eafbc8d8b7c5a9b54352bf09d818d60878eef3050a1768d64b00c0d447e2066c",
+    "tests/Htt.IntegrationTests/DiscoverySettingsTests.cs": "a3ff7cb829ee19ab0d5c4b40adfe1ccc44cf9a90e2ced17febaa159b06ab8684",
+    "tests/Htt.IntegrationTests/DocumentDeliveryTests.cs": "2c770c9d33bf3cd48f6f4d42e93923f292f71bb17265d2fd782540a3005985be",
+    "tests/Htt.IntegrationTests/DocumentProtocolTests.cs": "369453263a4a2a7edb441c8166fed400eea6d313033c23a1376d5dc04735d785",
+    "tests/Htt.IntegrationTests/DocumentTrashTests.cs": "475488a264fb8f31bc34cbee902d4c8bb705bb026410f06def13645fb3d3b374",
+    "tests/Htt.IntegrationTests/ExpenseBillTests.cs": "c652a482d3418462bc33d6b462bb5d57752016279294014e105c009261808843",
+    "tests/Htt.IntegrationTests/ExpenseCreditTests.cs": "99e136ef6efa49eaea28aba0132ac7ed1582bf5a765c0098b70a13c365a5b328",
     "tests/Htt.IntegrationTests/FinancialReportAssertions.cs": "efbe384bba7bde6fa2428a255b7e545d3f5b33f6047eab34e5c25a3cf98f0411",
-    "tests/Htt.IntegrationTests/SalesPermissionTests.cs": "9f2261fb022715f432913c34a7bf42b1c65a025b0c5182c57561f30b30367be9",
+    "tests/Htt.IntegrationTests/FinancialReportTests.cs": "853f971ca4b1abc642dd54a85640707eb62f782daea851fce3e3c775c3026b75",
+    "tests/Htt.IntegrationTests/FulfilmentTests.cs": "07fb450968f5d91eae8539d98301ddd70bbb2105658bfad438ac6ca3ab8f6731",
+    "tests/Htt.IntegrationTests/FullBasTests.cs": "bdedf60d45f2f414caf0d6a4efc083730e292a13b7f49cd9be86496e92118021",
+    "tests/Htt.IntegrationTests/GeneralBankingTests.cs": "d315e54829cb95307998bd873dc4d33cd1e91a2d9c3aff218117ea7240f321ed",
+    "tests/Htt.IntegrationTests/Htt.IntegrationTests.csproj": "31f476d647a6bca0c3469008c3f2a1dc62a709ea175e386e2e26585789c5543b",
+    "tests/Htt.IntegrationTests/InventoryControlTests.cs": "8b73c6fe489ab0a38a0070f12270896c1780177c00feb397da57ddd6d9f22746",
+    "tests/Htt.IntegrationTests/InvoicingTests.cs": "6387a6f6f24967df22d4a400cff9266e8392c868a125033134a17159df4206f8",
+    "tests/Htt.IntegrationTests/MasterDataApiTests.cs": "29103ad93ef9b5aad2e26ae72a2adce448d5154421244318f89b394b6c40cc53",
+    "tests/Htt.IntegrationTests/MasterDataUpgradeTests.cs": "22ea712bc04ccc6e0eeb5c9245dbc06dc284b795c187aaf116d8478cbddaacaa",
+    "tests/Htt.IntegrationTests/OperatingReportTests.cs": "3b6f06efd3f5e77c8a670667d99c5b7ae5521d9504a23dcd99a42942cee194a3",
+    "tests/Htt.IntegrationTests/PeriodCloseTests.cs": "ae686e1d8e7ebab8be2bb96846ba4f35ae90a30be1a876368898437330018bdc",
+    "tests/Htt.IntegrationTests/PortalTests.cs": "7b246bb29fc41d20bb7724c43ab59de8bd9bb44a044f0afdcceda52070b00c85",
+    "tests/Htt.IntegrationTests/PurchaseAdjustmentTests.cs": "97a9e4d224c1bb1fa5be08a3739aeb9490e6ba6c8dbac025b5529f98fdee71d4",
+    "tests/Htt.IntegrationTests/PurchaseReturnTests.cs": "f0fbb11f0d9a9c1cf5d0768ef706c876d10d6119cdfad898ae04d04be3cdae62",
+    "tests/Htt.IntegrationTests/PurchasingTests.cs": "0d5b15beefa695366202ea87eab3688862124a182a55ca7ad82034a702c18ceb",
+    "tests/Htt.IntegrationTests/QuoteOrderTests.cs": "3f0c939bf2db808f700f1c3e14dc3715cddde497d53e825ab4c5aae8e6a4db5b",
     "tests/Htt.IntegrationTests/ReceiptTests.cs": "f10bb06e91aa6d80660ba056ef3d23aaff8c94dbb678994253317c345456ab88",
-    "tests/Htt.IntegrationTests/MasterDataApiTests.cs": "29103ad93ef9b5aad2e26ae72a2adce448d5154421244318f89b394b6c40cc53"
+    "tests/Htt.IntegrationTests/ReconciliationTests.cs": "2d365b2fb36573e5920c8a211ea4408a5589e05a36e3b9d1a6dfb1b59da9d404",
+    "tests/Htt.IntegrationTests/ReturnTests.cs": "f661848411d589bba248068e80dea8e0467fce0e2604789d3de2d0fe9a3ce950",
+    "tests/Htt.IntegrationTests/SalesConcurrencyTests.cs": "bf3dfdd62a2b6dd2aaec3cff78df0154587d969424c6ecce7df1aacd413d76da",
+    "tests/Htt.IntegrationTests/SalesFlowSupport.cs": "cd9a5a83f55868ae98e116f7bca98d4b9b3b997fd6da9d13090d29521428f977",
+    "tests/Htt.IntegrationTests/SalesPermissionTests.cs": "9f2261fb022715f432913c34a7bf42b1c65a025b0c5182c57561f30b30367be9",
+    "tests/Htt.IntegrationTests/SettlementReversalTests.cs": "1d494bbd7e5249a354332e3ac16b06fe41936f21f73fa8af01b823566eb37a00",
+    "tests/Htt.IntegrationTests/SupplierBillTests.cs": "5e448e039da9962d6c9885e67658ae48e2cb5cb37653030d02afd6247aa2b407",
+    "tests/Htt.IntegrationTests/SupplierPaymentTests.cs": "e7f591877bbfd1a6f83aaffee9481c1290876069e7c3afc8a99094f1570b65c0",
+    "tests/Htt.IntegrationTests/SupplierRefundCorrectionTests.cs": "439722ceefe9b4675cb538914b043fedcb5b5d3d0e2c9cf380a888ceeb306ed2",
+    "tests/Htt.IntegrationTests/SupplierSettlementReversalTests.cs": "99083fece14981cd871503c6a7b66db3155ba57c77eae28b941f8ecbdda3c9f8",
+    "tests/Htt.IntegrationTests/TransitTests.cs": "c84a1d890f246e9a8a82a47e3a23af2f33693c8e5aa35b590d4dde4c572326c3",
+    "tests/Htt.IntegrationTests/WarehouseDetailTests.cs": "72ee3ae6b0b307d5f542376a49edb214e442bdf49cbac803a1bb0cccdb7c6b67",
+    "tests/Htt.IntegrationTests/packages.lock.json": "e8692e20235e6e81a51c8fa8794e81f0a7cd426a3aadf93ebed3a324c8a34f50",
+    "tests/Htt.UnitTests/CalculationTests.cs": "c1574dc221fbefe0bd3910d5396e9fae341be5092962e37b99604f38c76facb0",
+    "tests/Htt.UnitTests/Htt.UnitTests.csproj": "f71d2a572d4103ac0c12783e05b0d6c199dd2337a809fbfa3b391199a4440a72",
+    "tests/Htt.UnitTests/packages.lock.json": "d0df1b8f23d3677d014ee7f69051e2b20f69ffe2a5fee22ccceb1d2e0843de12"
   },
   "staticInventory": {
     "note": "源码字符串静态目录：路由literal未合并MapGroup或动态拼接，不替代OpenAPI/运行测试，也不凭无命中单独判功能缺失。",
@@ -1769,69 +1800,129 @@
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 39,
+        "line": 41,
         "method": "Get",
         "literal": "/foundation"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 47,
+        "line": 49,
         "method": "Get",
         "literal": "/customers"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 48,
+        "line": 50,
         "method": "Post",
         "literal": "/customers"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 49,
+        "line": 51,
         "method": "Patch",
         "literal": "/customers/{id:guid}/status"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 50,
+        "line": 52,
         "method": "Get",
         "literal": "/products"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 58,
+        "line": 60,
         "method": "Post",
         "literal": "/products"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 59,
+        "line": 61,
         "method": "Get",
         "literal": "/products/{id:guid}/units"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 63,
+        "line": 65,
         "method": "Get",
         "literal": "/accounting/accounts"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 66,
+        "line": 68,
         "method": "Get",
         "literal": "/accounting/tax-rates"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 69,
+        "line": 71,
         "method": "Get",
         "literal": "/pricing/resolve"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 70,
+        "line": 72,
         "method": "Get",
         "literal": "/audit"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 19,
+        "method": "Get",
+        "literal": "/warehouse/bin-counts"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 20,
+        "method": "Post",
+        "literal": "/warehouse/bin-counts"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 21,
+        "method": "Get",
+        "literal": "/warehouse/bin-counts/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 22,
+        "method": "Get",
+        "literal": "/accounting/bin-counts/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 23,
+        "method": "Post",
+        "literal": "/warehouse/bin-counts/{id:guid}/positions"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 24,
+        "method": "Post",
+        "literal": "/warehouse/bin-counts/{id:guid}/submit"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 25,
+        "method": "Post",
+        "literal": "/accounting/bin-counts/{id:guid}/recount"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 26,
+        "method": "Post",
+        "literal": "/accounting/bin-counts/{id:guid}/approve"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 27,
+        "method": "Post",
+        "literal": "/accounting/bin-counts/{id:guid}/post"
+      },
+      {
+        "file": "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs",
+        "line": 28,
+        "method": "Post",
+        "literal": "/warehouse/bin-counts/{id:guid}/cancel"
       },
       {
         "file": "src/Htt.Host.Api/Inventory/InventoryControlEndpoints.cs",
@@ -2072,6 +2163,114 @@
         "line": 36,
         "method": "Put",
         "literal": "/products/{productId:guid}/units/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 31,
+        "method": "Get",
+        "literal": "/crm/drafts"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 32,
+        "method": "Get",
+        "literal": "/crm/drafts/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 33,
+        "method": "Get",
+        "literal": "/crm/drafts/{id:guid}/duplicates"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 34,
+        "method": "Post",
+        "literal": "/crm/drafts"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 35,
+        "method": "Put",
+        "literal": "/crm/drafts/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 36,
+        "method": "Post",
+        "literal": "/crm/drafts/{id:guid}/submit"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 37,
+        "method": "Delete",
+        "literal": "/crm/drafts/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 38,
+        "method": "Post",
+        "literal": "/crm/drafts/{id:guid}/review"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 39,
+        "method": "Post",
+        "literal": "/crm/mobile/devices"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 40,
+        "method": "Delete",
+        "literal": "/crm/mobile/devices/{device:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 41,
+        "method": "Post",
+        "literal": "/crm/mobile/devices/{device:guid}/operations"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 42,
+        "method": "Get",
+        "literal": "/crm/mobile/devices/{device:guid}/changes"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 43,
+        "method": "Post",
+        "literal": "/crm/cards/{customer:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 44,
+        "method": "Get",
+        "literal": "/crm/cards/jobs/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 45,
+        "method": "Post",
+        "literal": "/crm/cards/jobs/{id:guid}/retry"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 46,
+        "method": "Post",
+        "literal": "/crm/cards/jobs/{id:guid}/confirm"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 47,
+        "method": "Post",
+        "literal": "/crm/contact-imports"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs",
+        "line": 48,
+        "method": "Post",
+        "literal": "/crm/contact-imports/{id:guid}/confirm"
       },
       {
         "file": "src/Htt.Host.Api/MasterData/CrmMaintenanceEndpoints.cs",
@@ -3816,6 +4015,54 @@
       {
         "file": "src/Htt.Infrastructure/Database/Migrations/042_statements_operating_reports.sql",
         "table": "accounting.operating_report_runs"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/043_bin_counts.sql",
+        "table": "inventory.bin_counts"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/043_bin_counts.sql",
+        "table": "inventory.bin_count_lines"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/043_bin_counts.sql",
+        "table": "inventory.bin_count_rounds"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/043_bin_counts.sql",
+        "table": "inventory.bin_count_readings"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/043_bin_counts.sql",
+        "table": "inventory.bin_count_decisions"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql",
+        "table": "crm.mobile_heads"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql",
+        "table": "crm.mobile_devices"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql",
+        "table": "crm.mobile_drafts"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql",
+        "table": "crm.mobile_changes"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql",
+        "table": "crm.mobile_operations"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql",
+        "table": "crm.contact_imports"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql",
+        "table": "crm.card_jobs"
       }
     ],
     "integrationTestClasses": [
@@ -3844,12 +4091,24 @@
         "testClass": "BasTests"
       },
       {
+        "file": "tests/Htt.IntegrationTests/BinCountTests.cs",
+        "testClass": "BinCountTests"
+      },
+      {
+        "file": "tests/Htt.IntegrationTests/CardOcrTests.cs",
+        "testClass": "CardOcrTests"
+      },
+      {
         "file": "tests/Htt.IntegrationTests/CashFlowTests.cs",
         "testClass": "CashFlowTests"
       },
       {
         "file": "tests/Htt.IntegrationTests/CreditApplicationTests.cs",
         "testClass": "CreditApplicationTests"
+      },
+      {
+        "file": "tests/Htt.IntegrationTests/CrmDraftTests.cs",
+        "testClass": "CrmDraftTests"
       },
       {
         "file": "tests/Htt.IntegrationTests/CustomerCreditApplicationTests.cs",
