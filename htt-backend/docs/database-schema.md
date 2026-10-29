@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至044共197张业务/基础表及44个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至045共202张业务/基础表及45个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -794,3 +794,10 @@ line_refunded/advance_refunded、AR/贷项余额、预收可用额和一致性�
 新增crm.mobile_heads、mobile_devices、mobile_drafts、mobile_changes、mobile_operations、contact_imports、card_jobs，共7张公司FORCE RLS表。公司head锁在写入前取得，以提交顺序生成增量；设备连续序号/操作UUID唯一，事件和操作结果append-only，删除为tombstone、设备epoch/30天期限及授权变化重置同步。正式主数据只由独立办公室审核生成，初始化原信用投影、采用公司默认账期并分配原销售；无新财务副本。
 
 card_jobs图片私有，app不能直接SELECT/DML；Worker仅USAGE及认领/读取/完成3个definer函数，无CRM表权限。扫描后识别、限次重试/租约、完成时重查权限；只有人工确认才生联系人草稿。应用其他新表无直接DML，所有业务变更与审计/幂等同事务。见[C04](stage-c-crm-mobile.md)。累计197张业务表、44条迁移，历史001—042保持原字节。
+
+
+## 045_crm_collaboration.sql（C05）
+
+新增crm.collaboration_objects、collaboration_history、collaboration_changes、branch_geocodes、geocode_jobs五张公司FORCE RLS表。对象身份不可改，历史/事件append-only；私有/办公室/团队范围及历史快照权限双重验证，head新增ACL版本以强制缓存重建。Note/展板/拜访、附件状态及门店刷新共用C04提交序号及设备操作日志。
+
+客户资料草稿/新CRM对象绑定原platform私有附件登记，复用扫描、完整性、撤销和授权访问；旧输出函数保持OID/ACL。门店维护取head后再锁行，地址版本变化使旧坐标失效；Google地理编码有租约/重试/权限复查/30天坐标缓存清理，人工坐标优先，提供商门店坐标不复制入不可变同步历史，拜访GPS则按会话权限同步和留证。新表无app DML，Worker仅有三个专用执行函数。累计202表/45迁移；001—044原字节不改。详见[C05](stage-c-collaboration.md)。

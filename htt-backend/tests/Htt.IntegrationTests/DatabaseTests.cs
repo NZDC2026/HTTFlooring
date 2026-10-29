@@ -11,7 +11,7 @@ public sealed class DatabaseTests(DatabaseFixture db) : IClassFixture<DatabaseFi
     public async Task Migrations_are_repeatable_and_au_defaults_are_correct()
     {
         await MigrationRunner.ApplyAsync(db.Owner);
-        Assert.Equal(44L, await db.OwnerScalarAsync("SELECT count(*) FROM public.htt_schema_history"));
+        Assert.Equal(45L, await db.OwnerScalarAsync("SELECT count(*) FROM public.htt_schema_history"));
         Assert.Equal("AUD", await db.OwnerScalarAsync("SELECT base_currency::text FROM core.companies WHERE id=@company", ("company", db.Company)));
         await using var session = await db.SessionAsync();
         var rows = await Sql.RowsAsync(session, "SELECT rate FROM accounting.tax_rates r JOIN accounting.tax_codes t ON t.company_id=r.company_id AND t.id=r.tax_code_id WHERE t.code='GST'", default);

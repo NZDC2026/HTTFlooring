@@ -1,6 +1,6 @@
 # 原需求逐行验收矩阵（后台范围）
 
-初验日期：2026-10-24；阶段C逐行刷新：2026-10-29（截至044；W-06及C04增量）。仅核查并修改 htt-backend；现有三个客户端均未联调/修改。来源中的建议和待确认内容视为参考，不自动执行，也不重新承诺人日。
+初验日期：2026-10-24；阶段C逐行刷新：2026-10-30（截至045；C05增量）。仅核查并修改 htt-backend；现有三个客户端均未联调/修改。来源中的建议和待确认内容视为参考，不自动执行，也不重新承诺人日。
 
 原工作簿：`HTT%E4%B8%89%E7%AB%AF%E7%B3%BB%E7%BB%9F_%E5%88%A0%E5%87%8F%E4%B8%8E%E6%96%B0%E5%A2%9E%E5%8A%9F%E8%83%BD_%E5%B7%A5%E6%97%B6%E9%87%8D%E4%BC%B0_20261017.xlsx`；SHA-256 `c06eb26520401892f61655de601cb9e8e53eeddb439050259f8d6b32bffa28e1`。读取4个sheet，逐项工时重估A2:Q117共116条；保留优先级、增删边界及新功能验收口径。
 
@@ -74,16 +74,16 @@
 | 59 / S-02 | 销售端：销售工作台 | P1 / 保留 | C | 未实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 授权客户、报价、订单查询可复用。 销售客户/Task/拜访待办工作台聚合。 实施包：C09。详见[本次C核查](stage-c-acceptance.md)。 |
 | 60 / S-03 | 销售端：按客户名、编号、门店、联系人、电话或Email搜索；支持最近访问、区域/状态筛选。 | P0 / 保留 | A/B | 部分实现 | [master-data-api.md](master-data-api.md) | 客户名称/编号搜索及授权范围已实现；跨门店/联系人/电话/email搜索、最近访问、区域筛选未实现。 |
 | 61 / S-04 | 销售端：查看客户主体、关联门店及各门店多个联系人；显示姓名、职位、电话、Email、地址、销售负责人和会计联系人。 | P0 / 保留 | A/B | 部分实现 | [master-data-api.md](master-data-api.md) | 客户、门店、多联系人/会计联系方式查询已实现；销售负责人展示/完整聚合接口未实现。 |
-| 62 / S-05 | 销售端：客户Notes | P0 / 保留 | C | 未实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 单据备注和业务设置notes不是客户Note对象。 客户Note CRUD、可见范围、历史、附件及同步事件。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
-| 63 / S-06 | 销售端：展板信息 | P1 / 保留 | C | 未实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 现有客户/门店资料可复用。 门店展板放置记录、状态及照片/附件。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
+| 62 / S-05 | 销售端：客户Notes | P0 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045 Note CRUD、TEAM/OFFICE/PRIVATE、按版本历史与旧私有版本隔离、附件和同步、删除tombstone/ACL重置。 客户端呈现与设备缓存清理另验；个人私有Note不默认向办公室开放。 |
+| 63 / S-06 | 销售端：展板信息 | P1 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045门店展板记录、商品关联、放置资料、移除原因/历史、照片扫描附件及同步。 现场照片/相机和客户端另验；展板记录不自动进行库存或固定资产会计。 |
 | 64 / S-07 | 销售端：查看当前客户对应的产品价格；支持标准价、逐客户专属价、活动特价及最终销售价。 | P0 / 保留 | A/B | 后端已实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 授权客户价格解析，支持标准/客户/活动与最终价；客户端展示未联调。 |
 | 65 / S-08 | 销售端：订单摘要 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 授权客户订单列表及详情已实现；客户端摘要展示未联调。 |
-| 66 / S-09 | 销售端：客户地图 | P0 / 保留 | C | 未实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 门店地址已保存，无客户地理编码/地图范围API。 授权客户坐标、地理编码作业及精度/失败状态。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
-| 67 / S-10 | 销售端：地图筛选 | P1 / 保留 | C | 未实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 普通客户搜索不是地图筛选。 客户/门店区域、状态等地图筛选及范围隔离。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
-| 68 / S-11 | 销售端：地图导航 | P1 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 无导航适配服务契约。 授权坐标/地址导航契约；设备拉起导航属于后续客户端联调。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
-| 69 / S-12 | 销售端：Check-in | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 无拜访会话或签到命令。 Check-in、客户/门店、操作者、时间、位置精度和幂等。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
-| 70 / S-13 | 销售端：Check-out | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 无拜访状态机。 Check-out与同一拜访状态/版本/并发约束。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
-| 71 / S-14 | 销售端：拜访历史 | P1 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 审计列表不能代替拜访记录。 授权拜访历史、办公室共享、附件与时间筛选。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
+| 66 / S-09 | 销售端：客户地图 | P0 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045授权门店地图、Google Geocoding作业/协议适配、地址版本绑定、精度与失败状态、人工坐标优先及过期清理。 真实Google账户、地图展示归属及生产容量另验；本轮没有真实提供商请求。 |
+| 67 / S-10 | 销售端：地图筛选 | P1 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045客户/门店授权范围、AU州区域/客户状态/定位状态、展板/销售归属/字面搜索及跨日期线地理框、分页total。 客户端地图层与筛选交互另验；不把其他销售的拜访GPS当门店坐标。 |
+| 68 / S-11 | 销售端：地图导航 | P1 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045授权Google/Apple导航URL契约、无坐标地址回退、编码/提供商约束；不影响过账。 设备拉起导航及真实导航体验另验。 |
+| 69 / S-12 | 销售端：Check-in | P0 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045用户发起拜访签到、客户/门店/操作者、定位精度/采集时间/服务端接收时间、每人一OPEN、权限/幂等/并发。 手机定位授权、真实定位与实机离线联调另验，后台不保证客户端GPS真实性。 |
+| 70 / S-13 | 销售端：Check-out | P0 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045原访客签退、同会话版本/状态/时间约束，并发一次生效；办公室取消单列原因且不伪造签退。 手机操作及真实会话UAT另验；拜访历史不能删除成无痕记录。 |
+| 71 / S-14 | 销售端：拜访历史 | P1 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045客户/门店/操作者/状态/时间授权查询，办公室共享、历史/附件及同步；其他销售不自动获得他人GPS历史。 客户端历史页及C09聚合另验；当前服务端会话链无新增缺项。 |
 | 72 / S-15 | 销售端：创建Task | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | Outbox是基础设施，不是Task业务表和创建接口。 Task对象、负责人、关联客户、截止时间与审计。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
 | 73 / S-16 | 销售端：Task列表 | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有Task查询API。 角色/负责人/客户范围过滤及稳定分页列表。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
 | 74 / S-17 | 销售端：完成/更新Task | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有Task状态机。 更新/完成、版本、幂等、变更历史及并发测试。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
@@ -91,15 +91,15 @@
 | 76 / S-19 | 销售端：系统消息中心 | P2 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有业务消息/已读记录。 授权消息中心、游标/分页、已读/未读与同步。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
 | 77 / S-20 | 销售端：销售扫描客户名片，识别姓名、公司/门店、电话、Email并生成联系人草稿。 | P1 / 保留 | C | 后端已实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044私有名片图片、扫描/OCR作业、HTTPS网关适配、重试/租约、姓名/公司/门店等建议及人工确认联系人草稿，复用独立办公室审核。 真实OCR网关合同/识别质量及手机拍照联调另验；不自动建公司或合并客户。 |
 | 78 / S-21 | 销售端：手工新增客户、门店或联系人，并关联到已有客户主体。 | P1 / 保留 | C | 后端已实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044销售客户/门店/联系人草稿、目标客户/门店授权、重复建议、版本审核、一次生成正式数据及客户信用初始化/默认账期/销售分配。 三个客户端接入及业务UAT另验；正式信用与非默认账期仍沿用既有专门权限。 |
-| 79 / S-22 | 销售端：移动端Note、Task、拜访、客户/门店/联系人草稿及通讯录导入结果同步到管理平台。 | P0 / 保留 | C | 部分实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044设备操作UUID/连续序号、提交有序增量、tombstone、冲突、游标过期/重置、撤权及通讯录/名片生成的草稿同步。 C05 Note/拜访/展板与C06 Task/消息对象逐项接入及C09办公室聚合；移动端联调未做。 |
+| 79 / S-22 | 销售端：移动端Note、Task、拜访、客户/门店/联系人草稿及通讯录导入结果同步到管理平台。 | P0 / 保留 | C | 部分实现 | [C05接口与边界](stage-c-collaboration.md) | 044草稿/导入同步，045新增Note/展板/拜访/附件/门店刷新，与原草稿共用序号及操作UUID；历史隐私、删除和撤权可验证。 C06 Task/消息对象同步及客户端实机、C09办公室聚合仍待实施。 |
 | 80 / S-23 | 销售端：销售通过SKU、名称、条码快速查询商品库存。 | P0 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md) | 员工商品分页/按productId库存读取已实现；SKU/名称/条码快速搜索接口未完成。 |
 | 81 / S-24 | 销售端：门店/仓库库存 | P0 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-reconciliation.md](stage-b-reconciliation.md) | 授权仓库实物/预留/可售及dataAsOf已实现；停用可售错误本批修复；客户端展示未联调。 |
 | 82 / S-25 | 销售端：从客户/门店详情进入库存时自动展示该客户实际销售价格及当前有效活动价。 | P0 / 保留 | B | 部分实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 价格解析和库存查询分别可用；无客户上下文的库存+价格聚合接口，三个客户端未接入。 |
 | 83 / S-26 | 销售端：销售从客户+门店+商品创建Quotation，录入包数或m²、价格、折扣、备注。 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 客户/门店报价、数量或面积输入、后台定价/折扣/备注及底价权限已实现；客户端录入未联调。 |
 | 84 / S-27 | 销售端：报价列表/详情 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 授权报价列表/详情/状态已实现。 |
 | 85 / S-28 | 销售端：报价草稿与提交 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 草稿、提交、正式编号、不可变快照和修订已实现。 |
-| 86 / S-29 | 销售端：照片/附件 | P2 / 保留 | B/C | 部分实现 | [stage-b-documents.md](stage-b-documents.md)；[stage-b-warehouse-locations.md](stage-b-warehouse-locations.md) | QUOTE/PICK及供应商单据私有扫描附件已有授权访问。 C Note/展板/拜访/草稿等CRM实体附件绑定、撤销及离线上传关联；不把现有文件底座当已完成。 实施包：C05。详见[本次C核查](stage-c-acceptance.md)。 |
-| 87 / S-30 | 销售端：弱网缓存 | P2 / 保留 | C | 部分实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044后端CRM草稿离线操作契约：设备序号、重放、版本冲突、30天游标、权限变更重置和删除保护；财务/出库无离线命令。 客户端本地缓存、弱网呈现/恢复及实机验证；C05/C06新对象同步后续补齐。 |
+| 86 / S-29 | 销售端：照片/附件 | P2 / 保留 | B/C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045将既有私有附件/扫描/重试/下载/撤销绑定Note、展板、拜访及客户资料草稿，补同步状态及执行中撤权；原报价/交接保持。 手机相机/选图和本地字节撤权清理另验；C06新对象按其业务再接入。 |
+| 87 / S-30 | 销售端：弱网缓存 | P2 / 保留 | C | 部分实现 | [C05接口与边界](stage-c-collaboration.md) | 044设备操作/重放/冲突/游标基础；045协作对象、历史隐私和地址/附件刷新已接入，财务/出库保持在线。 设备本地缓存、弱网恢复/呈现/清理及C06对象接入、实机验证。 |
 | 88 / S-31 | 销售端：销售数据隔离 | P0 / 保留 | A起贯穿 | 后端已实现 | [stage-a.md](stage-a.md)；[stage-b-sales.md](stage-b-sales.md) | 公司及销售授权客户隔离，成本另授权；未来接口仍须单独验证。 |
 | 89 / S-32 | 销售端：操作记录 | P0 / 保留 | A起贯穿 | 部分实现 | [stage-a.md](stage-a.md) | 已交付命令的操作者/请求/版本及审计已实现；移动设备上下文、业务日志聚合未完整交付。 |
 | 90 / S-33 | 销售端：销售端直接创建Invoice | OUT / 保留 | 排除 | 排除 | [stage-b-invoicing.md](stage-b-invoicing.md) | 销售不能直接创建Invoice，权限测试覆盖；源优先级OUT覆盖保留标签。 |
@@ -125,10 +125,10 @@
 | 110 / R110 | 管理/财务端：客户返点规则与结算 | P1 / 新增 | C/D | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 原发票/贷项/退款可追溯，但没有返点政策或计提结算对象。 C固定比例/固定额政策版本、未税净销售事实、计提/审批/锁期/结算及关联冲回；D阶梯规则。 实施包：C07、C08、D。详见[本次C核查](stage-c-acceptance.md)。 |
 | 111 / R111 | 管理/财务端：销售代表分红/佣金 | P1 / 新增 | C/D | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 成交来源与收付查询不代表佣金归属或计提。 C基础佣金/销售归属快照及审批结算；回款/毛利按独立规则验收，D阶梯；不解释为股东分红或自动工资付款。 实施包：C07、C08、D。详见[本次C核查](stage-c-acceptance.md)。 |
 | 112 / R112 | 管理/财务端：客户×产品销量趋势分析 | P1 / 新增 | C | 未实现 | [stage-c-financial-reports.md](stage-c-financial-reports.md)；[stage-c-cash-flow.md](stage-c-cash-flow.md) | P&L按科目汇总，非客户×SKU销售事实和曲线。 客户/门店/SKU/期间未税净销售、基础单位数量、同环比及截止点。 实施包：C07。详见[本次C核查](stage-c-acceptance.md)。 |
-| 113 / R113 | 管理/财务端：办公室统一客户视图 | P1 / 新增 | C | 部分实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 办公室正式客户、多门店联系人、报价/订单和价格库存聚合可查。 CRM Notes/拜访/展板/Task/趋势整合及字段成本权限。 实施包：C05、C06、C07、C09。详见[本次C核查](stage-c-acceptance.md)。 |
+| 113 / R113 | 管理/财务端：办公室统一客户视图 | P1 / 新增 | C | 部分实现 | [C05接口与边界](stage-c-collaboration.md) | 办公室已有主数据/单据查询，045补客户Note/展板/拜访历史/地图/附件的受控查询和同步。 C06 Task/消息、C07趋势及C09统一聚合和完整工作台仍待实施。 |
 | 114 / R114 | 销售端：客户产品销售曲线（销售端） | P1 / 新增 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有共用净销售趋势API。 复用R112事实，按销售授权客户过滤；上期0显示无可比。 实施包：C07。详见[本次C核查](stage-c-acceptance.md)。 |
 | 115 / R115 | 销售端：返点/佣金展示（授权范围） | P1 / 新增 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有返点/佣金数据源或查询授权模型。 本人佣金/状态、额外授权客户返点、对其他人员/成本字段的隔离。 实施包：C08。详见[本次C核查](stage-c-acceptance.md)。 |
-| 116 / R116 | 销售端：客户销售资料办公室同步完善 | P1 / 新增 | C | 部分实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044销售草稿与办公室审核、冲突、同步增量、正式客户/门店/联系人完善和销售归属已实现。 C05 Note/拜访、C06 Task等移动对象及C09办公室统一视图仍待实现。 |
+| 116 / R116 | 销售端：客户销售资料办公室同步完善 | P1 / 新增 | C | 部分实现 | [C05接口与边界](stage-c-collaboration.md) | 044销售资料草稿审核，045补Note/拜访/展板及附件的办公室受控维护、历史、冲突和共享同步。 C06 Task等移动对象及C09办公室统一聚合视图。 |
 | 117 / R117 | 管理/财务端：返点与佣金结算回归测试 | P1 / 新增 | C/D | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 现有退货/贷项/付款回归不是激励模块回归。 C基础规则的来源去重、版本切换、归属、退货与贷项只净冲一次、跨期调整/锁账/结算权限；D阶梯专项。 实施包：C08、D。详见[本次C核查](stage-c-acceptance.md)。 |
 
 ## 完整性核对

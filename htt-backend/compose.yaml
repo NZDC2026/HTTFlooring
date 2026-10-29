@@ -44,6 +44,7 @@ services:
     build: { context: ., target: worker }
     environment:
       ConnectionStrings__Database: Host=db;Database=htt;Username=htt_worker;Password=${HTT_WORKER_PASSWORD};Timeout=5
+      Geocoding__ApiKey: ${HTT_GEOCODING_API_KEY:-}
       CardOcr__Endpoint: ${HTT_CARD_OCR_ENDPOINT:-}
       CardOcr__ApiKey: ${HTT_CARD_OCR_API_KEY:-}
       Documents__MailApiKey: ${HTT_MAIL_API_KEY:-}

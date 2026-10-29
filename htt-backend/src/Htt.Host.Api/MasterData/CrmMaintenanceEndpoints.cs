@@ -114,11 +114,13 @@ internal static class CrmMaintenanceEndpoints
     private static async Task<IResult> CreateBranch(Guid customerId, BranchMaintenance input, HttpContext h, CompanySession s, Idempotency idem, CancellationToken ct)
     {
         var d = Normalize(input); await Customer(h, s, customerId, ct);
+        await Read(s,"SELECT crm.prepare_branch_change(@customer)",ct,new DbArg("customer",customerId));
         return await Create(h, s, idem, "crm.customer_branches", d, async id => { await Read(s, "INSERT INTO crm.customer_branches(id,company_id,customer_id,code,name,address_line1,suburb,state,postcode,country,active,created_by) VALUES(@id,@company,@customer,@code,@name,@address,@suburb,@state,@postcode,@country,@active,@actor)", ct, BranchArgs(d, id, customerId)); }, ct);
     }
     private static async Task<IResult> UpdateBranch(Guid customerId, Guid id, BranchMaintenance input, HttpContext h, CompanySession s, Idempotency idem, CancellationToken ct)
     {
         var d = Normalize(input); await Customer(h, s, customerId, ct);
+        await Read(s,"SELECT crm.prepare_branch_change(@customer)",ct,new DbArg("customer",customerId));
         await One(s, "SELECT id FROM crm.customer_branches WHERE company_id=@company AND id=@id AND customer_id=@customer", ct, new DbArg("id", id), new DbArg("customer", customerId));
         return await Update(h, s, idem, "crm.customer_branches", id, d, async _ => { await Read(s, "UPDATE crm.customer_branches SET code=@code,name=@name,address_line1=@address,suburb=@suburb,state=@state,postcode=@postcode,country=@country,active=@active WHERE company_id=@company AND id=@id AND customer_id=@customer", ct, BranchArgs(d, id, customerId)); }, ct);
     }
