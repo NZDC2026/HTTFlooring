@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至039共177张业务/基础表及39个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至042共185张业务/基础表及42个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -770,3 +770,16 @@ line_refunded/advance_refunded、AR/贷项余额、预收可用额和一致性�
 ## 039_period_close.sql
 
 新增 accounting.fiscal_year_controls、period_close_snapshots、period_close_events、year_end_closings、year_end_reversals 五张 FORCE RLS 表；控制行触发版本，证据/反向记录 append-only，periods 增加当前关账快照。新增受控日历、月结/重开、年度结转/反向和留存科目配置函数；截止日库存、在途、AR/AP、经营 GL 与 GST 财务底稿独立核对。复用 BAS 公司锁，延迟校验闭期指纹；仅不可变登记的专用年度分录通过逐科目证明后可在闭期过账。利润表排除注册结转，原始总账保留；默认 3100 留存收益及权限种子同时覆盖旧公司和新公司。见[关账与年结](stage-c-period-close.md)。
+
+
+## 040_general_banking.sql
+
+新增 accounting.bank_transactions、bank_transaction_lines、bank_transaction_reversals 三张 FORCE RLS/append-only表；来源单、税/科目/现金流快照和唯一反向。受控现金来源过账、流水分类+匹配原子提交、双银行排序锁及原日反向，延迟证明核对逐科目来源计划与GL；GENERAL_BANK_SOURCE纳入统一核对。新增INP-BANK零税码，不覆盖既有自定义配置。扩展既有GST/BAS、Full底稿及独立采购现金GL参考、现金流反向识别和关账来源活动检查，旧视图OID/列精度和历史迁移保持；001—039不改。见[C01说明](stage-c-general-banking.md)。
+
+## 041 银行分类规则与例外
+
+新增accounting.bank_rule_revisions、bank_rule_previews、bank_rule_executions三张FORCE RLS不可变表；规则版本/预览/执行追踪，bank_rules安全调用者视图提供当前版本。规则集共享/独占锁协调编辑与执行，银行日期/ID索引支持例外分页，执行登记绑定唯一C01来源。未改001—040和既有财务视图；当前183表、41迁移。见[接口与权限](stage-c-bank-rules.md)。
+
+## 042 客户对账单与经营报表
+
+新增accounting.customer_statements、operating_report_runs两张FORCE RLS不可变快照表，当前185表、42迁移；SHA、冻结注册单和输出载荷证明绑定来源。预收/预付不可变事件按凭证日期重建，独立与总账核对；客户对账单AR按来源/GL核对。新增EXPORT作业/文件类型，复用claim/租约/fencing和重试，受控CSV载荷/列定义与快照一致，文件私有校验下载；statement PDF模板版本2，未知或未完成邮件不可换键重复排队。001—041不改，既有函数OID/ACL保留，见[C03说明](stage-c-statements-operating-reports.md)。

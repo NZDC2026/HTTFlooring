@@ -74,6 +74,7 @@ internal static class DocumentEndpoints
     private static async Task<object> Snapshot(Dictionary<string,object?> d,CompanySession s,CancellationToken ct)
     {
         var id=(Guid)d["id"]!;var typ=(string)d["document_type"]!;
+        if(typ=="CUSTOMER_STATEMENT")return Element((await One(s,"SELECT snapshot::text AS result FROM accounting.customer_statements WHERE company_id=@company AND id=@id",ct,new DbArg("id",id)))["result"]!);
         var issuer=(await One(s,"SELECT jsonb_build_object('name',name,'abn',abn,'country',country,'currency',base_currency,'gstRegistered',gst_registered)::text AS issuer FROM core.companies WHERE id=@company",ct))["issuer"]!;
         Dictionary<string,object?> head;List<Dictionary<string,object?>> lines;string title;
         if(typ=="QUOTE")

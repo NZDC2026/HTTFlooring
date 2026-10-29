@@ -4,7 +4,7 @@ using NpgsqlTypes;
 
 namespace Htt.Infrastructure.Documents;
 
-public sealed class DocumentWorker(NpgsqlDataSource source,IPdfRenderer renderer,IFileScanner scanner,IDocumentMailer mailer)
+public sealed class DocumentWorker(NpgsqlDataSource source,IPdfRenderer renderer,IFileScanner scanner,IDocumentMailer mailer,IReportExporter? exporter=null)
 {
     public async Task<bool> ProcessOneAsync(CancellationToken ct=default)
     {
@@ -22,6 +22,7 @@ public sealed class DocumentWorker(NpgsqlDataSource source,IPdfRenderer renderer
             switch(kind)
             {
                 case "PDF":pdf=await renderer.RenderAsync(payload.RootElement,ct);break;
+                case "EXPORT":pdf=await (exporter??new CsvReportExporter()).RenderAsync(payload.RootElement,ct);break;
                 case "SCAN":
                     if(!await scanner.IsCleanAsync(Convert.FromBase64String(payload.RootElement.GetProperty("content").GetString()!),ct)){result="REJECTED";error="malware_detected";}break;
                 case "EMAIL":mailStarted=true;provider=await mailer.SendAsync(id,payload.RootElement,ct);break;

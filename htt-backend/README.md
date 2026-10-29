@@ -4,7 +4,17 @@
 
 技术：.NET 10 LTS / ASP.NET Core、PostgreSQL 17、EF Core 10 / Npgsql。模块化单体，API、Worker、迁移工具独立进程。
 
+## 当前阶段C核查
+
+阶段C后端整体尚未完成。截至042，银行对账、五类核心财务报表、C01通用银行收支/分类/成对转账、C02规则/例外及追加的GST/BAS、关账切片已交付；原C/B-C/C-D相关39行当前为后端已实现6、部分实现7、未实现26。计数不是完成率，三个客户端及生产运行另验。当前逐行状态、证据和九个实施包见[阶段C收口核查](docs/stage-c-acceptance.md)及[机器可读记录](docs/stage-c-audit.json)。C01增量见[通用银行收支API](docs/stage-c-general-banking.md)；C02规则/例外已完成，见[规则API](docs/stage-c-bank-rules.md)；C03已补对账单/经营报表与导出，见[C03说明](docs/stage-c-statements-operating-reports.md)；后续CRM/销售事实/激励等仍未完成。
+
 ## 已实现
+
+- 阶段C C03：不可变客户对账单、PDF和授权邮件，采购/ARAP/库存及在途/银行经营报表和冻结CSV导出；权限/范围/成本重查、租约幂等与失败重试，见[C03接口](docs/stage-c-statements-operating-reports.md)。
+
+- 阶段C C02：版本化银行规则、优先级/启停、解释预览、分权受控执行及例外清单；复用C01记账和匹配，见[C02说明](docs/stage-c-bank-rules.md)。
+
+- 阶段C C01：已结算通用收入/支出、按流水部分金额分类并原子匹配、同公司AUD账户成对转账及原日关联冲销，兼容银行对账、现金流、GST/BAS和期间关账；见[C01接口与边界](docs/stage-c-general-banking.md)。
 
 - 阶段C会计期间关账、重开与年末损益结转：库存/往来/总账/GST核对、不可变底稿、BAS期间协调及原年末日期反向凭证；见[关账与结转 API](docs/stage-c-period-close.md)。
 
@@ -12,7 +22,7 @@
 
 - 阶段C GST/BAS：现金制/非现金制 Simpler BAS G1/1A/1B、税额总账独立核对、申报期间定版/外部申报登记/重开修订及冻结来源；见 [GST/BAS API](docs/stage-c-gst-bas.md)。Full BAS 增量见[Full BAS说明](docs/stage-c-full-bas.md)；不向 ATO 发送申报。
 
-- 177张业务/基础表及39个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
+- 185张业务/基础表及42个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
 - OIDC JWT验证；Cognito access token模式验证`token_use=access`及`client_id`。未配置身份服务时没有开发后门，受保护接口保持锁定；生产配置缺失时拒绝启动。
 - 公司选择、数据库RLS、复合外键、销售客户范围过滤、显式接口权限；API/Worker强制使用受限数据库账号。
 - 客户创建/查询/状态更新（版本冲突保护），商品及单位创建/查询，基础资料/科目/税率查询，客户协议/促销价格解析，审计查询。
@@ -42,7 +52,7 @@
 
 本次已补齐客户、门店/联系人、供应商、商品/单位/分类、区域/仓库及标准价/客户价/促销/底价维护，含停用、版本、幂等、审计和细分权限。路由、请求示例与权限矩阵见[主数据维护API](docs/master-data-api.md)。
 
-阶段B收口结论：已交付核心交易/账务切片通过隔离账套回归；原v2阶段B整体验收尚未通过。017已补三类单据PDF/邮件与附件，018补客户门户授权及商品库存API；019已补回收站后端与当前交易的删除规则；020补办公室直接建单，021补独立供应商费用账单与现有付款/核销，022补费用贷项及退款，023补供应商贷项跨账单抵扣与解除；仓管交接照片及其他B欠交仍保留。三个客户端未联调、正式库未迁移。当前统一状态见[验收报告与剩余事项](docs/stage-b-acceptance.md)，逐项原需求见[116条验收矩阵](docs/requirements-acceptance.md)。真实发件域/密钥和ClamAV需配置，未发送真实客户邮件；历史切片说明中的旧待办不是当前全项目清单。
+阶段B收口结论：2026-10-27列明的后端基线已验收通过，见[阶段B后端基线最终验收](docs/stage-b-backend-final-acceptance.md)；原需求全部深化、三个客户端联调及生产验收仍分别保留。030—033已补采购价差、搜索设置、批次货位/扫码/可选交接照片、银行档案和基础GL/TB；017—029交易及文档能力沿各批说明保留，不能把历史待办当当前缺项。当前C状态见[阶段C收口核查](docs/stage-c-acceptance.md)，原116行对应见[总矩阵](docs/requirements-acceptance.md)。真实身份、发件/扫描等服务仍须配置和验证，未在本轮执行正式库迁移或客户端联调。
 
 详细边界见[阶段A交付说明](docs/stage-a.md)。这不是已完成的销售/仓库/财务ERP。阶段B第一批报价提交、办公室转单、信用及库存预留已实现，见[销售流程API](docs/stage-b-sales.md)。仓库分批拣货、提货/发运、库存扣减和成本原子过账已实现，见[仓库流程API](docs/stage-b-warehouse.md)。销售开票、应收/GST与承诺释放已实现，见[开票流程API](docs/stage-b-invoicing.md)。客户收款、预收核销与现金GST归属已实现，见[收款流程API](docs/stage-b-receipts.md)。退货/贷项/客户退款及来源冲销已实现，见[退货退款API](docs/stage-b-returns.md)。采购订单、采购收货与暂估已实现，见[采购收货API](docs/stage-b-purchasing.md)。供应商账单、精确收货匹配、GRNI冲减、AP与进项GST已实现，见[供应商账单API](docs/stage-b-supplier-bills.md)。供应商付款、预付款核销、AP余额和现金制进项GST归属已实现，见[供应商结算API](docs/stage-b-supplier-payments.md)。采购退货、供应商贷项/退款及库存/AP/GST冲销已实现，见[采购冲销API](docs/stage-b-purchase-returns.md)。仓间直接调拨、库存盘点、盘盈盘亏及报损已实现，见[库存控制API](docs/stage-b-inventory-control.md)。在途发运、分批接收、实际退回及财务短收处理已实现，见[在途调拨API](docs/stage-b-transit-transfers.md)。价格差异调整、独立预付税票、完整BAS及云端基础设施待后续实现。
 

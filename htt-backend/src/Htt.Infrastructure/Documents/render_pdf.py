@@ -1,5 +1,6 @@
 """Bounded stdin JSON -> stdout PDF. No network, HTML execution or input-controlled paths."""
 import io
+from datetime import date, timedelta
 import json
 import os
 import sys
@@ -16,7 +17,75 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 
 
+def render_statement(data):
+    lines = data['lines']
+    if not isinstance(lines, list) or len(lines) > 1000 or len(data.get('openItems', [])) > 1000:
+        raise ValueError('Statement exceeds bounded template')
+    amount = lambda key: Decimal(str(data[key]))
+    opening, closing = amount('opening'), amount('closing')
+    debit = sum(Decimal(str(x['debit'])) for x in lines)
+    credit = sum(Decimal(str(x['credit'])) for x in lines)
+    if debit != amount('debits') or credit != amount('credits') or opening + debit - credit != closing or amount('difference') != 0 or data['status'] != 'RECONCILED':
+        raise ValueError('Statement balances differ')
+    running = opening
+    for line in lines:
+        running += Decimal(str(line['debit'])) - Decimal(str(line['credit']))
+        if running != Decimal(str(line['balance'])):
+            raise ValueError('Statement running balance differs')
+    font_path = os.environ.get('HTT_PDF_FONT') or str(Path(reportlab.__file__).parent / 'fonts' / 'Vera.ttf')
+    pdfmetrics.registerFont(TTFont('StatementFont', font_path))
+    chars = pdfmetrics.getFont('StatementFont').face.charToGlyph
+    def clean(value):
+        value = '' if value is None else str(value)
+        if any((ord(c) < 32 and c not in '\n\r\t') or (ord(c) >= 32 and ord(c) not in chars) for c in value):
+            raise ValueError('Configured font does not support statement text')
+        return escape(value).replace('\n', '<br/>')
+    body = ParagraphStyle('statement_body', fontName='StatementFont', fontSize=9, leading=13, wordWrap='CJK', spaceAfter=4)
+    small = ParagraphStyle('statement_small', parent=body, fontSize=7.5, leading=10, spaceAfter=2)
+    right = ParagraphStyle('statement_right', parent=small, alignment=TA_RIGHT)
+    title = ParagraphStyle('statement_title', parent=body, fontSize=21, leading=27, textColor=colors.HexColor('#16334c'), spaceAfter=12)
+    p = lambda value, style=body: Paragraph(clean(value), style)
+    money = lambda value: f'{Decimal(str(value)):,.2f}'
+    output = io.BytesIO()
+    doc = SimpleDocTemplate(output, pagesize=A4, leftMargin=42, rightMargin=42, topMargin=42, bottomMargin=48,
+                            title='Customer statement '+data['number'], author=data['issuer']['name'], invariant=1)
+    story = [p('CUSTOMER STATEMENT', title), p(data['issuer']['name']), p('ABN: '+str(data['issuer'].get('abn') or 'Not provided'), small), Spacer(1, 10)]
+    header = Table([[[p('CUSTOMER', small), p(data['party']['legalName'])],
+                     [p(data['number'], small), p('Period: '+data['from']+' to '+(date.fromisoformat(data['to'])-timedelta(days=1)).isoformat(), small), p('Currency: AUD | Posting-date basis', small)]]], colWidths=[260, 251])
+    header.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),12)]))
+    story.append(header)
+    rows = [[p(x, small) for x in ['Date', 'Document / activity', 'Debit AUD', 'Credit AUD', 'Balance AUD']],
+            ['', p('Opening balance', small), '', '', p(money(opening), right)]]
+    for line in lines:
+        rows.append([p(line['date'], small), p(str(line.get('number') or line['documentId'])+'\n'+line['type'], small),
+                     p(money(line['debit']), right), p(money(line['credit']), right), p(money(line['balance']), right)])
+    rows.append(['', p('Closing balance', small), p(money(debit), right), p(money(credit), right), p(money(closing), right)])
+    grid = Table(rows, colWidths=[58,231,73,73,76], repeatRows=1, hAlign='LEFT')
+    grid.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#e9eff4')),
+        ('LINEBELOW',(0,0),(-1,0),.7,colors.HexColor('#8ba2b4')),('LINEBELOW',(0,1),(-1,-1),.25,colors.HexColor('#dce3e9')),
+        ('LINEABOVE',(0,-1),(-1,-1),.8,colors.HexColor('#16334c')),('LEFTPADDING',(0,0),(-1,-1),5),('RIGHTPADDING',(0,0),(-1,-1),5),('TOPPADDING',(0,0),(-1,-1),6),('BOTTOMPADDING',(0,0),(-1,-1),6)]))
+    story.extend([grid, Spacer(1, 14)])
+    story.append(KeepTogether([p('Account balance: AUD '+money(closing)),
+        p('Advance balance (shown separately, not deducted again): AUD '+money(data['advanceBalance']), small),
+        p('This statement is not a tax invoice. Negative balances are account credits. Credits are already included in the account balance.', small)]))
+    if data.get('openItems'):
+        story.extend([Spacer(1,14),p('Open invoice balances at period end')])
+        items=[[p('Document',small),p('Due date',small),p('Balance AUD',small)]]
+        for item in data['openItems']:
+            items.append([p(item['number'],small),p(item['dueOn'],small),p(money(item['balance']),right)])
+        grid=Table(items,colWidths=[330,90,91],repeatRows=1)
+        grid.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('BACKGROUND',(0,0),(-1,0),colors.HexColor('#e9eff4')),('BOTTOMPADDING',(0,0),(-1,-1),6)]))
+        story.append(grid)
+    def footer(canvas, document):
+        canvas.saveState(); canvas.setFont('StatementFont',7); canvas.setFillColor(colors.HexColor('#536779'))
+        canvas.drawString(42,27,data['number']+' | AUD'); canvas.drawRightString(A4[0]-42,27,'Page '+str(document.page)); canvas.restoreState()
+    doc.build(story,onFirstPage=footer,onLaterPages=footer)
+    return output.getvalue()
+
+
 def render(data):
+    if data.get('templateVersion') == 2:
+        return render_statement(data)
     if data.get('templateVersion') != 1 or not 1 <= len(data['lines']) <= 50:
         raise ValueError('Unsupported document template/line count')
     font_path = os.environ.get('HTT_PDF_FONT') or str(Path(reportlab.__file__).parent / 'fonts' / 'Vera.ttf')

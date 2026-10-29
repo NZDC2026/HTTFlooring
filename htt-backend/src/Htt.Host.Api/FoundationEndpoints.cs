@@ -31,6 +31,9 @@ public static partial class FoundationEndpoints
         Accounting.CashFlowEndpoints.Map(group);
         Accounting.BasEndpoints.Map(group);
         Accounting.PeriodCloseEndpoints.Map(group);
+        Accounting.GeneralBankingEndpoints.Map(group);
+        Accounting.BankRuleEndpoints.Map(group);
+        Accounting.OperatingReportEndpoints.Map(group);
         Accounting.BankReconciliationEndpoints.Map(group);
         Inventory.WarehouseDetailEndpoints.Map(group);
         group.MapGet("/foundation", async (CompanySession session, CancellationToken token) => Results.Ok(new
