@@ -1,6 +1,6 @@
 # 数据库目录（阶段A及B增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至036共165张业务/基础表及36个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至039共177张业务/基础表及39个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -757,3 +757,16 @@ line_refunded/advance_refunded、AR/贷项余额、预收可用额和一致性�
 ## 036 现金流范围、分类及直接法报表
 
 新增 accounting.cash_flow_scopes、cash_flow_classifications、cash_flow_allocations 共3表（累计165表、36迁移），全部FORCE RLS；分类及分配append-only。旧现金账户首次待确认，使用并确认后范围冻结，过账行锁防止并发改变历史范围。受限分类函数按凭证修订、延迟约束校验完整覆盖/内部划转，撤销继承原分类。security_invoker视图包含已过账现金、最新分类、前序更正复核及有效分配，物化CTE控制查询展开。新增分类/范围权限、审计/Outbox；报表在单SQL快照内核对现金期初期末、全部BANK控制余额和银行未达快照。见 stage-c-cash-flow.md。
+
+## 037_gst_bas.sql
+
+新增 accounting.bas_periods（不可变期间头、公司区间排他约束）、bas_period_controls（版本/状态）、bas_snapshots（不可变修订底稿与双哈希）、bas_snapshot_items（冻结来源成员）、bas_period_events（定版、重开、外部申报登记历史）。五表 FORCE RLS；仅受控函数写入。GST/G1 来源、独立税额 GL 重建及闭期数值指纹见 [GST/BAS API](stage-c-gst-bas.md)。业务写入共享锁与期间定版独占锁配合延迟约束，阻止财务漂移并允许净额不变的历史归属重新分配。
+
+## 038_full_bas.sql
+
+新增 accounting.bas_classifications（按税码/费用科目/账单行的不可变分类修订）和 bas_method_changes（不可变方法选择历史），均 FORCE RLS。期间头增加 calculation_method，控制行可保存开放期间的有效方法；bas_effective_periods 保留原头不变并提供当前选择。新增 Full 销售/采购归属、G1—G20 计算表、历史 AP 采购参考核对和方法派发；旧 Simpler 财务指纹不变。复用公司锁、延迟冻结保护与旧快照，见 [Full BAS](stage-c-full-bas.md)。
+
+
+## 039_period_close.sql
+
+新增 accounting.fiscal_year_controls、period_close_snapshots、period_close_events、year_end_closings、year_end_reversals 五张 FORCE RLS 表；控制行触发版本，证据/反向记录 append-only，periods 增加当前关账快照。新增受控日历、月结/重开、年度结转/反向和留存科目配置函数；截止日库存、在途、AR/AP、经营 GL 与 GST 财务底稿独立核对。复用 BAS 公司锁，延迟校验闭期指纹；仅不可变登记的专用年度分录通过逐科目证明后可在闭期过账。利润表排除注册结转，原始总账保留；默认 3100 留存收益及权限种子同时覆盖旧公司和新公司。见[关账与年结](stage-c-period-close.md)。

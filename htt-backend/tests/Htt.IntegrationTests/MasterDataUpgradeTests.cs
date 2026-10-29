@@ -42,6 +42,9 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
     [InlineData(33)]
     [InlineData(34)]
     [InlineData(35)]
+    [InlineData(36)]
+    [InlineData(37)]
+    [InlineData(38)]
     public async Task Existing_stage_A_database_upgrades_without_rewriting_history_or_losing_legacy_branches(int originalVersion)
     {
         var name = "htt_upgrade_test_" + Guid.NewGuid().ToString("N");
@@ -219,7 +222,7 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             await MigrationRunner.ApplyAsync(owner);
             await MigrationRunner.ApplyAsync(owner);
             await using var check = new NpgsqlConnection(owner); await check.OpenAsync();
-            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(36L, await count.ExecuteScalarAsync());
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(39L, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT receivable FROM crm.customer_credit_exposures"; Assert.Equal(20m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT unbilled_orders FROM crm.customer_credit_exposures"; Assert.Equal(10m, await count.ExecuteScalarAsync());
             count.CommandText = "SELECT available_advances FROM crm.customer_credit_exposures"; Assert.Equal(5m, await count.ExecuteScalarAsync());
@@ -228,8 +231,12 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             count.CommandText = "SELECT count(*) FROM identity.role_permissions p JOIN identity.roles r ON r.id=p.role_id WHERE r.code='ADMIN' AND p.permission_code='pricing.floor.write'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM identity.role_permissions WHERE permission_code IN('documents.trash.read','documents.trash.write','documents.trash.restore') AND role_id=(SELECT id FROM identity.roles WHERE code='ADMIN')";Assert.Equal(3L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false)";await count.ExecuteNonQueryAsync();
+            count.CommandText="SELECT count(*) FROM accounting.fiscal_years y LEFT JOIN accounting.fiscal_year_controls k USING(company_id,id) WHERE k.id IS NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());
+            count.CommandText="SELECT count(*) FROM identity.role_permissions p JOIN identity.roles r ON r.company_id=p.company_id AND r.id=p.role_id WHERE r.code='ADMIN'AND(p.permission_code LIKE'accounting.periods.%'OR p.permission_code LIKE'accounting.years.%')";Assert.Equal(6L,await count.ExecuteScalarAsync());
+            count.CommandText="SELECT a.kind FROM accounting.account_mappings m JOIN accounting.accounts a ON a.company_id=m.company_id AND a.id=m.account_id WHERE m.purpose='RETAINED_EARNINGS'";Assert.Equal("EQUITY",await count.ExecuteScalarAsync());
+
             count.CommandText="SELECT count(*) FROM accounting.bank_accounts b LEFT JOIN accounting.cash_flow_scopes s ON s.company_id=b.company_id AND s.bank_account_id=b.id WHERE s.bank_account_id IS NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());
-            count.CommandText="SELECT count(*) FROM accounting.cash_flow_scopes s WHERE s.review_required IS DISTINCT FROM EXISTS(SELECT 1 FROM accounting.journal_lines l WHERE l.company_id=s.company_id AND l.account_id=s.bank_account_id)";Assert.Equal(0L,await count.ExecuteScalarAsync());
+            count.CommandText=originalVersion<36?"SELECT count(*) FROM accounting.cash_flow_scopes s WHERE s.review_required IS DISTINCT FROM EXISTS(SELECT 1 FROM accounting.journal_lines l WHERE l.company_id=s.company_id AND l.account_id=s.bank_account_id)":"SELECT count(*) FROM accounting.cash_flow_scopes WHERE review_required";Assert.Equal(0L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM accounting.accounts a LEFT JOIN accounting.bank_accounts b ON b.company_id=a.company_id AND b.id=a.id WHERE a.kind='ASSET' AND a.control_kind='BANK' AND b.id IS NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM accounting.bank_accounts WHERE kind<>'LEGACY' OR bsb IS NOT NULL OR account_number IS NOT NULL OR account_holder IS NOT NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM accounting.customer_receipts r LEFT JOIN accounting.bank_accounts b ON b.company_id=r.company_id AND b.id=r.bank_account_id WHERE b.id IS NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());

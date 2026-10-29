@@ -7,6 +7,7 @@ internal static class FinancialReportAssertions
  public static async Task Check(HttpClient c)
  {
   var date=DateOnly.FromDateTime(DateTime.UtcNow.AddDays(2));var start=date.AddDays(-365);
+  var bas=await Get(c,$"/accounting/reports/gst-bas?from={start:yyyy-MM-dd}&to={date.AddDays(1):yyyy-MM-dd}");Assert.True(bas.GetProperty("ledgerStatus").GetString()=="RECONCILED",bas.GetRawText());
   var bs=await Get(c,$"/accounting/reports/balance-sheet?asOf={date:yyyy-MM-dd}&fiscalYearStart={start:yyyy-MM-dd}");Assert.Equal("BALANCED",bs.GetProperty("status").GetString());
   var pl=await Get(c,$"/accounting/reports/profit-and-loss?from={start:yyyy-MM-dd}&to={date.AddDays(1):yyyy-MM-dd}");Assert.Equal(D(pl.GetProperty("totals").GetProperty("netProfit")),D(bs.GetProperty("totals").GetProperty("currentYearEarnings")));
   var cf=await Get(c,$"/accounting/reports/cash-flow?from={start:yyyy-MM-dd}&to={date.AddDays(1):yyyy-MM-dd}");Assert.True(cf.GetProperty("ledgerStatus").GetString()=="RECONCILED",cf.GetRawText());Assert.Equal(0,D(cf.GetProperty("totals").GetProperty("movementDifference")));Assert.Equal(0,D(cf.GetProperty("totals").GetProperty("bankScopeDifference")));Assert.Equal(0,D(cf.GetProperty("totals").GetProperty("internalNet")));

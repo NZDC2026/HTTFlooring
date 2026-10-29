@@ -28,7 +28,7 @@ internal static class FinancialReportEndpoints
         return await Query(s,"""
             WITH amounts AS MATERIALIZED(
               SELECT a.id,a.code,a.name,a.kind,a.active,coalesce(sum(l.credit-l.debit)FILTER(WHERE j.posting_date>=@from AND j.posting_date<@to),0) AS signed_profit
-              FROM accounting.accounts a LEFT JOIN accounting.journal_lines l ON l.company_id=a.company_id AND l.account_id=a.id LEFT JOIN accounting.journal_entries j ON j.company_id=l.company_id AND j.id=l.journal_entry_id
+              FROM accounting.accounts a LEFT JOIN accounting.journal_lines l ON l.company_id=a.company_id AND l.account_id=a.id LEFT JOIN accounting.business_journal_entries j ON j.company_id=l.company_id AND j.id=l.journal_entry_id
               WHERE a.company_id=@company AND a.kind IN('REVENUE','EXPENSE') GROUP BY a.id
             ), totals AS(SELECT coalesce(sum(signed_profit)FILTER(WHERE kind='REVENUE'),0) AS revenue,coalesce(-sum(signed_profit)FILTER(WHERE kind='EXPENSE'),0) AS expenses FROM amounts)
             SELECT jsonb_build_object('companyId',core.current_company(),'currency','AUD','basis','ACCRUAL_GL','snapshotAt',statement_timestamp(),'from',@from,'to',@to,

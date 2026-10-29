@@ -6,7 +6,13 @@
 
 ## 已实现
 
-- 139张业务/基础表及29个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
+- 阶段C会计期间关账、重开与年末损益结转：库存/往来/总账/GST核对、不可变底稿、BAS期间协调及原年末日期反向凭证；见[关账与结转 API](docs/stage-c-period-close.md)。
+
+- 阶段C Full BAS：G2/G3/G10/G11及G1—G20计算表，accounts/worksheet方法选择、财务分类、历史期间方法切换及独立采购/GST勾稽；见[Full BAS API](docs/stage-c-full-bas.md)。
+
+- 阶段C GST/BAS：现金制/非现金制 Simpler BAS G1/1A/1B、税额总账独立核对、申报期间定版/外部申报登记/重开修订及冻结来源；见 [GST/BAS API](docs/stage-c-gst-bas.md)。Full BAS 增量见[Full BAS说明](docs/stage-c-full-bas.md)；不向 ATO 发送申报。
+
+- 177张业务/基础表及39个版本化迁移，另有迁移历史表；涵盖公司、身份授权、客户/供应商/门店/联系人、商品单位、定价税码、会计、编号、审计、幂等、Outbox、附件与审批基础结构。
 - OIDC JWT验证；Cognito access token模式验证`token_use=access`及`client_id`。未配置身份服务时没有开发后门，受保护接口保持锁定；生产配置缺失时拒绝启动。
 - 公司选择、数据库RLS、复合外键、销售客户范围过滤、显式接口权限；API/Worker强制使用受限数据库账号。
 - 客户创建/查询/状态更新（版本冲突保护），商品及单位创建/查询，基础资料/科目/税率查询，客户协议/促销价格解析，审计查询。
