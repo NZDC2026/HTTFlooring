@@ -1,6 +1,6 @@
-# 数据库目录（阶段A及B增量）
+# 数据库目录（阶段A/B/C增量）
 
-SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至045共202张业务/基础表及45个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
+SQL迁移是唯一权威；所有业务外键必须同company。身份目录/Outbox受限definer函数边界见stage-a.md。001/002基础部分为53张；后续增量至049仍为228张业务/基础表及49个迁移，另有public.htt_schema_history。以下保留基础目录及各批增量说明。
 
 ## 001_foundation.sql
 
@@ -801,3 +801,19 @@ card_jobs图片私有，app不能直接SELECT/DML；Worker仅USAGE及认领/读�
 新增crm.collaboration_objects、collaboration_history、collaboration_changes、branch_geocodes、geocode_jobs五张公司FORCE RLS表。对象身份不可改，历史/事件append-only；私有/办公室/团队范围及历史快照权限双重验证，head新增ACL版本以强制缓存重建。Note/展板/拜访、附件状态及门店刷新共用C04提交序号及设备操作日志。
 
 客户资料草稿/新CRM对象绑定原platform私有附件登记，复用扫描、完整性、撤销和授权访问；旧输出函数保持OID/ACL。门店维护取head后再锁行，地址版本变化使旧坐标失效；Google地理编码有租约/重试/权限复查/30天坐标缓存清理，人工坐标优先，提供商门店坐标不复制入不可变同步历史，拜访GPS则按会话权限同步和留证。新表无app DML，Worker仅有三个专用执行函数。累计202表/45迁移；001—044原字节不改。详见[C05](stage-c-collaboration.md)。
+
+## 046_tasks_notifications.sql
+
+新增11张crm表，全部FORCE RLS及公司复合FK边界：tasks、task_history、task_changes、notification_messages、notification_changes、reminder_deliveries、note_follows、notification_preferences、push_subscriptions、push_jobs、push_attempts。历史/变更/提醒证据/尝试日志append-only。应用仅经受限definer函数读写，不可直接查询令牌或跨收件人消息。令牌固定32字节SHA256唯一键；作业按消息/设备/订阅版本唯一，租约围栏与UNKNOWN避免不确定发送自动重投。复用crm.mobile_heads共享序号及授权版本。无库存、往来账、总账或GST余额新副本。详见[C06](stage-c-tasks-notifications.md)。
+
+## 047_sales_analytics.sql
+
+新增sales.order_attributions（追加归属版本，首票/取消冻结）及sales.line_dimensions（冻结基础单位/标签），均FORCE RLS与公司复合外键。旧来源按可证明报价创建人/缺失标签回填，直建未分配，不推定佣金资格。net_sales_source与fulfilment_cost_source为规范只读视图，不另建财务余额；共享报表函数做客户范围、同环比及GL桥接。复用accounting.operating_report_runs增加SALES种类、完整不可变检查点及C03受控导出；检查点事实/桥接一条SQL同快照，不使用created_at假冒提交游标。详见[C07](stage-c-sales-analytics.md)。
+
+## 048_incentives.sql
+
+新增incentives的programs/policies/policy_approvals/liability_accounts、periods/period_events、runs/run_events、claims/accruals、settlements/settlement_lines及display_grants，共13表，全部FORCE RLS。政策、计提、结算及事件追加不可变；公司/受益人/激励类型/发票唯一经济claim，正式单据与总账同事务。专属负债保护及延迟来源/GL核对，reconciliation和期间预检增量，不改变既有关闭期财务哈希结构。后台/客户端/生产边界见[C08](stage-c-incentives.md)。
+
+## 049_workbench.sql
+
+新增workbench私有只读查询函数及6类入口权限，统一网关STABLE SECURITY DEFINER且逐项重查原权限；只向htt_app开放query，PUBLIC私有函数撤权。复用既有公司RLS/业务表、财务和净销售来源，不新增工作台表、余额副本或缓存。金融截止日/当前任务及匹配状态分开标注，列表有完整授权计数及独立分页。约定范围见[C09](stage-c-workbench.md)。

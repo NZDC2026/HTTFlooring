@@ -18,7 +18,8 @@ public sealed class DocumentDeliveryTests(DatabaseFixture db):IClassFixture<Data
 {
     private sealed record Data(Guid Id,long Version,SalesData Sales);
     private Task<object?> S(string sql,params(string,object)[] args)=>db.OwnerScalarAsync(sql,args);
-    public async Task InitializeAsync()=>await S("UPDATE platform.document_jobs SET state='FAILED',last_error='test_cleanup',lease_token=NULL,lease_until=NULL WHERE company_id=@company AND state IN('QUEUED','RETRY','PROCESSING')",("company",db.Company));
+    // The worker claims across companies: isolate the dedicated test database queue, not only this fixture company.
+    public async Task InitializeAsync()=>await S("UPDATE platform.document_jobs SET state='FAILED',last_error='test_cleanup',lease_token=NULL,lease_until=NULL WHERE state IN('QUEUED','RETRY','PROCESSING')");
     public Task DisposeAsync()=>Task.CompletedTask;
     private TestApi Api(){var api=new TestApi(db);api.Services.GetRequiredService<DocumentOptions>().MailFrom="documents@htt-test.invalid";return api;}
     private async Task<Data> SetupDocument(HttpClient c,string type="QUOTE",int lineCount=1,bool longText=false)
@@ -256,7 +257,7 @@ public sealed class DocumentDeliveryTests(DatabaseFixture db):IClassFixture<Data
         await using var api=Api();using var c=api.Authenticated();var d=await SetupDocument(c);Guid job;
         if(kind=="EMAIL"){var(pdf,_)=await Generated(c,d);job=Jid(await Expect(await Email(c,d,pdf),HttpStatusCode.Accepted));}else job=Jid(await Expect(await Pdf(c,d),HttpStatusCode.Accepted));
         await using var source=NpgsqlDataSource.Create(db.Worker);Guid fence;
-        await using(var con=await source.OpenConnectionAsync())await using(var claim=new NpgsqlCommand("SELECT lease_token FROM platform.claim_document_job()",con))fence=(Guid)(await claim.ExecuteScalarAsync())!;
+        await using(var con=await source.OpenConnectionAsync())await using(var claim=new NpgsqlCommand("SELECT id,lease_token FROM platform.claim_document_job()",con))await using(var row=await claim.ExecuteReaderAsync()){Assert.True(await row.ReadAsync());Assert.Equal(job,row.GetGuid(0));fence=row.GetGuid(1);}
         await S("UPDATE platform.document_jobs SET lease_until=now()-interval '1 second' WHERE company_id=@company AND id=@id",("company",db.Company),("id",job));
         // Keep retryable PDF unavailable for the second claim so its recovered state can be observed.
         await S("UPDATE platform.document_jobs SET available_at=now()+interval '1 hour' WHERE company_id=@company AND id=@id",("company",db.Company),("id",job));

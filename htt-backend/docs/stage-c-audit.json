@@ -1,6 +1,6 @@
 {
-  "reviewDate": "2026-10-30",
-  "reviewType": "039逐行核查基线；040—045 C01—C05/W-06后端切片增量；验收范围与外部/客户端条件见verification.md",
+  "reviewDate": "2026-11-01",
+  "reviewType": "阶段C约定后端基线最终验收；001—049业务实现冻结，32/7/0原整行状态保留；客户端/实机/独立口径/D/生产分别验收",
   "source": {
     "document": "HTT-AU-需求追踪矩阵-v2.md",
     "sha256": "48ab6b6784016ba164e688543f93cf3339bbea0973e43388f48edce77d7e0b91",
@@ -9,9 +9,9 @@
     "selectionRule": "原交付阶段包含C：C、B/C、C/D；非编号中的C-xx"
   },
   "summary": {
-    "未实现": 14,
-    "后端已实现": 18,
-    "部分实现": 7
+    "后端已实现": 32,
+    "部分实现": 7,
+    "未实现": 0
   },
   "evidence": {
     "BANK": {
@@ -173,6 +173,71 @@
         "tests/Htt.IntegrationTests/CrmMapTests.cs",
         "tests/Htt.IntegrationTests/CrmAttachmentTests.cs"
       ]
+    },
+    "TASK_NOTIFICATIONS": {
+      "docs": [
+        "docs/stage-c-tasks-notifications.md"
+      ],
+      "code": [
+        "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "src/Htt.Infrastructure/Documents/PushWorker.cs"
+      ],
+      "tests": [
+        "tests/Htt.IntegrationTests/TaskNotificationTests.cs",
+        "tests/Htt.IntegrationTests/PushAdapterTests.cs"
+      ]
+    },
+    "SALES_ANALYTICS": {
+      "docs": [
+        "docs/stage-c-sales-analytics.md"
+      ],
+      "code": [
+        "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "src/Htt.Infrastructure/Database/Migrations/047_sales_analytics.sql",
+        "src/Htt.Host.Api/Accounting/OperatingReportEndpoints.cs"
+      ],
+      "tests": [
+        "tests/Htt.IntegrationTests/SalesAnalyticsTests.cs",
+        "tests/Htt.IntegrationTests/SalesSeriesTests.cs",
+        "tests/Htt.IntegrationTests/MasterDataUpgradeTests.cs"
+      ]
+    },
+    "INCENTIVES": {
+      "docs": [
+        "docs/stage-c-incentives.md"
+      ],
+      "code": [
+        "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "src/Htt.Infrastructure/CompanyBootstrap.cs",
+        "src/Htt.Host.Worker/Program.cs"
+      ],
+      "tests": [
+        "tests/Htt.IntegrationTests/IncentiveTests.cs",
+        "tests/Htt.IntegrationTests/MasterDataUpgradeTests.cs",
+        "tests/Htt.IntegrationTests/PeriodCloseTests.cs",
+        "tests/Htt.IntegrationTests/ExpenseBillTests.cs",
+        "tests/Htt.IntegrationTests/ExpenseCreditTests.cs"
+      ]
+    },
+    "WORKBENCH": {
+      "docs": [
+        "docs/stage-c-workbench.md"
+      ],
+      "code": [
+        "src/Htt.Host.Api/WorkbenchEndpoints.cs",
+        "src/Htt.Infrastructure/Database/Migrations/049_workbench.sql",
+        "src/Htt.Infrastructure/CompanyBootstrap.cs"
+      ],
+      "tests": [
+        "tests/Htt.IntegrationTests/WorkbenchTests.cs",
+        "tests/Htt.IntegrationTests/FinancialReportTests.cs",
+        "tests/Htt.IntegrationTests/BankStatementTests.cs",
+        "tests/Htt.IntegrationTests/TaskNotificationTests.cs",
+        "tests/Htt.IntegrationTests/CollaborationTests.cs",
+        "tests/Htt.IntegrationTests/MasterDataUpgradeTests.cs"
+      ]
     }
   },
   "rows": [
@@ -185,18 +250,22 @@
       "phase": "C",
       "module": "Reporting",
       "originalBoundary": "基于同一台账和待办，不另建业务数据副本",
-      "backendStatus": "未实现",
-      "implemented": "可复用P&L/BS/现金流查询；没有经营Dashboard/KPI聚合入口。",
-      "remaining": "收入费用图表、财务概览和tasks/up-next统一口径。",
+      "backendStatus": "后端已实现",
+      "implemented": "049财务工作台复用原P&L/BS/AR/AP口径，提供同语句快照的摘要、月度收入费用/利润、授权任务up-next及本人消息；只读且无余额副本。",
+      "remaining": "约定后台聚合切片交付；客户端图表、真实规模性能及生产另验。",
       "evidence": [
-        "REPORT",
-        "GAP"
+        "WORKBENCH"
       ],
       "implementationOrder": [
-        "C09"
+        "C09已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 19,
@@ -216,7 +285,12 @@
       ],
       "implementationOrder": [],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 25,
@@ -228,17 +302,22 @@
       "module": "Banking",
       "originalBoundary": "银行账户B；工作台、Feeds状态及例外C/D",
       "backendStatus": "部分实现",
-      "implemented": "033银行档案/默认账户/收付选择；034现金明细、可匹配和未达数据已交付。041新增按银行/期间分页的规则例外及待确认建议。",
-      "remaining": "C银行Hub统一余额/关注聚合；D真实Feeds连接状态。",
+      "implemented": "033银行档案、034对账、041规则例外及049银行Hub：截止日GL余额、最近有效流水/对账、未匹配及部分匹配关注、规则启停数和明确的手工导入状态。",
+      "remaining": "B/C约定后台切片交付；D真实Bank Feeds连接状态、真实服务及客户端/生产另验，不虚构已连接。",
       "evidence": [
-        "BANK"
+        "WORKBENCH"
       ],
       "implementationOrder": [
-        "C09",
+        "C09已完成",
         "D"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 26,
@@ -259,7 +338,12 @@
         "D"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 27,
@@ -278,7 +362,12 @@
       ],
       "implementationOrder": [],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 28,
@@ -297,7 +386,12 @@
       ],
       "implementationOrder": [],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 29,
@@ -316,7 +410,12 @@
       ],
       "implementationOrder": [],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 40,
@@ -336,7 +435,12 @@
       ],
       "implementationOrder": [],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 41,
@@ -348,19 +452,21 @@
       "module": "Reporting",
       "originalBoundary": "C销售采购库存银行往来报表；工资报表随D交付",
       "backendStatus": "部分实现",
-      "implemented": "既有财务/账龄/现金流，042补采购事件、AR/AP历史及预收预付、在库/在途和银行经营报表，白名单过滤、总计分页及冻结CSV导出。",
-      "remaining": "C07销售事实/净销售经营报表及D工资报表；真实规模和客户端另验。",
+      "implemented": "既有财务/采购/往来/库存/银行报告；047补SALES未税净销售、同源事实/检查点/CSV、发运与采购价差成本来源及GL桥接。",
+      "remaining": "本行C切片已交付；D工资报表、真实规模和客户端另验。",
       "evidence": [
-        "REPORT",
-        "BANK",
-        "CRM_BASE"
+        "SALES_ANALYTICS"
       ],
       "implementationOrder": [
-        "C07",
         "D"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 53,
@@ -371,18 +477,22 @@
       "phase": "C",
       "module": "Platform",
       "originalBoundary": "通用任务提醒保留；独立Invoice Reminders流程排除",
-      "backendStatus": "未实现",
-      "implemented": "审计/Outbox及文档作业状态已有基础，不构成业务行动中心。",
-      "remaining": "业务到期提醒、Task待办及消息行动中心；独立自动发票催收仍排除。",
+      "backendStatus": "后端已实现",
+      "implemented": "Task到期提醒、本人未读消息/行动中心、授权AR/AP到期关注；复用既有往来变动及GL日期，不另建经济余额。",
+      "remaining": "后端切片已交付；独立自动Invoice催收仍排除，C09完整工作台另列。",
       "evidence": [
-        "GAP"
+        "TASK_NOTIFICATIONS"
       ],
       "implementationOrder": [
-        "C06",
-        "C09"
+        "C06已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 55,
@@ -402,7 +512,12 @@
       ],
       "implementationOrder": [],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 59,
@@ -413,18 +528,22 @@
       "phase": "C",
       "module": "CRM",
       "originalBoundary": "客户、Task、拜访待办销售工作台",
-      "backendStatus": "未实现",
-      "implemented": "授权客户、报价、订单查询可复用。",
-      "remaining": "销售客户/Task/拜访待办工作台聚合。",
+      "backendStatus": "后端已实现",
+      "implemented": "049销售工作台聚合当前授权客户目录、报价/订单、任务/待办、Note/拜访/展板、资料草稿、同源趋势、本人及显式授权激励；分页和当前撤权。",
+      "remaining": "约定后台切片交付；手机工作台、设备缓存和实机联调另验。",
       "evidence": [
-        "CRM_BASE",
-        "GAP"
+        "WORKBENCH"
       ],
       "implementationOrder": [
-        "C09"
+        "C09已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 62,
@@ -445,7 +564,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 63,
@@ -466,7 +590,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 66,
@@ -487,7 +616,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 67,
@@ -508,7 +642,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 68,
@@ -529,7 +668,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 69,
@@ -550,7 +694,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 70,
@@ -571,7 +720,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 71,
@@ -592,7 +746,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 72,
@@ -603,17 +762,22 @@
       "phase": "C",
       "module": "Platform",
       "originalBoundary": "Task创建、负责人和截止时间",
-      "backendStatus": "未实现",
-      "implemented": "Outbox是基础设施，不是Task业务表和创建接口。",
-      "remaining": "Task对象、负责人、关联客户、截止时间与审计。",
+      "backendStatus": "后端已实现",
+      "implemented": "046 Task对象、稳定ID、负责人目录、客户/门店范围、截止/提醒及同事务审计。",
+      "remaining": "本行后台切片已交付；客户端及生产另验。",
       "evidence": [
-        "GAP"
+        "TASK_NOTIFICATIONS"
       ],
       "implementationOrder": [
-        "C06"
+        "C06已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 73,
@@ -624,17 +788,22 @@
       "phase": "C",
       "module": "Platform",
       "originalBoundary": "Task列表与角色过滤",
-      "backendStatus": "未实现",
-      "implemented": "没有Task查询API。",
-      "remaining": "角色/负责人/客户范围过滤及稳定分页列表。",
+      "backendStatus": "后端已实现",
+      "implemented": "046当前创建者/负责人/办公室及客户范围过滤；负责人/状态/客户/截止时间过滤和稳定分页。",
+      "remaining": "本行后台切片已交付；客户端及生产另验。",
       "evidence": [
-        "GAP"
+        "TASK_NOTIFICATIONS"
       ],
       "implementationOrder": [
-        "C06"
+        "C06已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 74,
@@ -645,17 +814,22 @@
       "phase": "C",
       "module": "Platform",
       "originalBoundary": "状态更新使用version和变更历史",
-      "backendStatus": "未实现",
-      "implemented": "没有Task状态机。",
-      "remaining": "更新/完成、版本、幂等、变更历史及并发测试。",
+      "backendStatus": "后端已实现",
+      "implemented": "046状态机、If-Match、历史、幂等、共享离线操作ID/序号及并发一次生效；删除缓存与历史隐私。",
+      "remaining": "本行后台切片已交付；客户端及生产另验。",
       "evidence": [
-        "GAP"
+        "TASK_NOTIFICATIONS"
       ],
       "implementationOrder": [
-        "C06"
+        "C06已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 75,
@@ -666,17 +840,22 @@
       "phase": "C",
       "module": "Platform",
       "originalBoundary": "Outbox推送；失败不回滚已保存Task/Note",
-      "backendStatus": "未实现",
-      "implemented": "文档邮件适配和Outbox不代表移动Task/Note推送。",
-      "remaining": "通知收件人、设备令牌、投递作业、重试去重及真实提供商验证。",
+      "backendStatus": "后端已实现",
+      "implemented": "046持久收件人消息、Task/显式关注Note推送、FCM HTTP v1/OAuth适配、私有令牌、租约/限次/UNKNOWN及受控重试；网络失败不回滚来源。",
+      "remaining": "后端切片已交付；真实Firebase/APNs/Web/设备投递、客户端授权与深链仍需联调；未发送真实推送。",
       "evidence": [
-        "GAP"
+        "TASK_NOTIFICATIONS"
       ],
       "implementationOrder": [
-        "C06"
+        "C06已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 76,
@@ -687,17 +866,22 @@
       "phase": "C",
       "module": "Platform",
       "originalBoundary": "系统消息中心与已读记录",
-      "backendStatus": "未实现",
-      "implemented": "没有业务消息/已读记录。",
-      "remaining": "授权消息中心、游标/分页、已读/未读与同步。",
+      "backendStatus": "后端已实现",
+      "implemented": "046本人收件箱、来源现时授权、已读/未读/version/幂等、分页与共享同步；不是诊断Outbox。",
+      "remaining": "本行后台切片已交付；真实设备缓存与展示另验。",
       "evidence": [
-        "GAP"
+        "TASK_NOTIFICATIONS"
       ],
       "implementationOrder": [
-        "C06"
+        "C06已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 77,
@@ -718,7 +902,12 @@
         "C04"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 78,
@@ -739,7 +928,12 @@
         "C04"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 79,
@@ -750,20 +944,22 @@
       "phase": "C",
       "module": "Platform/CRM",
       "originalBoundary": "单一后台、操作ID去重、游标/tombstone和冲突处理",
-      "backendStatus": "部分实现",
-      "implemented": "044草稿/导入同步，045新增Note/展板/拜访/附件/门店刷新，与原草稿共用序号及操作UUID；历史隐私、删除和撤权可验证。",
-      "remaining": "C06 Task/消息对象同步及客户端实机、C09办公室聚合仍待实施。",
+      "backendStatus": "后端已实现",
+      "implemented": "044草稿/通讯录结果、045Note/展板/拜访/附件/门店刷新、046Task/消息统一提交序号/操作UUID/冲突/tombstone/授权重置。",
+      "remaining": "约定统一后台同步对象已齐；客户端实机/本地缓存另验；C09统一工作台聚合由R113/R116另列。",
       "evidence": [
-        "CRM_COLLABORATION"
+        "TASK_NOTIFICATIONS"
       ],
       "implementationOrder": [
-        "C04",
-        "C05",
-        "C06",
-        "C09"
+        "C06已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 86,
@@ -784,7 +980,12 @@
         "C05"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 87,
@@ -796,17 +997,23 @@
       "module": "Platform",
       "originalBoundary": "缓存与离线草稿；财务过账/正式出库保持在线",
       "backendStatus": "部分实现",
-      "implemented": "044设备操作/重放/冲突/游标基础；045协作对象、历史隐私和地址/附件刷新已接入，财务/出库保持在线。",
-      "remaining": "设备本地缓存、弱网恢复/呈现/清理及C06对象接入、实机验证。",
+      "implemented": "044设备操作/重放/冲突/游标基础；045协作对象、历史隐私和地址/附件刷新已接入，财务/出库保持在线。046新增Task及消息操作/共享游标与删除/改派授权清理，Task用户不获草稿权限。",
+      "remaining": "设备本地缓存、弱网恢复/呈现/清理、通知授权/深链与实机验证；后端对象同步已接入。",
       "evidence": [
-        "CRM_COLLABORATION"
+        "CRM_COLLABORATION",
+        "TASK_NOTIFICATIONS"
       ],
       "implementationOrder": [
         "C04",
         "C09"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 94,
@@ -827,7 +1034,12 @@
         "C04"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 110,
@@ -838,19 +1050,23 @@
       "phase": "C/D",
       "module": "Incentives",
       "originalBoundary": "C固定率/额计提审批结算，D阶梯语义定稿后启用；不自动付款",
-      "backendStatus": "未实现",
-      "implemented": "原发票/贷项/退款可追溯，但没有返点政策或计提结算对象。",
-      "remaining": "C固定比例/固定额政策版本、未税净销售事实、计提/审批/锁期/结算及关联冲回；D阶梯规则。",
+      "backendStatus": "部分实现",
+      "implemented": "048基础客户返点政策版本、独立审批、C07同源差额计提、锁期、合法客户贷项/客户服务AP关联、负余额及成对抵扣；当前GST分类和证据显式审核。",
+      "remaining": "C基础NET_SALES切片交付；D阶梯、其他计算口径独立批准/验收，真实合同/税务及客户端另验。",
       "evidence": [
-        "GAP"
+        "INCENTIVES"
       ],
       "implementationOrder": [
-        "C07",
-        "C08",
-        "D"
+        "D",
+        "独立口径验收"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 111,
@@ -861,19 +1077,23 @@
       "phase": "C/D",
       "module": "Incentives",
       "originalBoundary": "C基础佣金，回款/毛利与阶梯逐规则验收，归属及版本可追溯",
-      "backendStatus": "未实现",
-      "implemented": "成交来源与收付查询不代表佣金归属或计提。",
-      "remaining": "C基础佣金/销售归属快照及审批结算；回款/毛利按独立规则验收，D阶梯；不解释为股东分红或自动工资付款。",
+      "backendStatus": "部分实现",
+      "implemented": "048基础佣金、不可变销售归属/政策绑定、独立审批、差额/追回、承包商AP及外部工资清算关联；不标记自动工资或银行付款。",
+      "remaining": "C基础NET_SALES切片交付；回款/毛利口径另验，D阶梯保留；工资处理与客户端/真实政策另验。",
       "evidence": [
-        "GAP"
+        "INCENTIVES"
       ],
       "implementationOrder": [
-        "C07",
-        "C08",
-        "D"
+        "D",
+        "独立口径验收"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 112,
@@ -884,18 +1104,22 @@
       "phase": "C",
       "module": "Reporting",
       "originalBoundary": "客户×SKU×门店×期间净销售/基础数量，共用来源事实",
-      "backendStatus": "未实现",
-      "implemented": "P&L按科目汇总，非客户×SKU销售事实和曲线。",
-      "remaining": "客户/门店/SKU/期间未税净销售、基础单位数量、同环比及截止点。",
+      "backendStatus": "后端已实现",
+      "implemented": "047发票减数量/金额贷项的共用事实，客户×门店×SKU×基础单位趋势/同环比/零桶/闰日、待处理退货、检查点及收入/成本GL桥接。",
+      "remaining": "约定后台切片已交付；客户端曲线和真实规模/性能另验。",
       "evidence": [
-        "REPORT",
-        "GAP"
+        "SALES_ANALYTICS"
       ],
       "implementationOrder": [
-        "C07"
+        "C07已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 113,
@@ -906,20 +1130,22 @@
       "phase": "C",
       "module": "Customers",
       "originalBoundary": "办公室统一客户、Note/拜访/报价/订单/趋势，成本独立权限",
-      "backendStatus": "部分实现",
-      "implemented": "办公室已有主数据/单据查询，045补客户Note/展板/拜访历史/地图/附件的受控查询和同步。",
-      "remaining": "C06 Task/消息、C07趋势及C09统一聚合和完整工作台仍待实施。",
+      "backendStatus": "后端已实现",
+      "implemented": "049办公室运营聚合及受控客户统一视图：正式资料/门店/联系人、单据、资料草稿来源、协作、任务、趋势和授权返点；保留PRIVATE及他人拜访边界。",
+      "remaining": "约定后台统一视图交付；客户端呈现、真实规模与生产联调另验。",
       "evidence": [
-        "CRM_COLLABORATION"
+        "WORKBENCH"
       ],
       "implementationOrder": [
-        "C05",
-        "C06",
-        "C07",
-        "C09"
+        "C09已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 114,
@@ -930,17 +1156,22 @@
       "phase": "C",
       "module": "Reporting",
       "originalBoundary": "共用趋势API，销售仅授权客户；上期0无可比",
-      "backendStatus": "未实现",
-      "implemented": "没有共用净销售趋势API。",
-      "remaining": "复用R112事实，按销售授权客户过滤；上期0显示无可比。",
+      "backendStatus": "后端已实现",
+      "implemented": "与R112共用047规范来源及统计函数，按当前销售客户/门店范围过滤，零/负基数不伪造增长率，不泄漏公司GL/成本。",
+      "remaining": "约定后台曲线API已交付；手机图表、缓存/撤权呈现及实机另验。",
       "evidence": [
-        "GAP"
+        "SALES_ANALYTICS"
       ],
       "implementationOrder": [
-        "C07"
+        "C07已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 115,
@@ -951,17 +1182,22 @@
       "phase": "C",
       "module": "Incentives",
       "originalBoundary": "本人佣金及审批状态；返点另行授权，不显示他人",
-      "backendStatus": "未实现",
-      "implemented": "没有返点/佣金数据源或查询授权模型。",
-      "remaining": "本人佣金/状态、额外授权客户返点、对其他人员/成本字段的隔离。",
+      "backendStatus": "后端已实现",
+      "implemented": "048本人已批准佣金净额/余额及额外授权客户返点摘要；当前成员/权限/客户范围重查，无其他人员、来源单据及成本科目字段，no-store。",
+      "remaining": "约定后台切片交付；三个客户端展示及实机撤权呈现另验。",
       "evidence": [
-        "GAP"
+        "INCENTIVES"
       ],
       "implementationOrder": [
-        "C08"
+        "C08已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 116,
@@ -972,20 +1208,22 @@
       "phase": "C",
       "module": "Customers/Sync",
       "originalBoundary": "客户及拜访/Note实时入同一后台，离线标明待同步",
-      "backendStatus": "部分实现",
-      "implemented": "044销售资料草稿审核，045补Note/拜访/展板及附件的办公室受控维护、历史、冲突和共享同步。",
-      "remaining": "C06 Task等移动对象及C09办公室统一聚合视图。",
+      "backendStatus": "后端已实现",
+      "implemented": "044—046正式资料/草稿审核、协作、Task/消息及同步，049补办公室/客户统一聚合、原始创建草稿关联和现有维护入口的对象ID（编辑沿用原详情及版本契约），不扩大私有可见性。",
+      "remaining": "约定后台切片交付；三个客户端编辑/同步呈现、设备缓存和实机联调另验。",
       "evidence": [
-        "CRM_COLLABORATION"
+        "WORKBENCH"
       ],
       "implementationOrder": [
-        "C04",
-        "C05",
-        "C06",
-        "C09"
+        "C09已完成"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     },
     {
       "sourceRow": 117,
@@ -996,21 +1234,26 @@
       "phase": "C/D",
       "module": "Quality",
       "originalBoundary": "来源去重、规则改版、跨期退货/贷项不双冲、锁账和结算权限",
-      "backendStatus": "未实现",
-      "implemented": "现有退货/贷项/付款回归不是激励模块回归。",
-      "remaining": "C基础规则的来源去重、版本切换、归属、退货与贷项只净冲一次、跨期调整/锁账/结算权限；D阶梯专项。",
+      "backendStatus": "部分实现",
+      "implemented": "048基础公式、来源变化/贷项差额、版本钉住、独立审批、结算/追回、授权、幂等/并发及财务台账一致性专项；复用原AR/AP/GST/关账回归。",
+      "remaining": "C基础规则专项交付，D阶梯专项、真实合同/大规模性能及客户端端到端仍保留。",
       "evidence": [
-        "GAP"
+        "INCENTIVES"
       ],
       "implementationOrder": [
-        "C08",
-        "D"
+        "D",
+        "独立口径验收"
       ],
       "clientStatus": "未联调，本轮不修改客户端",
-      "productionStatus": "未验收"
+      "productionStatus": "未验收",
+      "stageCBackendAcceptance": {
+        "status": "PASSED",
+        "scope": "约定C后端切片；原整行及剩余条件保持",
+        "evidence": "docs/stage-c-backend-final-acceptance.md"
+      }
     }
   ],
-  "implementationFingerprint": "bee6c6dab1366d740a06f62b50e3e14a72d09250740f153334020d668f987063",
+  "implementationFingerprint": "55ae1530c5b3385a02e31357359734de513dc2a451d6d447f85c5864c1e80353",
   "fingerprintAlgorithm": "SHA256(UTF-8 JSON of sorted relative src/tests paths -> SHA256, separators comma/colon, ensure_ascii default)",
   "inspectedImplementationFiles": {
     "src/Htt.Host.Api/Accounting/BankReconciliationEndpoints.cs": "49d35dcc63453978fbcaed2f5c992acde9a3cdd891f657daf54a18b492c805eb",
@@ -1022,12 +1265,12 @@
     "src/Htt.Host.Api/Accounting/FinancialReportEndpoints.cs": "a51aacdccf38561fa2d7703536573f6f3a596337d898edafcb4515a949c34891",
     "src/Htt.Host.Api/Accounting/GeneralBankingEndpoints.cs": "cc4213459c6091785434957bff3a5f37e79aaf7436174bf972e212d9b1847b39",
     "src/Htt.Host.Api/Accounting/LedgerEndpoints.cs": "8ae53282930c3cf4c13c9ba04fd839b93a476b686a50d69d472501aad0aebbf1",
-    "src/Htt.Host.Api/Accounting/OperatingReportEndpoints.cs": "9298ae47ed5d6b02bb3fef125989f7e039e0edabea0c2cc85d056512228564ba",
+    "src/Htt.Host.Api/Accounting/OperatingReportEndpoints.cs": "6082b047553125d7a886244c78df9b253fef834a9bbcda3fe1ecd9c4f5ade791",
     "src/Htt.Host.Api/Accounting/PeriodCloseEndpoints.cs": "7ee659235edc5efaf31847c9dd7c41f877f9409a5b5d5ab5e6862f4dfc79f564",
     "src/Htt.Host.Api/ApiInfrastructure.cs": "5d331dc244749220b60139e01d60ede85c1df90f54af7bf9d447d2d057d29206",
     "src/Htt.Host.Api/DocumentEndpoints.cs": "6e6a26846b0bec47c68ecae5feae3e2bec11bc1f0fa6fe367fa83e6cc424ee02",
     "src/Htt.Host.Api/DocumentTrashEndpoints.cs": "0155eaf766237fd898417a204bd58de0b7eca7b104fc113076befe8f237002fb",
-    "src/Htt.Host.Api/FoundationEndpoints.cs": "07694b6cb9e7849a6a3d26ef88970ada99102c0c092efa8c53db555b18d26b9a",
+    "src/Htt.Host.Api/FoundationEndpoints.cs": "8d8742a6d909404d6a42344427d6f9eac900e7e66a7f57e54890a9b551c0759d",
     "src/Htt.Host.Api/Htt.Host.Api.csproj": "b1e09ab0e5afe79804548baf6fe0a7808d1bc471fcdf96aa114159ff0c9f0f81",
     "src/Htt.Host.Api/Inventory/BinCountEndpoints.cs": "40eac5299e5e3a653d10c378a1596a841ce1efb8a20bdb31606c2074ce9d79ea",
     "src/Htt.Host.Api/Inventory/InventoryControlEndpoints.cs": "3020c43ee96f8e65a91ce9724bcb2191c82fdfaf9c8899f7760b0d3dff1224cd",
@@ -1035,11 +1278,12 @@
     "src/Htt.Host.Api/Inventory/WarehouseDetailEndpoints.cs": "e975274b1ba3fc6541245c63aded1273d192049ce6ba716558331a439ea8cefb",
     "src/Htt.Host.Api/MasterData/CatalogMaintenanceEndpoints.cs": "0630cf71c8fd0ea96421329c9b3ade82e1d38ccac92e76318a09836dfecc1499",
     "src/Htt.Host.Api/MasterData/CollaborationEndpoints.cs": "0cf7a48676684c47299a6a509e3f8f8804c57026dea6f72988bff90535d2aa47",
-    "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs": "cf7abf551bdc4c906067255d7c904bc9faccec3959f3cf5b728a9bc2f6409df0",
+    "src/Htt.Host.Api/MasterData/CrmDraftEndpoints.cs": "3e37fee33ea3e105e975b96ea379070bad73c895893f1476beca4c0df4c3090d",
     "src/Htt.Host.Api/MasterData/CrmMaintenanceEndpoints.cs": "abc5469fc5755b8b2c5b649d29d925835e8a4099fb07ec8aba2e01bad42c594c",
     "src/Htt.Host.Api/MasterData/DiscoverySettingsEndpoints.cs": "e380587e7f31232d9277fc827a519f342e63f9f8956dd0d8f64d8098dca3000c",
     "src/Htt.Host.Api/MasterData/MasterDataSupport.cs": "24fbf019366e6b9c0080df75814c63777598847d675f47c549df3ef3e6b8f39f",
     "src/Htt.Host.Api/MasterData/PricingMaintenanceEndpoints.cs": "42cd95ef7bf54dbf87d1999ad38881289793a6899a841876b84abe35751faf7f",
+    "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs": "de271aa2d215dc229eacffee46b33d31a795b4df09e1d64bbc6650195361e836",
     "src/Htt.Host.Api/MasterDataEndpoints.cs": "6c0c0d7347fa4147434266d97302da5a6b245c741a4d354da604dfefb594d75a",
     "src/Htt.Host.Api/Portal/PortalAuthentication.cs": "377879aba1957fd0f69bd0a897c1d0d1fb21e548b182e2d5de058ab543529e8c",
     "src/Htt.Host.Api/Portal/PortalEndpoints.cs": "9381d965e4a234ded45a6e10c72c05727c56fc3e052c62792138a3589eb718ac",
@@ -1060,6 +1304,7 @@
     "src/Htt.Host.Api/Sales/CustomerRefundCorrectionEndpoints.cs": "888e02c962dcbc1efd35e64d6f0a9f6c7c0e072723bd2a7e06ba1833b56a3170",
     "src/Htt.Host.Api/Sales/DirectOrderEndpoints.cs": "96a1a4a28e019f72a54c3fe738f790542963dfda6fcfcf475a1144cbcb51fb53",
     "src/Htt.Host.Api/Sales/FulfilmentEndpoints.cs": "eb208df98fa2c8f59f0e70a5732128019fd318134bc1614bbe0a614aa7dca99d",
+    "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs": "44fb450df6ee2cfa8abc148e3d5d1bd7b5596af5aa3a8156874ddac60cf5e2df",
     "src/Htt.Host.Api/Sales/InventoryEndpoints.cs": "a51d9f4d683470f02f98fef96b42d861837dca39137fce492452d3082540841c",
     "src/Htt.Host.Api/Sales/InvoiceEndpoints.cs": "a675a4a9c74112a9cabf100fbc29c31f321b87614add46d1a7fc2d361e58cb9c",
     "src/Htt.Host.Api/Sales/OrderConfirmation.cs": "4e60836b581430e798d04b0238c2c0d63d032be0aba75e88836de8ecceb2f36e",
@@ -1069,19 +1314,21 @@
     "src/Htt.Host.Api/Sales/QuotePricing.cs": "e35cfd4e70351625c1d55cccad50241707cdf01b353283c92685259f82cf05b5",
     "src/Htt.Host.Api/Sales/ReceiptEndpoints.cs": "53eb43dc10c750541aec317178c53088699bc23671441629b23abfae2b765f7d",
     "src/Htt.Host.Api/Sales/ReturnEndpoints.cs": "5f161a7378a8b9c5f81803d452f02ac01768c37b85b70ea6404b255906096605",
+    "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs": "990efc16fc84c558690fc0a6704ffae999dad92782398be85a369818f208b024",
     "src/Htt.Host.Api/Sales/SalesSupport.cs": "26886d835341a2f9a3e40b9bb0be54ef018aed2204974c762721bcafc6aaf70b",
     "src/Htt.Host.Api/Sales/SettlementReversalEndpoints.cs": "e28b80dab792293224182a9ebe078fafcccf1afcc32c679585733aec6ea6f654",
     "src/Htt.Host.Api/SalesEndpoints.cs": "d1f8d54ca974f3306d9b56b616813a2d7490ac328267e1675f5e62fde71c8bb5",
+    "src/Htt.Host.Api/WorkbenchEndpoints.cs": "3f3975b100738a055b9938f5a52a93a808890b4c7298662f18bf5c61189cdc1f",
     "src/Htt.Host.Api/appsettings.json": "d7d237daa8e3a6b40f57eb82f0b4b2926ef43f2ae80c439ea57d704c151730bb",
     "src/Htt.Host.Api/packages.lock.json": "5467d5ab8b235b3e4d55fd3db92f55d623b56de78fc01919011bca185dd544dc",
     "src/Htt.Host.Migrations/Htt.Host.Migrations.csproj": "f74553528cd11e5bec5d49e179605f50dc419680bab2d97431afb2e7da9002b7",
     "src/Htt.Host.Migrations/Program.cs": "9ded5ebda506df372d6f257afdea7bfe7e954eebd20efe0c728654d1041f7618",
     "src/Htt.Host.Migrations/packages.lock.json": "aff78fb02ad02aa2422bfaa183c98f1ce17e7a7502c0099c3fa2dc58dc8eb90a",
     "src/Htt.Host.Worker/Htt.Host.Worker.csproj": "a20db9e19866eab99faa15cbd682dee6582ade06ff6d4d89a4ea02cb8efdfd0d",
-    "src/Htt.Host.Worker/Program.cs": "bc6b341d5e8e83af7b1084dcc541e68ff22df83f2e287b67f7ae847d6be797a0",
+    "src/Htt.Host.Worker/Program.cs": "4b147bbb763cdef284b4f45cee045dcebc86a5330844ed26221173c95ae29577",
     "src/Htt.Host.Worker/packages.lock.json": "b7edac370820c9a570fcc81f888823965a5a26ed094c1cf7fd5cf36e6602680f",
     "src/Htt.Infrastructure/AccessResolver.cs": "df4f6fdec35f26b323d6cb8de3493703183223858e8efd90b88616b1582f15bf",
-    "src/Htt.Infrastructure/CompanyBootstrap.cs": "db351a47163fe46e78db84fed45e27e5400f484726b05a03b0b0e105c06da963",
+    "src/Htt.Infrastructure/CompanyBootstrap.cs": "6a0adb1472b9963fabecac622ea7f0ddd151b11ab46476a2a241eb6f707ce07b",
     "src/Htt.Infrastructure/CompanySession.cs": "af00b4e8be168bc7455b99fd8b8b5b5e9b4216f4b7275e872ea044feabcde8d3",
     "src/Htt.Infrastructure/CompanyTaxSettings.cs": "24fa896de12c4013ea945bc341c12a9af7829fd8019140d65425ad19c2817de6",
     "src/Htt.Infrastructure/Database/Migrations/001_foundation.sql": "4d3f618d357982a536116485e07959b2f43c4b91d38ce1abc75bf09cafb872ae",
@@ -1129,11 +1376,16 @@
     "src/Htt.Infrastructure/Database/Migrations/043_bin_counts.sql": "79ff0f67b9391cc258970bde64779c70a5d3b35435eef4400c5df8704ecc068e",
     "src/Htt.Infrastructure/Database/Migrations/044_crm_mobile_drafts.sql": "6834863d88b9ffd41f5a3fd562779bf8ee66152a9b1aa665b4c1b4460af04265",
     "src/Htt.Infrastructure/Database/Migrations/045_crm_collaboration.sql": "5e317988947f611b260ec7a8c8ba255923998c9410f252361c16045bade01f49",
+    "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql": "fb7d437094de3b58cbed5e24d1fa2f1f4dd27dc394590f7efd1780bf894828da",
+    "src/Htt.Infrastructure/Database/Migrations/047_sales_analytics.sql": "698c0327551d527e433914a5a956b14111d76060a8e3c35f4a4062e06d129ac0",
+    "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql": "5d218da88568fb7545f92687fb4bd0a7d0d61d45787a7268198a431897b17239",
+    "src/Htt.Infrastructure/Database/Migrations/049_workbench.sql": "5cb38b4e19aca9f17a1ea408ade9f89914caa1fbe2ed79504fe2c94be989f8e4",
     "src/Htt.Infrastructure/Documents/CardOcrWorker.cs": "73ca8f6ebd28ce50c7186733e2103a498bb27d0ad3e8e4818c96e7af837ef4b4",
     "src/Htt.Infrastructure/Documents/CsvReportExporter.cs": "d9b909450b2a614bd9f44f4472e7b18acd9c017ea4435f2b903b08f3d71bb397",
     "src/Htt.Infrastructure/Documents/DocumentRuntime.cs": "2783fde2626232d7bb277608b66cc73d71a0bd08c392463138da8f5d5abf24b6",
     "src/Htt.Infrastructure/Documents/DocumentWorker.cs": "9c9c13f8e756534ada4e2edfc8f810b099232637651bafc0c8d87019da5b9d24",
     "src/Htt.Infrastructure/Documents/GeocodeWorker.cs": "44e5bc4ba1e8753b6c796bc88fff73875e8f0b3ffb95fe3058e730a83a5fad10",
+    "src/Htt.Infrastructure/Documents/PushWorker.cs": "08c4c84463e0bfc98ea932caa69e8de1935ac5b4a6263a06a91d8e5a568c5b36",
     "src/Htt.Infrastructure/Documents/render_pdf.py": "c9c5a73e79e0622e13d3f59bc7a6b64dc90cba19090cc3e67fa9d7324c1c3bcd",
     "src/Htt.Infrastructure/FoundationDbContext.cs": "466ac16211d9259c574950829e9b64b9f0b1b93be593c17ceb43858269c82e89",
     "src/Htt.Infrastructure/Htt.Infrastructure.csproj": "902541f3ee133d9883e87c898aac4e011bdca1267f9c6b386d3a1f1010f70df9",
@@ -1158,22 +1410,22 @@
     "tests/Htt.IntegrationTests/BankRuleTests.cs": "7350dff616f97d1ceb1ea0e8fb97f0fd85ab2c041072aa370617a07c1f746d0b",
     "tests/Htt.IntegrationTests/BankStatementTests.cs": "dcf7011b0f419618df61931b00bb4773ffe5a608eb9bdfe7deed625ef8b6a34c",
     "tests/Htt.IntegrationTests/BasTests.cs": "fc94de66bff4ae8957b383e08b5e2aa7b81acea4991359ace4bb4de576419066",
-    "tests/Htt.IntegrationTests/BinCountTests.cs": "0fe152972a672173bd78289ec1d632c00d2f28c8576de652809afe9c77dffe22",
+    "tests/Htt.IntegrationTests/BinCountTests.cs": "7fb2baf0e43450df85bc2c6014714c9a34aa201c6da0c0890fb14117506921ef",
     "tests/Htt.IntegrationTests/CardOcrTests.cs": "0f032ac658cbac38561108a14fb240036fb2c0b1e1fd4688e8aceced2589d67f",
     "tests/Htt.IntegrationTests/CashFlowTests.cs": "c216f58671dd52220a253bd6b2467666fd5278e9ad3df929aedb2ba79bcb5bd6",
     "tests/Htt.IntegrationTests/CollaborationTests.cs": "cb3c1f2c955b6ef97c6b608d1136bba75e2bec793707aff99a171aaef3b30fcc",
     "tests/Htt.IntegrationTests/CreditApplicationTests.cs": "69c50ab56a0f1e314b45fb68afe0dc3b3ddac28bb24ad8e660e7277355561ae4",
     "tests/Htt.IntegrationTests/CrmAttachmentTests.cs": "681d801f29c78d01d646e1b603d6f6c64a3f1f73532944bf6a89481a413359c0",
-    "tests/Htt.IntegrationTests/CrmDraftTests.cs": "b920d140c3106088bc9f067eb1856030d913faecc8f54cb964eca23edf41da9c",
+    "tests/Htt.IntegrationTests/CrmDraftTests.cs": "a53b8faf324160c5015a387ea4cc7b0ffb88b3dd0f192c4a3cc6b84f91afbb47",
     "tests/Htt.IntegrationTests/CrmMapTests.cs": "e8fc2bce35fdb3038ca09809bdaa7079771311302699f3e3c2ac2bea93ec8013",
-    "tests/Htt.IntegrationTests/CrmMigrationTests.cs": "484f3b1a23c652b1c10e3d39e65cc6bcbaa4f2c1b60a69a4084a7337ab567f96",
+    "tests/Htt.IntegrationTests/CrmMigrationTests.cs": "3e816909ff5a6f8632154bac8b28282b38d61db8e03176e3e62e175753696e2e",
     "tests/Htt.IntegrationTests/CustomerCreditApplicationTests.cs": "3e7334e63a84c6e8ee5f71f4039a939b6dc12dc2fcee81136cc46d9bd3adec0d",
     "tests/Htt.IntegrationTests/CustomerRefundCorrectionTests.cs": "3f32c820a7948cb013b1041da28dc5ac888e360ce09fcd14dfb0f74274d2edb3",
     "tests/Htt.IntegrationTests/DatabaseFixture.cs": "dd880aee6a165367f4acf179b9d4ded14a8ac342df989fd625d4c047c1726c66",
-    "tests/Htt.IntegrationTests/DatabaseTests.cs": "7f1eb8f61fa9e346dfb86a1433140468a4b73474fec936de95c81d6d43a86393",
+    "tests/Htt.IntegrationTests/DatabaseTests.cs": "556890cf6bb2fc0d43ecdd7480dd43ef28fd33e7883d5eee988e12488bf9b22b",
     "tests/Htt.IntegrationTests/DirectOrderTests.cs": "eafbc8d8b7c5a9b54352bf09d818d60878eef3050a1768d64b00c0d447e2066c",
     "tests/Htt.IntegrationTests/DiscoverySettingsTests.cs": "a3ff7cb829ee19ab0d5c4b40adfe1ccc44cf9a90e2ced17febaa159b06ab8684",
-    "tests/Htt.IntegrationTests/DocumentDeliveryTests.cs": "2c770c9d33bf3cd48f6f4d42e93923f292f71bb17265d2fd782540a3005985be",
+    "tests/Htt.IntegrationTests/DocumentDeliveryTests.cs": "49d72975b99eab6de9441335855c2e55a4f6a9fe9c3d7aaddc65500dfcab36a6",
     "tests/Htt.IntegrationTests/DocumentProtocolTests.cs": "369453263a4a2a7edb441c8166fed400eea6d313033c23a1376d5dc04735d785",
     "tests/Htt.IntegrationTests/DocumentTrashTests.cs": "475488a264fb8f31bc34cbee902d4c8bb705bb026410f06def13645fb3d3b374",
     "tests/Htt.IntegrationTests/ExpenseBillTests.cs": "c652a482d3418462bc33d6b462bb5d57752016279294014e105c009261808843",
@@ -1184,30 +1436,37 @@
     "tests/Htt.IntegrationTests/FullBasTests.cs": "bdedf60d45f2f414caf0d6a4efc083730e292a13b7f49cd9be86496e92118021",
     "tests/Htt.IntegrationTests/GeneralBankingTests.cs": "d315e54829cb95307998bd873dc4d33cd1e91a2d9c3aff218117ea7240f321ed",
     "tests/Htt.IntegrationTests/Htt.IntegrationTests.csproj": "31f476d647a6bca0c3469008c3f2a1dc62a709ea175e386e2e26585789c5543b",
+    "tests/Htt.IntegrationTests/IncentiveTests.cs": "49819fb9654d8de5fa63943b6e6b084b6aa19245d3a528d8e69f54aee67977bb",
     "tests/Htt.IntegrationTests/InventoryControlTests.cs": "8b73c6fe489ab0a38a0070f12270896c1780177c00feb397da57ddd6d9f22746",
     "tests/Htt.IntegrationTests/InvoicingTests.cs": "6387a6f6f24967df22d4a400cff9266e8392c868a125033134a17159df4206f8",
     "tests/Htt.IntegrationTests/MasterDataApiTests.cs": "29103ad93ef9b5aad2e26ae72a2adce448d5154421244318f89b394b6c40cc53",
-    "tests/Htt.IntegrationTests/MasterDataUpgradeTests.cs": "e727249cb78757a3ac2696b21eafd4756e071660eb984d7d5f1d0ac72e55fa47",
+    "tests/Htt.IntegrationTests/MasterDataUpgradeTests.cs": "9fc7cbc4a0256cdf9c5fb9677b7fc48e8f7ff64506e5f0022ce5468a764dd718",
     "tests/Htt.IntegrationTests/OperatingReportTests.cs": "3b6f06efd3f5e77c8a670667d99c5b7ae5521d9504a23dcd99a42942cee194a3",
     "tests/Htt.IntegrationTests/PeriodCloseTests.cs": "ae686e1d8e7ebab8be2bb96846ba4f35ae90a30be1a876368898437330018bdc",
     "tests/Htt.IntegrationTests/PortalTests.cs": "7b246bb29fc41d20bb7724c43ab59de8bd9bb44a044f0afdcceda52070b00c85",
     "tests/Htt.IntegrationTests/PurchaseAdjustmentTests.cs": "97a9e4d224c1bb1fa5be08a3739aeb9490e6ba6c8dbac025b5529f98fdee71d4",
     "tests/Htt.IntegrationTests/PurchaseReturnTests.cs": "f0fbb11f0d9a9c1cf5d0768ef706c876d10d6119cdfad898ae04d04be3cdae62",
     "tests/Htt.IntegrationTests/PurchasingTests.cs": "0d5b15beefa695366202ea87eab3688862124a182a55ca7ad82034a702c18ceb",
+    "tests/Htt.IntegrationTests/PushAdapterTests.cs": "3f033e4772445ead6e7425842f8c6d7532234d8452f72a62067ea8408e184c3c",
     "tests/Htt.IntegrationTests/QuoteOrderTests.cs": "3f0c939bf2db808f700f1c3e14dc3715cddde497d53e825ab4c5aae8e6a4db5b",
     "tests/Htt.IntegrationTests/ReceiptTests.cs": "f10bb06e91aa6d80660ba056ef3d23aaff8c94dbb678994253317c345456ab88",
     "tests/Htt.IntegrationTests/ReconciliationTests.cs": "2d365b2fb36573e5920c8a211ea4408a5589e05a36e3b9d1a6dfb1b59da9d404",
     "tests/Htt.IntegrationTests/ReturnTests.cs": "f661848411d589bba248068e80dea8e0467fce0e2604789d3de2d0fe9a3ce950",
+    "tests/Htt.IntegrationTests/SalesAnalyticsTests.cs": "e2f1ec5ae9166359a379b64350ab4db41b0a8c792ada285f63ed505d70ace382",
     "tests/Htt.IntegrationTests/SalesConcurrencyTests.cs": "bf3dfdd62a2b6dd2aaec3cff78df0154587d969424c6ecce7df1aacd413d76da",
     "tests/Htt.IntegrationTests/SalesFlowSupport.cs": "cd9a5a83f55868ae98e116f7bca98d4b9b3b997fd6da9d13090d29521428f977",
     "tests/Htt.IntegrationTests/SalesPermissionTests.cs": "9f2261fb022715f432913c34a7bf42b1c65a025b0c5182c57561f30b30367be9",
+    "tests/Htt.IntegrationTests/SalesSeriesTests.cs": "dd7b8dd35a5f7044df6550e2726ee725c3b6ef09e46d8d23366c412b80bd7f4d",
     "tests/Htt.IntegrationTests/SettlementReversalTests.cs": "1d494bbd7e5249a354332e3ac16b06fe41936f21f73fa8af01b823566eb37a00",
+    "tests/Htt.IntegrationTests/StageCAcceptanceTests.cs": "e5cadf2bea0803b3ed812fce5fefb13d58e92293e6aa0dfaaa78e88b5223e5ce",
     "tests/Htt.IntegrationTests/SupplierBillTests.cs": "5e448e039da9962d6c9885e67658ae48e2cb5cb37653030d02afd6247aa2b407",
     "tests/Htt.IntegrationTests/SupplierPaymentTests.cs": "e7f591877bbfd1a6f83aaffee9481c1290876069e7c3afc8a99094f1570b65c0",
     "tests/Htt.IntegrationTests/SupplierRefundCorrectionTests.cs": "439722ceefe9b4675cb538914b043fedcb5b5d3d0e2c9cf380a888ceeb306ed2",
     "tests/Htt.IntegrationTests/SupplierSettlementReversalTests.cs": "99083fece14981cd871503c6a7b66db3155ba57c77eae28b941f8ecbdda3c9f8",
+    "tests/Htt.IntegrationTests/TaskNotificationTests.cs": "fd0d644746f8252d50ba179c6faa865a2afc9ef879c9576f3d12fe441197f5f3",
     "tests/Htt.IntegrationTests/TransitTests.cs": "c84a1d890f246e9a8a82a47e3a23af2f33693c8e5aa35b590d4dde4c572326c3",
     "tests/Htt.IntegrationTests/WarehouseDetailTests.cs": "72ee3ae6b0b307d5f542376a49edb214e442bdf49cbac803a1bb0cccdb7c6b67",
+    "tests/Htt.IntegrationTests/WorkbenchTests.cs": "a2bc2fb78d00653ba59790ab62a2f766ef0828a9e278c6cab8e698fb40f8e4d8",
     "tests/Htt.IntegrationTests/packages.lock.json": "e8692e20235e6e81a51c8fa8794e81f0a7cd426a3aadf93ebed3a324c8a34f50",
     "tests/Htt.UnitTests/CalculationTests.cs": "c1574dc221fbefe0bd3910d5396e9fae341be5092962e37b99604f38c76facb0",
     "tests/Htt.UnitTests/Htt.UnitTests.csproj": "f71d2a572d4103ac0c12783e05b0d6c199dd2337a809fbfa3b391199a4440a72",
@@ -1818,67 +2077,67 @@
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 42,
+        "line": 46,
         "method": "Get",
         "literal": "/foundation"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 50,
+        "line": 54,
         "method": "Get",
         "literal": "/customers"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 51,
+        "line": 55,
         "method": "Post",
         "literal": "/customers"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 52,
+        "line": 56,
         "method": "Patch",
         "literal": "/customers/{id:guid}/status"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 53,
+        "line": 57,
         "method": "Get",
         "literal": "/products"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 61,
+        "line": 65,
         "method": "Post",
         "literal": "/products"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 62,
+        "line": 66,
         "method": "Get",
         "literal": "/products/{id:guid}/units"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 66,
+        "line": 70,
         "method": "Get",
         "literal": "/accounting/accounts"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 69,
+        "line": 73,
         "method": "Get",
         "literal": "/accounting/tax-rates"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 72,
+        "line": 76,
         "method": "Get",
         "literal": "/pricing/resolve"
       },
       {
         "file": "src/Htt.Host.Api/FoundationEndpoints.cs",
-        "line": 73,
+        "line": 77,
         "method": "Get",
         "literal": "/audit"
       },
@@ -2585,6 +2844,126 @@
         "literal": "/pricing/floors/{id:guid}"
       },
       {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 27,
+        "method": "Get",
+        "literal": "/crm/task-assignees"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 28,
+        "method": "Get",
+        "literal": "/crm/notes/{id:guid}/follow"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 29,
+        "method": "Get",
+        "literal": "/crm/tasks"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 30,
+        "method": "Post",
+        "literal": "/crm/tasks"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 31,
+        "method": "Get",
+        "literal": "/crm/tasks/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 32,
+        "method": "Get",
+        "literal": "/crm/tasks/{id:guid}/history"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 33,
+        "method": "Put",
+        "literal": "/crm/tasks/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 34,
+        "method": "Post",
+        "literal": "/crm/tasks/{id:guid}/"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 35,
+        "method": "Post",
+        "literal": "/crm/mobile/devices/{device:guid}/task-operations"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 36,
+        "method": "Get",
+        "literal": "/crm/messages"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 37,
+        "method": "Get",
+        "literal": "/crm/messages/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 38,
+        "method": "Put",
+        "literal": "/crm/messages/{id:guid}/read"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 39,
+        "method": "Get",
+        "literal": "/crm/messages/{id:guid}/push"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 40,
+        "method": "Post",
+        "literal": "/crm/push/jobs/{id:guid}/retry"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 41,
+        "method": "Put",
+        "literal": "/crm/notes/{id:guid}/follow"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 42,
+        "method": "Get",
+        "literal": "/crm/notification-preferences"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 43,
+        "method": "Put",
+        "literal": "/crm/notification-preferences"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 44,
+        "method": "Get",
+        "literal": "/crm/mobile/devices/{device:guid}/push-subscription"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 45,
+        "method": "Put",
+        "literal": "/crm/mobile/devices/{device:guid}/push-subscription"
+      },
+      {
+        "file": "src/Htt.Host.Api/MasterData/TaskNotificationEndpoints.cs",
+        "line": 46,
+        "method": "Get",
+        "literal": "/crm/action-centre"
+      },
+      {
         "file": "src/Htt.Host.Api/MasterDataEndpoints.cs",
         "line": 9,
         "method": "Group",
@@ -3131,6 +3510,102 @@
         "literal": "/inventory/valuation"
       },
       {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 29,
+        "method": "Get",
+        "literal": "/incentives/programs"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 30,
+        "method": "Get",
+        "literal": "/incentives/programs/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 31,
+        "method": "Get",
+        "literal": "/incentives/ledger"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 32,
+        "method": "Get",
+        "literal": "/incentives/me"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 33,
+        "method": "Post",
+        "literal": "/incentives/programs"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 34,
+        "method": "Put",
+        "literal": "/incentives/programs/{id:guid}/enabled"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 35,
+        "method": "Post",
+        "literal": "/incentives/programs/{program:guid}/policies"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 36,
+        "method": "Post",
+        "literal": "/incentives/policies/{id:guid}/approve"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 37,
+        "method": "Post",
+        "literal": "/incentives/periods"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 38,
+        "method": "Post",
+        "literal": "/incentives/periods/{id:guid}/review"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 39,
+        "method": "Post",
+        "literal": "/incentives/runs"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 40,
+        "method": "Get",
+        "literal": "/incentives/runs/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 41,
+        "method": "Post",
+        "literal": "/incentives/runs/{id:guid}/"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 42,
+        "method": "Post",
+        "literal": "/incentives/settlements"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 43,
+        "method": "Post",
+        "literal": "/incentives/offsets"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/IncentiveEndpoints.cs",
+        "line": 44,
+        "method": "Put",
+        "literal": "/incentives/programs/{id:guid}/display-grants"
+      },
+      {
         "file": "src/Htt.Host.Api/Sales/InventoryEndpoints.cs",
         "line": 11,
         "method": "Get",
@@ -3347,6 +3822,54 @@
         "literal": "/customers/{id:guid}/refunds"
       },
       {
+        "file": "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "line": 21,
+        "method": "Get",
+        "literal": "/sales-analytics/trends"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "line": 22,
+        "method": "Get",
+        "literal": "/sales-analytics/facts"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "line": 23,
+        "method": "Get",
+        "literal": "/sales-analytics/pending-returns"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "line": 24,
+        "method": "Get",
+        "literal": "/sales-analytics/reconciliation"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "line": 25,
+        "method": "Post",
+        "literal": "/sales-analytics/checkpoints"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "line": 26,
+        "method": "Get",
+        "literal": "/sales-analytics/checkpoints/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "line": 27,
+        "method": "Get",
+        "literal": "/sales-orders/{id:guid}/sales-attribution"
+      },
+      {
+        "file": "src/Htt.Host.Api/Sales/SalesAnalyticsEndpoints.cs",
+        "line": 28,
+        "method": "Put",
+        "literal": "/sales-orders/{id:guid}/sales-attribution"
+      },
+      {
         "file": "src/Htt.Host.Api/Sales/SettlementReversalEndpoints.cs",
         "line": 17,
         "method": "Post",
@@ -3387,6 +3910,48 @@
         "line": 9,
         "method": "Group",
         "literal": "/api/v1"
+      },
+      {
+        "file": "src/Htt.Host.Api/WorkbenchEndpoints.cs",
+        "line": 18,
+        "method": "Group",
+        "literal": "/workbench"
+      },
+      {
+        "file": "src/Htt.Host.Api/WorkbenchEndpoints.cs",
+        "line": 19,
+        "method": "Get",
+        "literal": "/finance"
+      },
+      {
+        "file": "src/Htt.Host.Api/WorkbenchEndpoints.cs",
+        "line": 21,
+        "method": "Get",
+        "literal": "/sales"
+      },
+      {
+        "file": "src/Htt.Host.Api/WorkbenchEndpoints.cs",
+        "line": 23,
+        "method": "Get",
+        "literal": "/office"
+      },
+      {
+        "file": "src/Htt.Host.Api/WorkbenchEndpoints.cs",
+        "line": 25,
+        "method": "Get",
+        "literal": "/customers/{id:guid}"
+      },
+      {
+        "file": "src/Htt.Host.Api/WorkbenchEndpoints.cs",
+        "line": 27,
+        "method": "Get",
+        "literal": "/banks"
+      },
+      {
+        "file": "src/Htt.Host.Api/WorkbenchEndpoints.cs",
+        "line": 29,
+        "method": "Get",
+        "literal": "/warehouse"
       }
     ],
     "tableDeclarations": [
@@ -4197,12 +4762,120 @@
       {
         "file": "src/Htt.Infrastructure/Database/Migrations/045_crm_collaboration.sql",
         "table": "crm.geocode_jobs"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.tasks"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.task_history"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.task_changes"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.notification_messages"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.notification_changes"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.reminder_deliveries"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.note_follows"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.notification_preferences"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.push_subscriptions"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.push_jobs"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/046_tasks_notifications.sql",
+        "table": "crm.push_attempts"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/047_sales_analytics.sql",
+        "table": "sales.order_attributions"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/047_sales_analytics.sql",
+        "table": "sales.line_dimensions"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.programs"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.policies"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.policy_approvals"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.liability_accounts"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.periods"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.runs"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.run_events"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.claims"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.accruals"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.settlements"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.settlement_lines"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.display_grants"
+      },
+      {
+        "file": "src/Htt.Infrastructure/Database/Migrations/048_incentives.sql",
+        "table": "incentives.period_events"
       }
     ],
     "integrationTestClasses": [
       {
         "file": "tests/Htt.IntegrationTests/AmountCreditTests.cs",
         "testClass": "AmountCreditTests"
+      },
+      {
+        "file": "tests/Htt.IntegrationTests/ApiTests.cs",
+        "testClass": "TestApi"
       },
       {
         "file": "tests/Htt.IntegrationTests/ApiTests.cs",
@@ -4269,6 +4942,10 @@
         "testClass": "CustomerRefundCorrectionTests"
       },
       {
+        "file": "tests/Htt.IntegrationTests/DatabaseFixture.cs",
+        "testClass": "DatabaseFixture"
+      },
+      {
         "file": "tests/Htt.IntegrationTests/DatabaseTests.cs",
         "testClass": "DatabaseTests"
       },
@@ -4317,6 +4994,10 @@
         "testClass": "GeneralBankingTests"
       },
       {
+        "file": "tests/Htt.IntegrationTests/IncentiveTests.cs",
+        "testClass": "IncentiveTests"
+      },
+      {
         "file": "tests/Htt.IntegrationTests/InventoryControlTests.cs",
         "testClass": "InventoryControlTests"
       },
@@ -4357,6 +5038,10 @@
         "testClass": "PurchasingTests"
       },
       {
+        "file": "tests/Htt.IntegrationTests/PushAdapterTests.cs",
+        "testClass": "PushAdapterTests"
+      },
+      {
         "file": "tests/Htt.IntegrationTests/QuoteOrderTests.cs",
         "testClass": "QuoteOrderTests"
       },
@@ -4373,6 +5058,10 @@
         "testClass": "ReturnTests"
       },
       {
+        "file": "tests/Htt.IntegrationTests/SalesAnalyticsTests.cs",
+        "testClass": "SalesAnalyticsTests"
+      },
+      {
         "file": "tests/Htt.IntegrationTests/SalesConcurrencyTests.cs",
         "testClass": "SalesConcurrencyTests"
       },
@@ -4381,8 +5070,16 @@
         "testClass": "SalesPermissionTests"
       },
       {
+        "file": "tests/Htt.IntegrationTests/SalesSeriesTests.cs",
+        "testClass": "SalesSeriesTests"
+      },
+      {
         "file": "tests/Htt.IntegrationTests/SettlementReversalTests.cs",
         "testClass": "SettlementReversalTests"
+      },
+      {
+        "file": "tests/Htt.IntegrationTests/StageCAcceptanceTests.cs",
+        "testClass": "StageCAcceptanceTests"
       },
       {
         "file": "tests/Htt.IntegrationTests/SupplierBillTests.cs",
@@ -4401,12 +5098,20 @@
         "testClass": "SupplierSettlementReversalTests"
       },
       {
+        "file": "tests/Htt.IntegrationTests/TaskNotificationTests.cs",
+        "testClass": "TaskNotificationTests"
+      },
+      {
         "file": "tests/Htt.IntegrationTests/TransitTests.cs",
         "testClass": "TransitTests"
       },
       {
         "file": "tests/Htt.IntegrationTests/WarehouseDetailTests.cs",
         "testClass": "WarehouseDetailTests"
+      },
+      {
+        "file": "tests/Htt.IntegrationTests/WorkbenchTests.cs",
+        "testClass": "WorkbenchTests"
       }
     ]
   },
@@ -4429,5 +5134,18 @@
       "implemented": "042补本期经营报表过滤/分页和受控导出。",
       "remaining": "其他列表完整白名单搜索排序、列选择、批量及导出契约仍保留。"
     }
-  ]
+  ],
+  "finalAcceptance": {
+    "date": "2026-11-01",
+    "status": "PASSED",
+    "scopeDocument": "docs/stage-c-backend-final-acceptance.md",
+    "testManifest": "docs/stage-c-final-results.json",
+    "uniqueTestsPerPlatform": 2395,
+    "platforms": [
+      "macOS-arm64",
+      "Linux-arm64"
+    ],
+    "rowSummaryUnchanged": true,
+    "productionDeployed": false
+  }
 }

@@ -1,6 +1,6 @@
 # 原需求逐行验收矩阵（后台范围）
 
-初验日期：2026-10-24；阶段C逐行刷新：2026-10-30（截至045；C05增量）。仅核查并修改 htt-backend；现有三个客户端均未联调/修改。来源中的建议和待确认内容视为参考，不自动执行，也不重新承诺人日。
+初验日期：2026-10-24；阶段C逐行刷新：2026-11-01（截至049；C09增量）。仅核查并修改 htt-backend；现有三个客户端均未联调/修改。来源中的建议和待确认内容视为参考，不自动执行，也不重新承诺人日。
 
 原工作簿：`HTT%E4%B8%89%E7%AB%AF%E7%B3%BB%E7%BB%9F_%E5%88%A0%E5%87%8F%E4%B8%8E%E6%96%B0%E5%A2%9E%E5%8A%9F%E8%83%BD_%E5%B7%A5%E6%97%B6%E9%87%8D%E4%BC%B0_20261017.xlsx`；SHA-256 `c06eb26520401892f61655de601cb9e8e53eeddb439050259f8d6b32bffa28e1`。读取4个sheet，逐项工时重估A2:Q117共116条；保留优先级、增删边界及新功能验收口径。
 
@@ -17,7 +17,7 @@
 | 2 / R002 | 管理/财务端：Business/company, users, roles, permissions, audit log, global settings | P0 / 保留 | A | 部分实现 | [master-data-api.md](master-data-api.md)；[stage-a.md](stage-a.md) | OIDC校验、成员解析、RBAC/行范围和审计已实现；真实身份提供商联调、成员/角色分配及完整全局设置管理未交付。 |
 | 3 / R003 | 管理/财务端：Double-entry ledger, journal engine, posting rules, periods, balances | P0 / 保留 | A | 部分实现 | [stage-b-reconciliation.md](stage-b-reconciliation.md)；[stage-a.md](stage-a.md) | 自动Journal、开放期间保护、不可变过账及控制一致性已实现；完整期初迁移、期间关闭管理流程和余额报表未交付。 |
 | 4 / R004 | 管理/财务端：Tax codes, GST calculation, inclusive/exclusive tax, reporting mappings | P0 / 保留 | A | 部分实现 | [stage-b-invoicing.md](stage-b-invoicing.md)；[stage-b-supplier-payments.md](stage-b-supplier-payments.md) | AU税码、金额计算、CASH/NON_CASH归属及冲销已实现；完整BAS/IAS、税务申报版本及独立预付税票未交付。 |
-| 5 / R005 | 管理/财务端：KPIs, income/expense charts, financial position, tasks/up-next | P1 / 保留 | C | 未实现 | [stage-c-financial-reports.md](stage-c-financial-reports.md)；[stage-c-cash-flow.md](stage-c-cash-flow.md) | 可复用P&L/BS/现金流查询；没有经营Dashboard/KPI聚合入口。 收入费用图表、财务概览和tasks/up-next统一口径。 实施包：C09。详见[本次C核查](stage-c-acceptance.md)。 |
+| 5 / R005 | 管理/财务端：KPIs, income/expense charts, financial position, tasks/up-next | P1 / 保留 | C | 后端已实现 | [C09工作台](stage-c-workbench.md) | 049财务工作台复用原P&L/BS/AR/AP口径，提供同语句快照的摘要、月度收入费用/利润、授权任务up-next及本人消息；只读且无余额副本。 约定后台聚合切片交付；客户端图表、真实规模性能及生产另验。 |
 | 6 / R006 | 管理/财务端：Customers, suppliers, customer→multi-branch→multi-contact, contact roles, accountant phone/email, financial defaults, import/export | P0 / 部分缩减 | A | 部分实现 | [master-data-api.md](master-data-api.md) | 客户供应商、多门店、多联系人、会计联系方式维护已实现；批量导入导出未交付。 |
 | 7 / R007 | 管理/财务端：Products/services, buy/sell settings, stock, valuation, reorder settings, sales unit & pack↔m² conversion | P0 / 部分缩减 | A/B | 部分实现 | [stage-b-inventory-control.md](stage-b-inventory-control.md)；[stage-b-transit-transfers.md](stage-b-transit-transfers.md) | 商品/服务、单位换算、库存及移动均价已实现；补货执行、批次/货位与完整商品搜索未交付。 |
 | 8 / R008 | 管理/财务端：库存成本字段按角色控制 | P0 / 保留 | A | 后端已实现 | [stage-b-warehouse.md](stage-b-warehouse.md)；[stage-b-inventory-control.md](stage-b-inventory-control.md) | 普通仓库查询隐藏成本；财务成本读取独立授权。附件/导出尚未开放，不能据此认定这些未来入口已验证。 |
@@ -37,7 +37,7 @@
 | 22 / R022 | 管理/财务端：Allocate payments, partial/multiple bills, remittance | P0 / 部分缩减 | B | 后端已实现 | [stage-b-supplier-payments.md](stage-b-supplier-payments.md) | 人工核实付款、多账单分配、预付核销和现金制进项GST已实现；026补付款撤销/关联重核销/一步更正、预付整笔解除及重新核销，兼容原供应商贷项抵扣/退款，见[供应商结算更正](stage-b-supplier-settlement-reversals.md)。汇款通知/打印按源边界排除。 |
 | 23 / R023 | 管理/财务端：Supplier debits, apply debit, supplier refunds | P1 / 保留 | B | 后端已实现 | [stage-b-purchase-returns.md](stage-b-purchase-returns.md)；[stage-b-credit-applications.md](stage-b-credit-applications.md) | 原收货退货、来源贷项、供应商/预付退款已实现；022补独立费用账单来源的金额贷项、退款及费用/AP/GST冲销，见stage-b-expense-credits.md。023已补同供应商/party可用贷项跨账单抵扣及整笔解除，含AP/GST、权限、幂等和并发；限制实际未退款/未转用余额，目标已退款或转用导致资金不足时拒绝解除。 028已补供应商退款撤销、关联替代及一步金额/合法来源更正，兼容有效AP/预付余额、付款撤销/核销与供应商贷项抵扣及进项GST，见[退款更正](stage-b-supplier-refund-corrections.md)。 |
 | 24 / R024 | 管理/财务端：Templates, schedules, auto-generate invoices/bills/transactions | P2 / 保留 | D | 未实现 | — | Recurring模板/调度/自动生成未实现；原矩阵属D。 |
-| 25 / R025 | 管理/财务端：Accounts, balances, feeds status, attention items | P0 / 保留 | B/C | 部分实现 | [stage-c-bank-rules.md](stage-c-bank-rules.md)；[stage-c-general-banking.md](stage-c-general-banking.md) | 033银行档案/默认账户/收付选择；034现金明细、可匹配和未达数据已交付。041新增按银行/期间分页的规则例外及待确认建议。 C银行Hub统一余额/关注聚合；D真实Feeds连接状态。 实施包：C09、D。 |
+| 25 / R025 | 管理/财务端：Accounts, balances, feeds status, attention items | P0 / 保留 | B/C | 部分实现 | [C09工作台](stage-c-workbench.md) | 033银行档案、034对账、041规则例外及049银行Hub：截止日GL余额、最近有效流水/对账、未匹配及部分匹配关注、规则启停数和明确的手工导入状态。 B/C约定后台切片交付；D真实Bank Feeds连接状态、真实服务及客户端/生产另验，不虚构已连接。 |
 | 26 / R026 | 管理/财务端：Import/feed transactions, categorise, match, split | P0 / 保留 | C/D | 部分实现 | [stage-c-bank-rules.md](stage-c-bank-rules.md)；[stage-c-general-banking.md](stage-c-general-banking.md) | 034导入/防重/匹配及解除，040人工分类/拆分写入，041版本化规则自动匹配、解释预览、受控执行与例外查询。 D真实自动Bank Feeds；本行C导入/分类/拆分/匹配切片已交付，客户端与生产另验。 实施包：D。 |
 | 27 / R027 | 管理/财务端：Condition/action rules, enable/disable, auto-categorisation | P1 / 保留 | C | 后端已实现 | [stage-c-bank-rules.md](stage-c-bank-rules.md)；[stage-c-general-banking.md](stage-c-general-banking.md) | 041字面条件及金额范围、科目/GST比例动作、版本/优先级/启停、命中解释、预览快照、建议确认/自动执行分权及例外分页；复用C01过账/匹配及期间保护。 本行约定后端切片无新增欠项；AUTO为显式授权触发，不包含导入即后台过账、外部Feeds及客户端联调。 实施包：C02已完成。 |
 | 28 / R028 | 管理/财务端：Statement reconciliation, transaction selection, difference=0 completion | P0 / 保留 | C | 后端已实现 | [stage-b-bank-ledger.md](stage-b-bank-ledger.md)；[stage-c-bank-reconciliation.md](stage-c-bank-reconciliation.md) | 034连续银行对账、首期清算/未达、差异严格为0、冻结快照、最新期重开及闭期现金保护。 本行后端切片无新增欠项；真实银行格式/客户端/生产另验。 实施包：已交付切片。详见[本次C核查](stage-c-acceptance.md)。 |
@@ -53,7 +53,7 @@
 | 38 / R038 | 管理/财务端：Hours, pay items, jobs, import into pay run | P2 / 保留 | D | 未实现 | — | Payroll Timesheets未实现；不恢复Time Billing；D。 |
 | 39 / R039 | 管理/财务端：STP equivalent / NZ Payday Filing integration layer | P2 / 保留 | D | 未实现 | — | 仅保留澳洲STP方向；工作簿中的NZ Payday字样不适用。AU申报服务未接入；D。 |
 | 40 / R040 | 管理/财务端：P&L, Balance Sheet, Cash Flow, Trial Balance, GL | P0 / 保留 | C | 后端已实现 | [stage-c-financial-reports.md](stage-c-financial-reports.md)；[stage-c-cash-flow.md](stage-c-cash-flow.md)；[stage-c-gst-bas.md](stage-c-gst-bas.md)；[stage-c-full-bas.md](stage-c-full-bas.md)；[stage-c-period-close.md](stage-c-period-close.md) | 033—036及039已提供P&L、BS、直接法CF、TB、GL；包含历史账龄及年结后利润/权益保护。 完成原行五类核心后端报表；通用导出归R052/R054，收藏/报表包归D的R042/R043；客户端和生产另验，不倒推新增法定模板/间接法为本行阻塞。 实施包：已交付切片。详见[本次C核查](stage-c-acceptance.md)。 |
-| 41 / R041 | 管理/财务端：Sales, purchases, receivables/payables, payroll, banking | P1 / 保留 | C/D | 部分实现 | [stage-c-statements-operating-reports.md](stage-c-statements-operating-reports.md)；[verification.md](verification.md) | 既有财务/账龄/现金流，042补采购事件、AR/AP历史及预收预付、在库/在途和银行经营报表，白名单过滤、总计分页及冻结CSV导出。 C07销售事实/净销售经营报表及D工资报表；真实规模和客户端另验。 实施包：C07、D。 |
+| 41 / R041 | 管理/财务端：Sales, purchases, receivables/payables, payroll, banking | P1 / 保留 | C/D | 部分实现 | [C07共用销售事实](stage-c-sales-analytics.md) | 既有财务/采购/往来/库存/银行报告；047补SALES未税净销售、同源事实/检查点/CSV、发运与采购价差成本来源及GL桥接。 本行C切片已交付；D工资报表、真实规模和客户端另验。 |
 | 42 / R042 | 管理/财务端：Filters, columns, saved reports/favourites | P2 / 保留 | D | 未实现 | — | 收藏/自定义报表未实现；D。 |
 | 43 / R043 | 管理/财务端：Multi-report packs, cover/TOC, PDF generation | P2 / 保留 | D | 未实现 | — | 报表包、封面/目录/PDF未实现；D。 |
 | 44 / R044 | 管理/财务端：Upload/preview/delete, entity attachments, document inbox | P1 / 保留 | B | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-documents.md](stage-b-documents.md) | 017补QUOTE/INVOICE/PURCHASE_ORDER私有PDF/PNG/JPEG附件上传、扫描、版本绑定、撤销和授权下载；仓管交接照片、其他单据/实体附件、云存储接入未完成。 |
@@ -65,13 +65,13 @@
 | 50 / R050 | 管理/财务端：Basis, currency, headers, number formatting | P2 / 保留 | D | 未实现 | — | 独立报表口径/页眉/格式设置未实现；D。 |
 | 51 / R051 | 管理/财务端：Cross-entity search by number/name/reference | P2 / 保留 | D | 未实现 | — | 跨实体搜索未实现；D。 |
 | 52 / R052 | 管理/财务端：Search/filter/sort/pagination/columns/bulk/export | P0 / 保留 | A起贯穿 | 部分实现 | [master-data-api.md](master-data-api.md) [stage-c-statements-operating-reports.md](stage-c-statements-operating-reports.md)；| 列表稳定分页与部分过滤已有，042补本期经营报表白名单过滤/分页和受控导出；其他列表完整搜索排序、列选择、批量和导出契约仍未完成。 |
-| 53 / R053 | 管理/财务端：System reminders, due items, action centre | P2 / 部分缩减 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 审计/Outbox及文档作业状态已有基础，不构成业务行动中心。 业务到期提醒、Task待办及消息行动中心；独立自动发票催收仍排除。 实施包：C06、C09。详见[本次C核查](stage-c-acceptance.md)。 |
+| 53 / R053 | 管理/财务端：System reminders, due items, action centre | P2 / 部分缩减 | C | 后端已实现 | [C06接口与边界](stage-c-tasks-notifications.md) | Task到期提醒、本人未读消息/行动中心、授权AR/AP到期关注；复用既有往来变动及GL日期，不另建经济余额。 后端切片已交付；独立自动Invoice催收仍排除，C09完整工作台另列。 |
 | 54 / R054 | 管理/财务端：CSV import mapping/validation/errors + data exports | P1 / 保留 | A起贯穿 | 部分实现 | [stage-c-statements-operating-reports.md](stage-c-statements-operating-reports.md) | 042已实现四类经营报表冻结CSV及受控下载/重试；通用主数据CSV映射、预览、逐行错误及其他业务导入导出仍未完成。 |
 | 55 / R055 | 管理/财务端：Invoice/quote/PO/statement/remittance document generation | P1 / 部分缩减 | B/C | 后端已实现 | [stage-c-statements-operating-reports.md](stage-c-statements-operating-reports.md)；[verification.md](verification.md) | 既有报价/发票/PO版本化PDF与邮件，042补客户对账单冻结模板、PDF与邮件，复用私有文件和租约重试。 原保留模板后端已齐；Remittance及专用收据模板仍按原边界排除，客户端和真实服务另验。 实施包：C03已完成。 |
 | 56 / R056 | 管理/财务端：Unit/integration/E2E, permission tests, financial regression, security hardening | P0 / 保留 | 全阶段 | 部分实现 | [verification.md](verification.md)；[stage-b-acceptance.md](stage-b-acceptance.md)；[stage-b-documents.md](stage-b-documents.md) | 真实PostgreSQL权限/幂等/并发/财务回归及017文档/协议/重试专项已实现；客户端E2E、真实外部身份/发件服务及生产安全/容量验收未完成。 |
 | 57 / R057 | 管理/财务端：CI/CD, environments, backup, logging, monitoring, release | P0 / 保留 | A起贯穿 | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-documents.md](stage-b-documents.md) | Docker/迁移/健康检查/日志/测试脚本及017PDF运行时镜像已验证；正式CI/CD、云部署、监控告警、备份恢复和真实扫描/发件运营未验收。 |
 | 58 / S-01 | 销售端：销售人员登录 | P0 / 保留 | A | 部分实现 | [stage-a.md](stage-a.md) | 员工JWT及DB成员权限校验已实现；真实身份提供商、移动登录联调未完成。 |
-| 59 / S-02 | 销售端：销售工作台 | P1 / 保留 | C | 未实现 | [master-data-api.md](master-data-api.md)；[stage-b-search-settings.md](stage-b-search-settings.md)；[stage-b-sales.md](stage-b-sales.md) | 授权客户、报价、订单查询可复用。 销售客户/Task/拜访待办工作台聚合。 实施包：C09。详见[本次C核查](stage-c-acceptance.md)。 |
+| 59 / S-02 | 销售端：销售工作台 | P1 / 保留 | C | 后端已实现 | [C09工作台](stage-c-workbench.md) | 049销售工作台聚合当前授权客户目录、报价/订单、任务/待办、Note/拜访/展板、资料草稿、同源趋势、本人及显式授权激励；分页和当前撤权。 约定后台切片交付；手机工作台、设备缓存和实机联调另验。 |
 | 60 / S-03 | 销售端：按客户名、编号、门店、联系人、电话或Email搜索；支持最近访问、区域/状态筛选。 | P0 / 保留 | A/B | 部分实现 | [master-data-api.md](master-data-api.md) | 客户名称/编号搜索及授权范围已实现；跨门店/联系人/电话/email搜索、最近访问、区域筛选未实现。 |
 | 61 / S-04 | 销售端：查看客户主体、关联门店及各门店多个联系人；显示姓名、职位、电话、Email、地址、销售负责人和会计联系人。 | P0 / 保留 | A/B | 部分实现 | [master-data-api.md](master-data-api.md) | 客户、门店、多联系人/会计联系方式查询已实现；销售负责人展示/完整聚合接口未实现。 |
 | 62 / S-05 | 销售端：客户Notes | P0 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045 Note CRUD、TEAM/OFFICE/PRIVATE、按版本历史与旧私有版本隔离、附件和同步、删除tombstone/ACL重置。 客户端呈现与设备缓存清理另验；个人私有Note不默认向办公室开放。 |
@@ -84,14 +84,14 @@
 | 69 / S-12 | 销售端：Check-in | P0 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045用户发起拜访签到、客户/门店/操作者、定位精度/采集时间/服务端接收时间、每人一OPEN、权限/幂等/并发。 手机定位授权、真实定位与实机离线联调另验，后台不保证客户端GPS真实性。 |
 | 70 / S-13 | 销售端：Check-out | P0 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045原访客签退、同会话版本/状态/时间约束，并发一次生效；办公室取消单列原因且不伪造签退。 手机操作及真实会话UAT另验；拜访历史不能删除成无痕记录。 |
 | 71 / S-14 | 销售端：拜访历史 | P1 / 保留 | C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045客户/门店/操作者/状态/时间授权查询，办公室共享、历史/附件及同步；其他销售不自动获得他人GPS历史。 客户端历史页及C09聚合另验；当前服务端会话链无新增缺项。 |
-| 72 / S-15 | 销售端：创建Task | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | Outbox是基础设施，不是Task业务表和创建接口。 Task对象、负责人、关联客户、截止时间与审计。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
-| 73 / S-16 | 销售端：Task列表 | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有Task查询API。 角色/负责人/客户范围过滤及稳定分页列表。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
-| 74 / S-17 | 销售端：完成/更新Task | P0 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有Task状态机。 更新/完成、版本、幂等、变更历史及并发测试。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
-| 75 / S-18 | 销售端：Task/Note推送 | P1 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 文档邮件适配和Outbox不代表移动Task/Note推送。 通知收件人、设备令牌、投递作业、重试去重及真实提供商验证。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
-| 76 / S-19 | 销售端：系统消息中心 | P2 / 保留 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有业务消息/已读记录。 授权消息中心、游标/分页、已读/未读与同步。 实施包：C06。详见[本次C核查](stage-c-acceptance.md)。 |
+| 72 / S-15 | 销售端：创建Task | P0 / 保留 | C | 后端已实现 | [C06接口与边界](stage-c-tasks-notifications.md) | 046 Task对象、稳定ID、负责人目录、客户/门店范围、截止/提醒及同事务审计。 本行后台切片已交付；客户端及生产另验。 |
+| 73 / S-16 | 销售端：Task列表 | P0 / 保留 | C | 后端已实现 | [C06接口与边界](stage-c-tasks-notifications.md) | 046当前创建者/负责人/办公室及客户范围过滤；负责人/状态/客户/截止时间过滤和稳定分页。 本行后台切片已交付；客户端及生产另验。 |
+| 74 / S-17 | 销售端：完成/更新Task | P0 / 保留 | C | 后端已实现 | [C06接口与边界](stage-c-tasks-notifications.md) | 046状态机、If-Match、历史、幂等、共享离线操作ID/序号及并发一次生效；删除缓存与历史隐私。 本行后台切片已交付；客户端及生产另验。 |
+| 75 / S-18 | 销售端：Task/Note推送 | P1 / 保留 | C | 后端已实现 | [C06接口与边界](stage-c-tasks-notifications.md) | 046持久收件人消息、Task/显式关注Note推送、FCM HTTP v1/OAuth适配、私有令牌、租约/限次/UNKNOWN及受控重试；网络失败不回滚来源。 后端切片已交付；真实Firebase/APNs/Web/设备投递、客户端授权与深链仍需联调；未发送真实推送。 |
+| 76 / S-19 | 销售端：系统消息中心 | P2 / 保留 | C | 后端已实现 | [C06接口与边界](stage-c-tasks-notifications.md) | 046本人收件箱、来源现时授权、已读/未读/version/幂等、分页与共享同步；不是诊断Outbox。 本行后台切片已交付；真实设备缓存与展示另验。 |
 | 77 / S-20 | 销售端：销售扫描客户名片，识别姓名、公司/门店、电话、Email并生成联系人草稿。 | P1 / 保留 | C | 后端已实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044私有名片图片、扫描/OCR作业、HTTPS网关适配、重试/租约、姓名/公司/门店等建议及人工确认联系人草稿，复用独立办公室审核。 真实OCR网关合同/识别质量及手机拍照联调另验；不自动建公司或合并客户。 |
 | 78 / S-21 | 销售端：手工新增客户、门店或联系人，并关联到已有客户主体。 | P1 / 保留 | C | 后端已实现 | [C04接口与边界](stage-c-crm-mobile.md) | 044销售客户/门店/联系人草稿、目标客户/门店授权、重复建议、版本审核、一次生成正式数据及客户信用初始化/默认账期/销售分配。 三个客户端接入及业务UAT另验；正式信用与非默认账期仍沿用既有专门权限。 |
-| 79 / S-22 | 销售端：移动端Note、Task、拜访、客户/门店/联系人草稿及通讯录导入结果同步到管理平台。 | P0 / 保留 | C | 部分实现 | [C05接口与边界](stage-c-collaboration.md) | 044草稿/导入同步，045新增Note/展板/拜访/附件/门店刷新，与原草稿共用序号及操作UUID；历史隐私、删除和撤权可验证。 C06 Task/消息对象同步及客户端实机、C09办公室聚合仍待实施。 |
+| 79 / S-22 | 销售端：移动端Note、Task、拜访、客户/门店/联系人草稿及通讯录导入结果同步到管理平台。 | P0 / 保留 | C | 后端已实现 | [C06接口与边界](stage-c-tasks-notifications.md) | 044草稿/通讯录结果、045Note/展板/拜访/附件/门店刷新、046Task/消息统一提交序号/操作UUID/冲突/tombstone/授权重置。 约定统一后台同步对象已齐；客户端实机/本地缓存另验；C09统一工作台聚合由R113/R116另列。 |
 | 80 / S-23 | 销售端：销售通过SKU、名称、条码快速查询商品库存。 | P0 / 保留 | B | 部分实现 | [stage-b-sales.md](stage-b-sales.md) | 员工商品分页/按productId库存读取已实现；SKU/名称/条码快速搜索接口未完成。 |
 | 81 / S-24 | 销售端：门店/仓库库存 | P0 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-reconciliation.md](stage-b-reconciliation.md) | 授权仓库实物/预留/可售及dataAsOf已实现；停用可售错误本批修复；客户端展示未联调。 |
 | 82 / S-25 | 销售端：从客户/门店详情进入库存时自动展示该客户实际销售价格及当前有效活动价。 | P0 / 保留 | B | 部分实现 | [master-data-api.md](master-data-api.md)；[stage-b-sales.md](stage-b-sales.md) | 价格解析和库存查询分别可用；无客户上下文的库存+价格聚合接口，三个客户端未接入。 |
@@ -99,7 +99,7 @@
 | 84 / S-27 | 销售端：报价列表/详情 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 授权报价列表/详情/状态已实现。 |
 | 85 / S-28 | 销售端：报价草稿与提交 | P1 / 保留 | B | 后端已实现 | [stage-b-sales.md](stage-b-sales.md) | 草稿、提交、正式编号、不可变快照和修订已实现。 |
 | 86 / S-29 | 销售端：照片/附件 | P2 / 保留 | B/C | 后端已实现 | [C05接口与边界](stage-c-collaboration.md) | 045将既有私有附件/扫描/重试/下载/撤销绑定Note、展板、拜访及客户资料草稿，补同步状态及执行中撤权；原报价/交接保持。 手机相机/选图和本地字节撤权清理另验；C06新对象按其业务再接入。 |
-| 87 / S-30 | 销售端：弱网缓存 | P2 / 保留 | C | 部分实现 | [C05接口与边界](stage-c-collaboration.md) | 044设备操作/重放/冲突/游标基础；045协作对象、历史隐私和地址/附件刷新已接入，财务/出库保持在线。 设备本地缓存、弱网恢复/呈现/清理及C06对象接入、实机验证。 |
+| 87 / S-30 | 销售端：弱网缓存 | P2 / 保留 | C | 部分实现 | [C06接口与边界](stage-c-tasks-notifications.md) | 044设备操作/重放/冲突/游标基础；045协作对象、历史隐私和地址/附件刷新已接入，财务/出库保持在线。046新增Task及消息操作/共享游标与删除/改派授权清理，Task用户不获草稿权限。 设备本地缓存、弱网恢复/呈现/清理、通知授权/深链与实机验证；后端对象同步已接入。 |
 | 88 / S-31 | 销售端：销售数据隔离 | P0 / 保留 | A起贯穿 | 后端已实现 | [stage-a.md](stage-a.md)；[stage-b-sales.md](stage-b-sales.md) | 公司及销售授权客户隔离，成本另授权；未来接口仍须单独验证。 |
 | 89 / S-32 | 销售端：操作记录 | P0 / 保留 | A起贯穿 | 部分实现 | [stage-a.md](stage-a.md) | 已交付命令的操作者/请求/版本及审计已实现；移动设备上下文、业务日志聚合未完整交付。 |
 | 90 / S-33 | 销售端：销售端直接创建Invoice | OUT / 保留 | 排除 | 排除 | [stage-b-invoicing.md](stage-b-invoicing.md) | 销售不能直接创建Invoice，权限测试覆盖；源优先级OUT覆盖保留标签。 |
@@ -122,14 +122,14 @@
 | 107 / C-10 | 客户端：客户数据隔离 | P0 / 保留 | A起贯穿 | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018完成客户/公司/门店/仓库与商品受众隔离HTTP专项；真实客户端身份联调未完成。 |
 | 108 / C-11 | 客户端：库存API集成 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018已提供专用库存API及真实HTTP契约测试；Dart/TS客户端联调未交付，三个客户端未改。 |
 | 109 / C-12 | 客户端：异常与空状态 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018覆盖空商品/合法零库存、401/400/403/404/422及no-store；客户端异常/缓存呈现和真实服务故障联调未交付。 |
-| 110 / R110 | 管理/财务端：客户返点规则与结算 | P1 / 新增 | C/D | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 原发票/贷项/退款可追溯，但没有返点政策或计提结算对象。 C固定比例/固定额政策版本、未税净销售事实、计提/审批/锁期/结算及关联冲回；D阶梯规则。 实施包：C07、C08、D。详见[本次C核查](stage-c-acceptance.md)。 |
-| 111 / R111 | 管理/财务端：销售代表分红/佣金 | P1 / 新增 | C/D | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 成交来源与收付查询不代表佣金归属或计提。 C基础佣金/销售归属快照及审批结算；回款/毛利按独立规则验收，D阶梯；不解释为股东分红或自动工资付款。 实施包：C07、C08、D。详见[本次C核查](stage-c-acceptance.md)。 |
-| 112 / R112 | 管理/财务端：客户×产品销量趋势分析 | P1 / 新增 | C | 未实现 | [stage-c-financial-reports.md](stage-c-financial-reports.md)；[stage-c-cash-flow.md](stage-c-cash-flow.md) | P&L按科目汇总，非客户×SKU销售事实和曲线。 客户/门店/SKU/期间未税净销售、基础单位数量、同环比及截止点。 实施包：C07。详见[本次C核查](stage-c-acceptance.md)。 |
-| 113 / R113 | 管理/财务端：办公室统一客户视图 | P1 / 新增 | C | 部分实现 | [C05接口与边界](stage-c-collaboration.md) | 办公室已有主数据/单据查询，045补客户Note/展板/拜访历史/地图/附件的受控查询和同步。 C06 Task/消息、C07趋势及C09统一聚合和完整工作台仍待实施。 |
-| 114 / R114 | 销售端：客户产品销售曲线（销售端） | P1 / 新增 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有共用净销售趋势API。 复用R112事实，按销售授权客户过滤；上期0显示无可比。 实施包：C07。详见[本次C核查](stage-c-acceptance.md)。 |
-| 115 / R115 | 销售端：返点/佣金展示（授权范围） | P1 / 新增 | C | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 没有返点/佣金数据源或查询授权模型。 本人佣金/状态、额外授权客户返点、对其他人员/成本字段的隔离。 实施包：C08。详见[本次C核查](stage-c-acceptance.md)。 |
-| 116 / R116 | 销售端：客户销售资料办公室同步完善 | P1 / 新增 | C | 部分实现 | [C05接口与边界](stage-c-collaboration.md) | 044销售资料草稿审核，045补Note/拜访/展板及附件的办公室受控维护、历史、冲突和共享同步。 C06 Task等移动对象及C09办公室统一聚合视图。 |
-| 117 / R117 | 管理/财务端：返点与佣金结算回归测试 | P1 / 新增 | C/D | 未实现 | [阶段C核查及缺项证据](stage-c-acceptance.md) | 现有退货/贷项/付款回归不是激励模块回归。 C基础规则的来源去重、版本切换、归属、退货与贷项只净冲一次、跨期调整/锁账/结算权限；D阶梯专项。 实施包：C08、D。详见[本次C核查](stage-c-acceptance.md)。 |
+| 110 / R110 | 管理/财务端：客户返点规则与结算 | P1 / 新增 | C/D | 部分实现 | [C08基础激励](stage-c-incentives.md) | 048基础客户返点政策版本、独立审批、C07同源差额计提、锁期、合法客户贷项/客户服务AP关联、负余额及成对抵扣；当前GST分类和证据显式审核。 C基础NET_SALES切片交付；D阶梯、其他计算口径独立批准/验收，真实合同/税务及客户端另验。 |
+| 111 / R111 | 管理/财务端：销售代表分红/佣金 | P1 / 新增 | C/D | 部分实现 | [C08基础激励](stage-c-incentives.md) | 048基础佣金、不可变销售归属/政策绑定、独立审批、差额/追回、承包商AP及外部工资清算关联；不标记自动工资或银行付款。 C基础NET_SALES切片交付；回款/毛利口径另验，D阶梯保留；工资处理与客户端/真实政策另验。 |
+| 112 / R112 | 管理/财务端：客户×产品销量趋势分析 | P1 / 新增 | C | 后端已实现 | [C07共用销售事实](stage-c-sales-analytics.md) | 047发票减数量/金额贷项的共用事实，客户×门店×SKU×基础单位趋势/同环比/零桶/闰日、待处理退货、检查点及收入/成本GL桥接。 约定后台切片已交付；客户端曲线和真实规模/性能另验。 |
+| 113 / R113 | 管理/财务端：办公室统一客户视图 | P1 / 新增 | C | 后端已实现 | [C09工作台](stage-c-workbench.md) | 049办公室运营聚合及受控客户统一视图：正式资料/门店/联系人、单据、资料草稿来源、协作、任务、趋势和授权返点；保留PRIVATE及他人拜访边界。 约定后台统一视图交付；客户端呈现、真实规模与生产联调另验。 |
+| 114 / R114 | 销售端：客户产品销售曲线（销售端） | P1 / 新增 | C | 后端已实现 | [C07共用销售事实](stage-c-sales-analytics.md) | 与R112共用047规范来源及统计函数，按当前销售客户/门店范围过滤，零/负基数不伪造增长率，不泄漏公司GL/成本。 约定后台曲线API已交付；手机图表、缓存/撤权呈现及实机另验。 |
+| 115 / R115 | 销售端：返点/佣金展示（授权范围） | P1 / 新增 | C | 后端已实现 | [C08基础激励](stage-c-incentives.md) | 048本人已批准佣金净额/余额及额外授权客户返点摘要；当前成员/权限/客户范围重查，无其他人员、来源单据及成本科目字段，no-store。 约定后台切片交付；三个客户端展示及实机撤权呈现另验。 |
+| 116 / R116 | 销售端：客户销售资料办公室同步完善 | P1 / 新增 | C | 后端已实现 | [C09工作台](stage-c-workbench.md) | 044—046正式资料/草稿审核、协作、Task/消息及同步，049补办公室/客户统一聚合、原始创建草稿关联和现有维护入口的对象ID（编辑沿用原详情及版本契约），不扩大私有可见性。 约定后台切片交付；三个客户端编辑/同步呈现、设备缓存和实机联调另验。 |
+| 117 / R117 | 管理/财务端：返点与佣金结算回归测试 | P1 / 新增 | C/D | 部分实现 | [C08基础激励](stage-c-incentives.md) | 048基础公式、来源变化/贷项差额、版本钉住、独立审批、结算/追回、授权、幂等/并发及财务台账一致性专项；复用原AR/AP/GST/关账回归。 C基础规则专项交付，D阶梯专项、真实合同/大规模性能及客户端端到端仍保留。 |
 
 ## 完整性核对
 
@@ -208,3 +208,23 @@ R040补齐基础直接法现金流、经营/投资/筹资分类、内部划转�
 ## 阶段C C03对账单及经营报告增量（2026-10-29，截至042）
 
 042补客户对账单生成/PDF/授权邮件及采购、往来、库存/在途、银行经营报表和冻结CSV。R019、R055更新为后端已实现，R041剩C07销售事实及D工资报表；跨阶段R054由未实现更新为部分实现，未把本期CSV导出冒充完整映射导入。C相关39行：6已实现、7部分、26未实现；全116行：29已实现、46部分、38未实现、3排除。其余状态延续，前述批次统计为历史。只改htt-backend，实际验证范围见[验收记录](verification.md)。
+
+## 046 / C06增量（2026-10-31）
+
+R053、S-15—S-19及S-22的约定后端切片已交付；S-30设备缓存保留部分，R113/R116仍留C07/C09聚合。当前39条C相关源行25已实现/6部分/8未实现；全116行48已实现/45部分/20未实现/3排除。原ID、优先级、阶段和边界不改；统计不是工时完成率。真实FCM/通知权限/深链/设备缓存及生产运行另验，三个客户端未改。详见[C06](stage-c-tasks-notifications.md)与[验证记录](verification.md)。前述批次统计为历史。
+
+## 047 / C07增量（2026-10-31）
+
+R112/R114共用净销售事实和趋势后台完成；R041的C销售统计及受控导出切片交付，整行因D工资仍部分。R110/R111虽有事实/归属前置，返点佣金业务仍未实现，留C08；R113留C09聚合。当前39条27已实现/6部分/6未实现，总116条50已实现/45部分/18未实现/3排除。保留原编号/阶段/优先级/边界；不是工时完成率。见[C07](stage-c-sales-analytics.md)与[验证记录](verification.md)，客户端及生产另验。前述批次统计为历史。
+
+## 048 / C08增量（2026-10-31）
+
+基础NET_SALES返点/佣金、独立审批、差额计提、锁期、结算关联/追回及授权展示后台交付；R115后台完成，R110/R111/R117的C基础切片完成，整行因D及独立口径保持部分。当前C39条28已实现/9部分/2未实现，总116条51已实现/48部分/14未实现/3排除。C09聚合、客户端、真实政策和生产另验；前述批次计数为历史，不是工时完成率。见[C08](stage-c-incentives.md)。
+
+## 049 / C09增量（2026-11-01）
+
+六类只读工作台、截止日期/当前待办区分、源权限/分页及同语句快照交付，R005/S-02/R113/R116后台完成，R025的C银行Hub交付但D真实Feeds保留部分。C39行当前32已实现/7部分/0未实现，总116行55已实现/46部分/12未实现/3排除；不改原编号/阶段/优先级/边界。C01—C09包具备约定后台切片后仍需明确范围最终验收，独立激励口径、D/客户端/实机/生产另验。前述批次数字为历史。见[C09](stage-c-workbench.md)。
+
+## 阶段C后端基线最终验收（2026-11-01）
+
+C01—C09及约定追加切片的后端基线通过。C相关39行仍为32已实现/7部分/0未实现，总116行55/46/12/3；C/D、客户端及跨阶段行不因后台验收改变原身份或擅自闭项。两平台各2395项最终验证，范围及剩余顺序见[最终验收](stage-c-backend-final-acceptance.md)。

@@ -74,3 +74,5 @@ Google适配遵循[官方Geocoding请求/响应](https://developers.google.com/m
 新增5张公司FORCE RLS表：collaboration_objects、collaboration_history、collaboration_changes、branch_geocodes、geocode_jobs；head新增ACL版本。应用只读新表，受控函数执行写入，历史/变更append-only。既有001—044迁移保持原字节，原文件输出函数保持OID/ACL，仅增CRM分支及扫描权限检查。累计202张业务/基础表、45条迁移。
 
 验收包含角色/客户/私有/公司范围、历史隐私、版本/幂等、并发创建/签到/签退/离线操作、删除与撤权、防冲突泄漏、定位必填/范围/时间、展板无库存/GL副作用、地图框/筛选/导航、地址变更/人工优先、Google协议/错误/租约/限次重试、扫描/附件撤销和晚期审计失败回滚；最终数量及兼容性检查见[验收记录](verification.md)。真实客户端、GPS/相机硬件、生产吞吐和真实提供商另验。
+
+046后续增量：C06已补Task、消息/已读、到期提醒及真实FCM协议适配的后端切片，并继续复用本节同步授权；真实服务及设备未联调。当前边界见[Task与通知](stage-c-tasks-notifications.md)，C07/C08/C09仍待实施。

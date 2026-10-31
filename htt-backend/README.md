@@ -6,9 +6,17 @@
 
 ## 当前阶段C核查
 
-阶段C后端整体尚未完成。截至045，银行对账、五类核心财务报表、C01通用银行收支/分类/成对转账、C02规则/例外及追加的GST/BAS、关账切片已交付；原C/B-C/C-D相关39行当前为后端已实现18、部分实现7、未实现14。计数不是完成率，三个客户端及生产运行另验。当前逐行状态、证据和九个实施包见[阶段C收口核查](docs/stage-c-acceptance.md)及[机器可读记录](docs/stage-c-audit.json)。C01增量见[通用银行收支API](docs/stage-c-general-banking.md)；C02规则/例外已完成，见[规则API](docs/stage-c-bank-rules.md)；C03已补对账单/经营报表与导出，见[C03说明](docs/stage-c-statements-operating-reports.md)；W-06分货位盲盘/复盘审批见[仓管深化](docs/stage-c-bin-counts.md)，C04草稿/同步/通讯录/OCR后台见[CRM移动基础](docs/stage-c-crm-mobile.md)。C05客户协作/地图/拜访/展板见[C05说明](docs/stage-c-collaboration.md)；C06 Task/消息、C07销售事实、C08激励和C09聚合仍未完成。
+本文件列明的[阶段C后端基线已验收通过](docs/stage-c-backend-final-acceptance.md)。截至049，银行对账、五类核心财务报表、C01通用银行收支/分类/成对转账、C02规则/例外及追加的GST/BAS、关账切片已交付；原C/B-C/C-D相关39行当前为后端已实现32、部分实现7、未实现0。计数不是完成率，三个客户端及生产运行另验。当前逐行状态、证据和九个实施包见[阶段C收口核查](docs/stage-c-acceptance.md)及[机器可读记录](docs/stage-c-audit.json)。C01增量见[通用银行收支API](docs/stage-c-general-banking.md)；C02规则/例外已完成，见[规则API](docs/stage-c-bank-rules.md)；C03已补对账单/经营报表与导出，见[C03说明](docs/stage-c-statements-operating-reports.md)；W-06分货位盲盘/复盘审批见[仓管深化](docs/stage-c-bin-counts.md)，C04草稿/同步/通讯录/OCR后台见[CRM移动基础](docs/stage-c-crm-mobile.md)。C05客户协作/地图/拜访/展板见[C05说明](docs/stage-c-collaboration.md)；C06 Task/提醒/消息与推送后端见[C06说明](docs/stage-c-tasks-notifications.md)；C07共用净销售事实/趋势/CSV后台见[C07说明](docs/stage-c-sales-analytics.md)；C08基础返点/佣金与授权展示见[C08说明](docs/stage-c-incentives.md)；C09六类只读工作台见[C09说明](docs/stage-c-workbench.md)；本机与Linux各2395项验证通过；回款/毛利及D阶梯、客户端/实机、真实服务与生产仍另验。
 
 ## 已实现
+
+- C09：财务、销售、办公室、客户、银行及仓库只读工作台；同语句快照、当前权限、分页和原财务/协作/激励来源，见[C09接口](docs/stage-c-workbench.md)。
+
+- C08：独立批准政策、基础NET_SALES差额计提、锁期、客户贷项/供应商AP/外部工资清算关联、追回抵扣及个人/显式授权展示，见[C08接口](docs/stage-c-incentives.md)。
+
+- C07：发票减财务贷项、基础单位数量、销售归属冻结、客户/门店/SKU同环比、待贷项退货、同快照检查点、GL/成本桥接和受控CSV；毛利制激励与客户端曲线另验，见[C07接口](docs/stage-c-sales-analytics.md)。
+
+- C06：Task/负责人/截止与状态历史、到期提醒、本人消息/已读和行动中心、显式关注Note更新推送、私有令牌/FCM协议适配及持久重试/UNKNOWN处理；共享离线同步，见[C06接口](docs/stage-c-tasks-notifications.md)。
 
 - C05：Note隐私/历史、门店展板、签到签退/取消、地图与Google地理编码适配、导航链接和CRM私有附件；扩展C04同步并保护历史与撤权，见[C05接口](docs/stage-c-collaboration.md)。
 
@@ -167,3 +175,5 @@ SQL迁移是数据库结构的唯一权威。EF Core用于映射与查询，受�
 035：[利润表、资产负债表及历史应收应付账龄](docs/stage-c-financial-reports.md)。
 
 036：[直接法现金流、活动分类及银行/总账核对](docs/stage-c-cash-flow.md)。
+
+完整复验入口：配置四个独立测试库连接后运行 `sh scripts/verify.sh`；短批次独立TestHost避免大量WebApplicationFactory累计占用，结果清单严格核对，异常/跳过/漏跑均失败。并行分组需各用独立库，见[阶段C最终验收](docs/stage-c-backend-final-acceptance.md)。

@@ -51,6 +51,10 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
     [InlineData(42)]
     [InlineData(43)]
     [InlineData(44)]
+    [InlineData(45)]
+    [InlineData(46)]
+    [InlineData(47)]
+    [InlineData(48)]
     public async Task Existing_stage_A_database_upgrades_without_rewriting_history_or_losing_legacy_branches(int originalVersion)
     {
         var name = "htt_upgrade_test_" + Guid.NewGuid().ToString("N");
@@ -225,6 +229,10 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
 
                 }
                 // Legacy fixture companies created after 039/040 need the corresponding bootstrap initialization.
+                if(originalVersion>=48){await using var seedIncentives=new NpgsqlCommand("SELECT identity.seed_incentive_roles(core.current_company())",con);await seedIncentives.ExecuteNonQueryAsync();}
+                if(originalVersion>=47){await using var seedAnalytics=new NpgsqlCommand("SELECT identity.seed_sales_analytics_roles(core.current_company())",con);await seedAnalytics.ExecuteNonQueryAsync();}
+                if(originalVersion>=46){await using var seedTasks=new NpgsqlCommand("SELECT identity.seed_task_roles(core.current_company())",con);await seedTasks.ExecuteNonQueryAsync();}
+                if(originalVersion>=45){await using var seedCollab=new NpgsqlCommand("SELECT identity.seed_collaboration_roles(core.current_company())",con);await seedCollab.ExecuteNonQueryAsync();}
                 if(originalVersion>=44)
                 {
                     await using var seedCrm=new NpgsqlCommand("SELECT identity.seed_crm_mobile_roles(core.current_company())",con);await seedCrm.ExecuteNonQueryAsync();
@@ -260,7 +268,14 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             await MigrationRunner.ApplyAsync(owner);
             await MigrationRunner.ApplyAsync(owner);
             await using var check = new NpgsqlConnection(owner); await check.OpenAsync();
-            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(45L, await count.ExecuteScalarAsync());
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(49L, await count.ExecuteScalarAsync());
+            if(originalVersion>=23)
+            {
+                count.CommandText=$"SELECT count(*)FROM sales.order_lines l JOIN sales.line_dimensions d ON d.company_id=l.company_id AND d.order_line_id=l.id WHERE d.basis='{(originalVersion>=47?"ORDER_LINE":"LEGACY_AT_CUTOVER")}'AND length(d.sku)>0 AND length(d.product_name)>0";Assert.Equal(2L,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT count(*)FROM sales.order_attributions WHERE version=1 AND basis='DIRECT_UNASSIGNED'AND salesperson_id IS NULL";Assert.Equal(2L,await count.ExecuteScalarAsync());
+                count.CommandText="SELECT count(*)FROM sales.net_sales_source WHERE event_type='INVOICE'AND net=10 AND base_quantity=1 AND salesperson_id IS NULL";Assert.Equal(2L,await count.ExecuteScalarAsync());
+            }
+
             if(originalVersion>=44)
             {
                 count.CommandText="SELECT count(*)FROM crm.mobile_drafts d JOIN platform.documents p ON p.company_id=d.company_id AND p.id=d.id WHERE d.id='44000000-0000-0000-0000-000000000001'AND d.version=2 AND p.version=2 AND p.document_type='CRM_DRAFT'AND d.data->>'name'='Legacy amended'";Assert.Equal(1L,await count.ExecuteScalarAsync());
@@ -274,7 +289,7 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             count.CommandText = "SELECT count(*) FROM identity.role_permissions p JOIN identity.roles r ON r.id=p.role_id WHERE r.code='ADMIN' AND p.permission_code='pricing.floor.write'"; Assert.Equal(1L, await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM identity.role_permissions WHERE permission_code IN('documents.trash.read','documents.trash.write','documents.trash.restore') AND role_id=(SELECT id FROM identity.roles WHERE code='ADMIN')";Assert.Equal(3L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT set_config('htt.company_id','10000000-0000-0000-0000-000000000001',false)";await count.ExecuteNonQueryAsync();
-            count.CommandText="SELECT count(*)FROM identity.role_permissions p JOIN identity.roles r ON r.company_id=p.company_id AND r.id=p.role_id WHERE r.code='ADMIN'AND(p.permission_code LIKE 'crm.%'OR p.permission_code LIKE 'inventory.bin_counts.%')";Assert.Equal(16L,await count.ExecuteScalarAsync());
+            count.CommandText="SELECT count(*)FROM identity.role_permissions p JOIN identity.roles r ON r.company_id=p.company_id AND r.id=p.role_id WHERE r.code='ADMIN'AND(p.permission_code LIKE 'crm.%'OR p.permission_code LIKE 'inventory.bin_counts.%')";Assert.Equal(21L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM identity.role_permissions p JOIN identity.roles r ON r.company_id=p.company_id AND r.id=p.role_id WHERE r.code='ADMIN'AND p.permission_code IN('accounting.statements.read','accounting.statements.send','reports.operating.read','reports.operating.export')";Assert.Equal(4L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='accounting'AND c.relname IN('customer_statements','operating_report_runs')AND c.relrowsecurity AND c.relforcerowsecurity";Assert.Equal(2L,await count.ExecuteScalarAsync());
             count.CommandText="SELECT count(*) FROM accounting.fiscal_years y LEFT JOIN accounting.fiscal_year_controls k USING(company_id,id) WHERE k.id IS NULL";Assert.Equal(0L,await count.ExecuteScalarAsync());

@@ -23,4 +23,4 @@ services:
       HTT_TEST_WORKER_CONNECTION: Host=db;Database=htt_test;Username=htt_worker;Password=${HTT_WORKER_PASSWORD}
       HTT_TEST_PORTAL_CONNECTION: Host=db;Database=htt_test;Username=htt_portal;Password=${HTT_PORTAL_PASSWORD:-isolated-portal-test-only}
     depends_on: { db: { condition: service_healthy } }
-    command: ["dotnet", "test", "Htt.Backend.sln", "--no-restore", "-m:1", "--logger", "console;verbosity=minimal"]
+    command: ["sh", "scripts/verify.sh"]
