@@ -1,9 +1,9 @@
 import { LogOut, UserRound } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { logout, useLocalAccount } from "../data/localAccount";
 export default function PortalHeader() {
-    const {profile} = useLocalAccount(); const navigate = useNavigate();
+    const {profile} = useLocalAccount(); const navigate = useNavigate(); const {pathname}=useLocation();
     return (
         <header className="portal-header">
             <NavLink to="/dashboard" className="brand">
@@ -13,7 +13,7 @@ export default function PortalHeader() {
 
             <nav className="portal-nav">
                 <NavLink to="/dashboard">Dashboard</NavLink>
-                <NavLink to="/inventory">Inventory Lookup</NavLink>
+                <NavLink to="/inventory" className={({isActive})=>isActive || pathname.startsWith("/series/") || pathname.startsWith("/products/") ? "active" : ""}>Inventory Lookup</NavLink>
                 <NavLink to="/invoices">Invoices</NavLink>
                 <NavLink to="/account">My Account</NavLink>
             </nav>

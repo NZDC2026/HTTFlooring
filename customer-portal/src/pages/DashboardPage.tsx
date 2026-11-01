@@ -1,7 +1,8 @@
-import { AlertCircle, MapPin, Search } from "lucide-react";
+import { AlertCircle, ArrowUpRight, MapPin, Search } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import { invoiceSummary } from "../data/invoices";
+import { productCollections } from "../data/products";
 
 const money = (value: number) => value.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
 
@@ -69,6 +70,19 @@ export default function DashboardPage() {
                             <Search size={19} />
                         </button>
                     </form>
+
+                    <div className="product-collections" aria-label="Featured product collections">
+                        {productCollections.map(collection => (
+                            <Link className={`collection-card collection-${collection.id}`} to={`/inventory?collection=${collection.id}`} key={collection.id}>
+                                <img src={collection.image} alt="" loading="lazy"/>
+                                <div className="collection-card-content">
+                                    <h3>{collection.name}</h3>
+                                    <p>{collection.description}</p>
+                                    <span>View products <ArrowUpRight size={17}/></span>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
 
                     <h3>Browse Products</h3>
 

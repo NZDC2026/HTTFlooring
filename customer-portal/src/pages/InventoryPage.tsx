@@ -3,8 +3,8 @@ import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLocalAccount } from "../data/localAccount";
 import PortalHeader from "../components/PortalHeader";
-import ProductRow from "../components/ProductRow";
-import { products } from "../data/products";
+import SeriesRow from "../components/SeriesRow";
+import { filterProductSeries, productCollections } from "../data/products";
 
 const categories = [
     "All",
@@ -17,24 +17,12 @@ const categories = [
 export default function InventoryPage() {
     const [params,setParams]=useSearchParams();
     const query=params.get("q")??"", category=params.get("category")??"All", sort=params.get("sort")??"Relevance";
+    const collection = params.get("collection") ?? "";
+    const activeCollection = productCollections.find(item => item.id === collection);
     const {profile}=useLocalAccount();
     const setFilter=(key:string,value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set(key,value);else next.delete(key);return next;},{replace:true});
 
-    const visibleProducts = useMemo(() => {
-        return products.filter((product) => {
-            const matchesCategory =
-                category === "All" || product.category === category;
-
-            const search = query.trim().toLowerCase();
-
-            const matchesQuery =
-                product.name.toLowerCase().includes(search) ||
-                product.sku.toLowerCase().includes(search) ||
-                product.colour.toLowerCase().includes(search) || product.category.toLowerCase().includes(search);
-
-            return matchesCategory && matchesQuery;
-        }).sort((a,b)=>sort==="Price: Low to High" ? a.price-b.price : sort==="Price: High to Low" ? b.price-a.price : 0);
-    }, [query, category, sort]);
+    const visibleSeries = useMemo(() => filterProductSeries(query, category, collection, sort), [query, category, collection, sort]);
 
     return (
         <>
@@ -42,7 +30,7 @@ export default function InventoryPage() {
 
             <main className="inventory-page">
                 <section className="inventory-title">
-                    <h1>Inventory Lookup</h1>
+                    <h1>{activeCollection?.name ?? "Inventory Lookup"}</h1>
                     <p>Check current stock availability in {profile.region}.</p>
 
                     <div className="inventory-search">
@@ -51,7 +39,7 @@ export default function InventoryPage() {
                         <input
                             value={query}
                             onChange={(e) => setFilter("q", e.target.value)}
-                            placeholder="Search product, colour, SKU or keyword..."
+                            placeholder="Search series, colour, SKU or keyword..."
                         />
 
                         <span aria-hidden="true"><Search size={18}/></span>
@@ -59,6 +47,7 @@ export default function InventoryPage() {
                 </section>
 
                 <section className="inventory-content">
+                    {activeCollection && <div className="collection-filter"><span>{activeCollection.description}</span><button type="button" className="text-button" onClick={()=>setFilter("collection", "")}>View all products</button></div>}
                     <div className="inventory-toolbar">
                         <div className="categories">
                             {categories.map((item) => (
@@ -73,7 +62,7 @@ export default function InventoryPage() {
                         </div>
 
                         <div className="sort">
-                            <span>{visibleProducts.length} products</span>
+                            <span>{visibleSeries.length} series</span>
                             <label>
                                 Sort by
                                 <select value={sort} onChange={event=>setFilter("sort",event.target.value)}>
@@ -85,9 +74,9 @@ export default function InventoryPage() {
                         </div>
                     </div>
 
-                    <div className="product-list">{visibleProducts.length===0 && <div className="empty-state"><p>No products match your search.</p><button className="outline-copper-button" onClick={()=>setParams({})}>Clear filters</button></div>}
-                        {visibleProducts.map((product) => (
-                            <ProductRow product={product} key={product.id} />
+                    <div className="series-card-grid">{visibleSeries.length===0 && <div className="empty-state"><p>No product series match your search.</p><button className="outline-copper-button" onClick={()=>setParams({})}>Clear filters</button></div>}
+                        {visibleSeries.map((series) => (
+                            <SeriesRow series={series} key={series.id} />
                         ))}
                     </div>
 

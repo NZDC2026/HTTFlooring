@@ -10,6 +10,7 @@ export default function ProductPage() {
     const { id } = useParams();
     const location=useLocation();
     const inventorySearch=typeof location.state?.inventorySearch==="string" ? location.state.inventorySearch : "";
+    const seriesSearch=typeof location.state?.seriesSearch==="string" ? location.state.seriesSearch : "";
     const {profile}=useLocalAccount();
 
     const product = products.find((item) => item.id === id);
@@ -23,8 +24,8 @@ export default function ProductPage() {
             <PortalHeader />
 
             <main className="product-page">
-                <Link to={`/inventory${inventorySearch}`} className="back-link">
-                    <ArrowLeft size={17} /> Back to results
+                <Link to={`/series/${product.seriesId}${seriesSearch}`} state={{inventorySearch}} className="back-link">
+                    <ArrowLeft size={17} /> Back to {product.seriesName} colours
                 </Link>
 
                 <div className="product-detail-grid">
@@ -43,14 +44,14 @@ export default function ProductPage() {
                             <div>
                                 <h1>{product.name}</h1>
                                 <small>
-                                    {product.sku} | {product.category}
+                                    {product.colourCode ?? product.sku} | {product.category}
                                 </small>
                             </div>
 
-                            <span className={`status-badge ${product.status === "Low Stock" ? "stock-low" : product.status === "Out of Stock" ? "stock-out" : ""}`}>● {product.status}</span>
+                            <span className={`status-badge ${product.stockKnown === false ? "stock-unknown" : product.status === "Low Stock" ? "stock-low" : product.status === "Out of Stock" ? "stock-out" : ""}`}>● {product.stockKnown === false ? "Stock on request" : product.status}</span>
                         </div>
 
-                        <div className="detail-price">
+                        <div className="detail-price">{product.priceKnown === false ? <span>Price on request</span> : <>
                             ${product.price.toFixed(2)} <span>/ {product.packSize ? "m²" : "unit"}</span>
 
                             {product.discount && (
@@ -61,7 +62,7 @@ export default function ProductPage() {
                                 Standard
                                 <strong>${product.standardPrice?.toFixed(2)}</strong>
                             </small>
-                        </div>
+                        </>} </div>
 
                         <p className="description">
                             A timeless oak design with natural tones and excellent wear
@@ -75,6 +76,9 @@ export default function ProductPage() {
 
                             <dt>Colour</dt>
                             <dd>{product.colour}</dd>
+
+                            <dt>Code</dt><dd>{product.colourCode ?? product.sku}</dd>
+                            <dt>Size</dt><dd>{product.dimensions ?? "-"}</dd>
 
                             <dt>Thickness</dt>
                             <dd>{product.thickness ?? "—"}</dd>
@@ -115,18 +119,18 @@ export default function ProductPage() {
 
                         <div className="stock-cards">
                             <div>
-                                <span className="green-dot" />
-                                <strong>{product.status}</strong>
+                                <span className={product.stockKnown === false ? "unknown-dot" : "green-dot"} />
+                                <strong>{product.stockKnown === false ? "On request" : product.status}</strong>
                             </div>
 
                             <div>
                                 <Box size={18} />
-                                <strong>{product.boxes} boxes</strong>
+                                <strong>{product.stockKnown === false ? "-" : `${product.boxes} boxes`}</strong>
                             </div>
 
                             <div>
                                 <Ruler size={18} />
-                                <strong>{product.sqm.toFixed(1)} m²</strong>
+                                <strong>{product.stockKnown === false ? "-" : `${product.sqm.toFixed(1)} m²`}</strong>
                             </div>
                         </div>
 
@@ -139,11 +143,11 @@ export default function ProductPage() {
                             &nbsp;&nbsp;&nbsp;&nbsp;promotions and large order enquiries.
                         </div>
 
-                        <h3>Related Products</h3>
+                        <h3>Related Colours</h3>
 
                         <div className="related-products">
-                            {products.filter(item=>item.id!==product.id).slice(0,3).map((item) => (
-                                <Link to={`/products/${item.id}`} key={item.id}>
+                            {products.filter(item=>item.id!==product.id).sort((a,b)=>Number(b.seriesId===product.seriesId)-Number(a.seriesId===product.seriesId)).slice(0,3).map((item) => (
+                                <Link to={`/products/${item.id}`} state={{inventorySearch,seriesSearch:item.seriesId===product.seriesId?seriesSearch:""}} key={item.id}>
                                     <img src={item.image} alt="" />
                                     <span>{item.name}</span>
                                 </Link>

@@ -75,3 +75,23 @@ test('local account, session, contact, password recovery and saved applications'
  account.submitApplication({...profile,email:'second@example.test'});assert.equal(JSON.parse(localStorage.getItem('htt.local.application.v1')).length,2);
  await account.login(account.defaultProfile.email,'ResetPassword123!',true);const session=JSON.parse(localStorage.getItem('htt.local.session.v1'));localStorage.setItem('htt.local.session.v1',JSON.stringify({...session,expires:0}));assert.equal(account.useLocalAccount().authenticated,false);
 });
+
+test('series grouping, colour references, search and promotional filters',()=>{
+ assert.deepEqual(products.productSeries.map(series=>series.name), ['Bonita','Guardian','AquaGlow','Heritage']);
+ const bonita=products.productSeries.find(series=>series.id==='bonita');
+ assert.equal(bonita.products.length,9);
+ assert.deepEqual(bonita.products.map(product=>product.colourCode),['M-2','M-3','M-5','M-6','M-8','M-9','M-11','M-13','M-14']);
+ assert.ok(bonita.products.every(product=>product.packSize==='2.166 m²' && product.boardsPerPack===6 && product.dimensions==='1900 × 190 × 14/2 mm'));
+ assert.equal(bonita.products.find(product=>product.colour==='Latte Oak').scotia,'D3005');
+ assert.equal(bonita.products.find(product=>product.colour==='Smoked Brown').trims,'HBY-004');
+ assert.deepEqual(products.filterProductSeries('M-13','All','','Relevance').map(series=>series.id),['bonita']);
+ assert.equal(products.filterProductSeries('Latte Oak','Hybrid','','Relevance').length,0);
+ assert.deepEqual(products.filterProductSeries('','All','clearance','Relevance').map(series=>series.id),['heritage']);
+ assert.deepEqual(products.filterProductSeries('','All','new','Relevance').map(series=>series.id),['bonita']);
+ assert.equal(products.filterProductSeries('','All','','Price: Low to High')[0].id,'aquaglow');
+ const latte=products.products.find(product=>product.id==='bonita-latte-oak');assert.equal(latte.stockKnown,false);assert.equal(latte.priceKnown,false);
+ assert.throws(()=>data.calculateItems([{productId:latte.id,quantity:1,unitPrice:69}]));
+ const demo=load('src/data/productSales.ts').demoProductSales('abc-flooring',now);
+ assert.ok(demo.length>0);assert.ok(demo.some(invoice=>invoice.items.some(item=>item.productId==='bonita-latte-oak')));
+ assert.equal(new Set(products.products.map(product=>product.id)).size,products.products.length);
+});

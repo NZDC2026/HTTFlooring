@@ -1,7 +1,7 @@
 import { ArrowRight, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { products } from "../data/products";
+import { productSeries } from "../data/products";
 
 export default function HomePage() {
     return (
@@ -54,7 +54,7 @@ export default function HomePage() {
                     </div>
                 </div>
             </section>
-            <section className="public-section" id="gallery"><h2>Explore our flooring</h2><div className="public-gallery">{products.map(product=><Link to={`/products/${product.id}`} key={product.id}><img src={product.image} alt={product.name}/><h3>{product.name}</h3><p>{product.category}</p></Link>)}</div></section>
+            <section className="public-section" id="gallery"><h2>Explore our flooring</h2><div className="public-gallery">{productSeries.map(product=><Link to={`/series/${product.id}`} key={product.id}><img src={product.image} alt={product.name}/><h3>{product.name}</h3><p>{product.category}</p></Link>)}</div></section>
             <section className="public-section" id="support"><h2>Trade and retailer enquiries</h2><p>Apply for a trade account to share your business and region details.</p><p className="local-notice">This local preview saves your application on this device. It does not send an enquiry to HTT Flooring.</p><Link className="outline-copper-button" to="/register">Start an application</Link></section>
             <section className="public-section" id="about"><h2>HTT Flooring</h2><p>Flooring for builders, designers and trade partners. Browse engineered timber, hybrid and laminate collections through the customer portal.</p><Link to="/login">Customer login →</Link></section>
         </main>

@@ -34,7 +34,7 @@ export function productSalesReport(invoices: SalesInvoice[], customerId: string,
 // Preview fixtures only; never added to the invoice list or stored as real sales.
 export function demoProductSales(customerId: string, now: Date): SalesInvoice[] {
   const quantities = [[30, 20, 20, 10, 10, 10], [12, 24, 24, 30, 30, 30], [16, 16, 16, 16, 16, 16], [8, 0, 0, 0, 0, 0]];
-  return products.flatMap((product, index) => quantities[index].flatMap((boxes, period) => {
+  return products.flatMap((product, index) => quantities[index % quantities.length].flatMap((boxes, period) => {
     if (!boxes) return [];
     return [{ customerId, status: "invoice" as const, date: shift(now, -7 - period * 30), items: [{ productId: product.id, name: product.name, sku: product.sku, sqm: boxes * (Number.parseFloat(product.packSize??"") || 0), boxes }] }];
   }));

@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage";
 import InventoryPage from "./pages/InventoryPage";
 import LoginPage from "./pages/LoginPage";
 import ProductPage from "./pages/ProductPage";
+import SeriesPage from "./pages/SeriesPage";
 import RegisterPage from "./pages/RegisterPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import InvoiceDetailPage from "./pages/InvoiceDetailPage";
@@ -33,6 +34,7 @@ export default function App() {
         <Route element={<RequireAccount/>}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/series/:id" element={<SeriesPage />} />
         <Route path="/products/:id" element={<ProductPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />

@@ -18,6 +18,7 @@ export const calculateItems = (items: InvoiceItem[]) => items.map(item => {
  if (!Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitPrice) || item.unitPrice < 0) throw new Error("Invalid invoice quantity or price.");
  const product = products.find(product => product.id === item.productId);
  if (!product) throw new Error(`Unknown invoice product: ${item.productId}`);
+ if (product.priceKnown === false) throw new Error(`Price not available for product: ${item.productId}`);
  const sizePerBox = getSizePerBox(product?.packSize);
  const totalSize = sizePerBox == null ? undefined : sizePerBox * item.quantity;
  const amountCents = Math.round(item.unitPrice * (totalSize ?? item.quantity) * 100);
