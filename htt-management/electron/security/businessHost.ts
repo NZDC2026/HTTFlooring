@@ -201,7 +201,10 @@ export class BusinessHost {
             const folder = join(dirname(this.path), 'recovery-backups'); mkdirSync(folder, { recursive: true, mode: 0o700 });
             const fd = openSync(join(folder, `before-restore-${commandId}.json`), 'wx', 0o600);
             try { writeFileSync(fd, this.storage.read(this.path)!); fsyncSync(fd); } finally { closeSync(fd); }
-            const dir = openSync(folder, 'r'); try { fsyncSync(dir); } finally { closeSync(dir); }
+            // Keep the file flush above; directory flushing is unsupported on Windows.
+            if (process.platform !== 'win32') {
+                const dir = openSync(folder, 'r'); try { fsyncSync(dir); } finally { closeSync(dir); }
+            }
         }
         const database = sealDatabase({ storage: prepared.database.storage, repositories: prepared.database.repositories, lastCommandId: commandId });
         this.blocked = true;

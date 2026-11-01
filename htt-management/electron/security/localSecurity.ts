@@ -11,8 +11,11 @@ export function atomicJson(path: string, value: unknown): void {
     const fd = openSync(temporary, 'wx', 0o600);
     try { writeFileSync(fd, JSON.stringify(value)); fsyncSync(fd); } finally { closeSync(fd); }
     renameSync(temporary, path);
-    const directory = openSync(dirname(path), 'r');
-    try { fsyncSync(directory); } finally { closeSync(directory); }
+    // Windows does not support flushing a directory opened this way.
+    if (process.platform !== 'win32') {
+        const directory = openSync(dirname(path), 'r');
+        try { fsyncSync(directory); } finally { closeSync(directory); }
+    }
 }
 const publicUser = ({ id, username, displayName, roles: userRoles, active }: StoredUser): PublicUser => ({ id, username, displayName, roles: [...userRoles], active });
 function username(value: unknown): string {
