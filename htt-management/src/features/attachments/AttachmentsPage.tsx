@@ -14,9 +14,9 @@ export function AttachmentsPage({ mode = 'library', documentId }: { mode?: 'libr
         content: string;
     }>();
     const selected = documents.find(d => d.id === documentId), visible = documents.filter(d => (filter === 'All' || (filter === 'Recycle bin' ? !!d.deletedAt : !d.deletedAt)) && (kind === 'All' || d.target.kind === kind) && [d.title, d.targetLabel, ...d.versions.map(v => v.name)].join(' ').toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id)), last = Math.max(0, Math.ceil(visible.length / 50) - 1), current = Math.min(page, last), target = targets.find(t => t.kind + ':' + t.id === targetKey), matches = targets.filter(t => t.canWrite && [t.kind, t.label].join(' ').toLowerCase().includes(targetQuery.toLowerCase()));
-    const action = (fn: () => void) => {
+    const action = async (fn: () => void | Promise<void>) => {
         try {
-            fn();
+            await fn();
             setError('');
         }
         catch (e) {
@@ -30,14 +30,14 @@ export function AttachmentsPage({ mode = 'library', documentId }: { mode?: 'libr
         catch (e) { setError((e as Error).message); }
     }, [mode]);
     const change = (type: 'Renamed' | 'Trashed' | 'Recovered' | 'Restored version', versionId?: string) => action(() => { attachmentClient.change({ operationId: crypto.randomUUID(), id: selected!.id, expectedRevision: selected!.revision, action: type, reason, ...(type === 'Renamed' ? { title: editTitle } : {}), ...(versionId ? { versionId } : {}) }); setReason(''); setPreview(undefined); setNotice('Attachment change saved.'); });
-    const upload = (existing?: AttachmentDocument) => action(() => {
+    const upload = (existing?: AttachmentDocument) => action(async () => {
         const link = existing?.target ?? (target && { kind: target.kind, id: target.id });
         if (!link)
             throw new Error('Choose a business object.');
         if (!reason.trim() || !existing && !title.trim())
             throw new Error('Enter a title and change reason.');
         const before = new Set(attachmentClient.getSnapshot().documents.map(d => d.id));
-        const saved = selectAttachment({ operationId: crypto.randomUUID(), ...(existing ? { id: existing.id } : {}), expectedRevision: existing?.revision ?? 0, target: link as AttachmentTarget, title: existing?.title ?? title, reason });
+        const saved = await selectAttachment({ operationId: crypto.randomUUID(), ...(existing ? { id: existing.id } : {}), expectedRevision: existing?.revision ?? 0, target: link as AttachmentTarget, title: existing?.title ?? title, reason });
         if (saved) {
             setNotice(existing ? 'New file version saved.' : 'File content saved and linked to the business object.');
             setReason('');

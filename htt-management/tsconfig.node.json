@@ -24,6 +24,8 @@
   },
   "include": [
     "vite.config.ts",
-    "electron"
+    "electron",
+    "server",
+    "vite.server.config.ts"
   ]
 }

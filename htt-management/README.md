@@ -1,6 +1,8 @@
 # HTT Management
 
-HTT Flooring 管理财务端桌面应用。Electron 主进程拥有本地业务数据、授权、审计与原子持久化；React/TypeScript 界面使用 Repository/Service。没有独立后台。
+HTT Flooring 管理财务应用，支持 Electron 桌面版和浏览器版。桌面版由 Electron 主进程管理数据；浏览器版使用独立 Node HTTP 服务与 SQLite 数据库，复用权限、审计和业务 Repository/Service。
+
+网页版：`pnpm dev:web`。构建后运行：`pnpm build:web`、`pnpm start:web`。详见[网页版运行、迁移及部署说明](docs/WEB-APPLICATION.md)。
 
 开发与需求入口：[当前系统能力](docs/CURRENT-SYSTEM-STATUS.md)、[工作包进度](docs/WORKFLOW-ACCEPTANCE-20261021.md)、[文档索引](docs/DOCUMENTATION-INDEX.md)。以这些当前说明核对后续工作，旧交付文档保留原时点范围和验证数字。
 

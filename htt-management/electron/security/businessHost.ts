@@ -10,6 +10,14 @@ import { resolveCommand, validateRegisteredSnapshots, restoreRepositories, snaps
 import type { BusinessView } from '../../src/features/security/securityContract';
 import { LocalSecurity, atomicJson } from './localSecurity';
 import { parseDatabase, sealDatabase, migratePeriodSnapshot, migrateWorkspaceSnapshot, validateRepositories, type Database, type LegacyDatabase } from './businessSnapshot';
+export interface BusinessStorage {
+    read(path: string): string | undefined;
+    write(path: string, value: unknown): void;
+}
+const fileStorage: BusinessStorage = {
+    read: path => existsSync(path) ? readFileSync(path, 'utf8') : undefined,
+    write: (path, value) => atomicJson(path, value),
+};
 export class BusinessHost {
     private approvedScope=false;
     restrictToApprovedScope(){this.approvedScope=true;}
@@ -25,15 +33,16 @@ export class BusinessHost {
     private prepared?: { token: string; actor: string; database: Database | LegacyDatabase; revision: string | undefined; expires: number };
     private path: string;
     private security: LocalSecurity;
-    constructor(path: string, security: LocalSecurity) { this.path = path; this.security = security; }
+    private storage: BusinessStorage;
+    constructor(path: string, security: LocalSecurity, storage: BusinessStorage = fileStorage) { this.path = path; this.security = security; this.storage = storage; }
     async initialize(legacy: Record<string, string> = {}): Promise<void> {
         if (this.blocked) throw new Error('Restart the desktop application before reopening business data.');
         if (this.initialized) return;
         if (!this.security.principal()) throw new Error('Login required.');
         let migrationSource: unknown;
         let saved: Database | LegacyDatabase | undefined;
-        if (existsSync(this.path)) {
-            saved = parseDatabase(readFileSync(this.path, 'utf8'));
+        if (this.storage.read(this.path) !== undefined) {
+            saved = parseDatabase(this.storage.read(this.path)!);
             if (saved.schemaVersion !== 33) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
@@ -137,13 +146,13 @@ export class BusinessHost {
         } finally {this.scanningRecurring=false;}
     }
     private persist(commandId = this.lastCommandId): void {
-        atomicJson(this.path, sealDatabase({ storage: this.values, repositories: snapshotRepositories(), lastCommandId: commandId }));
+        this.storage.write(this.path, sealDatabase({ storage: this.values, repositories: snapshotRepositories(), lastCommandId: commandId }));
         this.lastCommandId = commandId;
     }
     exportBackup(): Database {
         this.security.require('users.manage');
         if (!this.initialized || this.blocked) throw new Error('Backup requires healthy initialized business data.');
-        const database = parseDatabase(readFileSync(this.path, 'utf8'));
+        const database = parseDatabase(this.storage.read(this.path)!);
         validateRepositories(database.repositories, snapshotRepositories()); validateRegisteredSnapshots(database.repositories);
         return sealDatabase({ storage: database.storage, repositories: database.repositories, lastCommandId: database.lastCommandId });
     }
@@ -182,21 +191,21 @@ export class BusinessHost {
         if (pending.length) {
             // Resolve interrupted writes against the current file before a restore
             // replaces its last-command evidence. A corrupt file cannot prove this.
-            const current = parseDatabase(readFileSync(this.path, 'utf8'));
+            const current = parseDatabase(this.storage.read(this.path)!);
             for (const row of pending) this.security.audit(`recovery.${row.action}`, row.resourceId, row.commandId === current.lastCommandId ? 'SUCCESS' : 'FAILED', row.permission, row.commandId);
         }
         const commandId = randomUUID();
         this.security.audit('business.restore', 'business-data-only', 'INTENT', 'users.manage', commandId);
         // Preserve the exact previous bytes, including a corrupt file, for diagnosis.
-        if (existsSync(this.path)) {
+        if (this.storage.read(this.path) !== undefined) {
             const folder = join(dirname(this.path), 'recovery-backups'); mkdirSync(folder, { recursive: true, mode: 0o700 });
             const fd = openSync(join(folder, `before-restore-${commandId}.json`), 'wx', 0o600);
-            try { writeFileSync(fd, readFileSync(this.path)); fsyncSync(fd); } finally { closeSync(fd); }
+            try { writeFileSync(fd, this.storage.read(this.path)!); fsyncSync(fd); } finally { closeSync(fd); }
             const dir = openSync(folder, 'r'); try { fsyncSync(dir); } finally { closeSync(dir); }
         }
         const database = sealDatabase({ storage: prepared.database.storage, repositories: prepared.database.repositories, lastCommandId: commandId });
         this.blocked = true;
-        try { atomicJson(this.path, database); }
+        try { this.storage.write(this.path, database); }
         catch { throw new Error('Restore commit could not be confirmed. Restart and inspect before retry.'); }
         this.security.audit('business.restore', 'business-data-only', 'SUCCESS', 'users.manage', commandId);
         // Restart is mandatory: repository closures, subscriptions and cached

@@ -100,6 +100,8 @@ export function CustomerStatementPage() {
                 return;
             }
 
+            if (!window.desktop) { window.print(); return; }
+
             setExportingPdf(
                 true,
             );

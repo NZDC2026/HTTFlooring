@@ -30,15 +30,26 @@ function roleList(value: unknown): Role[] {
 const hashPassword = (value: string, salt: string) => scryptSync(value, salt, 64).toString('hex');
 export class LocalSecurity {
     private state: State;
-    private session: { userId: string; idleUntil: number; absoluteUntil: number } | null = null;
+    private sessions = new Map<string, { userId: string; idleUntil: number; absoluteUntil: number }>();
+    private sessionKey = 'desktop';
+    private get session() { return this.sessions.get(this.sessionKey) ?? null; }
+    private set session(value: { userId: string; idleUntil: number; absoluteUntil: number } | null) {
+        if (value) this.sessions.set(this.sessionKey, value); else this.sessions.delete(this.sessionKey);
+    }
+    // The HTTP host selects an opaque server-issued cookie while processing its serialized queue.
+    selectSession(key: string): void {
+        for (const [id, session] of this.sessions) if (session.idleUntil <= this.now() || session.absoluteUntil <= this.now()) this.sessions.delete(id);
+        this.sessionKey = key;
+    }
     private poisoned = false;
     private path: string;
     private save: (path: string, state: unknown) => void;
     private now: () => number;
-    constructor(path: string, save: (path: string, state: unknown) => void = atomicJson, now = () => Date.now()) {
+    constructor(path: string, save: (path: string, state: unknown) => void = atomicJson, now = () => Date.now(), load = (file: string): unknown => existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : undefined) {
         this.path = path; this.save = save; this.now = now;
-        if (existsSync(path)) {
-            const value = JSON.parse(readFileSync(path, 'utf8')) as State;
+        const loaded = load(path);
+        if (loaded !== undefined) {
+            const value = loaded as State;
             if (value?.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(value.auditKey) || !Array.isArray(value.users) || !Array.isArray(value.audit)) throw new Error('Invalid local security database; access blocked.');
             const ids = new Set<string>(), names = new Set<string>();
             for (const user of value.users) {
@@ -139,7 +150,8 @@ export class LocalSecurity {
         const nextPassword = password(input.password), salt = randomBytes(16).toString('hex');
         this.audit('user.password', user.id, 'INTENT');
         this.commit({ ...this.state, users: this.state.users.map(row => row.id === user.id ? { ...row, salt, passwordHash: hashPassword(nextPassword, salt) } : row) });
-        this.audit('user.password', user.id, 'SUCCESS'); this.session = null;
+        this.audit('user.password', user.id, 'SUCCESS');
+        for (const [id, session] of this.sessions) if (session.userId === user.id) this.sessions.delete(id);
     }
     pendingBusinessCommands(): SecurityAuditRow[] {
         const completed = new Set(this.state.audit.filter(row => row.commandId && (row.outcome === 'SUCCESS' || row.outcome === 'FAILED')).map(row => row.commandId));

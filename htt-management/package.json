@@ -7,6 +7,7 @@
   "main": "dist-electron/index.js",
   "scripts": {
     "dev": "vite",
+    "dev:web": "pnpm build:server && concurrently --kill-others \"node dist-server/index.js\" \"cross-env WEB_ONLY=1 vite --open\"",
     "build": "tsc -b && vite build",
     "lint": "oxlint src electron scripts",
     "preview": "vite preview",
@@ -18,7 +19,11 @@
     "test:ci": "node --no-maglev ./node_modules/vitest/vitest.mjs run --pool=forks --maxWorkers=2 --execArgv=--no-maglev",
     "release:check": "node scripts/release-preflight.mjs",
     "release:signed": "node scripts/release-signed.mjs",
-    "release:manifest": "node scripts/release-manifest.mjs"
+    "release:manifest": "node scripts/release-manifest.mjs",
+    "build:server": "vite build --config vite.server.config.ts",
+    "build:web": "tsc -b && cross-env WEB_ONLY=1 vite build && pnpm build:server",
+    "start:web": "node dist-server/index.js",
+    "test:web": "vitest run --config vitest.web.config.ts server/web.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "5.9.1",

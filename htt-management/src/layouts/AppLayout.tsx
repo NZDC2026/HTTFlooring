@@ -1,3 +1,4 @@
+import { isWeb } from '../features/security/webBridge';
 import {ModuleNavigation} from './ModuleNavigation';
 import {presentationWorkflows} from '../features/security/optionalWorkflows';
 import { useSecurity } from '../features/security/securityClient';
@@ -51,8 +52,8 @@ export function AppLayout() {
                         </div>
                     )}
                     <div className="mb-4 flex flex-wrap items-center gap-2 text-xs" role="status" aria-label="Application environment">
-                        <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 font-semibold text-sky-900">Local desktop</span>
-                        <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-medium text-amber-900">Local business data · Optional external services</span>
+                        <span className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 font-semibold text-sky-900">{isWeb ? 'Web application' : 'Local desktop'}</span>
+                        <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-medium text-amber-900">{isWeb ? 'Shared server database' : 'Local business data · Optional external services'}</span>
                     </div>
                     {searchReturn && location.pathname !== '/search/records' && <Link className="mb-4 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm underline" to={searchReturn}><ArrowLeft size={15}/>Back to record search</Link>}
                     <p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess><ModuleNavigation/><Outlet /></RouteAccess>

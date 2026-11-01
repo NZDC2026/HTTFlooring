@@ -28,3 +28,7 @@ dist-ssr
 # Installer candidates and compiled main-process bundles
 /release/
 /dist-electron/
+
+/dist-server/
+/dist-web/
+/web-data/

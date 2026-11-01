@@ -1,3 +1,4 @@
+import "./features/security/webBridge";
 import {
   StrictMode, Suspense, lazy,
 } from "react";

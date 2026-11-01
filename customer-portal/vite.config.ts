@@ -8,8 +8,7 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     allowedHosts: [
-      'nzdc.co.uk',
-      'www.nzdc.co.uk',
+      'htt-flooring-website.nzdc.co.uk',
       'localhost',
     ],
   },
