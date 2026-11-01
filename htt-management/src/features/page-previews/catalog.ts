@@ -1,6 +1,7 @@
 // Current local management routes. Legacy field examples live in legacyCatalog.ts and are not production configuration.
 import type {Permission} from '../security/rbac';
-export const previewModules = [
+import {optionalWorkflows} from '../security/optionalWorkflows';
+const allPreviewModules = [
   {
     "id": "products",
     "title": "Products & services",
@@ -138,15 +139,16 @@ export const previewModules = [
     "description": "Generate combined financial reports from current local books, with ordered sections and printable exports."
   }
 ] as const;
+export const previewModules=allPreviewModules.filter(m=>m.id!=='payment-batches'||optionalWorkflows.electronicPayments);
 export const previewGroups=[...new Set(previewModules.map(m=>m.group)), 'Sales & purchases','Settings'];
 export const settingsForms:Record<string,{title:string;path:string;permission:Permission;description:string}>={
  business:{title:'Financial year, GST & branding',path:'/settings/financial',permission:'accounting.read',description:'Local business, tax, numbering and immutable PNG branding.'},
- sales:{title:'Sales settings',path:'/settings/sales',permission:'accounting.read',description:'Local sales numbering and defaults; optional Resend and Stripe configuration is available in Communications.'},
+ sales:{title:'Sales settings',path:'/settings/sales',permission:'accounting.read',description:optionalWorkflows.onlineCollection?'Local sales numbering and defaults; optional Resend and Stripe configuration is available in Communications.':'Local sales numbering and defaults; optional email configuration is available in Communications.'},
  purchases:{title:'Purchase settings',path:'/settings/purchases',permission:'purchases.read',description:'Local purchase terms and payment preferences for new documents.'},
  payroll:{title:'Payroll settings',path:'/settings/payroll',permission:'payroll.read',description:'Australian local payroll settings; no electronic tax filing.'},
  reports:{title:'Report settings',path:'/settings/reports',permission:'accounting.read',description:'Supported report defaults and frozen output presentation.'},
 };
-export const flowPages = [
+const allflowPages = [
  ['sales-order', '/sales/drafts/orders/new', 'New sales order', 'Sales & purchases', 'sales.read'],
  ['sales-order-edit', '/sales/drafts/orders/:previewId/edit', 'Edit sales order draft', 'Sales & purchases', 'sales.read'],
  ['invoice', '/sales/drafts/invoices/new', 'New invoice draft', 'Sales & purchases', 'sales.read'],
@@ -178,3 +180,4 @@ export const flowPages = [
  ['ocr', '/documents/capture', 'Supplier document capture & review', 'Documents & imports', 'purchases.read'],
  ['entity-search', '/search/records', 'Business record search', 'Automation & tasks', 'inventory.read'],
 ] as const;
+export const flowPages=allflowPages.filter(row=>row[0]!=='bank-instructions'||optionalWorkflows.electronicPayments);

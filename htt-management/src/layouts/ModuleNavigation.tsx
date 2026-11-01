@@ -1,0 +1,8 @@
+import {NavLink,useLocation} from 'react-router-dom';
+import {directoryEntries} from '../features/page-previews/directoryCatalog';
+import {useSecurity} from '../features/security/securityClient';
+import {hasPermission,type VerifiedPrincipal} from '../features/security/rbac';
+import {presentationPathEnabled,retiredWorkflowPath} from '../features/security/optionalWorkflows';
+const moduleNames:Record<string,string>={inventory:'Inventory',accounting:'Accounting',banking:'Banking',payroll:'Payroll',sales:'Sales',purchases:'Purchases',documents:'Documents',settings:'Settings',reports:'Reports',contacts:'Contacts',automation:'Automation',tools:'Tools'};
+export function moduleNavigationLinks(pathname:string,principal:VerifiedPrincipal|null){const root=pathname.split('/')[1];if(!moduleNames[root])return [];return directoryEntries.filter(e=>(e.path.startsWith('/'+root+'/')||root==='sales'&&e.path==='/contacts/review')&&presentationPathEnabled(e.path)&&!retiredWorkflowPath(e.path)&&hasPermission(principal,e.permission));}
+export function ModuleNavigation(){const {pathname}=useLocation(),{session}=useSecurity(),principal=session?{userId:session.user.id,roles:session.user.roles,authenticated:true as const}:null,links=moduleNavigationLinks(pathname,principal);if(!links.length)return null;return <details className="mb-4 rounded-lg border bg-white p-3"><summary className="cursor-pointer text-sm font-medium">More in {moduleNames[pathname.split('/')[1]]}</summary><nav aria-label="Module navigation" className="mt-3 flex flex-wrap gap-2">{links.map(e=><NavLink key={e.path} to={e.path} end className={({isActive})=>'rounded border px-3 py-2 text-sm '+(isActive?'bg-slate-100 font-semibold':'hover:bg-slate-50')}>{e.name}</NavLink>)}</nav></details>;}

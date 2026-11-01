@@ -207,6 +207,11 @@
     ]
   },
   {
+    "path": "docs/FORMAL-NAVIGATION.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
     "path": "docs/G01-DASHBOARD-BANK-EVIDENCE.md",
     "status": "dated-record",
     "followUps": [
@@ -382,6 +387,11 @@
     "followUps": [
       "docs/CURRENT-SYSTEM-STATUS.md"
     ]
+  },
+  {
+    "path": "docs/RETIRED-WORKFLOWS.md",
+    "status": "current",
+    "followUps": []
   },
   {
     "path": "docs/S01-YEAR-END.md",

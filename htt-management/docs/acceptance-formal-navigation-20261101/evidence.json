@@ -1,0 +1,74 @@
+{
+  "stage": "Formal navigation",
+  "date": "2026-11-01",
+  "schemaVersion": 33,
+  "removedEntrances": [
+    "Page directory",
+    "Customer Demo Journey"
+  ],
+  "retainedSource": {
+    "src/features/demo/pages/CustomerDemoPage.tsx": "7d1132a77190f7ce13fd426132104dd609817b49c3c76c4e829acd96ae40cc1a",
+    "src/features/page-previews/PreviewWorkspace.tsx": "03bcf5dd6743a6a7211fd46bd505b17f5bb30b3227a7ede70ac30051821322d0"
+  },
+  "implementation": "Compiled presentation flags; sidebar, dashboard, shared headers, search and landing-page choices hidden; legacy operational route access denied. Source modules retained unchanged.",
+  "businessNavigation": "Permission-scoped contextual module navigation plus sidebar links for recurring work, tasks and import/export. Customer review also appears under Sales; record search remains in global search.",
+  "validation": {
+    "build": {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "warning": "Existing large-chunk warning remains."
+    },
+    "regression": {
+      "command": "pnpm test:ci",
+      "files": 177,
+      "tests": 3782,
+      "exitCode": 0,
+      "seconds": 266.94
+    },
+    "targetedNavigationPreferencesAndScope": {
+      "files": 3,
+      "tests": 51,
+      "exitCode": 0
+    },
+    "documentation": {
+      "documents": 70,
+      "reachableModules": 464,
+      "passed": true
+    },
+    "sourceTableInventory": {
+      "surfaces": 149,
+      "passed": true
+    },
+    "originalCopiesVerified": 14,
+    "whitespaceClean": true
+  },
+  "native": {
+    "synthetic": true,
+    "observations": [
+      "Dashboard sidebar has neither directory nor customer demo",
+      "Dashboard has no demo action",
+      "Inventory More in panel opens Products & services",
+      "Products register has New product and no Page directory header link",
+      "Searching Page directory yields No matching screens",
+      "Sign-in home dropdown omits Page directory"
+    ],
+    "businessRepositoriesAndStorageUnchanged": true,
+    "schemaVersionUnchanged": true,
+    "appClosed": true,
+    "screenshots": "Inspected inline, not saved as artifacts"
+  },
+  "sourceSha256": {
+    "src/features/business-workspace/MasterDataPages.tsx": "b9ef7cd36717cc7862fe0bce3cd1f10284deb968f0d7b81e739a6865439126b9",
+    "src/features/dashboard/pages/DashboardPage.tsx": "61f4ff9d97c37bcc98ea8ae605bedea1d1415695044dab308438f5dcff4636f3",
+    "src/features/prototype/PrototypeUI.tsx": "b4870d4bfe67716f960895ea5188460dda112fc2483081fd834886f1c913b7a2",
+    "src/features/security/optionalWorkflows.ts": "da914cfe538fc16a2f4de018e608d8041f6080eb31cc43ff933c72bda49119ec",
+    "src/features/settings/data/personalPreferences.test.ts": "886794aaef30b1cbf246088138a166c39644d957eea4b2aa5aad60017f55d582",
+    "src/features/settings/data/personalPreferences.ts": "d49ffa21d06e7a562b445be5654a29e6c971061f9d858a1909647d640631c1ac",
+    "src/layouts/AppLayout.tsx": "63a85c8f1c1ece7a1a41e4e0c5e02eceaca21252cc1e98fbe91729d36233ac1a",
+    "src/layouts/ModuleNavigation.test.tsx": "eeb93772963eff07a91b4994314e831e882945173a6a947dd869a9e046871899",
+    "src/layouts/ModuleNavigation.tsx": "d11be71c3af22539601c9d1e1effc9f6a9bb217d065af45246f3f2a0a04e957b",
+    "src/layouts/Sidebar.tsx": "bfb2102248b75405f6b2d98189de970ca6e19a93960cbf9e987cbd033bacb42e",
+    "src/layouts/WorkspaceUtilityPages.tsx": "11f29daf0a7e4a039ef6b92b1bf505cf6384554efcfc83b8b5a305ea0a28a8ba"
+  },
+  "baselineSha256": "e7383ea3e93c1723a631f73c0ae277f254ce817ac51275bc6e9b9d9a7a2b071c"
+}

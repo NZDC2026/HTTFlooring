@@ -1,3 +1,4 @@
+import {optionalWorkflows} from '../../security/optionalWorkflows';
 import {
     useMemo,
     useState,
@@ -506,7 +507,7 @@ export function ChartOfAccountsPage() {
                         Finance Controls
                     </Button>
 
-                    <Button
+                    {optionalWorkflows.manualJournals && <Button
                         variant="secondary"
                         onClick={() =>
                             navigate(
@@ -521,7 +522,7 @@ export function ChartOfAccountsPage() {
                         />
 
                         New Journal
-                    </Button>
+                    </Button>}
 
                     <Button
                         onClick={() =>

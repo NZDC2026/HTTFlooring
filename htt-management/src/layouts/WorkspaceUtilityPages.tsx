@@ -1,9 +1,11 @@
+import {presentationPathEnabled} from '../features/security/optionalWorkflows';
+import {optionalWorkflows} from '../features/security/optionalWorkflows';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSecurity } from '../features/security/securityClient';
 import { hasPermission, type Permission } from '../features/security/rbac';
 import { Panel, fieldClass, buttonClass } from '../features/prototype/PrototypeUI';
-const destinations: { name: string; description: string; path: string; permission?: Permission }[] = [
+const originalDestinations: { name: string; description: string; path: string; permission?: Permission }[] = [
  { name: 'Page directory', description: 'Products, tax codes, refunds, bank rules, templates and local workflows', path: '/workspace' },
  { name: 'Business record search', description: 'Current local numbers, names and references available to your role', path: '/search/records', permission: 'inventory.read' },
  { name: 'Tasks & action centre', description: 'Local follow-ups, owners, due dates and audited status history', path: '/tasks', permission: 'sales.read' },
@@ -26,6 +28,7 @@ const destinations: { name: string; description: string; path: string; permissio
  { name: 'Local access & audit', description: 'Local users, password, audit and backup controls', path: '/settings/security' },
  { name: 'Help', description: 'Workspace guide and feature boundaries', path: '/help' },
 ];
+const destinations=originalDestinations.filter(d=>presentationPathEnabled(d.path));
 export function WorkspaceSearchPage() {
  const [query, setQuery] = useState(''), { session } = useSecurity(), principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
  const results = destinations.filter(d => (!d.permission || hasPermission(principal, d.permission)) && `${d.name} ${d.description}`.toLowerCase().includes(query.toLowerCase()));
@@ -40,12 +43,12 @@ export function HelpPage() {
  ['Local payroll', 'Employees, hours, leave, reviewed payroll, journals and recorded payments. Government/STP submission and SuperStream delivery are not connected.', '/payroll'],
  ['Document centre', 'Save files against business records, preview or export versions, and recover recycled attachments. File bytes and audit history are included in local business backups.', '/documents'],
  ['Supplier document recognition', 'macOS English PDF/PNG/JPEG recognition preserves originals and confidence. Verify fields and totals before creating an expense draft; Windows uses manual/CSV. Recognition does not post bills.', '/documents/capture'],
- ['Bank instruction files', 'CommBank/CommBiz ABA files use local preview and independent approval. Export does not execute a bank payment; Basiq AU feed synchronization can be configured separately, with explicit statement import review.', '/banking/instruction-files'],
+ ...(optionalWorkflows.electronicPayments? [['Bank instruction files', 'CommBank/CommBiz ABA files use local preview and independent approval. Export does not execute a bank payment; Basiq AU feed synchronization can be configured separately, with explicit statement import review.', '/banking/instruction-files']] : [['Bank feeds', 'Configure optional Basiq AU feeds and review imported statements. Bank payment preparation is disabled.', '/banking/feeds']]),
  ['Personal preferences', 'Choose your sign-in home, compact or comfortable tables and reduced motion. Settings persist for your account on this device, separately from business backups.', '/settings/preferences'],
  ].map(([title, text, path]) => <Panel key={title} title={title}><p className="text-sm leading-6">{text}</p><Link className={buttonClass} to={path}>Open workspace</Link></Panel>)}</div><Panel title="Frequently asked questions">{[
  ['Why is an action unavailable?', 'Actions depend on your signed-in role, document status, accounting period and any unresolved posting operations. Review the displayed reason before retrying.'],
  ['Will changes remain after reload?', 'Business records, files and payroll persist in local main-process storage and business backups. Personal display preferences persist separately on this device for your account.'],
- ['Does the application send data to a live backend?', 'Business data stays in local repositories. Optional Resend email and Stripe checkout use external providers when configured and explicitly enabled. Communications and reminders run only while the application is running with the owner signed in.'],
+ ['Does the application send data to a live backend?', optionalWorkflows.onlineCollection?'Business data stays in local repositories. Optional Resend email and Stripe checkout use external providers when configured and explicitly enabled. Communications and reminders run only while the application is running with the owner signed in.':'Business data stays in local repositories. Optional email and bank feeds require explicit configuration. Online collection is disabled.'],
  ].map(([question, answer]) => <details className="rounded border p-4" key={question}><summary className="font-medium">{question}</summary><p className="mt-3 text-sm">{answer}</p></details>)}</Panel></main>;
 }
 export { ActionCentrePage as NotificationsPage } from '../features/action-centre/ActionCentrePage';

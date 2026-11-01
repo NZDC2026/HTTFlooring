@@ -1,3 +1,4 @@
+import {optionalWorkflows} from '../../security/optionalWorkflows';
 import {businessDateKey} from '../../../lib/businessDate';
 import {
     useMemo,
@@ -107,7 +108,7 @@ export function CreateBankTransactionPage() {
         setDirection,
     ] =
         useState<BankTransactionDirection>(
-            "MONEY_OUT",
+            optionalWorkflows.directBankSpend ? "MONEY_OUT" : "MONEY_IN",
         );
 
     const [
@@ -229,12 +230,11 @@ export function CreateBankTransactionPage() {
                 </p>
 
                 <h1 className="font-display text-3xl font-semibold text-[var(--color-primary)]">
-                    New Bank Transaction
+                    Receive Money
                 </h1>
 
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">
-                    Record money in or
-                    money out directly
+                    Record received money directly
                     against an eligible
                     general ledger
                     account.
@@ -334,9 +334,9 @@ export function CreateBankTransactionPage() {
                                         Money In
                                     </option>
 
-                                    <option value="MONEY_OUT">
+                                    {optionalWorkflows.directBankSpend && <option value="MONEY_OUT">
                                         Money Out
-                                    </option>
+                                    </option>}
                                 </select>
                             </Field>
 
@@ -442,7 +442,7 @@ export function CreateBankTransactionPage() {
                                                     .value,
                                             )
                                         }
-                                        placeholder="e.g. Monthly bank fee"
+                                        placeholder={optionalWorkflows.directBankSpend ? "e.g. Monthly bank fee" : "e.g. Received funds"}
                                     />
                                 </Field>
                             </div>

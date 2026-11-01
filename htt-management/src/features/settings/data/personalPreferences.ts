@@ -1,6 +1,7 @@
+import {presentationPathEnabled,presentationWorkflows} from '../../security/optionalWorkflows';
 import { z } from 'zod';
 import { hasPermission, type Permission, type VerifiedPrincipal } from '../../security/rbac';
-export const landingPages: { path: string; label: string; permission?: Permission }[] = [
+const originalLandingPages: { path: string; label: string; permission?: Permission }[] = [
     { path: '', label: 'Automatic for my role' }, { path: '/workspace', label: 'Page directory' },
     { path: '/dashboard', label: 'Dashboard', permission: 'accounting.read' },
     { path: '/sales', label: 'Sales', permission: 'sales.read' },
@@ -9,6 +10,7 @@ export const landingPages: { path: string; label: string; permission?: Permissio
     { path: '/banking', label: 'Banking', permission: 'banking.read' },
     { path: '/payroll', label: 'Payroll', permission: 'payroll.read' }, { path: '/documents', label: 'Documents' },
 ];
+export const landingPages=originalLandingPages.filter(p=>presentationPathEnabled(p.path));
 export const preferenceSchema = z.object({ version: z.literal(1), landingPage: z.enum(['', '/workspace', '/dashboard', '/sales', '/purchases', '/inventory', '/banking', '/payroll', '/documents']), density: z.enum(['Comfortable', 'Compact']), reduceMotion: z.boolean() }).strict();
 export type PersonalPreferences = z.infer<typeof preferenceSchema>;
 export const defaultPreferences: PersonalPreferences = Object.freeze({ version: 1, landingPage: '', density: 'Comfortable', reduceMotion: false });
@@ -50,5 +52,5 @@ export function landingFor(principal: VerifiedPrincipal | null, preferred: strin
     if (principal?.authenticated && destination && (!destination.permission || hasPermission(principal, destination.permission))) return destination.path;
     return ['/dashboard', '/sales', '/purchases', '/inventory'].find(path => {
         const permission = landingPages.find(p => p.path === path)!.permission!; return hasPermission(principal, permission);
-    }) ?? '/workspace';
+    }) ?? (presentationWorkflows.pageDirectory?'/workspace':'/settings/preferences');
 }

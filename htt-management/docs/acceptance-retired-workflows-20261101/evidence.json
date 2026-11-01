@@ -1,0 +1,90 @@
+{
+  "stage": "Confirmed workflow retirement",
+  "date": "2026-11-01",
+  "schemaVersion": 33,
+  "originalCopies": "/Users/chandler/.codex/.chatgpt-projects/g-p-6ac4c52c30a88191811060c04fce1d7c/baselines/remove-unwanted-start/originals",
+  "scope": [
+    "Online collection",
+    "Electronic payments / ABA",
+    "Remittance advice",
+    "Direct bank spending",
+    "Bank transfers",
+    "Manual journal entry"
+  ],
+  "originalImplementationsPreserved": true,
+  "migrationOrDataDeletion": false,
+  "validation": {
+    "build": {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "warning": "Existing Vite large-chunk warning"
+    },
+    "fullRegression": {
+      "command": "pnpm test:ci",
+      "files": 176,
+      "tests": 3772,
+      "exitCode": 0,
+      "seconds": 269.28
+    },
+    "targetedFinalRoutesAndScope": {
+      "files": 4,
+      "tests": 1674,
+      "exitCode": 0
+    },
+    "timerAndNavigationFixes": {
+      "files": 2,
+      "tests": 9,
+      "exitCode": 0
+    },
+    "guidanceDocuments": 69,
+    "tableSourceSurfacesIncludingRetainedImplementations": 149,
+    "whitespaceClean": true,
+    "originalBackupCopiesVerified": 30,
+    "note": "Generated route-matrix cases decrease because retired pages are no longer active directory routes; original implementation tests remain in source."
+  },
+  "native": {
+    "syntheticProfile": true,
+    "observed": [
+      "Banking has Receive Money and no Transfer Money",
+      "Receive Money direction popup contains Money In only",
+      "Accounting has Journal Register and no New Journal",
+      "Directory excludes bank instructions and electronic payment batches",
+      "Communications has email and reminders without Stripe or online collection controls",
+      "Purchase output type popup contains Purchase order only"
+    ],
+    "businessRepositoriesAndStorageUnchanged": true,
+    "envelopeSavedAtUpdated": true,
+    "screenshots": "Inspected inline; no screenshot artifacts saved",
+    "appClosed": true
+  },
+  "sourceSha256": {
+    "electron/integrations/externalServices.ts": "17c0eaff0723a49912e6dec51fd0ef538dfc9f32b2711ccfd402c26e39002427",
+    "electron/security/businessHost.ts": "250c4a48a7df893ecc3a96d1fbf7c7426e1931b12f9935306476807cdadc8b7c",
+    "electron/security/registerSecurityIpc.ts": "cefecd4ba21a4f6db5e1a0d1b24edbf9590061d08b8c4206fb4e3b6c3c36262d",
+    "src/features/accounting/pages/ChartOfAccountsPage.tsx": "d11503c89bb2b1dd156679a2e62593ec097be2bfde68d822d469878e048ce47c",
+    "src/features/banking/pages/BankingPage.tsx": "ddbd7d5c4c245fa42860f6245e9b48ba3e0148e9c8d22b58ea62474210b99c96",
+    "src/features/banking/pages/CreateBankTransactionPage.tsx": "86291d5b0b921ce493dbebbf3bbf93b6881b69938e5021817e84362b7b1f3c37",
+    "src/features/business-workspace/MasterDataPages.tsx": "276d7ab14ce9108ab2c2785731fba7102e4a4defb868f7d772333ea8a42ae92c",
+    "src/features/desktop-acceptance/routes.test.tsx": "8eddb0477e935965116691e5829de0987e505fbfe4d6379d24a4104830fa5548",
+    "src/features/document-output/PurchaseOutputPage.tsx": "41d81473a39bddd9172ccf4d80a679294332f49da15ce29d2cc2f9e54c588e9e",
+    "src/features/external-services/CommunicationsPage.tsx": "3a2b5e2b86b4ec395e09ce173e795a46571c16fdb5d8f16c0400961930a31b70",
+    "src/features/external-services/externalServices.test.ts": "d66e973ce6182cb8f36ddea22b1b408fd67ebfc5fdcca83d548a56c5c3cd4554",
+    "src/features/page-previews/PreviewWorkspace.tsx": "03bcf5dd6743a6a7211fd46bd505b17f5bb30b3227a7ede70ac30051821322d0",
+    "src/features/page-previews/catalog.ts": "9afa53d52aef163fa18c58e22ece1e7956defd4e02284abfe264f2ff060ce59e",
+    "src/features/page-previews/currentNavigation.test.tsx": "c6369abd1d83f331ad5436157c6d41e186ea877ac3ea42f4558f4a8d3052c994",
+    "src/features/page-previews/directoryCatalog.ts": "30dd81083492fbf9adfdd8ec53c9703c6746c38ca1f0aeb81350a58d3ce2222e",
+    "src/features/page-previews/previewRoutes.test.tsx": "b013fc2d477bec8e5474ee0dfe2c666dd68baa1870c3e85e8505f0931d73c90e",
+    "src/features/payroll/data/payrollComplex.test.ts": "d1913d1fddd58a58c305873771f68d3b93ec30a9b292125a0b47f411eefbd8f8",
+    "src/features/payroll/pages/PayrollPages.tsx": "30896ce76a55fae9f0be50ef9eaa7f31939e3a907c1a1da101bb4eca95afd0d6",
+    "src/features/purchases/pages/PurchaseOrdersPage.tsx": "f518ce8f4ee860f91985b03893d860214a7e7d8449e9b1f808a93f327c5310b0",
+    "src/features/purchases/pages/SupplierPaymentDetailPage.tsx": "47311433191474c2d2cb59451412eb74b01ed4dd1ced3d36731681686085c7dd",
+    "src/features/recurring/RecurringAutomationPanel.tsx": "6d0e1b681b0427724b097b7b952d79392f7ea2d4fa0fcfb67b3cf12bba43ae6a",
+    "src/features/recurring/recurringTimer.test.ts": "36332d9ae320cda7d66dd5653ebaa2ff49b4fe94b5eda9b50f69185cc8bb66cd",
+    "src/features/security/SecurityGate.tsx": "345ff8aaf39e3941ffb6850b556b31f2ba7363ae298c041c67c9e86d88422717",
+    "src/features/security/optionalWorkflows.test.ts": "90e11cfa6071eb7f2eab773e7e29e5c9dc3b3613cf84a81ef91fad2af38e2185",
+    "src/features/security/optionalWorkflows.ts": "812ad15a6bb30df6d0e5951239dbeee68738a5edf27af0af443fa1942dabf0c2",
+    "src/features/settings/pages/SettingsOverviewPage.tsx": "8b89883499b0f3b108975a8e3eb8c3ebebc202d37063e588f894e88400daf39d",
+    "src/layouts/WorkspaceUtilityPages.tsx": "4d666f6fb78d831ca6f1b3660c66c7e35dbbc7001cbb104c120009068674d01b"
+  },
+  "baselineSha256": "10d5e4295e393f848dbd8f9f335e7a3616d3f59d171be8daf9c4f8777b9797ad"
+}

@@ -1,15 +1,15 @@
 import { beforeEach,afterEach,it,expect,vi } from 'vitest';
-const fixture=vi.hoisted(()=>({on:vi.fn(),scan:vi.fn(),initialize:vi.fn(),view:vi.fn(()=>({repositories:{},storage:{}})),require:vi.fn(),principal:vi.fn()}));
+const fixture=vi.hoisted(()=>({on:vi.fn(),restrict:vi.fn(),scan:vi.fn(),initialize:vi.fn(),view:vi.fn(()=>({repositories:{},storage:{}})),require:vi.fn(),principal:vi.fn()}));
 vi.mock('electron',()=>({app:{isPackaged:false,getAppPath:()=>'/synthetic-app'},ipcMain:{on:fixture.on},dialog:{}}));
 vi.mock('../../../electron/security/localSecurity',()=>({LocalSecurity:class{require=fixture.require;principal=fixture.principal;logout=vi.fn();},atomicJson:vi.fn()}));
-vi.mock('../../../electron/security/businessHost',()=>({BusinessHost:class{initialize=fixture.initialize;scanRecurringDue=fixture.scan;view=fixture.view;}}));
+vi.mock('../../../electron/security/businessHost',()=>({BusinessHost:class{restrictToApprovedScope=fixture.restrict;initialize=fixture.initialize;scanRecurringDue=fixture.scan;view=fixture.view;}}));
 import {registerSecurityIpc} from '../../../electron/security/registerSecurityIpc';
 let owner:{webContents:{mainFrame:object}},handle:ReturnType<typeof registerSecurityIpc>;
 beforeEach(()=>{vi.useFakeTimers();vi.clearAllMocks();fixture.scan.mockReset().mockReturnValue({generated:1,failed:0,remaining:0});fixture.initialize.mockReset().mockResolvedValue(undefined);owner={webContents:{mainFrame:{}}};handle=registerSecurityIpc('/private/tmp/unused-g05-timer',()=>owner as any);});
 afterEach(()=>{handle.dispose();vi.useRealTimers();vi.restoreAllMocks();});
 async function request(action:string,input={}){const e={sender:owner.webContents,senderFrame:owner.webContents.mainFrame,returnValue:undefined as any};await fixture.on.mock.calls[0][1](e,action,input);return e.returnValue;}
 it('scans after successful desktop bootstrap and every minute, and stops on disposal',async()=>{
- await request('business.bootstrap');expect(fixture.scan).toHaveBeenCalledTimes(1);expect(fixture.initialize.mock.invocationCallOrder[0]).toBeLessThan(fixture.scan.mock.invocationCallOrder[0]);
+ expect(fixture.restrict).toHaveBeenCalledTimes(1);await request('business.bootstrap');expect(fixture.scan).toHaveBeenCalledTimes(1);expect(fixture.initialize.mock.invocationCallOrder[0]).toBeLessThan(fixture.scan.mock.invocationCallOrder[0]);
  vi.advanceTimersByTime(59_999);expect(fixture.scan).toHaveBeenCalledTimes(1);vi.advanceTimersByTime(1);expect(fixture.scan).toHaveBeenCalledTimes(2);handle.dispose();vi.advanceTimersByTime(120_000);expect(fixture.scan).toHaveBeenCalledTimes(2);
 });
 it('does not overlap a busy bootstrap and returns the authoritative view after a manual scan',async()=>{

@@ -1,3 +1,4 @@
+import {presentationWorkflows} from '../../security/optionalWorkflows';
 import { expect, it, vi } from 'vitest';
 import { createPreferenceStore, defaultPreferences, landingFor, preferencePrefix } from './personalPreferences';
 const values = { ...defaultPreferences, density: 'Compact' as const, reduceMotion: true, landingPage: '/documents' as const };
@@ -29,5 +30,5 @@ it.each([['ADMIN', '/dashboard'], ['SALES', '/sales'], ['PURCHASING', '/purchase
 });
 it('rechecks preferred home authority after a role change and never accepts an arbitrary destination', () => {
     const sales = { userId: 'a', roles: ['SALES'], authenticated: true as const };
-    expect(landingFor(sales, '/payroll')).toBe('/sales'); expect(landingFor(sales, '/documents')).toBe('/documents'); expect(landingFor(sales, '//evil.test')).toBe('/sales'); expect(landingFor(null, '/documents')).toBe('/workspace');
+    expect(landingFor(sales, '/payroll')).toBe('/sales'); expect(landingFor(sales, '/documents')).toBe('/documents'); expect(landingFor(sales, '//evil.test')).toBe('/sales'); expect(landingFor(null, '/documents')).toBe(presentationWorkflows.pageDirectory?'/workspace':'/settings/preferences');
 });

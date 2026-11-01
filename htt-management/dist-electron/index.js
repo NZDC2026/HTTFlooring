@@ -1,6 +1,6 @@
-import { $t as e, C as t, Cn as n, Dn as r, Ot as i, Q as a, Qt as o, Tn as s, Xt as c, Zt as l, _n as u, a as d, bn as f, c as p, cn as m, d as ee, dn as h, en as g, f as te, fn as _, gn as v, hn as y, i as ne, in as re, ln as ie, n as ae, o as oe, pn as b, r as x, t as se, u as ce, w as le, xn as ue, y as de, yn as S } from "./businessSnapshot-BhalBeLs.js";
-import { appendFileSync as fe, closeSync as pe, existsSync as C, fsyncSync as me, mkdirSync as he, openSync as ge, readFileSync as w, realpathSync as T, renameSync as _e, statSync as ve, writeFileSync as ye } from "node:fs";
-import be, { basename as xe, dirname as E, isAbsolute as Se, join as D, relative as Ce, sep as we } from "node:path";
+import { $t as e, C as t, Cn as n, Dn as r, Ot as i, Q as a, Qt as o, Tn as s, Xt as c, Zt as l, _n as u, a as d, bn as f, c as p, cn as m, d as ee, dn as h, en as g, f as te, fn as _, gn as v, hn as y, i as ne, in as re, ln as ie, n as ae, o as oe, pn as b, r as se, t as ce, u as le, w as ue, xn as de, y as fe, yn as x } from "./businessSnapshot-BhalBeLs.js";
+import { appendFileSync as pe, closeSync as me, existsSync as S, fsyncSync as he, mkdirSync as ge, openSync as _e, readFileSync as C, realpathSync as w, renameSync as ve, statSync as ye, writeFileSync as be } from "node:fs";
+import T, { basename as xe, dirname as E, isAbsolute as Se, join as D, relative as Ce, sep as we } from "node:path";
 import { createHash as O, createHmac as Te, randomBytes as Ee, randomUUID as k, scryptSync as De, timingSafeEqual as Oe } from "node:crypto";
 import { BrowserWindow as ke, Menu as Ae, app as A, dialog as j, ipcMain as je, nativeImage as Me, safeStorage as M, shell as Ne } from "electron";
 import { writeFile as Pe } from "node:fs/promises";
@@ -30,17 +30,17 @@ var Ie = /* @__PURE__ */ new Set([
 	constructor(e, t, n = 262144) {
 		this.version = t, this.maxBytes = n, this.directory = D(e, "diagnostics");
 		try {
-			he(this.directory, {
+			ge(this.directory, {
 				recursive: !0,
 				mode: 448
 			});
 			let e = D(this.directory, "session.json");
-			if (C(e)) try {
-				JSON.parse(w(e, "utf8")).clean !== !0 && this.event("previous-unclean-exit");
+			if (S(e)) try {
+				JSON.parse(C(e, "utf8")).clean !== !0 && this.event("previous-unclean-exit");
 			} catch {
 				this.event("previous-unclean-exit");
 			}
-			ye(e, JSON.stringify({
+			be(e, JSON.stringify({
 				session: this.session,
 				clean: !1
 			}), { mode: 384 }), this.event("start");
@@ -61,11 +61,11 @@ var Ie = /* @__PURE__ */ new Set([
 			"pdf-export-failed"
 		].includes(e) && this.alerts.add(e), e === "renderer-responsive" && this.alerts.delete("renderer-unresponsive"), this.available)) try {
 			let t = D(this.directory, "operations.jsonl");
-			if (C(t) && ve(t).size >= this.maxBytes) for (let e = 2; e >= 1; e--) {
+			if (S(t) && ye(t).size >= this.maxBytes) for (let e = 2; e >= 1; e--) {
 				let n = e === 1 ? t : `${t}.${e - 1}`;
-				C(n) && _e(n, `${t}.${e}`);
+				S(n) && ve(n, `${t}.${e}`);
 			}
-			fe(t, JSON.stringify({
+			pe(t, JSON.stringify({
 				at: (/* @__PURE__ */ new Date()).toISOString(),
 				session: this.session,
 				version: /^[0-9]+\.[0-9]+\.[0-9]+(?:-[\w.-]+)?$/.test(this.version) ? this.version : "unknown",
@@ -80,7 +80,7 @@ var Ie = /* @__PURE__ */ new Set([
 	finish() {
 		this.event("clean-exit");
 		try {
-			ye(D(this.directory, "session.json"), JSON.stringify({
+			be(D(this.directory, "session.json"), JSON.stringify({
 				session: this.session,
 				clean: !0
 			}), { mode: 384 });
@@ -94,13 +94,31 @@ var Ie = /* @__PURE__ */ new Set([
 			alerts: [...this.alerts]
 		};
 	}
-}, N = S().max(500), P = S().min(1).max(200), Re = v().int().nonnegative().max(0x5af3107a4000), ze = [
+}, N = Object.freeze({
+	onlineCollection: !1,
+	electronicPayments: !1,
+	remittance: !1,
+	directBankSpend: !1,
+	bankTransfers: !1,
+	manualJournals: !1
+});
+function Re(e) {
+	let { repository: t, method: n, args: r } = e, i = r[0];
+	if (!N.directBankSpend && (t === "recurringBank" || t === "recurringAutomation" && i?.kind === "BANK") || !N.electronicPayments && ["bankInstructions", "paymentBatches"].includes(t) || !N.bankTransfers && t === "bankTransactions" && n === "createTransfer" || !N.directBankSpend && t === "bankTransactions" && n === "createTransaction" && i?.direction !== "MONEY_IN" || !N.manualJournals && t === "journals" && n === "post" || !N.remittance && t === "preparedPurchaseOutputs" && n === "prepare" && i?.kind === "REMITTANCE") throw Error("This workflow has been removed from the approved application scope. Historical records are preserved.");
+}
+Object.freeze({
+	pageDirectory: !1,
+	customerDemo: !1
+});
+//#endregion
+//#region src/features/payroll-filing/contract.ts
+var P = x().max(500), F = x().min(1).max(200), ze = v().int().nonnegative().max(0x5af3107a4000), Be = [
 	"STP_PAY",
 	"STP_UPDATE",
 	"STP_FINALISE",
 	"STP_UNFINALISE",
 	"SUPER_CONTRIBUTION"
-], Be = [
+], Ve = [
 	"GROSS",
 	"PAID_LEAVE",
 	"OVERTIME",
@@ -109,42 +127,42 @@ var Ie = /* @__PURE__ */ new Set([
 	"PAYG",
 	"SG",
 	"RESC"
-], Ve = u({
+], He = u({
 	employer: u({
-		abn: N,
-		branch: N,
-		contactName: N,
-		email: N,
-		phone: N,
-		historyFrom: N,
+		abn: P,
+		branch: P,
+		contactName: P,
+		email: P,
+		phone: P,
+		historyFrom: P,
 		historyConfirmed: b()
 	}).strict(),
 	employees: _(u({
-		employeeId: P,
-		payrollId: N,
-		givenName: N,
-		familyName: N,
-		dateOfBirth: N,
-		address: N,
-		suburb: N,
-		state: N,
-		postcode: N,
+		employeeId: F,
+		payrollId: P,
+		givenName: P,
+		familyName: P,
+		dateOfBirth: P,
+		address: P,
+		suburb: P,
+		state: P,
+		postcode: P,
 		incomeType: y("SAW"),
 		employmentBasis: h([
 			"F",
 			"P",
 			"C"
 		]),
-		taxTreatment: N,
-		usi: N,
-		fundAbn: N
+		taxTreatment: P,
+		usi: P,
+		fundAbn: P
 	}).strict()).max(500),
 	items: _(u({
-		itemId: P,
-		category: h(Be),
-		providerCode: N
+		itemId: F,
+		category: h(Ve),
+		providerCode: P
 	}).strict()).max(500)
-}).strict(), He = () => ({
+}).strict(), Ue = () => ({
 	employer: {
 		abn: "",
 		branch: "",
@@ -156,16 +174,16 @@ var Ie = /* @__PURE__ */ new Set([
 	},
 	employees: [],
 	items: []
-}), Ue = u({
-	providerName: N,
-	adapterId: P,
-	documentationUrl: N,
-	apiKey: S().max(2e3),
-	tenantId: N,
+}), We = u({
+	providerName: P,
+	adapterId: F,
+	documentationUrl: P,
+	apiKey: x().max(2e3),
+	tenantId: P,
 	enabled: b(),
 	production: b(),
-	contractReference: N
-}).strict(), We = () => ({
+	contractReference: P
+}).strict(), Ge = () => ({
 	providerName: "",
 	adapterId: "UNCONFIGURED",
 	documentationUrl: "",
@@ -174,66 +192,66 @@ var Ie = /* @__PURE__ */ new Set([
 	enabled: !1,
 	production: !1,
 	contractReference: ""
-}), Ge = u(Object.fromEntries(Be.map((e) => [e, Re]))).strict(), Ke = u({
-	id: P,
-	kind: h(ze),
-	financialYear: S().regex(/^\d{4}-\d{4}$/),
-	asOf: S().length(10),
-	runId: P.optional(),
-	predecessorId: P.optional(),
-	sourceDigest: S().length(64),
+}), Ke = u(Object.fromEntries(Ve.map((e) => [e, ze]))).strict(), qe = u({
+	id: F,
+	kind: h(Be),
+	financialYear: x().regex(/^\d{4}-\d{4}$/),
+	asOf: x().length(10),
+	runId: F.optional(),
+	predecessorId: F.optional(),
+	sourceDigest: x().length(64),
 	createdAt: v().finite(),
-	createdBy: P,
-	employer: Ve.shape.employer,
+	createdBy: F,
+	employer: He.shape.employer,
 	employeeRows: _(u({
-		employeeId: P,
-		payrollId: P,
-		givenName: N,
-		familyName: N,
-		dateOfBirth: N,
-		address: N,
-		suburb: N,
-		state: N,
-		postcode: N,
+		employeeId: F,
+		payrollId: F,
+		givenName: P,
+		familyName: P,
+		dateOfBirth: P,
+		address: P,
+		suburb: P,
+		state: P,
+		postcode: P,
 		incomeType: y("SAW"),
 		employmentBasis: h([
 			"F",
 			"P",
 			"C"
 		]),
-		taxTreatment: N,
-		tfn: N,
-		fundName: N,
-		memberId: N,
-		usi: N,
-		fundAbn: N,
+		taxTreatment: P,
+		tfn: P,
+		fundName: P,
+		memberId: P,
+		usi: P,
+		fundAbn: P,
 		components: _(u({
-			itemId: P,
-			code: N,
-			category: h(Be),
-			providerCode: N,
-			ytdCents: Re,
-			periodCents: Re
+			itemId: F,
+			code: P,
+			category: h(Ve),
+			providerCode: P,
+			ytdCents: ze,
+			periodCents: ze
 		}).strict()).max(500),
-		ytd: Ge,
-		period: Ge
+		ytd: Ke,
+		period: Ke
 	}).strict()).min(1).max(500),
 	sourceEvidence: _(u({
-		runId: P,
-		journalId: P,
-		sourceToken: P,
-		payDate: N,
-		slipsDigest: S().length(64)
+		runId: F,
+		journalId: F,
+		sourceToken: F,
+		payDate: P,
+		slipsDigest: x().length(64)
 	}).strict()).max(5e3),
-	runIds: _(P).max(5e3),
-	totalSuperCents: Re,
+	runIds: _(F).max(5e3),
+	totalSuperCents: ze,
 	notice: y("INTERNAL_REVIEW_NOT_PROVIDER_OR_ATO_FORMAT")
-}).strict(), qe = u({
-	requestId: P,
-	providerId: P,
-	reportId: P,
-	sourceDigest: S().length(64),
-	employerAbn: S(),
+}).strict(), Je = u({
+	requestId: F,
+	providerId: F,
+	reportId: F,
+	sourceDigest: x().length(64),
+	employerAbn: x(),
 	status: h([
 		"PROVIDER_RECEIVED",
 		"PROCESSING",
@@ -242,22 +260,22 @@ var Ie = /* @__PURE__ */ new Set([
 		"PARTIAL",
 		"FUND_RECEIVED"
 	]),
-	authorityReference: N.optional(),
+	authorityReference: P.optional(),
 	memberReceipts: _(u({
-		payrollId: P,
-		fundAbn: N,
-		usi: N,
-		memberId: N,
-		amountCents: Re,
-		reference: P,
+		payrollId: F,
+		fundAbn: P,
+		usi: P,
+		memberId: P,
+		amountCents: ze,
+		reference: F,
 		receivedAt: v().finite()
 	}).strict()).max(500).optional()
-}).strict(), Je = u({
-	id: P,
-	reportId: P,
-	ownerId: P,
-	requestId: P,
-	credentialRevision: S().length(64),
+}).strict(), Ye = u({
+	id: F,
+	reportId: F,
+	ownerId: F,
+	requestId: F,
+	credentialRevision: x().length(64),
 	status: h([
 		"QUEUED",
 		"SENDING",
@@ -270,82 +288,82 @@ var Ie = /* @__PURE__ */ new Set([
 		"FUND_RECEIVED",
 		"CANCELLED"
 	]),
-	providerId: P.optional(),
-	authorityReference: N.optional(),
+	providerId: F.optional(),
+	authorityReference: P.optional(),
 	receipts: _(u({
 		at: v().finite(),
-		evidence: qe
+		evidence: Je
 	}).strict()).max(500),
-	receipt: qe.optional(),
+	receipt: Je.optional(),
 	attempted: b(),
 	nextAt: v().finite(),
-	error: N.optional(),
+	error: P.optional(),
 	declaration: u({
-		name: P,
-		reason: S().min(10).max(2e3),
+		name: F,
+		reason: x().min(10).max(2e3),
 		at: v().finite(),
-		actorId: P
+		actorId: F
 	}).strict(),
 	history: _(u({
 		at: v().finite(),
-		event: P
+		event: F
 	}).strict()).max(500)
 }).strict();
 //#endregion
 //#region electron/security/localSecurity.ts
-function F(e, t) {
-	he(E(e), {
+function I(e, t) {
+	ge(E(e), {
 		recursive: !0,
 		mode: 448
 	});
-	let n = `${e}.${k()}.tmp`, r = ge(n, "wx", 384);
+	let n = `${e}.${k()}.tmp`, r = _e(n, "wx", 384);
 	try {
-		ye(r, JSON.stringify(t)), me(r);
+		be(r, JSON.stringify(t)), he(r);
 	} finally {
-		pe(r);
+		me(r);
 	}
-	_e(n, e);
-	let i = ge(E(e), "r");
+	ve(n, e);
+	let i = _e(E(e), "r");
 	try {
-		me(i);
+		he(i);
 	} finally {
-		pe(i);
+		me(i);
 	}
 }
-var Ye = ({ id: e, username: t, displayName: n, roles: r, active: i }) => ({
+var Xe = ({ id: e, username: t, displayName: n, roles: r, active: i }) => ({
 	id: e,
 	username: t,
 	displayName: n,
 	roles: [...r],
 	active: i
 });
-function Xe(e) {
+function Ze(e) {
 	if (typeof e != "string" || !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(e.trim().toLowerCase())) throw Error("Username must contain 3–64 letters, numbers, dots, underscores or hyphens.");
 	return e.trim().toLowerCase();
 }
-function Ze(e) {
+function Qe(e) {
 	if (typeof e != "string" || e.length < 12 || e.length > 256) throw Error("Password must contain 12–256 characters.");
 	return e;
 }
-function Qe(e) {
+function $e(e) {
 	if (!Array.isArray(e) || !e.length || !e.every((e) => ie.includes(e))) throw Error("Choose at least one valid role.");
 	return [...new Set(e)];
 }
-var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
+var et = (e, t) => De(e, t, 64).toString("hex"), tt = class {
 	state;
 	session = null;
 	poisoned = !1;
 	path;
 	save;
 	now;
-	constructor(e, t = F, n = () => Date.now()) {
-		if (this.path = e, this.save = t, this.now = n, C(e)) {
-			let t = JSON.parse(w(e, "utf8"));
+	constructor(e, t = I, n = () => Date.now()) {
+		if (this.path = e, this.save = t, this.now = n, S(e)) {
+			let t = JSON.parse(C(e, "utf8"));
 			if (t?.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(t.auditKey) || !Array.isArray(t.users) || !Array.isArray(t.audit)) throw Error("Invalid local security database; access blocked.");
 			let n = /* @__PURE__ */ new Set(), r = /* @__PURE__ */ new Set();
 			for (let e of t.users) {
-				if (!e.id || n.has(e.id) || r.has(e.username) || Xe(e.username) !== e.username || typeof e.displayName != "string" || typeof e.active != "boolean" || !Number.isFinite(e.failures) || !Number.isFinite(e.lockedUntil) || !/^[a-f0-9]{32}$/.test(e.salt) || !/^[a-f0-9]{128}$/.test(e.passwordHash)) throw Error("Invalid local user data; access blocked.");
-				Qe(e.roles), n.add(e.id), r.add(e.username);
+				if (!e.id || n.has(e.id) || r.has(e.username) || Ze(e.username) !== e.username || typeof e.displayName != "string" || typeof e.active != "boolean" || !Number.isFinite(e.failures) || !Number.isFinite(e.lockedUntil) || !/^[a-f0-9]{32}$/.test(e.salt) || !/^[a-f0-9]{128}$/.test(e.passwordHash)) throw Error("Invalid local user data; access blocked.");
+				$e(e.roles), n.add(e.id), r.add(e.username);
 			}
 			if (t.users.length && !t.users.some((e) => e.active && e.roles.includes("ADMIN"))) throw Error("No active administrator; access blocked.");
 			let i = "";
@@ -406,7 +424,7 @@ var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
 	}
 	status() {
 		let e = this.principal(), t = e && this.state.users.find((t) => t.id === e.userId), n = t ? {
-			user: Ye(t),
+			user: Xe(t),
 			expiresAt: new Date(Math.min(this.session.idleUntil, this.session.absoluteUntil)).toISOString()
 		} : null;
 		return {
@@ -419,32 +437,32 @@ var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
 		return this.addUser(e, ["ADMIN"]), this.login(e);
 	}
 	addUser(e, t) {
-		let n = Xe(e.username), r = Ze(e.password);
+		let n = Ze(e.username), r = Qe(e.password);
 		if (!e.displayName?.trim() || e.displayName.trim().length > 100) throw Error("Display name is required (maximum 100 characters).");
 		if (this.state.users.some((e) => e.username === n)) throw Error("Username already exists.");
 		let i = Ee(16).toString("hex"), a = {
 			id: k(),
 			username: n,
 			displayName: e.displayName.trim(),
-			roles: Qe(t),
+			roles: $e(t),
 			active: !0,
 			salt: i,
-			passwordHash: $e(r, i),
+			passwordHash: et(r, i),
 			failures: 0,
 			lockedUntil: 0
 		};
 		return this.commit({
 			...this.state,
 			users: [...this.state.users, a]
-		}), this.audit("user.created", a.id, "SUCCESS", "users.manage", void 0, this.principal()?.userId ?? a.id), Ye(a);
+		}), this.audit("user.created", a.id, "SUCCESS", "users.manage", void 0, this.principal()?.userId ?? a.id), Xe(a);
 	}
 	login(e) {
 		this.session = null;
-		let t = Xe(e.username);
+		let t = Ze(e.username);
 		if (typeof e.password != "string" || e.password.length > 256) throw Error("Invalid username or password.");
 		let n = this.state.users.find((e) => e.username === t);
 		if (n && n.lockedUntil > this.now()) throw Error("Too many login attempts; try again later.");
-		let r = Buffer.from($e(e.password, n?.salt ?? "unavailable-account"), "hex"), i = n ? Buffer.from(n.passwordHash, "hex") : Buffer.alloc(64);
+		let r = Buffer.from(et(e.password, n?.salt ?? "unavailable-account"), "hex"), i = n ? Buffer.from(n.passwordHash, "hex") : Buffer.alloc(64);
 		if (!n?.active || !Oe(r, i)) throw n && this.commit({
 			...this.state,
 			users: this.state.users.map((e) => e.id === n.id ? {
@@ -470,13 +488,13 @@ var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
 		return this.audit("session.logout", this.principal()?.userId ?? "", "SUCCESS"), this.session = null, this.status();
 	}
 	listUsers() {
-		return this.require("users.manage"), this.state.users.map(Ye);
+		return this.require("users.manage"), this.state.users.map(Xe);
 	}
 	createUser(e) {
 		return this.require("users.manage"), this.addUser(e, e.roles);
 	}
 	updateUser(e) {
-		let t = this.require("users.manage"), n = Qe(e.roles);
+		let t = this.require("users.manage"), n = $e(e.roles);
 		if (typeof e.active != "boolean" || !this.state.users.some((t) => t.id === e.id)) throw Error("User was not found or active flag is invalid.");
 		let r = this.state.users.map((t) => t.id === e.id ? {
 			...t,
@@ -493,14 +511,14 @@ var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
 		let t = this.principal();
 		if (!t) throw Error("Login required.");
 		let n = this.state.users.find((e) => e.id === t.userId);
-		if (typeof e.currentPassword != "string" || e.currentPassword.length > 256 || !Oe(Buffer.from($e(e.currentPassword, n.salt), "hex"), Buffer.from(n.passwordHash, "hex"))) throw Error("Current password is incorrect.");
-		let r = Ze(e.password), i = Ee(16).toString("hex");
+		if (typeof e.currentPassword != "string" || e.currentPassword.length > 256 || !Oe(Buffer.from(et(e.currentPassword, n.salt), "hex"), Buffer.from(n.passwordHash, "hex"))) throw Error("Current password is incorrect.");
+		let r = Qe(e.password), i = Ee(16).toString("hex");
 		this.audit("user.password", n.id, "INTENT"), this.commit({
 			...this.state,
 			users: this.state.users.map((e) => e.id === n.id ? {
 				...e,
 				salt: i,
-				passwordHash: $e(r, i)
+				passwordHash: et(r, i)
 			} : e)
 		}), this.audit("user.password", n.id, "SUCCESS"), this.session = null;
 	}
@@ -518,47 +536,47 @@ var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
 			rows: [...i].reverse().slice(t, t + n)
 		};
 	}
-}, I = (e) => O("sha256").update(JSON.stringify(e)).digest("hex"), tt = u({
+}, L = (e) => O("sha256").update(JSON.stringify(e)).digest("hex"), nt = u({
 	version: y(1),
-	profile: Ve,
+	profile: He,
 	profileRevision: v().int().nonnegative(),
-	configuration: Ue,
+	configuration: We,
 	profileHistory: _(u({
 		at: v().finite(),
-		actorId: S(),
-		reason: S().min(10).max(2e3),
-		digest: S().length(64)
+		actorId: x(),
+		reason: x().min(10).max(2e3),
+		digest: x().length(64)
 	}).strict()).max(2e3),
-	reports: _(Ke).max(1e3),
-	jobs: _(Je).max(1e3),
+	reports: _(qe).max(1e3),
+	jobs: _(Ye).max(1e3),
 	manualReviews: _(u({
-		id: S(),
-		reportId: S(),
-		actorId: S(),
-		reference: S().min(1).max(200),
-		notes: S().min(10).max(2e3),
+		id: x(),
+		reportId: x(),
+		actorId: x(),
+		reference: x().min(1).max(200),
+		notes: x().min(10).max(2e3),
 		at: v().finite()
 	}).strict()).max(2e3)
-}).strict(), nt = class {
+}).strict(), rt = class {
 	path;
 	codec;
 	state;
 	constructor(e, t) {
-		if (this.path = D(e, "payroll-filing-v1.json"), this.codec = t, C(this.path)) try {
+		if (this.path = D(e, "payroll-filing-v1.json"), this.codec = t, S(this.path)) try {
 			if (!t.available()) throw Error();
-			let e = w(this.path, "utf8");
+			let e = C(this.path, "utf8");
 			if (Buffer.byteLength(e) > 75e6) throw Error();
 			let n = JSON.parse(e);
-			if (n.version !== 1 || n.checksum !== I(n.cipher)) throw Error();
+			if (n.version !== 1 || n.checksum !== L(n.cipher)) throw Error();
 			this.state = this.validate(JSON.parse(t.decrypt(Buffer.from(n.cipher, "base64"))));
 		} catch {
 			throw Error("Payroll filing journal cannot be decrypted or verified. Preserve the full profile and OS credentials; do not reset it to submit again.");
 		}
 		else this.state = {
 			version: 1,
-			profile: He(),
+			profile: Ue(),
 			profileRevision: 0,
-			configuration: We(),
+			configuration: Ge(),
 			profileHistory: [],
 			reports: [],
 			jobs: [],
@@ -566,7 +584,7 @@ var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
 		};
 	}
 	validate(e) {
-		let t = tt.parse(e);
+		let t = nt.parse(e);
 		if (new Set(t.reports.map((e) => e.id)).size !== t.reports.length || new Set(t.jobs.map((e) => e.id)).size !== t.jobs.length || new Set(t.jobs.map((e) => e.requestId)).size !== t.jobs.length || t.jobs.some((e) => !t.reports.some((t) => t.id === e.reportId)) || t.reports.some((e) => e.predecessorId && !t.reports.some((t) => t.id === e.predecessorId)) || t.manualReviews.some((e) => !t.reports.some((t) => t.id === e.reportId))) throw Error("Filing journal references are invalid.");
 		return t;
 	}
@@ -580,13 +598,13 @@ var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
 		let n = this.validate(t), r = JSON.stringify(n);
 		if (Buffer.byteLength(r) > 5e7) throw Error("Payroll filing quota reached. Preserve the complete profile before archiving.");
 		let i = this.codec.encrypt(r).toString("base64");
-		F(this.path, {
+		I(this.path, {
 			version: 1,
 			cipher: i,
-			checksum: I(i)
+			checksum: L(i)
 		}), this.state = n;
 	}
-}, rt = class {
+}, it = class {
 	entries;
 	constructor(e = []) {
 		if (new Set(e.map((e) => e.id)).size !== e.length) throw Error("Duplicate payroll connectors.");
@@ -606,7 +624,7 @@ var $e = (e, t) => De(e, t, 64).toString("hex"), et = class {
 };
 //#endregion
 //#region electron/payroll-filing/report.ts
-function it(e) {
+function at(e) {
 	if (!/^\d{11}$/.test(e)) return !1;
 	let t = [
 		10,
@@ -623,11 +641,11 @@ function it(e) {
 	];
 	return [...e].reduce((e, n, r) => e + (Number(n) - +(r === 0)) * t[r], 0) % 89 == 0;
 }
-var at = () => Object.fromEntries(Be.map((e) => [e, 0])), ot = (e) => {
+var ot = () => Object.fromEntries(Ve.map((e) => [e, 0])), st = (e) => {
 	if (!Number.isFinite(e) || e < 0 || Math.abs(e * 100 - Math.round(e * 100)) > 1e-5) throw Error("Payroll source amounts must be non-negative whole cents.");
 	return Math.round(e * 100);
 };
-function st(e, t, n) {
+function ct(e, t, n) {
 	if (!["STP_PAY", "SUPER_CONTRIBUTION"].includes(n.kind) && n.runId) throw Error("YTD events do not select an individual pay run.");
 	if (!["STP_UPDATE", "STP_UNFINALISE"].includes(n.kind) && n.predecessorId) throw Error("Only corrections and unfinalisation select a predecessor.");
 	let r = /^(\d{4})-(\d{4})$/.exec(n.financialYear);
@@ -641,7 +659,7 @@ function st(e, t, n) {
 		end: a,
 		runs: o,
 		selected: c,
-		digest: I([
+		digest: L([
 			n.kind,
 			n.financialYear,
 			n.asOf,
@@ -651,11 +669,11 @@ function st(e, t, n) {
 		])
 	};
 }
-function ct(e, t, r, i, a) {
-	let o = st(e, t, r), c = [], l = (e, t) => {
+function lt(e, t, r, i, a) {
+	let o = ct(e, t, r), c = [], l = (e, t) => {
 		e || c.push(t);
 	};
-	l(it(t.employer.abn), "Employer ABN checksum/format requires review."), l(/^\d{3}$/.test(t.employer.branch), "Employer branch must contain three digits."), l(t.employer.contactName.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t.employer.email) && t.employer.phone.trim(), "Employer declaration contact is incomplete.");
+	l(at(t.employer.abn), "Employer ABN checksum/format requires review."), l(/^\d{3}$/.test(t.employer.branch), "Employer branch must contain three digits."), l(t.employer.contactName.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t.employer.email) && t.employer.phone.trim(), "Employer declaration contact is incomplete.");
 	try {
 		s(t.employer.historyFrom);
 	} catch {
@@ -670,7 +688,7 @@ function ct(e, t, r, i, a) {
 		l(e.settings.currency === "AUD" && e.settings.region === "Australia", "Only Australian AUD payroll is supported."), e.settings.employerIdentifier && l(e.settings.employerIdentifier.replace(/\s/g, "") === t.employer.abn, "Frozen employer ABN differs from the filing profile.");
 	}
 	let f = (e, n) => {
-		let r = at();
+		let r = ot();
 		for (let i of n.filter((e) => e.status === "Posted")) {
 			let n = i.slips.find((t) => t.employee.id === e);
 			if (n) for (let e of n.lines) {
@@ -688,7 +706,7 @@ function ct(e, t, r, i, a) {
 					"PAID_LEAVE",
 					"ALLOWANCE",
 					"DEDUCTION"
-				].includes(n.category) && l(n.providerCode.trim(), "A reviewed provider subtype is required for " + e.item.code + "."), r[n.category] += ot(e.amount);
+				].includes(n.category) && l(n.providerCode.trim(), "A reviewed provider subtype is required for " + e.item.code + "."), r[n.category] += st(e.amount);
 			}
 		}
 		return r;
@@ -718,11 +736,11 @@ function ct(e, t, r, i, a) {
 				code: p.find((e) => e.item.id === n).item.code,
 				category: r.category,
 				providerCode: r.providerCode,
-				ytdCents: p.filter((e) => e.item.id === n).reduce((e, t) => e + ot(t.amount), 0),
-				periodCents: (o.selected?.status === "Posted" ? o.selected.slips.filter((t) => t.employee.id === e).flatMap((e) => e.lines) : []).filter((e) => e.item.id === n).reduce((e, t) => e + ot(t.amount), 0)
+				ytdCents: p.filter((e) => e.item.id === n).reduce((e, t) => e + st(t.amount), 0),
+				periodCents: (o.selected?.status === "Posted" ? o.selected.slips.filter((t) => t.employee.id === e).flatMap((e) => e.lines) : []).filter((e) => e.item.id === n).reduce((e, t) => e + st(t.amount), 0)
 			}] : [];
 		});
-		return r.kind === "SUPER_CONTRIBUTION" && d.SG + d.RESC > 0 && l(n.usi.trim() && it(n.fundAbn) && i.employee.superFund.trim() && i.employee.superMemberId.trim(), "Review APRA fund ABN, USI, saved fund name and member ID. SMSF is not supported."), [{
+		return r.kind === "SUPER_CONTRIBUTION" && d.SG + d.RESC > 0 && l(n.usi.trim() && at(n.fundAbn) && i.employee.superFund.trim() && i.employee.superMemberId.trim(), "Review APRA fund ABN, USI, saved fund name and member ID. SMSF is not supported."), [{
 			employeeId: e,
 			payrollId: n.payrollId,
 			givenName: n.givenName,
@@ -750,7 +768,7 @@ function ct(e, t, r, i, a) {
 		report: void 0
 	} : {
 		issues: [],
-		report: Ke.parse({
+		report: qe.parse({
 			id: k(),
 			...r,
 			sourceDigest: o.digest,
@@ -765,7 +783,7 @@ function ct(e, t, r, i, a) {
 				journalId: e.journalId ?? "",
 				sourceToken: e.sourceToken,
 				payDate: e.payDate,
-				slipsDigest: I(e.slips)
+				slipsDigest: L(e.slips)
 			})),
 			notice: "INTERNAL_REVIEW_NOT_PROVIDER_OR_ATO_FORMAT"
 		})
@@ -773,18 +791,18 @@ function ct(e, t, r, i, a) {
 }
 //#endregion
 //#region electron/payroll-filing/filings.ts
-var L = S().min(1).max(200), lt = u({
-	kind: h(ze),
-	financialYear: S(),
-	asOf: S(),
-	runId: L.optional(),
-	predecessorId: L.optional()
-}).strict(), ut = /* @__PURE__ */ new Set([
+var R = x().min(1).max(200), ut = u({
+	kind: h(Be),
+	financialYear: x(),
+	asOf: x(),
+	runId: R.optional(),
+	predecessorId: R.optional()
+}).strict(), dt = /* @__PURE__ */ new Set([
 	"ACCEPTED",
 	"REJECTED",
 	"FUND_RECEIVED",
 	"CANCELLED"
-]), dt = class {
+]), ft = class {
 	store;
 	security;
 	business;
@@ -792,7 +810,7 @@ var L = S().min(1).max(200), lt = u({
 	now;
 	running = !1;
 	blocked = "";
-	constructor(e, t, n, r = new rt(), i = () => Date.now()) {
+	constructor(e, t, n, r = new it(), i = () => Date.now()) {
 		this.store = e, this.security = t, this.business = n, this.connectors = r, this.now = i, e.read().jobs.some((e) => e.status === "SENDING") && e.change((e) => {
 			for (let t of e.jobs) t.status === "SENDING" && (t.status = "UNCERTAIN", t.error = "Interrupted transmission. Look up the original request; never resend automatically.", t.nextAt = this.now());
 		});
@@ -822,7 +840,7 @@ var L = S().min(1).max(200), lt = u({
 	}
 	revision() {
 		let e = this.store.read().configuration;
-		return I([
+		return L([
 			e.adapterId,
 			e.apiKey,
 			e.tenantId,
@@ -837,7 +855,7 @@ var L = S().min(1).max(200), lt = u({
 	}
 	stale(e) {
 		try {
-			return st(this.payroll(), this.store.read().profile, e).digest !== e.sourceDigest;
+			return ct(this.payroll(), this.store.read().profile, e).digest !== e.sourceDigest;
 		} catch {
 			return !0;
 		}
@@ -863,7 +881,7 @@ var L = S().min(1).max(200), lt = u({
 		let e = this.payroll();
 		for (let t of this.store.read().reports) if (this.store.read().jobs.some((e) => e.reportId === t.id && e.attempted)) for (let n of t.sourceEvidence) {
 			let t = e.runs.find((e) => e.id === n.runId);
-			if (!t || t.journalId !== n.journalId || t.sourceToken !== n.sourceToken || t.payDate !== n.payDate || I(t.slips) !== n.slipsDigest) throw Error("Payroll source evidence is missing or changed in this business backup. Restore compatible payroll evidence before processing external filings.");
+			if (!t || t.journalId !== n.journalId || t.sourceToken !== n.sourceToken || t.payDate !== n.payDate || L(t.slips) !== n.slipsDigest) throw Error("Payroll source evidence is missing or changed in this business backup. Restore compatible payroll evidence before processing external filings.");
 		}
 	}
 	view() {
@@ -919,7 +937,7 @@ var L = S().min(1).max(200), lt = u({
 	}
 	configure(e) {
 		if (this.security.require("users.manage"), this.passive(), this.running) throw Error("Wait for the running provider request.");
-		let t = Ue.safeParse(e);
+		let t = We.safeParse(e);
 		if (!t.success) throw Error("Invalid payroll connector settings.");
 		let n = t.data;
 		if (n.apiKey = n.apiKey || this.store.read().configuration.apiKey, n.enabled) {
@@ -933,9 +951,9 @@ var L = S().min(1).max(200), lt = u({
 	saveProfile(e) {
 		this.security.require("payroll.manage"), this.passive();
 		let t = u({
-			profile: Ve,
+			profile: He,
 			expectedRevision: v().int().nonnegative(),
-			reason: S().min(10).max(2e3)
+			reason: x().min(10).max(2e3)
 		}).strict().parse(e);
 		if (t.expectedRevision !== this.store.read().profileRevision) throw Error("Filing profile changed. Reload before applying your identity review.");
 		return this.security.audit("payrollFilings.profile", "supplemental-filing-identities", "INTENT", "payroll.manage"), this.store.change((e) => {
@@ -943,14 +961,14 @@ var L = S().min(1).max(200), lt = u({
 				at: this.now(),
 				actorId: this.passive().userId,
 				reason: t.reason,
-				digest: I(t.profile)
+				digest: L(t.profile)
 			});
 		}), this.security.audit("payrollFilings.profile", "supplemental-filing-identities", "SUCCESS", "payroll.manage"), this.view();
 	}
 	preflight(e) {
-		let t = lt.parse(e);
+		let t = ut.parse(e);
 		if (this.passive(), this.chain(t), t.asOf > n(new Date(this.now()).toISOString())) throw Error("Do not prepare a future filing cutoff.");
-		let r = ct(this.payroll(), this.store.read().profile, t, this.passive().userId, this.now());
+		let r = lt(this.payroll(), this.store.read().profile, t, this.passive().userId, this.now());
 		return {
 			issues: r.issues,
 			employeeCount: r.report?.employeeRows.length ?? 0,
@@ -968,15 +986,15 @@ var L = S().min(1).max(200), lt = u({
 	}
 	prepare(e) {
 		this.security.require("payroll.manage");
-		let t = lt.parse(e);
+		let t = ut.parse(e);
 		if (this.chain(t), t.asOf > n(new Date(this.now()).toISOString())) throw Error("Do not prepare a future filing cutoff.");
-		let r = ct(this.payroll(), this.store.read().profile, t, this.passive().userId, this.now());
+		let r = lt(this.payroll(), this.store.read().profile, t, this.passive().userId, this.now());
 		if (!r.report) throw Error(r.issues.join(" "));
 		let i = r.report;
 		return this.security.audit("payrollFilings.prepare", i.id, "INTENT", "payroll.manage"), this.store.change((e) => e.reports.push(i)), this.security.audit("payrollFilings.prepare", i.id, "SUCCESS", "payroll.manage"), { id: i.id };
 	}
 	preview(e) {
-		let { reportId: t } = u({ reportId: L }).strict().parse(e);
+		let { reportId: t } = u({ reportId: R }).strict().parse(e);
 		return this.passive(), {
 			report: this.report(t),
 			stale: this.stale(this.report(t)),
@@ -985,9 +1003,9 @@ var L = S().min(1).max(200), lt = u({
 	}
 	declare(e) {
 		let t = u({
-			reportId: L,
-			name: S().trim().min(1).max(200),
-			reason: S().trim().min(10).max(2e3),
+			reportId: R,
+			name: x().trim().min(1).max(200),
+			reason: x().trim().min(10).max(2e3),
 			confirmed: y(!0)
 		}).strict().parse(e), n = this.security.require("payroll.approve");
 		this.passive(), this.evidenceCheck();
@@ -996,7 +1014,7 @@ var L = S().min(1).max(200), lt = u({
 		let o = this.connectors.require(a.adapterId);
 		if (!a.enabled || !a.apiKey || !o) throw Error("A verified provider connector is not enabled.");
 		if (i.jobs.some((e) => e.reportId === r.id)) throw Error("This immutable report already has a transmission job. Inspect its original request.");
-		if (i.jobs.some((e) => !ut.has(e.status) && this.report(e.reportId).financialYear === r.financialYear)) throw Error("Resolve the earlier pending or uncertain report before sending another report for this financial year.");
+		if (i.jobs.some((e) => !dt.has(e.status) && this.report(e.reportId).financialYear === r.financialYear)) throw Error("Resolve the earlier pending or uncertain report before sending another report for this financial year.");
 		if (r.kind === "SUPER_CONTRIBUTION" && i.jobs.some((e) => {
 			let t = this.report(e.reportId);
 			return t.kind === "SUPER_CONTRIBUTION" && t.runId === r.runId && e.status !== "CANCELLED";
@@ -1027,9 +1045,9 @@ var L = S().min(1).max(200), lt = u({
 	}
 	manualReview(e) {
 		let t = u({
-			reportId: L,
-			reference: S().trim().min(1).max(200),
-			notes: S().trim().min(10).max(2e3)
+			reportId: R,
+			reference: x().trim().min(1).max(200),
+			notes: x().trim().min(10).max(2e3)
 		}).strict().parse(e), n = this.security.require("payroll.manage");
 		this.passive(), this.report(t.reportId);
 		let r = k();
@@ -1041,19 +1059,19 @@ var L = S().min(1).max(200), lt = u({
 		})), this.security.audit("payrollFilings.portalReview", r, "SUCCESS", "payroll.manage"), this.view();
 	}
 	refresh(e) {
-		let { id: t } = u({ id: L }).strict().parse(e), n = this.store.read().jobs.find((e) => e.id === t);
+		let { id: t } = u({ id: R }).strict().parse(e), n = this.store.read().jobs.find((e) => e.id === t);
 		if (this.security.require("payroll.approve"), !n || !this.actionable(n)) throw Error("Only the authorized transmission owner may refresh.");
 		if (n.status === "QUEUED") throw Error("Queued work is processed automatically while the owner is signed in.");
-		if (ut.has(n.status)) throw Error("This provider result is terminal. Prepare a linked correction if required.");
+		if (dt.has(n.status)) throw Error("This provider result is terminal. Prepare a linked correction if required.");
 		return this.update(n.id, { nextAt: this.now() }, "LOOKUP_REQUESTED"), this.blocked = "", this.view();
 	}
 	cancel(e) {
-		let { id: t } = u({ id: L }).strict().parse(e), n = this.store.read().jobs.find((e) => e.id === t);
+		let { id: t } = u({ id: R }).strict().parse(e), n = this.store.read().jobs.find((e) => e.id === t);
 		if (this.security.require("payroll.approve"), !n || !this.actionable(n) || n.attempted || n.status !== "QUEUED") throw Error("Only an unattempted queued transmission can be cancelled locally.");
 		return this.audit("cancel", n.id, "INTENT"), this.update(n.id, { status: "CANCELLED" }, "CANCELLED_BEFORE_ATTEMPT"), this.audit("cancel", n.id, "SUCCESS"), this.view();
 	}
 	accept(e, t) {
-		let n = qe.parse(t), r = this.report(e.reportId);
+		let n = Je.parse(t), r = this.report(e.reportId);
 		if (n.requestId !== e.requestId || n.reportId !== r.id || n.sourceDigest !== r.sourceDigest || n.employerAbn !== r.employer.abn || e.providerId && n.providerId !== e.providerId) throw Error("Provider evidence does not match the frozen payroll request.");
 		if (r.kind === "SUPER_CONTRIBUTION") {
 			if (n.status === "ACCEPTED") throw Error("Provider acceptance does not prove receipt by a super fund.");
@@ -1075,7 +1093,7 @@ var L = S().min(1).max(200), lt = u({
 			REJECTED: 4
 		};
 		if (i.receipt && a[n.status] < a[i.receipt.status]) throw Error("Provider receipt status cannot regress.");
-		let o = i.receipts.at(-1) && I(i.receipts.at(-1).evidence) === I(n) ? i.receipts : [...i.receipts, {
+		let o = i.receipts.at(-1) && L(i.receipts.at(-1).evidence) === L(n) ? i.receipts : [...i.receipts, {
 			at: this.now(),
 			evidence: n
 		}];
@@ -1096,7 +1114,7 @@ var L = S().min(1).max(200), lt = u({
 				let e = this.store.read(), t = e.configuration;
 				if (!t.enabled) return;
 				this.evidenceCheck();
-				let n = this.connectors.require(t.adapterId), r = e.jobs.find((e) => this.actionable(e) && e.nextAt <= this.now() && !ut.has(e.status));
+				let n = this.connectors.require(t.adapterId), r = e.jobs.find((e) => this.actionable(e) && e.nextAt <= this.now() && !dt.has(e.status));
 				if (!r) return;
 				if (r.credentialRevision !== this.revision()) {
 					this.update(r.id, {
@@ -1153,27 +1171,27 @@ var L = S().min(1).max(200), lt = u({
 			}
 		}
 	}
-}, R = S().regex(/^[A-Za-z0-9_-]{1,128}$/), z = S().min(1).max(200), ft = u({
+}, z = x().regex(/^[A-Za-z0-9_-]{1,128}$/), B = x().min(1).max(200), pt = u({
 	enabled: b(),
-	apiKey: S().max(1e3),
-	userId: f([R, y("")]),
+	apiKey: x().max(1e3),
+	userId: f([z, y("")]),
 	production: b()
-}).strict(), pt = u({
-	id: R,
-	connectionId: R,
-	institutionId: R,
-	name: S().max(1e3),
-	masked: S().max(30),
-	currency: y("AUD"),
-	lastUpdated: S().max(100),
-	expiresAt: v().finite()
 }).strict(), mt = u({
-	externalId: z,
-	date: S().length(10),
-	description: S().min(1).max(1e3),
-	reference: S().max(500),
+	id: z,
+	connectionId: z,
+	institutionId: z,
+	name: x().max(1e3),
+	masked: x().max(30),
+	currency: y("AUD"),
+	lastUpdated: x().max(100),
+	expiresAt: v().finite()
+}).strict(), ht = u({
+	externalId: B,
+	date: x().length(10),
+	description: x().min(1).max(1e3),
+	reference: x().max(500),
 	amount: v().finite().refine((e) => e !== 0 && Math.abs(e) <= 999999999.99)
-}).strict(), ht = [
+}).strict(), gt = [
 	"Australia/Sydney",
 	"Australia/Melbourne",
 	"Australia/Brisbane",
@@ -1181,62 +1199,62 @@ var L = S().min(1).max(200), lt = u({
 	"Australia/Darwin",
 	"Australia/Perth",
 	"Australia/Hobart"
-], gt = u({
-	id: z,
-	ownerId: z,
-	credentialRevision: S().length(64),
-	providerUserId: R,
+], _t = u({
+	id: B,
+	ownerId: B,
+	credentialRevision: x().length(64),
+	providerUserId: z,
 	production: b(),
 	retired: b(),
-	remote: pt,
-	bankAccountId: z,
-	bankIdentity: S().length(64),
-	startDate: S().length(10),
-	timeZone: h(ht),
+	remote: mt,
+	bankAccountId: B,
+	bankIdentity: x().length(64),
+	startDate: x().length(10),
+	timeZone: h(gt),
 	enabled: b(),
 	nextAt: v().finite(),
 	lastSuccess: v().finite().optional(),
-	lastThrough: S().optional(),
-	error: S().max(500).optional(),
+	lastThrough: x().optional(),
+	error: x().max(500).optional(),
 	failures: v().int().nonnegative(),
 	pendingCount: v().int().nonnegative()
-}).strict(), _t = u({
-	id: z,
-	mappingId: z,
+}).strict(), vt = u({
+	id: B,
+	mappingId: B,
 	createdAt: v().finite(),
-	throughDate: S().length(10),
+	throughDate: x().length(10),
 	status: h([
 		"REVIEW",
 		"IMPORTING",
 		"COMPLETED"
 	]),
-	rows: _(mt).min(1).max(1e4),
-	excludedIds: _(z).max(1e4),
-	reason: S().max(2e3),
+	rows: _(ht).min(1).max(1e4),
+	excludedIds: _(B).max(1e4),
+	reason: x().max(2e3),
 	evidence: _(u({
-		externalId: z,
-		lineId: z,
-		digest: S().length(64)
+		externalId: B,
+		lineId: B,
+		digest: x().length(64)
 	}).strict()).max(1e4),
-	error: S().max(500).optional()
-}).strict(), vt = u({
+	error: x().max(500).optional()
+}).strict(), yt = u({
 	version: y(1),
-	mappings: _(gt).max(100),
-	accounts: _(pt).max(500),
-	accountsRevision: S().max(64),
-	batches: _(_t).max(1e3),
+	mappings: _(_t).max(100),
+	accounts: _(mt).max(500),
+	accountsRevision: x().max(64),
+	batches: _(vt).max(1e3),
 	request: u({
-		ownerId: z,
+		ownerId: B,
 		kind: h(["DISCOVER", "AUTHORIZE"]),
 		attempted: b()
 	}).strict().optional(),
 	history: _(u({
 		at: v().finite(),
-		action: S().max(100),
-		resource: S().max(200)
+		action: x().max(100),
+		resource: x().max(200)
 	}).strict()).max(1e3)
-}).strict(), B = (e) => O("sha256").update(JSON.stringify(e)).digest("hex");
-function yt(e) {
+}).strict(), V = (e) => O("sha256").update(JSON.stringify(e)).digest("hex");
+function bt(e) {
 	if (new Set(e.mappings.map((e) => e.id)).size !== e.mappings.length || new Set(e.batches.map((e) => e.id)).size !== e.batches.length) throw Error("Duplicate feed journal identities.");
 	for (let t of e.mappings) if (s(t.startDate), t.lastThrough && s(t.lastThrough), t.retired && t.enabled) throw Error("Retired mapping cannot be active.");
 	for (let t of e.batches) {
@@ -1246,7 +1264,7 @@ function yt(e) {
 		for (let e of t.rows) s(e.date);
 		for (let e of t.evidence) {
 			let r = n.get(e.externalId);
-			if (!r || t.excludedIds.includes(e.externalId) || e.digest !== B([
+			if (!r || t.excludedIds.includes(e.externalId) || e.digest !== V([
 				r.date,
 				r.amount,
 				r.description,
@@ -1256,16 +1274,16 @@ function yt(e) {
 		if (t.status === "COMPLETED" && t.evidence.length !== t.rows.length - t.excludedIds.length) throw Error("Incomplete feed import proof.");
 	}
 }
-var bt = class {
+var xt = class {
 	path;
 	state;
 	constructor(e) {
-		if (this.path = D(e, "bank-feed-journal-v1.json"), C(this.path)) try {
-			let e = w(this.path, "utf8");
+		if (this.path = D(e, "bank-feed-journal-v1.json"), S(this.path)) try {
+			let e = C(this.path, "utf8");
 			if (Buffer.byteLength(e) > 55e6) throw Error();
 			let { checksum: t, ...n } = JSON.parse(e);
-			if (t !== B(n)) throw Error();
-			this.state = vt.parse(n), yt(this.state);
+			if (t !== V(n)) throw Error();
+			this.state = yt.parse(n), bt(this.state);
 		} catch {
 			throw Error("Bank feed journal is invalid. Preserve the full desktop profile; do not reset it to import again.");
 		}
@@ -1282,25 +1300,25 @@ var bt = class {
 		return structuredClone(this.state);
 	}
 	save(e) {
-		let t = vt.parse(e);
-		if (yt(t), Buffer.byteLength(JSON.stringify(t)) > 5e7) throw Error("Bank feed journal quota reached. Preserve the full profile before archiving.");
-		F(this.path, {
+		let t = yt.parse(e);
+		if (bt(t), Buffer.byteLength(JSON.stringify(t)) > 5e7) throw Error("Bank feed journal quota reached. Preserve the full profile before archiving.");
+		I(this.path, {
 			...t,
-			checksum: B(t)
+			checksum: V(t)
 		}), this.state = structuredClone(t);
 	}
 	change(e) {
 		let t = this.read();
 		e(t), this.save(t);
 	}
-}, xt = class {
+}, St = class {
 	path;
 	codec;
 	constructor(e, t) {
 		this.path = D(e, "bank-feed-secrets-v1.json"), this.codec = t;
 	}
 	get() {
-		if (!C(this.path)) return {
+		if (!S(this.path)) return {
 			enabled: !1,
 			apiKey: "",
 			userId: "",
@@ -1308,16 +1326,16 @@ var bt = class {
 		};
 		if (!this.codec.available()) throw Error("OS protected credential storage is unavailable.");
 		try {
-			let e = JSON.parse(w(this.path, "utf8"));
+			let e = JSON.parse(C(this.path, "utf8"));
 			if (e.version !== 1 || typeof e.cipher != "string") throw Error();
-			return ft.parse(JSON.parse(this.codec.decrypt(Buffer.from(e.cipher, "base64"))));
+			return pt.parse(JSON.parse(this.codec.decrypt(Buffer.from(e.cipher, "base64"))));
 		} catch {
 			throw Error("Bank feed credentials cannot be decrypted. Reconfigure locally; preserve the feed journal.");
 		}
 	}
 	set(e) {
 		if (!this.codec.available()) throw Error("OS protected credential storage is unavailable.");
-		let t = ft.safeParse(e);
+		let t = pt.safeParse(e);
 		if (!t.success) throw Error("Invalid bank feed settings.");
 		let n = t.data, r;
 		try {
@@ -1327,25 +1345,25 @@ var bt = class {
 		}
 		if (n.apiKey = n.apiKey || r?.apiKey || "", n.apiKey && /\s/.test(n.apiKey)) throw Error("Use the Basiq API key exactly as issued, without spaces.");
 		if (n.enabled && (!n.apiKey || !n.userId)) throw Error("Configure a Basiq API key and provisioned user ID before enabling.");
-		F(this.path, {
+		I(this.path, {
 			version: 1,
 			cipher: this.codec.encrypt(JSON.stringify(n)).toString("base64")
 		});
 	}
 	revision() {
 		let e = this.get();
-		return B([
+		return V([
 			e.apiKey,
 			e.userId,
 			e.production
 		]);
 	}
-}, V = class extends Error {
+}, H = class extends Error {
 	code;
 	constructor(e) {
 		super(e), this.code = e;
 	}
-}, St = async (e, t) => {
+}, Ct = async (e, t) => {
 	let n;
 	try {
 		n = await fetch(e, {
@@ -1354,9 +1372,9 @@ var bt = class {
 			signal: AbortSignal.timeout(2e4)
 		});
 	} catch {
-		throw new V("NETWORK_UNAVAILABLE");
+		throw new H("NETWORK_UNAVAILABLE");
 	}
-	if (!n.ok) throw await n.body?.cancel(), new V("BASIQ_HTTP_" + n.status);
+	if (!n.ok) throw await n.body?.cancel(), new H("BASIQ_HTTP_" + n.status);
 	try {
 		let e = n.body?.getReader();
 		if (!e) throw Error();
@@ -1369,82 +1387,82 @@ var bt = class {
 		}
 		return JSON.parse(Buffer.concat(t).toString("utf8"));
 	} catch {
-		throw new V("BASIQ_RESPONSE_INVALID");
+		throw new H("BASIQ_RESPONSE_INVALID");
 	}
-}, Ct = "https://au-api.basiq.io", wt = u({
+}, wt = "https://au-api.basiq.io", Tt = u({
 	type: y("account"),
-	id: R,
-	name: S().max(1e3),
-	displayName: S().max(1e3).optional(),
-	maskedNumber: S().max(200).optional(),
-	accountNo: S().max(200).optional(),
-	currency: S(),
+	id: z,
+	name: x().max(1e3),
+	displayName: x().max(1e3).optional(),
+	maskedNumber: x().max(200).optional(),
+	accountNo: x().max(200).optional(),
+	currency: x(),
 	status: h(["available", "unavailable"]),
-	connection: R,
-	institution: R,
-	lastUpdated: S().max(100)
-}), Tt = u({
+	connection: z,
+	institution: z,
+	lastUpdated: x().max(100)
+}), Et = u({
 	type: y("list"),
-	data: _(ue()).max(500),
-	links: u({ next: S().nullable().optional() }).optional()
+	data: _(de()).max(500),
+	links: u({ next: x().nullable().optional() }).optional()
 });
-function H(e, t) {
+function U(e, t) {
 	let n = e.safeParse(t);
-	if (!n.success) throw new V("BASIQ_RESPONSE_INVALID");
+	if (!n.success) throw new H("BASIQ_RESPONSE_INVALID");
 	return n.data;
 }
-function Et(e) {
+function Dt(e) {
 	let t = new URL(e);
-	if (t.protocol !== "https:" || t.hostname !== "connect.basiq.io" || t.port || t.username || t.password || t.hash || !/^\/[A-Za-z0-9_-]+\/?$/.test(t.pathname)) throw new V("CONSENT_URL_UNTRUSTED");
+	if (t.protocol !== "https:" || t.hostname !== "connect.basiq.io" || t.port || t.username || t.password || t.hash || !/^\/[A-Za-z0-9_-]+\/?$/.test(t.pathname)) throw new H("CONSENT_URL_UNTRUSTED");
 	return t.href;
 }
-function Dt(e, t, n, r = !1) {
+function Ot(e, t, n, r = !1) {
 	return "basiq:" + O("sha256").update(JSON.stringify([
 		e,
 		t,
 		r
 	])).digest("hex").slice(0, 32) + ":" + n;
 }
-function Ot(e, t, n, r = "Australia/Sydney") {
-	let i = H(u({
+function kt(e, t, n, r = "Australia/Sydney") {
+	let i = U(u({
 		type: y("transaction"),
-		id: R,
-		account: R,
+		id: z,
+		account: z,
 		status: h(["pending", "posted"])
 	}), e);
-	if (i.account !== n.id) throw new V("TRANSACTION_ACCOUNT_MISMATCH");
+	if (i.account !== n.id) throw new H("TRANSACTION_ACCOUNT_MISMATCH");
 	if (i.status === "pending") return null;
-	let a = H(u({
-		id: R,
-		account: R,
+	let a = U(u({
+		id: z,
+		account: z,
 		status: y("posted"),
 		currency: y("AUD"),
-		description: S().trim().min(1).max(1e3),
-		reference: S().max(500).nullable().optional(),
-		amount: S().regex(/^-?\d{1,9}(?:\.\d{1,2})?$/),
+		description: x().trim().min(1).max(1e3),
+		reference: x().max(500).nullable().optional(),
+		amount: x().regex(/^-?\d{1,9}(?:\.\d{1,2})?$/),
 		direction: h(["debit", "credit"]),
-		postDate: S().regex(/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))?$/)
+		postDate: x().regex(/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))?$/)
 	}), e), o = a.postDate.length === 10 ? a.postDate : new Intl.DateTimeFormat("en-CA", {
 		timeZone: r,
 		year: "numeric",
 		month: "2-digit",
 		day: "2-digit"
 	}).format(new Date(a.postDate));
-	if (s(o, "Provider posting date"), a.postDate.length > 10 && !Number.isFinite(Date.parse(a.postDate))) throw new V("TRANSACTION_DATE_INVALID");
+	if (s(o, "Provider posting date"), a.postDate.length > 10 && !Number.isFinite(Date.parse(a.postDate))) throw new H("TRANSACTION_DATE_INVALID");
 	let c = a.amount.startsWith("-"), [l, d = ""] = a.amount.replace("-", "").split("."), f = Number(BigInt(l) * 100n + BigInt(d.padEnd(2, "0")));
-	if (!Number.isSafeInteger(f) || f === 0 || a.direction === "debit" !== c) throw new V("TRANSACTION_AMOUNT_OR_DIRECTION_INVALID");
+	if (!Number.isSafeInteger(f) || f === 0 || a.direction === "debit" !== c) throw new H("TRANSACTION_AMOUNT_OR_DIRECTION_INVALID");
 	return {
-		externalId: Dt(t.userId, n.id, a.id, t.production),
+		externalId: Ot(t.userId, n.id, a.id, t.production),
 		date: o,
 		description: a.description,
 		reference: a.reference ?? "",
 		amount: (c ? -f : f) / 100
 	};
 }
-var kt = class {
+var At = class {
 	transport;
 	token;
-	constructor(e = St) {
+	constructor(e = Ct) {
 		this.transport = e;
 	}
 	revision(e) {
@@ -1457,11 +1475,11 @@ var kt = class {
 	async access(e, t) {
 		let n = this.revision(e);
 		if (this.token?.revision === n && this.token.until > t) return this.token.value;
-		let r = H(u({
-			access_token: S().min(1).max(2e4),
+		let r = U(u({
+			access_token: x().min(1).max(2e4),
 			token_type: y("Bearer"),
 			expires_in: v().int().min(60).max(86400)
-		}), await this.transport(Ct + "/token", {
+		}), await this.transport(wt + "/token", {
 			method: "POST",
 			headers: {
 				Authorization: "Basic " + e.apiKey,
@@ -1479,7 +1497,7 @@ var kt = class {
 	async request(e, t, n, r = "GET", i) {
 		let a = await this.access(t, n);
 		try {
-			return await this.transport(Ct + e, {
+			return await this.transport(wt + e, {
 				method: r,
 				headers: {
 					Authorization: "Bearer " + a,
@@ -1489,59 +1507,59 @@ var kt = class {
 				...i ? { body: i } : {}
 			});
 		} catch (e) {
-			throw e instanceof V && ["BASIQ_HTTP_401", "BASIQ_HTTP_403"].includes(e.code) && (this.token = void 0), e;
+			throw e instanceof H && ["BASIQ_HTTP_401", "BASIQ_HTTP_403"].includes(e.code) && (this.token = void 0), e;
 		}
 	}
 	root(e) {
-		return "/users/" + R.parse(e.userId);
+		return "/users/" + z.parse(e.userId);
 	}
 	async list(e, t, n) {
 		let r = /* @__PURE__ */ new Set(), i = [], a = e;
 		for (; a;) {
-			if (r.has(a) || r.size >= 20) throw new V("PAGINATION_LOOP_OR_LIMIT");
+			if (r.has(a) || r.size >= 20) throw new H("PAGINATION_LOOP_OR_LIMIT");
 			r.add(a);
-			let o = H(Tt, await this.request(a, t, n));
+			let o = U(Et, await this.request(a, t, n));
 			i.push(...o.data);
 			let s = o.links?.next;
 			if (!s) {
 				a = void 0;
 				continue;
 			}
-			let c = new URL(s, Ct);
-			if (c.origin !== Ct || c.username || c.password || c.hash || c.pathname !== e.split("?")[0] || c.searchParams.get("filter") !== new URL(Ct + e).searchParams.get("filter")) throw new V("PAGINATION_LINK_UNTRUSTED");
+			let c = new URL(s, wt);
+			if (c.origin !== wt || c.username || c.password || c.hash || c.pathname !== e.split("?")[0] || c.searchParams.get("filter") !== new URL(wt + e).searchParams.get("filter")) throw new H("PAGINATION_LINK_UNTRUSTED");
 			a = c.pathname + c.search;
 		}
 		return i;
 	}
 	async consent(e, t) {
-		if (!(await this.list(this.root(e) + "/consents", e, t)).map((e) => H(u({
+		if (!(await this.list(this.root(e) + "/consents", e, t)).map((e) => U(u({
 			type: y("consent"),
 			status: h([
 				"active",
 				"revoked",
 				"expired"
 			]),
-			expiryDate: S(),
+			expiryDate: x(),
 			data: u({ permissions: _(u({
-				scope: S(),
+				scope: x(),
 				consented: b().optional()
 			})) })
-		}), e)).some((e) => e.status === "active" && Date.parse(e.expiryDate) > t && e.data.permissions.some((e) => e.scope === "transaction.detail" && e.consented === !0))) throw new V("CONSENT_EXPIRED_REVOKED_OR_MISSING");
+		}), e)).some((e) => e.status === "active" && Date.parse(e.expiryDate) > t && e.data.permissions.some((e) => e.scope === "transaction.detail" && e.consented === !0))) throw new H("CONSENT_EXPIRED_REVOKED_OR_MISSING");
 	}
 	async validateAccount(e, t, n) {
-		let r = H(wt, await this.request(this.root(e) + "/accounts/" + R.parse(t), e, n));
-		if (r.id !== t || r.currency !== "AUD" || r.status !== "available") throw new V("ACCOUNT_UNAVAILABLE_OR_CURRENCY");
-		let i = H(u({
+		let r = U(Tt, await this.request(this.root(e) + "/accounts/" + z.parse(t), e, n));
+		if (r.id !== t || r.currency !== "AUD" || r.status !== "available") throw new H("ACCOUNT_UNAVAILABLE_OR_CURRENCY");
+		let i = U(u({
 			type: y("connection"),
-			id: R,
+			id: z,
 			method: y("open-banking"),
 			status: y("active"),
-			expiryDate: S(),
-			accounts: u({ data: _(u({ id: R })) })
+			expiryDate: x(),
+			accounts: u({ data: _(u({ id: z })) })
 		}), await this.request(this.root(e) + "/connections/" + r.connection, e, n)), a = Date.parse(i.expiryDate);
-		if (i.id !== r.connection || !(a > n) || !i.accounts.data.some((e) => e.id === t)) throw new V("CONNECTION_EXPIRED_OR_ACCOUNT_MISMATCH");
+		if (i.id !== r.connection || !(a > n) || !i.accounts.data.some((e) => e.id === t)) throw new H("CONNECTION_EXPIRED_OR_ACCOUNT_MISMATCH");
 		let o = r.maskedNumber ?? r.accountNo ?? "";
-		return pt.parse({
+		return mt.parse({
 			id: r.id,
 			connectionId: r.connection,
 			institutionId: r.institution,
@@ -1556,26 +1574,26 @@ var kt = class {
 		await this.consent(e, t);
 		let n = await this.list(this.root(e) + "/accounts", e, t), r = [];
 		for (let i of n) {
-			let n = H(wt, i);
+			let n = U(Tt, i);
 			n.currency === "AUD" && n.status === "available" && r.push(await this.validateAccount(e, n.id, t));
 		}
-		if (new Set(r.map((e) => e.id)).size !== r.length) throw new V("DUPLICATE_PROVIDER_ACCOUNT");
+		if (new Set(r.map((e) => e.id)).size !== r.length) throw new H("DUPLICATE_PROVIDER_ACCOUNT");
 		return r;
 	}
 	async transactions(e, t, n, r, i, a = "Australia/Sydney") {
 		s(n), s(r), await this.consent(e, i);
 		let o = await this.validateAccount(e, t.id, i);
-		if (o.connectionId !== t.connectionId || o.institutionId !== t.institutionId) throw new V("CONNECTION_CHANGED_REMAP_REQUIRED");
+		if (o.connectionId !== t.connectionId || o.institutionId !== t.institutionId) throw new H("CONNECTION_CHANGED_REMAP_REQUIRED");
 		let c = (/* @__PURE__ */ new Date(Date.parse(n + "T00:00:00Z") - 864e5)).toISOString().slice(0, 10), l = new Date(Date.parse(r + "T00:00:00Z") + 864e5).toISOString().slice(0, 10), u = `account.id.eq('${t.id}'),transaction.postDate.gteq('${c}'),transaction.postDate.lteq('${l}T23:59:59.999Z')`, d = await this.list(this.root(e) + "/transactions?limit=500&filter=" + encodeURIComponent(u), e, i), f = [], p = 0;
 		for (let i of d) {
-			let o = Ot(i, e, t, a);
+			let o = kt(i, e, t, a);
 			if (!o) {
 				p++;
 				continue;
 			}
 			if (o.date < n || o.date > r) continue;
 			let s = f.find((e) => e.externalId === o.externalId);
-			if (s && JSON.stringify(s) !== JSON.stringify(o)) throw new V("DUPLICATE_TRANSACTION_CONFLICT");
+			if (s && JSON.stringify(s) !== JSON.stringify(o)) throw new H("DUPLICATE_TRANSACTION_CONFLICT");
 			s || f.push(o);
 		}
 		return {
@@ -1589,35 +1607,35 @@ var kt = class {
 		try {
 			r = await this.request(this.root(e) + "/auth_link", e, t);
 		} catch (e) {
-			if (!(e instanceof V) || !["BASIQ_HTTP_404", "BASIQ_HTTP_410"].includes(e.code)) throw e;
-			if (!n) throw new V("AUTH_LINK_RETRY_REQUIRES_CONFIRMATION");
+			if (!(e instanceof H) || !["BASIQ_HTTP_404", "BASIQ_HTTP_410"].includes(e.code)) throw e;
+			if (!n) throw new H("AUTH_LINK_RETRY_REQUIRES_CONFIRMATION");
 		}
 		if (r) {
-			let e = H(u({ expiresAt: S() }), r);
+			let e = U(u({ expiresAt: x() }), r);
 			Date.parse(e.expiresAt) > t || (r = void 0);
 		}
 		if (!r) {
-			if (!n) throw new V("AUTH_LINK_RETRY_REQUIRES_CONFIRMATION");
+			if (!n) throw new H("AUTH_LINK_RETRY_REQUIRES_CONFIRMATION");
 			r = await this.request(this.root(e) + "/auth_link", e, t, "POST", "{}");
 		}
-		let i = H(u({
+		let i = U(u({
 			type: y("auth_link"),
-			userId: R,
-			expiresAt: S(),
-			links: u({ public: S() })
+			userId: z,
+			expiresAt: x(),
+			links: u({ public: x() })
 		}), r);
-		if (i.userId !== e.userId || !(Date.parse(i.expiresAt) > t)) throw new V("AUTH_LINK_EVIDENCE_INVALID");
+		if (i.userId !== e.userId || !(Date.parse(i.expiresAt) > t)) throw new H("AUTH_LINK_EVIDENCE_INVALID");
 		return {
-			url: Et(i.links.public),
+			url: Dt(i.links.public),
 			until: Date.parse(i.expiresAt)
 		};
 	}
-}, U = S().min(1).max(200), W = (e) => B([
+}, W = x().min(1).max(200), jt = (e) => V([
 	e.date,
 	e.amount,
 	e.description,
 	e.reference
-]), At = class {
+]), Mt = class {
 	store;
 	vault;
 	security;
@@ -1627,7 +1645,7 @@ var kt = class {
 	running = !1;
 	blocked = "";
 	link;
-	constructor(e, t, n, r, i = new kt(), a = () => Date.now()) {
+	constructor(e, t, n, r, i = new At(), a = () => Date.now()) {
 		this.store = e, this.vault = t, this.security = n, this.business = r, this.provider = i, this.now = a, e.read().batches.some((e) => e.status === "IMPORTING") && e.change((e) => {
 			for (let t of e.batches) t.status === "IMPORTING" && (t.status = "REVIEW", t.error = "Interrupted import. Inspect existing statement rows, then confirm the original batch; stable external IDs prevent duplicate imports.");
 		});
@@ -1649,7 +1667,7 @@ var kt = class {
 		return t;
 	}
 	identity(e) {
-		return B([
+		return V([
 			e.id,
 			e.accountNumber,
 			e.glAccountId,
@@ -1694,7 +1712,7 @@ var kt = class {
 			let i = t.mappings.find((e) => e.id === r.mappingId);
 			if (i.ownerId === e?.userId && m(e, "banking.write")) for (let e of r.evidence) {
 				let t = n.find((t) => t.id === e.lineId && t.bankAccountId === i.bankAccountId && t.externalId === e.externalId);
-				if (!t || W(t) !== e.digest) throw Error("Imported bank feed evidence is missing or changed in this business backup. Restore compatible statement evidence before continuing; do not reset the feed journal.");
+				if (!t || jt(t) !== e.digest) throw Error("Imported bank feed evidence is missing or changed in this business backup. Restore compatible statement evidence before continuing; do not reset the feed journal.");
 			}
 		}
 	}
@@ -1724,7 +1742,7 @@ var kt = class {
 				production: n.production,
 				secureStorage: this.vault.codec.available()
 			},
-			accounts: e.accountsRevision === B([
+			accounts: e.accountsRevision === V([
 				n.apiKey,
 				n.userId,
 				n.production
@@ -1742,7 +1760,7 @@ var kt = class {
 			})),
 			running: this.running,
 			health: t,
-			authorizationReady: !!this.link && this.link.until > this.now() && this.link.ownerId === r?.userId && this.link.revision === B([
+			authorizationReady: !!this.link && this.link.until > this.now() && this.link.ownerId === r?.userId && this.link.revision === V([
 				n.apiKey,
 				n.userId,
 				n.production
@@ -1772,14 +1790,14 @@ var kt = class {
 	authorizationUrl() {
 		let e = this.passive(!0);
 		if (!this.link || this.link.until <= this.now() || this.link.ownerId !== e.userId || this.link.revision !== this.vault.revision()) throw Error("Request a valid provider authorization link first.");
-		return Et(this.link.url);
+		return Dt(this.link.url);
 	}
 	map(e) {
 		let t = u({
-			remoteId: U,
-			bankAccountId: U,
-			startDate: S(),
-			timeZone: h(ht),
+			remoteId: W,
+			bankAccountId: W,
+			startDate: x(),
+			timeZone: h(gt),
 			confirmed: y(!0)
 		}).strict().parse(e), n = this.security.require("banking.write"), r = this.store.read(), i = this.vault.get();
 		if (!i.enabled || r.accountsRevision !== this.vault.revision()) throw Error("Discover authorized provider accounts with the current configuration first.");
@@ -1808,7 +1826,7 @@ var kt = class {
 	}
 	setEnabled(e) {
 		let t = u({
-			id: U,
+			id: W,
 			enabled: b()
 		}).strict().parse(e), n = this.mapping(t.id);
 		if (this.security.require("banking.write"), this.owned(n), n.retired) throw Error("Retired mappings retain history and cannot resume.");
@@ -1818,7 +1836,7 @@ var kt = class {
 		}), this.audit(t.enabled ? "resume" : "pause", n.id, "SUCCESS"), this.view();
 	}
 	sync(e) {
-		let t = u({ id: U }).strict().parse(e), n = this.mapping(t.id);
+		let t = u({ id: W }).strict().parse(e), n = this.mapping(t.id);
 		if (this.security.require("banking.write"), this.owned(n), this.restoreCheck(), this.verifyMapping(n), !n.enabled) throw Error("Resume the mapping before synchronizing.");
 		return this.blocked = "", this.store.change((e) => {
 			e.mappings.find((e) => e.id === n.id).nextAt = this.now();
@@ -1826,7 +1844,7 @@ var kt = class {
 	}
 	retire(e) {
 		let t = u({
-			id: U,
+			id: W,
 			confirmed: y(!0)
 		}).strict().parse(e), n = this.mapping(t.id);
 		if (this.security.require("banking.write"), this.owned(n), this.running) throw Error("Wait for the running request.");
@@ -1838,7 +1856,7 @@ var kt = class {
 	}
 	renew(e) {
 		let t = u({
-			id: U,
+			id: W,
 			confirmed: y(!0)
 		}).strict().parse(e), n = this.mapping(t.id);
 		this.security.require("banking.write"), this.owned(n), this.restoreCheck();
@@ -1859,9 +1877,9 @@ var kt = class {
 	}
 	importBatch(e) {
 		let t = u({
-			id: U,
-			excludedIds: _(U).max(1e4),
-			reason: S().min(10).max(2e3),
+			id: W,
+			excludedIds: _(W).max(1e4),
+			reason: x().min(10).max(2e3),
 			confirmed: y(!0)
 		}).strict().parse(e);
 		this.security.require("banking.write"), this.restoreCheck();
@@ -1887,11 +1905,11 @@ var kt = class {
 			});
 			let e = this.lines(), t = i.map((t) => {
 				let n = e.find((e) => e.bankAccountId === r.bankAccountId && e.externalId === t.externalId);
-				if (!n || W(n) !== W(t)) throw Error("Imported statement evidence differs from the reviewed batch.");
+				if (!n || jt(n) !== jt(t)) throw Error("Imported statement evidence differs from the reviewed batch.");
 				return {
 					externalId: t.externalId,
 					lineId: n.id,
-					digest: W(t)
+					digest: jt(t)
 				};
 			});
 			this.store.change((e) => {
@@ -1928,7 +1946,7 @@ var kt = class {
 							});
 						} else {
 							let r = await this.provider.discover(e, this.now());
-							if (this.security.principal()?.userId !== t || this.vault.revision() !== n) throw new V("SESSION_OR_CONFIGURATION_CHANGED");
+							if (this.security.principal()?.userId !== t || this.vault.revision() !== n) throw new H("SESSION_OR_CONFIGURATION_CHANGED");
 							this.store.change((e) => {
 								e.accounts = r, e.accountsRevision = n;
 							});
@@ -1939,7 +1957,7 @@ var kt = class {
 					} catch (e) {
 						this.store.change((e) => {
 							e.request = void 0;
-						}), this.history(e instanceof V ? e.code : "PROVIDER_REQUEST_FAILED", "provider-user"), this.audit(r.kind.toLowerCase(), "provider-user", "FAILED"), this.blocked = e instanceof V ? e.code : "Bank feed request failed. Inspect configuration and try again.";
+						}), this.history(e instanceof H ? e.code : "PROVIDER_REQUEST_FAILED", "provider-user"), this.audit(r.kind.toLowerCase(), "provider-user", "FAILED"), this.blocked = e instanceof H ? e.code : "Bank feed request failed. Inspect configuration and try again.";
 					}
 					return;
 				}
@@ -1948,12 +1966,12 @@ var kt = class {
 				try {
 					this.verifyMapping(i), this.audit("sync", i.id, "INTENT");
 					let r = this.today(), a = i.lastThrough ? (/* @__PURE__ */ new Date(Date.parse(i.lastThrough + "T00:00:00Z") - 6048e5)).toISOString().slice(0, 10) : i.startDate, o = a < i.startDate ? i.startDate : a, s = await this.provider.transactions(e, i.remote, o, r, this.now(), i.timeZone);
-					if (this.security.principal()?.userId !== t || !m(this.security.principal(), "banking.write") || this.vault.revision() !== n || !this.mapping(i.id).enabled) throw new V("SESSION_CONFIGURATION_OR_MAPPING_CHANGED");
+					if (this.security.principal()?.userId !== t || !m(this.security.principal(), "banking.write") || this.vault.revision() !== n || !this.mapping(i.id).enabled) throw new H("SESSION_CONFIGURATION_OR_MAPPING_CHANGED");
 					this.verifyMapping(i);
 					let c = this.store.read(), l = new Set(c.mappings.filter((e) => e.bankAccountId === i.bankAccountId && e.providerUserId === i.providerUserId && e.production === i.production && e.remote.id === i.remote.id).map((e) => e.id)), u = c.batches.filter((e) => l.has(e.mappingId)).flatMap((e) => e.rows), d = [];
 					for (let e of s.rows) {
 						let t = u.find((t) => t.externalId === e.externalId);
-						if (t && W(t) !== W(e)) throw new V("POSTED_TRANSACTION_CHANGED_REVIEW_REQUIRED");
+						if (t && jt(t) !== jt(e)) throw new H("POSTED_TRANSACTION_CHANGED_REVIEW_REQUIRED");
 						t || d.push(e);
 					}
 					this.store.change((e) => {
@@ -1974,7 +1992,7 @@ var kt = class {
 				} catch (e) {
 					this.store.change((t) => {
 						let n = t.mappings.find((e) => e.id === i.id);
-						n.failures++, n.error = e instanceof V ? e.code : "Mapping, local bank or persistence requires review.", n.nextAt = this.now() + Math.min(6e4 * 2 ** Math.min(n.failures, 8), 216e5), (n.failures >= 5 || e instanceof V && /CONSENT|CONNECTION|CHANGED|MISMATCH|ACCOUNT_UNAVAILABLE|HTTP_40[134]/.test(e.code)) && (n.enabled = !1);
+						n.failures++, n.error = e instanceof H ? e.code : "Mapping, local bank or persistence requires review.", n.nextAt = this.now() + Math.min(6e4 * 2 ** Math.min(n.failures, 8), 216e5), (n.failures >= 5 || e instanceof H && /CONSENT|CONNECTION|CHANGED|MISMATCH|ACCOUNT_UNAVAILABLE|HTTP_40[134]/.test(e.code)) && (n.enabled = !1);
 					}), this.audit("sync", i.id, "FAILED");
 				}
 			} catch (e) {
@@ -1991,7 +2009,7 @@ var kt = class {
 	"\"": "&quot;",
 	"'": "&#39;"
 })[e]);
-function jt(e) {
+function Nt(e) {
 	let t = (t) => G(e.currency + " " + t.toFixed(2));
 	return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${G(e.documentNumber)}</title><style>@page{size:A4;margin:15mm}body{font:12px Arial;color:#172033}h1{font-size:24px}table{border-collapse:collapse;width:100%;margin-top:20px}td,th{border-bottom:1px solid #ddd;padding:8px;text-align:left}td:nth-last-child(-n+3){text-align:right}thead{display:table-header-group}tr{break-inside:avoid}</style></head><body><h1>${G(e.issuerName)}</h1><h2>Customer statement</h2><p>${G(e.customerName)} · ${G(e.fromDate)} to ${G(e.toDate)}</p><p>Opening ${t(e.openingBalance)} · Debits ${t(e.totalDebits)} · Credits ${t(e.totalCredits)} · Closing ${t(e.closingBalance)}</p><table><thead><tr><th>Date</th><th>Reference / description</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>${e.entries.map((e) => `<tr><td>${G(e.date)}</td><td>${G(e.reference)}<br>${G(e.description)}</td><td>${t(e.debit)}</td><td>${t(e.credit)}</td><td>${t(e.balance)}</td></tr>`).join("")}</tbody></table></body></html>`;
 }
@@ -2004,7 +2022,7 @@ var K = (e) => String(e ?? "").replace(/[&<>"']/g, (e) => ({
 	"\"": "&quot;",
 	"'": "&#39;"
 })[e]);
-function Mt(e) {
+function Pt(e) {
 	let t = a(e), n = K, r = (e) => e.toFixed(2), i = t.kind.replaceAll("_", " "), o = t.recipient;
 	return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>${n(t.documentNumber)} · ${n(t.issuer.name)}</title><style>@page{size:${t.template.paper};margin:16mm}*{box-sizing:border-box}body{font:13px/1.5 Arial,sans-serif;color:#172620;margin:24px auto;max-width:1000px;padding:16px}header{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #234d42;padding-bottom:16px}h1{font-size:24px;margin:0}h2{font-size:16px;margin:0 0 6px}p{margin:3px 0;overflow-wrap:anywhere}.muted{color:#52605b}.status{font-weight:bold}.columns{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:24px 0}table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{padding:9px 7px;border-bottom:1px solid #d7dfdb;vertical-align:top;text-align:right;overflow-wrap:anywhere}th:first-child,td:first-child{text-align:left;width:36%}thead{display:table-header-group;background:#edf3ef}tr{break-inside:avoid}.totals{margin:20px 0 20px auto;max-width:320px}.totals p{display:flex;justify-content:space-between;gap:24px}.grand{font-size:18px;font-weight:bold}.notes{white-space:pre-wrap;margin-top:20px}.audit{font-size:10px;color:#52605b;margin-top:30px;border-top:1px solid #ddd;padding-top:8px}@media print{body{margin:0;padding:0;max-width:none}header{break-inside:avoid}}</style></head><body><header><section>${re(t.issuer.logo, t.template.logoPosition)}<h1>${n(t.issuer.name)}</h1>${[
 		t.issuer.tradingName,
@@ -2016,13 +2034,13 @@ function Mt(e) {
 }
 //#endregion
 //#region src/features/document-output/purchaseOutputHtml.ts
-function Nt(e) {
-	let t = le(e), n = t.kind === "PURCHASE_ORDER", r = (e) => e.toFixed(2);
+function Ft(e) {
+	let t = ue(e), n = t.kind === "PURCHASE_ORDER", r = (e) => e.toFixed(2);
 	return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"><title>${K(t.documentNumber)}</title><style>@page{size:${t.template.paper};margin:16mm}body{font:13px/1.5 Arial;color:#172620;max-width:1000px;margin:24px auto;padding:16px}header{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #234d42}p{white-space:pre-wrap;overflow-wrap:anywhere}h1{font-size:24px}table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:right;overflow-wrap:anywhere}th:first-child,td:first-child{text-align:left;width:36%}thead{display:table-header-group}tr{break-inside:avoid}.total{text-align:right;font-weight:bold}.audit{font-size:10px;border-top:1px solid #ddd}@media print{body{padding:0;margin:0}}</style></head><body><header><section>${re(t.issuer.logo, t.template.logoPosition)}<h1>${K(t.issuer.name)}</h1><p>${K(t.issuer.identifier)}\n${K(t.issuer.address)}\n${K(t.issuer.email)}</p></section><section><h2>${n ? "PURCHASE ORDER" : "REMITTANCE ADVICE"}</h2><p>${K(t.documentNumber)} · ${K(t.status)}${t.status === "DRAFT" ? " · NOT ISSUED" : ""}${t.status === "REVERSED" ? " · REVERSED — NOT AN ACTIVE PAYMENT" : ""}${t.status === "CANCELLED" ? " · CANCELLED" : ""}\nDate: ${K(t.date)}${t.expectedDeliveryDate ? "\nExpected delivery: " + K(t.expectedDeliveryDate) : ""}</p></section></header><h2>Supplier</h2><p>${K(t.supplierName)} · ${K(t.supplierCode)}\n${K(t.supplierAddress)}\n${K(t.supplierContact)} · ${K(t.supplierEmail)}</p><p>Supplier contact/address captured at preparation; supplier master updated ${K(t.supplierMetadataAt)}. Reference: ${K(t.reference)}</p>${n ? "" : `<p>${t.noncash ? "NONCASH PREPAYMENT APPLICATION — no new bank payment" : "Recorded payment — this advice does not send funds or confirm bank settlement"}. Method: ${K(t.method)}</p>`}<table><thead><tr>${n ? "<th>Item / description</th><th>Ordered qty / unit</th><th>Unit cost (net)</th><th>Net</th><th>Tax</th><th>Total</th>" : "<th>Bill</th><th>Supplier invoice reference</th><th>Allocated amount</th>"}</tr></thead><tbody>${t.lines.map((e) => n ? `<tr><td>${K(e.reference)}<p>${K(e.description)}</p></td><td>${K(e.quantity)} ${K(e.unit)}</td><td>${r(e.unitPrice)}</td><td>${r(e.net)}</td><td>${r(e.tax)}<p>${K(e.taxCode)} ${e.taxRate === void 0 ? "" : K(Number((e.taxRate * 100).toFixed(4))) + "%"}</p></td><td>${r(e.total)}</td></tr>` : `<tr><td>${K(e.description)}</td><td>${K(e.reference)}</td><td>${r(e.total)}</td></tr>`).join("")}</tbody></table>${n ? `<p class="total">Subtotal ${r(t.subtotal)} · Tax ${r(t.tax)}</p>` : ""}<p class="total">${n ? "Order total" : "Allocated payment total"} ${K(t.issuer.currency)} ${r(t.total)}</p><p>${K(t.notes)}</p><p>${K(t.template.footer)}</p><p class="audit">Prepared ${K(t.preparedAt)} · ${K(t.preparedBy)} · Version ${K(t.id)}. Status and amounts are retained at preparation. This saved copy is not delivery confirmation${n ? " or a supplier invoice" : ", a tax invoice or a bank payment instruction"}.</p></body></html>`;
 }
 //#endregion
 //#region src/features/sales/data/customerStatementService.ts
-function Pt({ customerId: e, documents: t, payments: n, creditNotes: r, fromDate: i, toDate: a }) {
+function It({ customerId: e, documents: t, payments: n, creditNotes: r, fromDate: i, toDate: a }) {
 	if (i > a) throw Error("Statement from date cannot be after to date.");
 	let o = t.filter((t) => t.type === "INVOICE" && t.customerId === e && t.documentDate <= a), s = new Map(o.map((e) => [e.id, e])), c = r.filter((t) => t.customerId === e && t.creditDate <= a && t.status !== "DRAFT"), l = [];
 	for (let e of o) if (l.push({
@@ -2036,7 +2054,7 @@ function Pt({ customerId: e, documents: t, payments: n, creditNotes: r, fromDate
 		debit: q(e.totals.total),
 		credit: 0
 	}), e.voidedAt) {
-		let t = It(e.voidedAt);
+		let t = Rt(e.voidedAt);
 		t <= a && l.push({
 			id: `invoice-void-${e.id}`,
 			date: t,
@@ -2064,7 +2082,7 @@ function Pt({ customerId: e, documents: t, payments: n, creditNotes: r, fromDate
 			debit: 0,
 			credit: q(t.amount)
 		}), t.status === "REVERSED" && t.reversedAt) {
-			let e = It(t.reversedAt);
+			let e = Rt(t.reversedAt);
 			e <= a && l.push({
 				id: `payment-reversal-${t.id}`,
 				date: e,
@@ -2091,7 +2109,7 @@ function Pt({ customerId: e, documents: t, payments: n, creditNotes: r, fromDate
 		debit: 0,
 		credit: q(e.totals.total)
 	}), e.voidedAt) {
-		let t = It(e.voidedAt);
+		let t = Rt(e.voidedAt);
 		t <= a && l.push({
 			id: `credit-note-void-${e.id}`,
 			date: t,
@@ -2126,7 +2144,7 @@ function Pt({ customerId: e, documents: t, payments: n, creditNotes: r, fromDate
 		debit: 0,
 		credit: t.amount
 	});
-	l.sort(Ft);
+	l.sort(Lt);
 	let u = q(l.filter((e) => e.date < i).reduce((e, t) => e + t.debit - t.credit, 0)), d = l.filter((e) => e.date >= i && e.date <= a), f = u, p = d.map((e) => (f = q(f + e.debit - e.credit), {
 		id: e.id,
 		date: e.date,
@@ -2151,11 +2169,11 @@ function Pt({ customerId: e, documents: t, payments: n, creditNotes: r, fromDate
 		entries: p
 	};
 }
-function Ft(e, t) {
+function Lt(e, t) {
 	let n = e.date.localeCompare(t.date);
 	return n === 0 ? e.sortDateTime.localeCompare(t.sortDateTime) : n;
 }
-function It(e) {
+function Rt(e) {
 	return n(e);
 }
 function q(e) {
@@ -2163,16 +2181,16 @@ function q(e) {
 }
 //#endregion
 //#region src/features/external-services/contract.ts
-var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
+var J = x().min(1).max(200), zt = x().email().max(254), Bt = u({
 	emailEnabled: b(),
 	checkoutEnabled: b(),
-	resendKey: S().max(300).default(""),
-	stripeKey: S().max(300).default(""),
-	from: f([Lt, y("")]),
-	successUrl: S().max(2e3),
-	cancelUrl: S().max(2e3),
+	resendKey: x().max(300).default(""),
+	stripeKey: x().max(300).default(""),
+	from: f([zt, y("")]),
+	successUrl: x().max(2e3),
+	cancelUrl: x().max(2e3),
 	live: b()
-}).strict(), zt = [
+}).strict(), Vt = [
 	"QUEUED",
 	"PROCESSING",
 	"RETRY",
@@ -2190,25 +2208,25 @@ var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
 	"PAID_REVIEW",
 	"RECORDING",
 	"RECORDED"
-], Bt = u({
-	from: Lt,
-	to: Lt,
-	subject: S().min(1).max(998),
-	text: S().min(1).max(3e4),
+], Ht = u({
+	from: zt,
+	to: zt,
+	subject: x().min(1).max(998),
+	text: x().min(1).max(3e4),
 	attachments: _(u({
-		filename: S().min(1).max(200),
-		content: S().max(75e5)
+		filename: x().min(1).max(200),
+		content: x().max(75e5)
 	}).strict()).length(1)
-}).strict(), Vt = u({
+}).strict(), Ut = u({
 	invoiceId: J,
 	documentNumber: J,
 	amountMinor: v().int().positive().max(99999999),
 	currency: y("aud"),
-	successUrl: S(),
-	cancelUrl: S(),
-	customerEmail: Lt.optional(),
+	successUrl: x(),
+	cancelUrl: x(),
+	customerEmail: zt.optional(),
 	live: b()
-}).strict(), Ht = u({
+}).strict(), Wt = u({
 	id: J,
 	operationId: J,
 	ownerId: J,
@@ -2216,80 +2234,80 @@ var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
 	family: h(["sales", "purchase"]),
 	artifactId: J.optional(),
 	sourceId: J,
-	sourceRevision: S().max(5e5),
-	label: S().max(300),
-	recipient: S().max(254),
+	sourceRevision: x().max(5e5),
+	label: x().max(300),
+	recipient: x().max(254),
 	dedupe: J,
 	credentialRevision: J,
 	createdAt: v().finite(),
-	payloadDigest: S().length(64).optional(),
+	payloadDigest: x().length(64).optional(),
 	firstAttempt: v().finite().optional(),
 	attempts: v().int().nonnegative().max(100),
 	nextAt: v().finite(),
-	status: h(zt),
+	status: h(Vt),
 	providerId: J.optional(),
-	url: S().max(3e3).optional(),
+	url: x().max(3e3).optional(),
 	amountMinor: v().int().positive().optional(),
-	payload: f([Bt, Vt]).optional(),
-	error: S().max(300).optional(),
+	payload: f([Ht, Ut]).optional(),
+	error: x().max(300).optional(),
 	receiptId: J.optional(),
 	recordBankId: J.optional(),
 	reminderKey: J.optional(),
 	history: _(u({
 		at: v().finite(),
-		event: S().max(100)
+		event: x().max(100)
 	}).strict()).max(500)
-}).strict(), Ut = u({
+}).strict(), Gt = u({
 	id: J,
 	invoiceId: J,
 	ownerId: J,
 	enabled: b(),
 	days: _(v().int().min(0).max(90)).min(1).max(5),
 	createdAt: v().finite()
-}).strict(), Wt = u({
+}).strict(), Kt = u({
 	id: J,
 	operationId: J,
 	ownerId: J,
 	kind: y("CUSTOMER_STATEMENT"),
 	sourceId: J,
-	sourceRevision: S().length(64),
+	sourceRevision: x().length(64),
 	documentNumber: J,
-	fromDate: S(),
-	toDate: S(),
-	customerName: S().max(1e3),
-	issuerName: S().max(1e3),
-	currency: S().max(10),
-	recipient: u({ accountingEmail: Lt }),
-	subject: S().max(998),
-	body: S().max(3e4),
+	fromDate: x(),
+	toDate: x(),
+	customerName: x().max(1e3),
+	issuerName: x().max(1e3),
+	currency: x().max(10),
+	recipient: u({ accountingEmail: zt }),
+	subject: x().max(998),
+	body: x().max(3e4),
 	template: u({ paper: y("A4") }),
 	openingBalance: v().finite(),
 	closingBalance: v().finite(),
 	totalDebits: v().finite(),
 	totalCredits: v().finite(),
 	entries: _(u({
-		date: S(),
-		reference: S().max(1e3),
-		description: S().max(2e4),
+		date: x(),
+		reference: x().max(1e3),
+		description: x().max(2e4),
 		debit: v().finite(),
 		credit: v().finite(),
 		balance: v().finite()
 	}).strict()).max(5e3)
-}).strict(), Gt = u({
+}).strict(), qt = u({
 	version: y(1),
-	id: S().uuid(),
-	jobs: _(Ht).max(2e3),
-	policies: _(Ut).max(1e3),
-	statements: _(Wt).max(1e3).default([])
-}).strict(), Kt = (e) => O("sha256").update(JSON.stringify(e)).digest("hex"), qt = class {
+	id: x().uuid(),
+	jobs: _(Wt).max(2e3),
+	policies: _(Gt).max(1e3),
+	statements: _(Kt).max(1e3).default([])
+}).strict(), Jt = (e) => O("sha256").update(JSON.stringify(e)).digest("hex"), Yt = class {
 	path;
 	data;
 	constructor(e) {
-		if (this.path = D(e, "integration-journal-v1.json"), C(this.path)) try {
-			let e = w(this.path, "utf8");
+		if (this.path = D(e, "integration-journal-v1.json"), S(this.path)) try {
+			let e = C(this.path, "utf8");
 			if (Buffer.byteLength(e) > 6e7) throw Error();
 			let { checksum: t, ...n } = JSON.parse(e);
-			if (t !== Kt(n) || (this.data = Gt.parse(n), new Set(this.data.jobs.map((e) => e.id)).size !== this.data.jobs.length || new Set(this.data.jobs.map((e) => e.operationId)).size !== this.data.jobs.length)) throw Error();
+			if (t !== Jt(n) || (this.data = qt.parse(n), new Set(this.data.jobs.map((e) => e.id)).size !== this.data.jobs.length || new Set(this.data.jobs.map((e) => e.operationId)).size !== this.data.jobs.length)) throw Error();
 		} catch {
 			throw Error("Integration journal is invalid. Preserve the full profile and inspect it; do not reset it to resend.");
 		}
@@ -2305,25 +2323,25 @@ var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
 		return structuredClone(this.data);
 	}
 	save(e) {
-		let t = Gt.parse(e);
+		let t = qt.parse(e);
 		if (Buffer.byteLength(JSON.stringify(t)) > 5e7) throw Error("Integration journal quota reached. Preserve it before archiving payloads.");
-		F(this.path, {
+		I(this.path, {
 			...t,
-			checksum: Kt(t)
+			checksum: Jt(t)
 		}), this.data = structuredClone(t);
 	}
 	change(e) {
 		let t = this.read();
 		e(t), this.save(t);
 	}
-}, Jt = class {
+}, Xt = class {
 	path;
 	codec;
 	constructor(e, t) {
 		this.codec = t, this.path = D(e, "integration-secrets-v1.json");
 	}
 	get() {
-		if (!C(this.path)) return {
+		if (!S(this.path)) return {
 			emailEnabled: !1,
 			checkoutEnabled: !1,
 			resendKey: "",
@@ -2335,16 +2353,16 @@ var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
 		};
 		if (!this.codec.available()) throw Error("OS protected credential storage is unavailable.");
 		try {
-			let e = JSON.parse(w(this.path, "utf8"));
+			let e = JSON.parse(C(this.path, "utf8"));
 			if (e.version !== 1 || typeof e.cipher != "string") throw Error();
-			return Rt.parse(JSON.parse(this.codec.decrypt(Buffer.from(e.cipher, "base64"))));
+			return Bt.parse(JSON.parse(this.codec.decrypt(Buffer.from(e.cipher, "base64"))));
 		} catch {
 			throw Error("Saved integration credentials cannot be decrypted on this device. Reconfigure locally; do not reset the integration journal.");
 		}
 	}
 	set(e) {
 		if (!this.codec.available()) throw Error("OS protected credential storage is unavailable.");
-		let t = Rt.safeParse(e);
+		let t = Bt.safeParse(e);
 		if (!t.success) throw Error("Invalid integration settings.");
 		let n = t.data, r;
 		try {
@@ -2372,14 +2390,14 @@ var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
 				if (t.protocol !== "https:" || t.username || t.password || t.port && t.port !== "443") throw Error("Checkout return pages must use HTTPS.");
 			}
 		}
-		F(this.path, {
+		I(this.path, {
 			version: 1,
 			cipher: this.codec.encrypt(JSON.stringify(n)).toString("base64")
 		});
 	}
 	revision(e) {
 		let t = this.get();
-		return Kt(e === "EMAIL" ? [t.resendKey, t.from] : [t.stripeKey, t.live]);
+		return Jt(e === "EMAIL" ? [t.resendKey, t.from] : [t.stripeKey, t.live]);
 	}
 }, Y = class extends Error {
 	code;
@@ -2387,7 +2405,7 @@ var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
 	constructor(e, t = !1) {
 		super(e), this.code = e, this.retryable = t;
 	}
-}, Yt = async (e, t) => {
+}, Zt = async (e, t) => {
 	let n;
 	try {
 		n = await fetch(e, {
@@ -2413,10 +2431,10 @@ var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
 	} catch {
 		throw new Y("PROVIDER_RESPONSE_INVALID", !0);
 	}
-}, Xt = S().regex(/^[a-zA-Z0-9_-]{1,200}$/), Zt = u({ id: Xt }), Qt = u({
-	id: Xt,
-	client_reference_id: S(),
-	metadata: u({ htt_job: S() }),
+}, Qt = x().regex(/^[a-zA-Z0-9_-]{1,200}$/), $t = u({ id: Qt }), en = u({
+	id: Qt,
+	client_reference_id: x(),
+	metadata: u({ htt_job: x() }),
 	mode: y("payment"),
 	livemode: b(),
 	currency: y("aud"),
@@ -2431,22 +2449,22 @@ var J = S().min(1).max(200), Lt = S().email().max(254), Rt = u({
 		"unpaid",
 		"no_payment_required"
 	]),
-	url: S().nullable().optional(),
-	payment_intent: ue().optional()
+	url: x().nullable().optional(),
+	payment_intent: de().optional()
 });
-function $t(e) {
+function tn(e) {
 	let t = new URL(e);
 	if (t.protocol !== "https:" || t.hostname !== "checkout.stripe.com" || t.username || t.password || t.port) throw new Y("UNTRUSTED_CHECKOUT_URL");
 	return t.href;
 }
-var en = class {
+var nn = class {
 	transport;
-	constructor(e = Yt) {
+	constructor(e = Zt) {
 		this.transport = e;
 	}
 	async create(e, t, n) {
 		if (e.kind === "EMAIL") {
-			let r = Bt.parse(e.payload), i = await this.transport("https://api.resend.com/emails", {
+			let r = Ht.parse(e.payload), i = await this.transport("https://api.resend.com/emails", {
 				method: "POST",
 				headers: {
 					Authorization: "Bearer " + t.resendKey,
@@ -2454,11 +2472,11 @@ var en = class {
 					"Idempotency-Key": n
 				},
 				body: JSON.stringify(r)
-			}), a = Zt.safeParse(i);
+			}), a = $t.safeParse(i);
 			if (!a.success) throw new Y("PROVIDER_RESPONSE_INVALID", !0);
 			return { id: a.data.id };
 		}
-		let r = Vt.parse(e.payload), i = new URLSearchParams({
+		let r = Ut.parse(e.payload), i = new URLSearchParams({
 			mode: "payment",
 			client_reference_id: r.invoiceId,
 			"metadata[htt_job]": e.id,
@@ -2483,21 +2501,21 @@ var en = class {
 		if (!o.url) throw new Y("CHECKOUT_URL_MISSING", !0);
 		return {
 			id: o.id,
-			url: $t(o.url)
+			url: tn(o.url)
 		};
 	}
 	session(e, t) {
-		let n = Qt.safeParse(e);
+		let n = en.safeParse(e);
 		if (!n.success) throw new Y("PAYMENT_EVIDENCE_INVALID");
-		let r = n.data, i = Vt.parse(t.payload);
+		let r = n.data, i = Ut.parse(t.payload);
 		if (r.client_reference_id !== t.sourceId || r.metadata.htt_job !== t.id || r.amount_total !== t.amountMinor || r.livemode !== i.live || t.providerId && r.id !== t.providerId) throw new Y("PAYMENT_EVIDENCE_MISMATCH");
 		return r;
 	}
 	async poll(e, t) {
-		if (!e.providerId || !Xt.safeParse(e.providerId).success) throw new Y("PROVIDER_REFERENCE_MISSING");
+		if (!e.providerId || !Qt.safeParse(e.providerId).success) throw new Y("PROVIDER_REFERENCE_MISSING");
 		if (e.kind === "EMAIL") {
 			let n = await this.transport("https://api.resend.com/emails/" + encodeURIComponent(e.providerId), { headers: { Authorization: "Bearer " + t.resendKey } }), r = u({
-				id: Xt,
+				id: Qt,
 				last_event: h([
 					"sent",
 					"delivered",
@@ -2549,7 +2567,14 @@ var en = class {
 			paidAt: i.data.latest_charge.created * 1e3
 		};
 	}
-}, X = S().min(1).max(200), tn = "external-stripe:", nn = /* @__PURE__ */ new Set(["QUEUED", "RETRY"]), rn = (e) => O("sha256").update(JSON.stringify(e)).digest("hex"), an = class {
+}, X = x().min(1).max(200), rn = "external-stripe:", an = /* @__PURE__ */ new Set(["QUEUED", "RETRY"]), on = (e) => O("sha256").update(JSON.stringify(e)).digest("hex"), sn = class {
+	approvedScope = !1;
+	restrictToApprovedScope() {
+		this.approvedScope = !0;
+	}
+	retiredJob(e) {
+		return this.approvedScope && (!N.onlineCollection && e.kind === "CHECKOUT" || !N.remittance && e.family === "purchase" && this.snapshots().preparedPurchaseOutputs?.artifacts.some((t) => t.id === e.artifactId && t.kind === "REMITTANCE"));
+	}
 	running = !1;
 	blocked = "";
 	reminderCursor = 0;
@@ -2560,7 +2585,7 @@ var en = class {
 	pdf;
 	providers;
 	now;
-	constructor(e, t, n, r, i, a = new en(), o = () => Date.now()) {
+	constructor(e, t, n, r, i, a = new nn(), o = () => Date.now()) {
 		this.store = e, this.vault = t, this.security = n, this.business = r, this.pdf = i, this.providers = a, this.now = o;
 		let s = this.store.read().jobs.filter((e) => e.status === "PROCESSING" || e.status === "RECORDING");
 		s.length && this.store.change((e) => {
@@ -2576,6 +2601,7 @@ var en = class {
 		return e.family === "sales" ? "sales.read" : "purchases.read";
 	}
 	actionable(e) {
+		if (this.retiredJob(e)) return !1;
 		let t = this.security.principal();
 		return !!t && t.userId === e.ownerId && m(t, e.kind === "EMAIL" ? "documents.prepare" : "sales.payment") && m(t, this.readPermission(e));
 	}
@@ -2599,9 +2625,9 @@ var en = class {
 		if (this.passive("sales.read"), s(t), s(i), t > i || i > n(new Date(this.now()).toISOString())) throw Error("Choose a valid statement range ending on or before today.");
 		let a = this.snapshots(), o = a.customers?.customers.find((t) => t.id === e);
 		if (!o) throw Error("Customer not found.");
-		let c = o.contacts.filter((e) => e.isAccounting && S().email().safeParse(e.email).success);
+		let c = o.contacts.filter((e) => e.isAccounting && x().email().safeParse(e.email).success);
 		if (c.length !== 1) throw Error("Customer statement requires exactly one accounting contact email.");
-		let l = Pt({
+		let l = It({
 			customerId: e,
 			documents: a.sales.invoices,
 			payments: a.customerPayments.payments,
@@ -2614,7 +2640,7 @@ var en = class {
 			recipient: c[0].email,
 			report: l,
 			settings: u,
-			revision: rn([
+			revision: on([
 				o,
 				l,
 				u.companyName,
@@ -2626,8 +2652,8 @@ var en = class {
 		let t = u({
 			operationId: X,
 			customerId: X,
-			fromDate: S(),
-			toDate: S()
+			fromDate: x(),
+			toDate: x()
 		}).strict().parse(e), n = this.security.require("documents.prepare");
 		this.security.require("sales.read");
 		let r = this.store.read().statements.find((e) => e.operationId === t.operationId);
@@ -2635,7 +2661,7 @@ var en = class {
 			if (r.ownerId !== n.userId || r.sourceId !== t.customerId || r.fromDate !== t.fromDate || r.toDate !== t.toDate) throw Error("Statement operation belongs to different input.");
 			return r.id;
 		}
-		let i = this.statement(t.customerId, t.fromDate, t.toDate), a = "STATEMENT-" + i.customer.code + "-" + t.toDate, o = Wt.parse({
+		let i = this.statement(t.customerId, t.fromDate, t.toDate), a = "STATEMENT-" + i.customer.code + "-" + t.toDate, o = Kt.parse({
 			id: k(),
 			operationId: t.operationId,
 			ownerId: n.userId,
@@ -2679,6 +2705,7 @@ var en = class {
 		}
 		let a = r[e === "sales" ? "preparedSalesOutputs" : "preparedPurchaseOutputs"]?.artifacts.find((e) => e.id === n);
 		if (!a) throw Error("Prepared output was not found or is not permitted.");
+		if (this.approvedScope && !N.remittance && a.kind === "REMITTANCE") throw Error("Remittance advice has been removed from the approved scope.");
 		let o, s;
 		if (e === "sales") {
 			let e = a.kind === "CREDIT_NOTE" ? r.customerCredits.creditNotes.find((e) => e.id === a.sourceId) : [
@@ -2719,10 +2746,11 @@ var en = class {
 	get(e) {
 		let t = this.store.read().jobs.find((t) => t.id === e);
 		if (!t) throw Error("Integration job not found.");
+		if (this.retiredJob(t)) throw Error("This external workflow has been removed from the approved scope.");
 		return this.passive(this.readPermission(t)), t;
 	}
 	receiptOperation(e) {
-		return tn + this.store.read().id + ":" + e.id;
+		return rn + this.store.read().id + ":" + e.id;
 	}
 	receipt(e) {
 		let t = i.list().find((t) => t.operationId === this.receiptOperation(e));
@@ -2758,7 +2786,7 @@ var en = class {
 			cancelUrl: "",
 			live: !1
 		};
-		let r = this.store.read(), i = this.snapshots(), a = r.jobs.filter((t) => m(e, this.readPermission(t))).map((e) => {
+		let r = this.store.read(), i = this.snapshots(), a = r.jobs.filter((t) => m(e, this.readPermission(t)) && (!this.approvedScope || !this.retiredJob(t))).map((e) => {
 			let { payload: t, credentialRevision: n, sourceRevision: r, ...i } = e;
 			return i;
 		}), o = [
@@ -2774,7 +2802,7 @@ var en = class {
 				label: e.documentNumber + " · " + e.id.slice(0, 8),
 				recipient: e.recipient?.accountingEmail ?? ""
 			})) : [],
-			...m(e, "purchases.read") ? (i.preparedPurchaseOutputs?.artifacts ?? []).map((e) => ({
+			...m(e, "purchases.read") ? (i.preparedPurchaseOutputs?.artifacts ?? []).filter((e) => !this.approvedScope || N.remittance || e.kind !== "REMITTANCE").map((e) => ({
 				id: e.id,
 				family: "purchase",
 				label: e.documentNumber + " · " + e.id.slice(0, 8),
@@ -2827,10 +2855,11 @@ var en = class {
 			recipient: r,
 			subject: n.subject,
 			body: n.body,
-			html: n.kind === "CUSTOMER_STATEMENT" ? jt(n) : t.family === "sales" ? Mt(n) : Nt(n)
+			html: n.kind === "CUSTOMER_STATEMENT" ? Nt(n) : t.family === "sales" ? Pt(n) : Ft(n)
 		};
 	}
 	configure(e) {
+		if (this.approvedScope && !N.onlineCollection && e?.checkoutEnabled) throw Error("Online collection has been removed from the approved scope.");
 		if (this.security.require("users.manage"), this.running) throw Error("Wait for the running provider request before changing credentials.");
 		return this.security.audit("external.configuration", "integration-vault", "INTENT", "users.manage"), this.vault.set(e), this.security.audit("external.configuration", "integration-vault", "SUCCESS", "users.manage"), this.view();
 	}
@@ -2850,7 +2879,7 @@ var en = class {
 		}
 		let a = this.vault.get();
 		if (!a.emailEnabled || !a.resendKey || !a.from) throw Error("Email is not configured and enabled.");
-		let o = this.sourceArtifact(n.family, n.artifactId), s = S().email().parse(o.recipient), c = t ? t.key : "email:" + n.family + ":" + n.artifactId;
+		let o = this.sourceArtifact(n.family, n.artifactId), s = x().email().parse(o.recipient), c = t ? t.key : "email:" + n.family + ":" + n.artifactId;
 		if (this.store.read().jobs.some((e) => e.dedupe === c)) throw Error("This document version or reminder stage already has a delivery job. Inspect it instead of sending again.");
 		if (this.store.read().jobs.some((e) => e.family === n.family && e.sourceId === o.artifact.sourceId && [
 			"UNCERTAIN",
@@ -2865,9 +2894,9 @@ var en = class {
 		let l = await this.pdf(n.family, o.artifact);
 		if (l.length > 5e6 || !l.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw Error("Generated PDF is invalid or exceeds 5 MB.");
 		if (this.security.principal()?.userId !== r.userId) throw Error("Sign in again before queueing delivery.");
-		if (this.security.require("documents.prepare"), this.security.require(n.family === "sales" ? "sales.read" : "purchases.read"), this.sourceArtifact(n.family, n.artifactId), this.vault.revision("EMAIL") !== rn([a.resendKey, a.from]) || !this.vault.get().emailEnabled) throw Error("Email configuration changed during preparation.");
+		if (this.security.require("documents.prepare"), this.security.require(n.family === "sales" ? "sales.read" : "purchases.read"), this.sourceArtifact(n.family, n.artifactId), this.vault.revision("EMAIL") !== on([a.resendKey, a.from]) || !this.vault.get().emailEnabled) throw Error("Email configuration changed during preparation.");
 		if (this.store.read().jobs.some((e) => e.dedupe === c || e.operationId === n.operationId)) throw Error("Delivery was already queued during preparation. Inspect the journal.");
-		let d = (t ? "Payment reminder · " : "") + o.artifact.subject, f = t ? o.artifact.body + "\nOutstanding at preparation: AUD " + this.validInvoice(this.invoice(t.invoiceId)).amountDue.toFixed(2) : o.artifact.body, p = Bt.parse({
+		let d = (t ? "Payment reminder · " : "") + o.artifact.subject, f = t ? o.artifact.body + "\nOutstanding at preparation: AUD " + this.validInvoice(this.invoice(t.invoiceId)).amountDue.toFixed(2) : o.artifact.body, p = Ht.parse({
 			from: a.from,
 			to: s,
 			subject: d,
@@ -2894,7 +2923,7 @@ var en = class {
 			nextAt: this.now(),
 			status: "QUEUED",
 			payload: p,
-			payloadDigest: rn(p),
+			payloadDigest: on(p),
 			...t ? { reminderKey: t.key } : {},
 			history: [{
 				at: this.now(),
@@ -2904,6 +2933,7 @@ var en = class {
 		return this.audit("queue", m, "INTENT"), this.store.change((e) => e.jobs.unshift(m)), this.audit("queue", m, "SUCCESS"), m.id;
 	}
 	queueCheckout(e) {
+		if (this.approvedScope && !N.onlineCollection) throw Error("Online collection has been removed from the approved scope.");
 		let t = u({
 			operationId: X,
 			invoiceId: X,
@@ -2926,7 +2956,7 @@ var en = class {
 		if (!o || o.issuer.currency !== "AUD") throw Error("Prepare the current AUD invoice before creating checkout.");
 		let s = Math.round(a.amountDue * 100);
 		if (Math.abs(s - a.amountDue * 100) > 1e-6) throw Error("Invoice amount is not an exact AUD cent value.");
-		let c = Vt.parse({
+		let c = Ut.parse({
 			invoiceId: a.id,
 			documentNumber: a.documentNumber,
 			amountMinor: s,
@@ -2953,7 +2983,7 @@ var en = class {
 			status: "QUEUED",
 			amountMinor: s,
 			payload: c,
-			payloadDigest: rn(c),
+			payloadDigest: on(c),
 			history: [{
 				at: this.now(),
 				event: "CHECKOUT_CONFIRMED"
@@ -2973,7 +3003,7 @@ var en = class {
 			r.enabled = !1;
 		}), this.security.audit("external.reminder.policy", t.invoiceId, "SUCCESS", "documents.prepare"), this.view();
 		let r = this.validInvoice(this.invoice(t.invoiceId));
-		if (!r.dueDate || !S().email().safeParse(r.recipient?.accountingEmail).success) throw Error("Invoice must have a due date and saved accounting recipient.");
+		if (!r.dueDate || !x().email().safeParse(r.recipient?.accountingEmail).success) throw Error("Invoice must have a due date and saved accounting recipient.");
 		s(r.dueDate);
 		let i = [...new Set(t.days)].sort((e, t) => e - t);
 		return this.security.audit("external.reminder.policy", t.invoiceId, "INTENT", "documents.prepare"), this.store.change((e) => {
@@ -3030,7 +3060,7 @@ var en = class {
 	checkoutUrl(e) {
 		let { id: t } = u({ id: X }).strict().parse(e), n = this.get(t);
 		if (n.kind !== "CHECKOUT" || !n.url || n.status !== "OPEN") throw Error("An open checkout link is required.");
-		return $t(n.url);
+		return tn(n.url);
 	}
 	async reminders() {
 		let e = this.security.principal(), t = this.vault.get();
@@ -3065,14 +3095,14 @@ var en = class {
 				repository: "preparedSalesOutputs",
 				method: "prepare",
 				args: [{
-					operationId: "prep:" + rn(s).slice(0, 60),
+					operationId: "prep:" + on(s).slice(0, 60),
 					sourceId: t.id,
 					kind: "INVOICE",
 					expectedUpdatedAt: t.updatedAt
 				}]
 			}).result;
 			await this.queueMail({
-				operationId: "mail:" + rn(s).slice(0, 60),
+				operationId: "mail:" + on(s).slice(0, 60),
 				artifactId: c.id,
 				family: "sales",
 				confirmed: !0
@@ -3088,7 +3118,7 @@ var en = class {
 			this.running = !0;
 			try {
 				this.recoveryCheck();
-				let e = this.vault.get(), t = this.store.read(), n = t.jobs.find((t) => this.actionable(t) && t.nextAt <= this.now() && (t.kind === "EMAIL" && e.emailEnabled || t.kind === "CHECKOUT" && e.checkoutEnabled) && (nn.has(t.status) || t.providerId && [
+				let e = this.vault.get(), t = this.store.read(), n = t.jobs.find((t) => this.actionable(t) && t.nextAt <= this.now() && (t.kind === "EMAIL" && e.emailEnabled || t.kind === "CHECKOUT" && e.checkoutEnabled) && (an.has(t.status) || t.providerId && [
 					"ACCEPTED",
 					"DELAYED",
 					"DELIVERED",
@@ -3137,8 +3167,8 @@ var en = class {
 				}, "PROVIDER_ATTEMPT"), this.audit("provider.create", n, "INTENT");
 				try {
 					let r = await this.providers.create(n, e, "htt-" + t.id + "-" + n.id), i = n.kind === "EMAIL" && n.payload ? {
-						...Bt.parse(n.payload),
-						attachments: Bt.parse(n.payload).attachments.map((e) => ({
+						...Ht.parse(n.payload),
+						attachments: Ht.parse(n.payload).attachments.map((e) => ({
 							...e,
 							content: ""
 						}))
@@ -3234,8 +3264,8 @@ var en = class {
 };
 //#endregion
 //#region electron/integrations/outputPdf.ts
-async function on(e, t) {
-	let n = Wt.safeParse(t), r = t, i = n.success ? jt(n.data) : e === "sales" ? Mt(r) : Nt(r), a = new ke({
+async function cn(e, t) {
+	let n = Kt.safeParse(t), r = t, i = n.success ? Nt(n.data) : e === "sales" ? Pt(r) : Ft(r), a = new ke({
 		show: !1,
 		webPreferences: {
 			sandbox: !0,
@@ -3264,7 +3294,11 @@ async function on(e, t) {
 }
 //#endregion
 //#region electron/security/businessHost.ts
-var sn = class {
+var ln = class {
+	approvedScope = !1;
+	restrictToApprovedScope() {
+		this.approvedScope = !0;
+	}
 	values = {};
 	initialized = !1;
 	automationEngine;
@@ -3286,12 +3320,12 @@ var sn = class {
 		if (this.initialized) return;
 		if (!this.security.principal()) throw Error("Login required.");
 		let n, r;
-		if (C(this.path)) r = x(w(this.path, "utf8")), r.schemaVersion !== 33 && (n = structuredClone(r), se(r)), this.values = r.storage;
+		if (S(this.path)) r = se(C(this.path, "utf8")), r.schemaVersion !== 33 && (n = structuredClone(r), ce(r)), this.values = r.storage;
 		else {
 			if (this.security.require("users.manage"), !t || typeof t != "object" || Object.keys(t).length > 1e3) throw Error("Invalid legacy local data.");
 			for (let [e, n] of Object.entries(t)) if (!e.startsWith("htt") || typeof n != "string" || n.length > 5e7) throw Error("Invalid legacy local data.");
 			let e = D(E(this.path), "legacy-profile-backup-v1.json");
-			C(e) || F(e, {
+			S(e) || I(e, {
 				schemaVersion: 1,
 				capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
 				storage: t
@@ -3333,13 +3367,13 @@ var sn = class {
 				repositories: t,
 				lastCommandId: this.lastCommandId
 			}), r = D(E(this.path), "recycle-backups"), i = k(), a = `pre-purge-${i}.json`;
-			he(r, {
+			ge(r, {
 				recursive: !0,
 				mode: 448
 			});
 			let o = D(r, a);
-			F(o, n);
-			let s = w(o, "utf8"), c = x(s);
+			I(o, n);
+			let s = C(o, "utf8"), c = se(s);
 			if (d(c.repositories, t), g(c.repositories), JSON.stringify(c) !== JSON.stringify(n)) throw Error("Pre-purge backup verification failed.");
 			return {
 				id: i,
@@ -3356,20 +3390,20 @@ var sn = class {
 				repositories: n,
 				lastCommandId: this.lastCommandId
 			}), i = D(E(this.path), "year-end-backups"), a = `pre-year-end-${t.toLowerCase()}-${k()}.json`;
-			he(i, {
+			ge(i, {
 				recursive: !0,
 				mode: 448
 			});
 			let o = D(i, a);
-			F(o, r);
-			let s = w(o, "utf8"), c = x(s);
+			I(o, r);
+			let s = C(o, "utf8"), c = se(s);
 			if (d(c.repositories, r.repositories), g(c.repositories), JSON.stringify(r) !== JSON.stringify(c)) throw Error("Year-end backup verification failed.");
 			return {
 				fileName: a,
 				sha256: O("sha256").update(s).digest("hex"),
 				createdAt: (/* @__PURE__ */ new Date()).toISOString()
 			};
-		}), n && (F(D(E(this.path), `pre-migration-v${r.schemaVersion}-${k()}.json`), n), this.persist(), this.security.audit("business.migrate.v33", "local-desktop-profile", "SUCCESS", "users.manage")), r || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
+		}), n && (I(D(E(this.path), `pre-migration-v${r.schemaVersion}-${k()}.json`), n), this.persist(), this.security.audit("business.migrate.v33", "local-desktop-profile", "SUCCESS", "users.manage")), r || (this.persist(), this.security.audit("business.import", "local-desktop-profile", "SUCCESS", "users.manage"));
 		for (let e of this.security.pendingBusinessCommands()) this.security.audit(`recovery.${e.action}`, e.resourceId, e.commandId === this.lastCommandId ? "SUCCESS" : "FAILED", e.permission, e.commandId);
 		this.initialized = !0;
 	}
@@ -3385,7 +3419,7 @@ var sn = class {
 		this.scanningRecurring = !0;
 		try {
 			for (let r = 0; r < 20; r++) {
-				let r = n.dueRecurringCandidates(t)[0];
+				let r = n.dueRecurringCandidates(t).filter((e) => !this.approvedScope || N.directBankSpend || e.kind !== "BANK")[0];
 				if (!r) break;
 				let i = r.kind;
 				e.processed++;
@@ -3410,13 +3444,13 @@ var sn = class {
 					}), e.failed++;
 				}
 			}
-			return e.remaining = n.dueRecurringCandidates(t).length, e;
+			return e.remaining = n.dueRecurringCandidates(t).filter((e) => !this.approvedScope || N.directBankSpend || e.kind !== "BANK").length, e;
 		} finally {
 			this.scanningRecurring = !1;
 		}
 	}
 	persist(t = this.lastCommandId) {
-		F(this.path, ne({
+		I(this.path, ne({
 			storage: this.values,
 			repositories: e(),
 			lastCommandId: t
@@ -3424,7 +3458,7 @@ var sn = class {
 	}
 	exportBackup() {
 		if (this.security.require("users.manage"), !this.initialized || this.blocked) throw Error("Backup requires healthy initialized business data.");
-		let t = x(w(this.path, "utf8"));
+		let t = se(C(this.path, "utf8"));
 		return d(t.repositories, e()), g(t.repositories), ne({
 			storage: t.storage,
 			repositories: t.repositories,
@@ -3434,8 +3468,8 @@ var sn = class {
 	prepareRestore(t) {
 		let n = this.security.require("users.manage");
 		this.prepared = void 0;
-		let r = x(t);
-		se(r), this.initialized && (ae(r, this.workspaceDefaults), d(r.repositories, e()), g(r.repositories));
+		let r = se(t);
+		ce(r), this.initialized && (ae(r, this.workspaceDefaults), d(r.repositories, e()), g(r.repositories));
 		let i = k();
 		this.prepared = {
 			token: i,
@@ -3477,27 +3511,27 @@ var sn = class {
 		if (ae(r.database, i.workspaceDefaults), d(r.database.repositories, e()), g(r.database.repositories), this.security.require("users.manage").userId !== n.userId) throw Error("Restore session changed.");
 		let a = this.security.pendingBusinessCommands();
 		if (a.length) {
-			let e = x(w(this.path, "utf8"));
+			let e = se(C(this.path, "utf8"));
 			for (let t of a) this.security.audit(`recovery.${t.action}`, t.resourceId, t.commandId === e.lastCommandId ? "SUCCESS" : "FAILED", t.permission, t.commandId);
 		}
 		let o = k();
-		if (this.security.audit("business.restore", "business-data-only", "INTENT", "users.manage", o), C(this.path)) {
+		if (this.security.audit("business.restore", "business-data-only", "INTENT", "users.manage", o), S(this.path)) {
 			let e = D(E(this.path), "recovery-backups");
-			he(e, {
+			ge(e, {
 				recursive: !0,
 				mode: 448
 			});
-			let t = ge(D(e, `before-restore-${o}.json`), "wx", 384);
+			let t = _e(D(e, `before-restore-${o}.json`), "wx", 384);
 			try {
-				ye(t, w(this.path)), me(t);
+				be(t, C(this.path)), he(t);
 			} finally {
-				pe(t);
+				me(t);
 			}
-			let n = ge(e, "r");
+			let n = _e(e, "r");
 			try {
-				me(n);
+				he(n);
 			} finally {
-				pe(n);
+				me(n);
 			}
 		}
 		let s = ne({
@@ -3507,7 +3541,7 @@ var sn = class {
 		});
 		this.blocked = !0;
 		try {
-			F(this.path, s);
+			I(this.path, s);
 		} catch {
 			throw Error("Restore commit could not be confirmed. Restart and inspect before retry.");
 		}
@@ -3598,7 +3632,10 @@ var sn = class {
 		this.security.audit(o, s, "INTENT", n.permission, a);
 		let u = e(), d = structuredClone(this.values), f;
 		try {
-			if (f = n.execute(i), t.repository === "bankStatements" && ["importRows", "importCsv"].includes(t.method)) {
+			if (this.approvedScope && Re({
+				...t,
+				args: i
+			}), f = n.execute(i), t.repository === "bankStatements" && ["importRows", "importCsv"].includes(t.method)) {
 				let t = new Set(u.bankStatements.lines.map((e) => e.id)), n = e().bankStatements.lines.filter((e) => !t.has(e.id)).map((e) => e.id);
 				this.automationEngine?.classifyImportedBankLines(n, a);
 			}
@@ -3624,21 +3661,23 @@ var sn = class {
 };
 //#endregion
 //#region electron/security/registerSecurityIpc.ts
-function cn(e, t, n = () => {}) {
-	de(D(A.isPackaged ? process.resourcesPath : A.getAppPath(), A.isPackaged ? "ocr" : "dist-ocr", "htt-ocr"));
-	let r = new et(D(e, "security-v1.json")), i = new sn(D(e, "business-v1.json"), r), a, o = "";
+function un(e, t, n = () => {}) {
+	fe(D(A.isPackaged ? process.resourcesPath : A.getAppPath(), A.isPackaged ? "ocr" : "dist-ocr", "htt-ocr"));
+	let r = new tt(D(e, "security-v1.json")), i = new ln(D(e, "business-v1.json"), r);
+	i.restrictToApprovedScope();
+	let a, o = "";
 	try {
-		a = new an(new qt(e), new Jt(e, {
+		a = new sn(new Yt(e), new Xt(e, {
 			available: () => M.isEncryptionAvailable() && (process.platform !== "linux" || M.getSelectedStorageBackend() !== "basic_text"),
 			encrypt: (e) => M.encryptString(e),
 			decrypt: (e) => M.decryptString(e)
-		}), r, i, on);
+		}), r, i, cn), a.restrictToApprovedScope();
 	} catch {
 		o = "Integration journal is unavailable. Preserve the complete profile for recovery; business data has not been reset.";
 	}
 	let s, c = "";
 	try {
-		s = new At(new bt(e), new xt(e, {
+		s = new Mt(new xt(e), new St(e, {
 			available: () => M.isEncryptionAvailable() && (process.platform !== "linux" || M.getSelectedStorageBackend() !== "basic_text"),
 			encrypt: (e) => M.encryptString(e),
 			decrypt: (e) => M.decryptString(e)
@@ -3648,7 +3687,7 @@ function cn(e, t, n = () => {}) {
 	}
 	let l, u = "";
 	try {
-		l = new dt(new nt(e, {
+		l = new ft(new rt(e, {
 			available: () => M.isEncryptionAvailable() && (process.platform !== "linux" || M.getSelectedStorageBackend() !== "basic_text"),
 			encrypt: (e) => M.encryptString(e),
 			decrypt: (e) => M.decryptString(e)
@@ -3860,12 +3899,12 @@ function cn(e, t, n = () => {}) {
 						d = { saved: !1 };
 						break;
 					}
-					let n = Ce(T(e), D(T(E(t.filePath)), xe(t.filePath)));
+					let n = Ce(w(e), D(w(E(t.filePath)), xe(t.filePath)));
 					if (!n || !n.startsWith(".." + we) && n !== ".." && !Se(n)) throw Error("Choose a backup location outside the active local data directory.");
 					let a = i.exportBackup();
 					r.audit("business.backup", "business-data-only", "INTENT", "users.manage");
 					try {
-						F(t.filePath, a);
+						I(t.filePath, a);
 					} catch (e) {
 						throw r.audit("business.backup", "business-data-only", "FAILED", "users.manage"), e;
 					}
@@ -3886,8 +3925,8 @@ function cn(e, t, n = () => {}) {
 						d = null;
 						break;
 					}
-					if (ve(e.filePaths[0]).size > 25e7) throw Error("Backup exceeds 250 MB.");
-					d = i.prepareRestore(w(e.filePaths[0], "utf8"));
+					if (ye(e.filePaths[0]).size > 25e7) throw Error("Backup exceeds 250 MB.");
+					d = i.prepareRestore(C(e.filePaths[0], "utf8"));
 					break;
 				}
 				case "business.restore.commit":
@@ -3943,7 +3982,7 @@ function cn(e, t, n = () => {}) {
 						d = { saved: !1 };
 						break;
 					}
-					let o = Ce(T(e), D(T(E(a.filePath)), xe(a.filePath)));
+					let o = Ce(w(e), D(w(E(a.filePath)), xe(a.filePath)));
 					if (!o || !o.startsWith(".." + we) && o !== ".." && !Se(o)) throw Error("Choose an export location outside the active local data directory.");
 					r.audit("capture.export", t.id, "INTENT", "purchases.bill");
 					try {
@@ -3952,7 +3991,7 @@ function cn(e, t, n = () => {}) {
 							method: "read",
 							args: [t.id]
 						}).result;
-						ce(a.filePath, ee(e));
+						le(a.filePath, ee(e));
 					} catch (e) {
 						throw r.audit("capture.export", t.id, "FAILED", "purchases.bill"), e;
 					}
@@ -4017,7 +4056,7 @@ function cn(e, t, n = () => {}) {
 						d = { saved: !1 };
 						break;
 					}
-					let o = Ce(T(e), D(T(E(a.filePath)), xe(a.filePath)));
+					let o = Ce(w(e), D(w(E(a.filePath)), xe(a.filePath)));
 					if (!o || !o.startsWith(".." + we) && o !== ".." && !Se(o)) throw Error("Choose an export location outside the active local data directory.");
 					r.audit("attachments.export", String(t.id) + "/" + String(t.versionId), "INTENT", "inventory.read");
 					try {
@@ -4026,7 +4065,7 @@ function cn(e, t, n = () => {}) {
 							method: "read",
 							args: [t]
 						}).result;
-						ce(D(T(E(a.filePath)), xe(a.filePath)), ee(e));
+						le(D(w(E(a.filePath)), xe(a.filePath)), ee(e));
 					} catch (e) {
 						throw r.audit("attachments.export", String(t.id) + "/" + String(t.versionId), "FAILED", "inventory.read"), e;
 					}
@@ -4040,9 +4079,11 @@ function cn(e, t, n = () => {}) {
 						view: i.view()
 					};
 					break;
-				case "business.command":
-					d = i.command(t);
+				case "business.command": {
+					let e = t;
+					Re(e), d = i.command(e);
 					break;
+				}
 				default: throw Error("Unknown desktop security action.");
 			}
 			n.returnValue = {
@@ -4095,16 +4136,16 @@ function cn(e, t, n = () => {}) {
 }
 //#endregion
 //#region electron/main/index.ts
-var ln = Fe(import.meta.url), un = be.dirname(ln), dn = "HTT Flooring Management System", Z, Q = () => {}, $ = null;
-function fn(...e) {
-	return be.join(un, "..", ...e);
+var dn = Fe(import.meta.url), fn = T.dirname(dn), pn = "HTT Flooring Management System", Z, Q = () => {}, $ = null;
+function mn(...e) {
+	return T.join(fn, "..", ...e);
 }
-function pn() {
+function hn() {
 	if (process.platform !== "darwin") return;
-	let e = fn("build", "icon.png"), t = Me.createFromPath(e);
+	let e = mn("build", "icon.png"), t = Me.createFromPath(e);
 	t.isEmpty() || A.dock?.setIcon(t);
 }
-function mn() {
+function gn() {
 	je.handle("statement:export-pdf", async (e, t) => {
 		try {
 			let n = ke.fromWebContents(e.sender);
@@ -4112,7 +4153,7 @@ function mn() {
 				success: !1,
 				error: "Unable to resolve the current application window."
 			};
-			let r = hn(t.defaultFileName), i = await j.showSaveDialog(n, {
+			let r = _n(t.defaultFileName), i = await j.showSaveDialog(n, {
 				title: "Export Customer Statement",
 				defaultPath: r,
 				filters: [{
@@ -4142,14 +4183,14 @@ function mn() {
 		}
 	});
 }
-function hn(e) {
+function _n(e) {
 	let t = e.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-").replace(/\s+/g, " ").trim() || "Customer Statement";
 	return t.toLowerCase().endsWith(".pdf") ? t : `${t}.pdf`;
 }
-function gn() {
+function vn() {
 	let e = A.commandLine.hasSwitch("user-data-dir") && A.commandLine.getSwitchValue("acceptance-window") === "compact";
 	$ = new ke({
-		title: dn,
+		title: pn,
 		width: e ? 1100 : 1440,
 		height: e ? 700 : 900,
 		minWidth: 1100,
@@ -4157,14 +4198,14 @@ function gn() {
 		show: !1,
 		backgroundColor: "#f4f1eb",
 		webPreferences: {
-			preload: be.join(un, "index.mjs"),
+			preload: T.join(fn, "index.mjs"),
 			contextIsolation: !0,
 			nodeIntegration: !1,
 			sandbox: !0
 		}
 	}), $.once("ready-to-show", () => {
 		$?.show();
-	}), process.env.VITE_DEV_SERVER_URL ? $.loadURL(process.env.VITE_DEV_SERVER_URL) : $.loadFile(be.join(un, "../dist/index.html")), $.webContents.on("did-start-navigation", (e, t, n, r) => {
+	}), process.env.VITE_DEV_SERVER_URL ? $.loadURL(process.env.VITE_DEV_SERVER_URL) : $.loadFile(T.join(fn, "../dist/index.html")), $.webContents.on("did-start-navigation", (e, t, n, r) => {
 		r && !n && Q();
 	}), $.webContents.on("render-process-gone", () => {
 		Q(), Z?.event("renderer-gone");
@@ -4179,15 +4220,15 @@ function gn() {
 		Q(), $ = null;
 	});
 }
-var _n = A.commandLine.getSwitchValue("user-data-dir");
-_n && A.setPath("userData", be.resolve(_n)), A.requestSingleInstanceLock() ? (Z = new Le(A.getPath("userData"), A.getVersion()), process.on("uncaughtException", () => {
+var yn = A.commandLine.getSwitchValue("user-data-dir");
+yn && A.setPath("userData", T.resolve(yn)), A.requestSingleInstanceLock() ? (Z = new Le(A.getPath("userData"), A.getVersion()), process.on("uncaughtException", () => {
 	Z?.event("main-exception"), Q(), A.exit(1);
 }), process.on("unhandledRejection", () => {
 	Z?.event("main-rejection"), Q(), A.exit(1);
 }), A.on("will-quit", () => Z?.finish())) : A.quit(), A.on("second-instance", () => {
 	$?.show(), $?.focus();
-}), A.setName(dn), A.whenReady().then(() => {
-	pn(), mn(), Q = cn(be.join(A.getPath("userData"), "local-security"), () => $, () => Z?.event("recurring-stopped")).lock, Ae.setApplicationMenu(Ae.buildFromTemplate([
+}), A.setName(pn), A.whenReady().then(() => {
+	hn(), gn(), Q = un(T.join(A.getPath("userData"), "local-security"), () => $, () => Z?.event("recurring-stopped")).lock, Ae.setApplicationMenu(Ae.buildFromTemplate([
 		...process.platform === "darwin" ? [{ role: "appMenu" }] : [],
 		{ role: "fileMenu" },
 		{ role: "editMenu" },
@@ -4209,8 +4250,8 @@ _n && A.setPath("userData", be.resolve(_n)), A.requestSingleInstanceLock() ? (Z 
 				}
 			}]
 		}
-	])), gn(), Z?.event("ready"), A.on("activate", () => {
-		ke.getAllWindows().length === 0 && gn();
+	])), vn(), Z?.event("ready"), A.on("activate", () => {
+		ke.getAllWindows().length === 0 && vn();
 	});
 }).catch(() => {
 	Z?.event("startup-failed"), j.showErrorBox("HTT Flooring could not start", "Restart the application. If the problem continues, inspect the local diagnostics folder in the application profile. Business files have not been reset."), A.exit(1);

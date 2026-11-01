@@ -77,3 +77,7 @@
 | [S01-YEAR-END.md](S01-YEAR-END.md) | current | 年度损益转留存收益、备份、年结锁与受控撤销 |
 
 | [S02-S04-LOCAL-WORKFLOWS.md](S02-S04-LOCAL-WORKFLOWS.md) | current | 复杂工资配置/结算、FIFO、客户 Notes 持久化及边界 |
+
+| [RETIRED-WORKFLOWS.md](RETIRED-WORKFLOWS.md) | current | 按确认停用六类功能，保留原代码、历史数据和恢复方式 |
+
+| [FORMAL-NAVIGATION.md](FORMAL-NAVIGATION.md) | current | 正式界面隐藏目录与客户演示，保留源码及模块业务入口 |

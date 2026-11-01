@@ -1,3 +1,4 @@
+import {optionalWorkflows} from '../../security/optionalWorkflows';
 import {usePermission} from '../../security/usePermission';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
@@ -128,7 +129,7 @@ export function BankingPage() {
                 </div>
 
                 {canWrite&&<div className="flex flex-wrap gap-3">
-                    <Button
+                    {optionalWorkflows.bankTransfers && <Button
                         variant="secondary"
                         onClick={() =>
                             navigate(
@@ -143,7 +144,7 @@ export function BankingPage() {
                         />
 
                         Transfer Money
-                    </Button>
+                    </Button>}
 
                     <Button
                         onClick={() =>
@@ -158,7 +159,7 @@ export function BankingPage() {
                             }
                         />
 
-                        New Transaction
+                        Receive Money
                     </Button>
                 </div>}
             </div>

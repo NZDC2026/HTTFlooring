@@ -1,3 +1,4 @@
+import {optionalWorkflows,assertApprovedDesktopCommand} from '../../src/features/security/optionalWorkflows';
 import {configureYearEndBackup} from './yearEndBackup';
 import type { AutomationKind } from '../../src/features/recurring/recurringAutomationRepository';
 import { configureDocumentPurgeBackup } from './documentPurgeBackup';
@@ -10,6 +11,9 @@ import type { BusinessView } from '../../src/features/security/securityContract'
 import { LocalSecurity, atomicJson } from './localSecurity';
 import { parseDatabase, sealDatabase, migratePeriodSnapshot, migrateWorkspaceSnapshot, validateRepositories, type Database, type LegacyDatabase } from './businessSnapshot';
 export class BusinessHost {
+    private approvedScope=false;
+    restrictToApprovedScope(){this.approvedScope=true;}
+
     private values: Record<string, string> = {};
     private initialized = false;
     private automationEngine?: Pick<typeof import('./businessEngine'),'dueRecurringCandidates'|'prepareRecurringFailure'|'classifyImportedBankLines'|'assertBankInstructionCommand'|'assertYearEndIntegrity'>;
@@ -114,7 +118,7 @@ export class BusinessHost {
         this.scanningRecurring=true;
         try {
             for(let i=0;i<20;i++) {
-                const candidate=engine.dueRecurringCandidates(principal)[0];
+                const candidate=engine.dueRecurringCandidates(principal).filter(c=>!this.approvedScope||optionalWorkflows.directBankSpend||c.kind!=='BANK')[0];
                 if(!candidate) break;
                 const kind=candidate.kind as AutomationKind;
                 report.processed++;
@@ -128,7 +132,7 @@ export class BusinessHost {
                     report.failed++;
                 }
             }
-            report.remaining=engine.dueRecurringCandidates(principal).length;
+            report.remaining=engine.dueRecurringCandidates(principal).filter(c=>!this.approvedScope||optionalWorkflows.directBankSpend||c.kind!=='BANK').length;
             return report;
         } finally {this.scanningRecurring=false;}
     }
@@ -253,6 +257,7 @@ export class BusinessHost {
         const before = snapshotRepositories(), storedBefore = structuredClone(this.values);
         let result: unknown;
         try {
+            if(this.approvedScope)assertApprovedDesktopCommand({...input,args});
             result = command.execute(args);
             if(input.repository==='bankStatements'&&['importRows','importCsv'].includes(input.method)){
                 const previous=new Set((before.bankStatements as {lines:{id:string}[]}).lines.map(l=>l.id));

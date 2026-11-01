@@ -1,3 +1,4 @@
+import {presentationPathEnabled} from '../features/security/optionalWorkflows';
 import {businessSettings} from '../features/business-workspace/configurationState';
 import {useWorkspaceRecords} from '../features/business-workspace/workspaceRepository';
 import { useSecurity } from "../features/security/securityClient";
@@ -136,6 +137,15 @@ const sections = [
     },
 
     {
+        label: "Work management",
+        items: [
+            {label:"Recurring transactions",path:"/automation/recurring",icon:Presentation},
+            {label:"Tasks",path:"/tasks",icon:LayoutDashboard},
+            {label:"Import & export",path:"/tools/import-export",icon:FileText},
+        ],
+    },
+
+    {
         label: "System",
         items: [
             { label: "Personal preferences", path: "/settings/preferences", icon: Settings },
@@ -153,6 +163,8 @@ export function Sidebar() {
     const { session } = useSecurity();
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
+        if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
+        if(path==='/tasks')return 'sales.read';
         if(path==='/reports/library')return 'inventory.read';
         if (path.startsWith('/reports/purchase') || path.startsWith('/reports/grni') || path.startsWith('/purchases')) return 'purchases.read';
         if (path === '/payroll') return 'payroll.read';
@@ -162,7 +174,7 @@ export function Sidebar() {
         if (path === '/inventory') return 'inventory.read';
         if (path === '/contacts') return 'contacts.write';
     };
-    const visibleSections = sections.map(section => ({ ...section, items: section.items.filter(item => !permissionForPath(item.path) || hasPermission(principal, permissionForPath(item.path)!)) })).filter(section => section.items.length);
+    const visibleSections = sections.map(section => ({ ...section, items: section.items.filter(item => presentationPathEnabled(item.path)).filter(item => !permissionForPath(item.path) || hasPermission(principal, permissionForPath(item.path)!)) })).filter(section => section.items.length);
     return (
         <aside
             className="

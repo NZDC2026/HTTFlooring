@@ -1,3 +1,4 @@
+import {assertApprovedDesktopCommand} from '../../src/features/security/optionalWorkflows';
 import {PayrollFilings} from '../payroll-filing/filings';
 import {FilingStore} from '../payroll-filing/store';
 import {BankFeeds} from '../bank-feeds/bankFeeds';
@@ -18,8 +19,9 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
     configureCaptureHelper(join(app.isPackaged?process.resourcesPath:app.getAppPath(),app.isPackaged?'ocr':'dist-ocr','htt-ocr'));
     const security = new LocalSecurity(join(directory, 'security-v1.json'));
     const business = new BusinessHost(join(directory, 'business-v1.json'), security);
+    business.restrictToApprovedScope();
     let integrations:ExternalServices|undefined, integrationError='';
-    try {integrations=new ExternalServices(new IntegrationStore(directory),new IntegrationVault(directory,{available:()=>safeStorage.isEncryptionAvailable()&&(process.platform!=='linux'||safeStorage.getSelectedStorageBackend()!=='basic_text'),encrypt:value=>safeStorage.encryptString(value),decrypt:value=>safeStorage.decryptString(value)}),security,business,renderDeliveryPdf);}
+    try {integrations=new ExternalServices(new IntegrationStore(directory),new IntegrationVault(directory,{available:()=>safeStorage.isEncryptionAvailable()&&(process.platform!=='linux'||safeStorage.getSelectedStorageBackend()!=='basic_text'),encrypt:value=>safeStorage.encryptString(value),decrypt:value=>safeStorage.decryptString(value)}),security,business,renderDeliveryPdf);integrations.restrictToApprovedScope();}
     catch {integrationError='Integration journal is unavailable. Preserve the complete profile for recovery; business data has not been reset.';}
     let feeds:BankFeeds|undefined, feedError='';
     try {feeds=new BankFeeds(new FeedStore(directory),new FeedVault(directory,{available:()=>safeStorage.isEncryptionAvailable()&&(process.platform!=='linux'||safeStorage.getSelectedStorageBackend()!=='basic_text'),encrypt:value=>safeStorage.encryptString(value),decrypt:value=>safeStorage.decryptString(value)}),security,business);}
@@ -171,7 +173,7 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
                     if(Object.keys(input).length) throw new Error('Recurring scan does not accept caller dates, actors or limits.');
                     const result=business.scanRecurringDue(); value={result,view:business.view()}; break;
                 }
-                case 'business.command': value = business.command(input as { repository: string; method: string; args: unknown[] }); break;
+                case 'business.command': {const command=input as {repository:string;method:string;args:unknown[]};assertApprovedDesktopCommand(command);value=business.command(command);break;}
                 default: throw new Error('Unknown desktop security action.');
             }
             event.returnValue = { ok: true, value };

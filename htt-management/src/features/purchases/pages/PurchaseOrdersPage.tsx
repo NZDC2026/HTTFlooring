@@ -1,3 +1,4 @@
+import {optionalWorkflows} from '../../security/optionalWorkflows';
 import { usePermission } from '../../security/usePermission';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
@@ -303,7 +304,7 @@ export function PurchaseOrdersPage() {
             );
 
     return (
-        <div className="pb-8">{(purchaseWrite||accountingRead)&&<Link className="mb-4 mr-3 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/documents/purchase-output">Purchase orders & remittances</Link>}<Link className="mb-4 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/purchases/prepayments">Supplier prepayments</Link><div className="mb-4 flex flex-wrap gap-4 text-sm"><Link className="underline" to="/purchases/expense-bills">Expense / service bill register</Link>{canReadReturns&&<Link className="underline" to="/purchases/supplier-returns">Physical supplier returns</Link>}<Link className="underline" to="/purchases/expense-bills/new">New expense / service bill</Link></div>
+        <div className="pb-8">{(purchaseWrite||accountingRead)&&<Link className="mb-4 mr-3 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/documents/purchase-output">{optionalWorkflows.remittance?'Purchase orders & remittances':'Purchase order output'}</Link>}<Link className="mb-4 inline-flex rounded-lg border bg-white px-4 py-2 text-sm" to="/purchases/prepayments">Supplier prepayments</Link><div className="mb-4 flex flex-wrap gap-4 text-sm"><Link className="underline" to="/purchases/expense-bills">Expense / service bill register</Link>{canReadReturns&&<Link className="underline" to="/purchases/supplier-returns">Physical supplier returns</Link>}<Link className="underline" to="/purchases/expense-bills/new">New expense / service bill</Link></div>
             <div className="mb-7 flex items-start justify-between gap-6">
                 <div>
                     <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">

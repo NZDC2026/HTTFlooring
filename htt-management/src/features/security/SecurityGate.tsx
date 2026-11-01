@@ -1,3 +1,4 @@
+import {retiredWorkflowPath} from './optionalWorkflows';
 import { BusinessRecoveryPanel } from './BusinessRecoveryPanel';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -51,5 +52,6 @@ export function RouteAccess({ children }: { children: ReactNode }) {
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     if (pathname === '/settings/security') return children;
     if (required && !hasPermission(principal, required)) return <div role="alert" className="rounded border p-6">Your role does not have access to this workspace.</div>;
+    if(retiredWorkflowPath(pathname))return <div role="status" className="rounded border p-6">This workflow has been removed from the approved application scope. Historical records are preserved.</div>;
     return children;
 }
