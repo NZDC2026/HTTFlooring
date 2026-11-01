@@ -1,98 +1,19 @@
+import { useState } from "react";
 import { LockKeyhole, MapPin } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
-
+import { changePassword, updateProfile, useLocalAccount } from "../data/localAccount";
+import { invoiceSummary } from "../data/invoices";
+const money = (value: number) => value.toLocaleString("en-AU", {style:"currency",currency:"AUD"});
 export default function AccountPage() {
-    return (
-        <>
-            <PortalHeader />
-
-            <main className="account-page">
-                <aside className="account-banner">
-                    <h1>My Account</h1>
-                    <p>
-                        View and manage your
-                        <br />
-                        business information.
-                    </p>
-                </aside>
-
-                <section className="account-content">
-                    <h1>ABC Flooring Pty Ltd</h1>
-
-                    <div className="account-grid">
-                        <section>
-                            <h3>Business Details</h3>
-
-                            <dl>
-                                <dt>Business Name</dt>
-                                <dd>ABC Flooring Pty Ltd</dd>
-
-                                <dt>ABN</dt>
-                                <dd>12 345 678 901</dd>
-
-                                <dt>Business Type</dt>
-                                <dd>Flooring Retailer</dd>
-
-                                <dt>Account Manager</dt>
-                                <dd>Daniel</dd>
-
-                                <dt>Region</dt>
-                                <dd className="locked-region">Melbourne <LockKeyhole size={13}/></dd>
-                            </dl>
-
-                            <h3>Primary Contact</h3>
-
-                            <dl>
-                                <dt>Name</dt>
-                                <dd>John Smith</dd>
-
-                                <dt>Email</dt>
-                                <dd>john@abcflooring.com.au</dd>
-
-                                <dt>Mobile</dt>
-                                <dd>04xx xxx xxx</dd>
-
-                                <dt>Phone</dt>
-                                <dd>02 xxxx xxxx</dd>
-                            </dl>
-                        </section>
-
-                        <section>
-                            <h3>Stock Location</h3>
-
-                            <div className="account-location">
-                                <MapPin />
-                                <strong>Melbourne</strong>
-                            </div>
-
-                            <p className="location-note">
-                                Your region is locked after registration and cannot be changed. Inventory, pricing and promotions are based on this region.
-                            </p>
-
-                            <h3>Account</h3>
-                            <dl>
-                                <dt>Outstanding</dt><dd>$12,752.00</dd>
-                                <dt>Overdue</dt><dd className="account-overdue">$2,420.00</dd>
-                                <dt>Payment Terms</dt><dd>30 Days</dd>
-                            </dl>
-
-                            <h3>Login & Security</h3>
-
-                            <dl>
-                                <dt>Email</dt>
-                                <dd>john@abcflooring.com.au</dd>
-
-                                <dt>Password</dt>
-                                <dd>••••••••</dd>
-                            </dl>
-
-                            <button className="outline-copper-button">
-                                Change Password
-                            </button>
-                        </section>
-                    </div>
-                </section>
-            </main>
-        </>
-    );
+ const {profile} = useLocalAccount(), navigate = useNavigate();
+ const [editing,setEditing] = useState(false), [security,setSecurity] = useState(false), [busy,setBusy] = useState(false), [error,setError] = useState(""), [message,setMessage] = useState("");
+ return <><PortalHeader/><main className="account-page"><aside className="account-banner"><h1>My Account</h1><p>View and manage your<br/>business information.</p></aside><section className="account-content"><h1>{profile.businessName}</h1>{error && <p role="alert" className="form-error">{error}</p>}{message && <p role="status" className="form-success">{message}</p>}
+ <div className="account-grid"><section><h3>Business Details</h3><dl><dt>Business Name</dt><dd>{profile.businessName}</dd><dt>ABN</dt><dd>{profile.abn}</dd><dt>Business Type</dt><dd>{profile.businessType}</dd><dt>Account Manager</dt><dd>Daniel</dd><dt>Region</dt><dd className="locked-region">{profile.region} <LockKeyhole size={13}/></dd></dl><h3>Primary Contact</h3><dl><dt>Name</dt><dd>{profile.firstName} {profile.lastName}</dd><dt>Email</dt><dd>{profile.email}</dd><dt>Mobile</dt><dd>{profile.mobile || "-"}</dd><dt>Phone</dt><dd>{profile.phone || "-"}</dd><dt>Address</dt><dd>{[profile.address,profile.suburb,profile.state,profile.postcode].filter(Boolean).join(", ")}</dd></dl>
+ <button type="button" className="outline-copper-button" onClick={()=>{setEditing(!editing);setError("");setMessage("");}}>{editing ? "Cancel editing" : "Edit contact details"}</button>
+ {editing && <form className="local-form" onSubmit={event=>{event.preventDefault(); const values=new FormData(event.currentTarget);try {const updated={...profile}; for(const key of ["firstName","lastName","mobile","phone","address","suburb","state","postcode"] as const) updated[key]=String(values.get(key)??"").trim(); if(!/^[+\d ()-]{8,20}$/.test(updated.mobile)) throw new Error("Enter a valid mobile number."); updateProfile(updated);setEditing(false);setError("");setMessage("Contact details saved in this browser.");}catch(error){setError(error instanceof Error ? error.message : "Unable to save contact details.");}}}>
+ {([['firstName','First name'],['lastName','Last name'],['mobile','Mobile'],['phone','Phone'],['address','Street address'],['suburb','Suburb'],['state','State'],['postcode','Postcode']] as const).map(([key,label])=><label key={key}>{label}<input name={key} defaultValue={profile[key]} required={key!=="phone"} pattern={key==="postcode" ? "[0-9]{4}" : undefined}/></label>)}<button className="primary-button">Save details</button></form>}
+ </section><section><h3>Stock Location</h3><div className="account-location"><MapPin/><strong>{profile.region}</strong></div><p className="location-note">Your region is locked after registration. Inventory, pricing and promotions are based on this region.</p><h3>Account</h3><dl><dt>Outstanding</dt><dd>{money(invoiceSummary.outstanding)}</dd><dt>Overdue</dt><dd className="account-overdue">{money(invoiceSummary.overdue)}</dd><dt>Payment Terms</dt><dd>As shown on each invoice</dd></dl><h3>Login & Security</h3><dl><dt>Email</dt><dd>{profile.email}</dd><dt>Password</dt><dd>••••••••</dd></dl><button className="outline-copper-button" type="button" onClick={()=>{setSecurity(!security);setError("");setMessage("");}}>{security ? "Cancel" : "Change Password"}</button>
+ {security && <form className="local-form" onSubmit={async event=>{event.preventDefault();const values=new FormData(event.currentTarget);setError("");setBusy(true);try {if(values.get("password")!==values.get("confirm")) throw new Error("Passwords do not match.");await changePassword(String(values.get("current")),String(values.get("password")));navigate("/login",{replace:true});}catch(error){setError(error instanceof Error ? error.message : "Unable to update password.");}finally{setBusy(false);}}}><label>Current password<input name="current" type="password" autoComplete="current-password" required/></label><label>New password<input name="password" type="password" autoComplete="new-password" minLength={10} required/></label><label>Confirm password<input name="confirm" type="password" autoComplete="new-password" required/></label><p>Use 10+ characters with a letter and a number. You will log in again after saving.</p><button className="primary-button" disabled={busy}>{busy ? "Saving…" : "Save password"}</button></form>}
+ </section></div></section></main></>;
 }

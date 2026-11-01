@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import AccountPage from "./pages/AccountPage";
 import ApplicationSubmittedPage from "./pages/ApplicationSubmittedPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -10,10 +10,17 @@ import RegisterPage from "./pages/RegisterPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import InvoiceDetailPage from "./pages/InvoiceDetailPage";
 
+import { useEffect } from "react";
+import { useLocalAccount } from "./data/localAccount";
+function RequireAccount() {
+ const { authenticated } = useLocalAccount(); const location = useLocation();
+ return authenticated ? <Outlet/> : <Navigate to="/login" replace state={{from: location.pathname + location.search}}/>;
+}
+function ScrollToTop() { const {pathname} = useLocation(); useEffect(()=>{window.scrollTo(0,0);},[pathname]); return null; }
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <ScrollToTop/><Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -23,12 +30,15 @@ export default function App() {
           element={<ApplicationSubmittedPage />}
         />
 
+        <Route element={<RequireAccount/>}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/products/:id" element={<ProductPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="/account" element={<AccountPage />} />
+        </Route>
+        <Route path="*" element={<main className="submitted-page"><div className="submitted-card"><h1>Page not found</h1><p>The page may have moved.</p><a href="/">Back to HTT Flooring</a></div></main>}/>
       </Routes>
     </BrowserRouter>
   );

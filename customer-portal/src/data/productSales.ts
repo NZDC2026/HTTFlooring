@@ -1,3 +1,4 @@
+import { invoices } from "./invoices";
 import { products } from "./products";
 
 export type SalesInvoice = {
@@ -35,6 +36,11 @@ export function demoProductSales(customerId: string, now: Date): SalesInvoice[] 
   const quantities = [[30, 20, 20, 10, 10, 10], [12, 24, 24, 30, 30, 30], [16, 16, 16, 16, 16, 16], [8, 0, 0, 0, 0, 0]];
   return products.flatMap((product, index) => quantities[index].flatMap((boxes, period) => {
     if (!boxes) return [];
-    return [{ customerId, status: "invoice" as const, date: shift(now, -7 - period * 30), items: [{ productId: product.id, name: product.name, sku: product.sku, sqm: boxes * 2.2, boxes }] }];
+    return [{ customerId, status: "invoice" as const, date: shift(now, -7 - period * 30), items: [{ productId: product.id, name: product.name, sku: product.sku, sqm: boxes * (Number.parseFloat(product.packSize??"") || 0), boxes }] }];
   }));
 }
+
+export const salesInvoices: SalesInvoice[] = invoices.map(invoice => ({
+ customerId: "abc-flooring", status: "invoice", date: new Date(invoice.issueDate),
+ items: invoice.items.map(item => ({productId:item.productId,name:item.description,sku:products.find(product=>product.id===item.productId)?.sku??item.productId,sqm:item.totalSize??0,boxes:item.quantity})),
+}));

@@ -16,6 +16,9 @@ export type Product = {
     finish?: string;
     packSize?: string;
     boardsPerPack?: number;
+    scotia?: string;
+    hdfStairNose?: string;
+    trims?: string;
     image: string;
 };
 
@@ -30,14 +33,17 @@ export const products: Product[] = [
         standardPrice: 82,
         discount: 16,
         boxes: 221,
-        sqm: 486.2,
+        sqm: 478.686,
         status: "In Stock",
         thickness: "14mm",
         wearLayer: "2mm",
         pattern: "Plank",
         finish: "Matte",
-        packSize: "2.20 m²",
-        boardsPerPack: 8,
+        packSize: "2.166 m²",
+        boardsPerPack: 6,
+        scotia: "WF807",
+        hdfStairNose: "Customized",
+        trims: "Blackbutt",
         image:
             "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=900&q=80",
     },

@@ -1,6 +1,9 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
+import { getApplication } from "../data/localAccount";
 export default function ApplicationSubmittedPage() {
+    const application=getApplication();
+    if(!application) return <Navigate to="/register" replace/>;
     return (
         <main className="submitted-page">
             <div className="submitted-card">
@@ -23,15 +26,11 @@ export default function ApplicationSubmittedPage() {
 
                 <div className="application-number">
                     <small>Application</small>
-                    <strong>#APP-20261002-0182</strong>
+                    <strong>#{application.id}</strong>
                 </div>
 
                 <p>
-                    Your application is currently under review.
-                    <br />
-                    We will contact you once your account
-                    <br />
-                    has been approved.
+                    Saved locally for {application.profile.businessName} ({application.profile.region}).<br/>Status: {application.status}.<br/>No application has been sent to HTT Flooring in this local preview.
                 </p>
 
                 <Link to="/" className="outline-copper-button">

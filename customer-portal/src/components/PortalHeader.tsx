@@ -1,7 +1,9 @@
 import { LogOut, UserRound } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 
+import { logout, useLocalAccount } from "../data/localAccount";
 export default function PortalHeader() {
+    const {profile} = useLocalAccount(); const navigate = useNavigate();
     return (
         <header className="portal-header">
             <NavLink to="/dashboard" className="brand">
@@ -18,12 +20,12 @@ export default function PortalHeader() {
 
             <div className="account-menu">
                 <div>
-                    <strong>ABC Flooring</strong>
-                    <small>Melbourne</small>
+                    <strong>{profile.businessName}</strong>
+                    <small>{profile.region}</small>
                 </div>
 
-                <UserRound size={18} />
-                <LogOut size={17} />
+                <NavLink to="/account" aria-label="My account"><UserRound size={18}/></NavLink>
+                <button className="icon-button" aria-label="Log out" onClick={()=>{logout();navigate("/login",{replace:true});}}><LogOut size={17}/></button>
             </div>
         </header>
     );

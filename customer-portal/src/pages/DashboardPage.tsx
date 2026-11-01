@@ -1,8 +1,12 @@
 import { AlertCircle, MapPin, Search } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
+import { invoiceSummary } from "../data/invoices";
+
+const money = (value: number) => value.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
 
 
+import { useLocalAccount } from "../data/localAccount";
 const categories = [
     {
         name: "Engineered Timber",
@@ -27,6 +31,8 @@ const categories = [
 ];
 
 export default function DashboardPage() {
+    const {profile}=useLocalAccount(); const navigate=useNavigate();
+    const { outstanding, outstandingCount, overdue, overdueCount, attentionInvoice } = invoiceSummary;
     return (
         <>
             <PortalHeader />
@@ -37,14 +43,14 @@ export default function DashboardPage() {
                         <h1>
                             Welcome back,
                             <br />
-                            ABC Flooring
+                            {profile.businessName}
                         </h1>
 
                         <div className="location">
                             <MapPin size={21} />
                             <div>
                                 <small>Your stock location</small>
-                                <strong>Melbourne</strong>
+                                <strong>{profile.region}</strong>
                             </div>
                         </div>
                     </div>
@@ -52,23 +58,23 @@ export default function DashboardPage() {
 
                 <section className="dashboard-content">
                     <div className="account-summary-cards">
-                        <div><small>Outstanding</small><strong>$12,752.00</strong><span>3 invoices</span></div>
-                        <div className="overdue-summary"><small>Overdue</small><strong>$2,420.00</strong><span>1 invoice</span></div>
-                        <Link to="/invoices/inv-10398" className="payment-attention"><AlertCircle size={20}/><div><small>Payment attention</small><strong>INV-10398 · $2,420.00</strong><span>17 days overdue</span></div></Link>
+                        <div><small>Outstanding</small><strong>{money(outstanding)}</strong><span>{outstandingCount} {outstandingCount === 1 ? "invoice" : "invoices"}</span></div>
+                        <div className="overdue-summary"><small>Overdue</small><strong>{money(overdue)}</strong><span>{overdueCount} {overdueCount === 1 ? "invoice" : "invoices"}</span></div>
+                        {attentionInvoice && <Link to={`/invoices/${attentionInvoice.id}`} className="payment-attention"><AlertCircle size={20}/><div><small>Payment attention</small><strong>{attentionInvoice.invoiceNumber} · {money(attentionInvoice.balance)}</strong><span>{attentionInvoice.overdueDays} days overdue</span></div></Link>}
                     </div>
-                    <Link to="/inventory" className="search-large">
+                    <form className="search-large" onSubmit={event=>{event.preventDefault();const values=new FormData(event.currentTarget);navigate(`/inventory?q=${encodeURIComponent(String(values.get("q")??""))}`);}}>
                         <Search size={20} />
-                        <span>Search product, colour, SKU or keyword...</span>
-                        <button>
+                        <input name="q" aria-label="Search inventory" placeholder="Search product, colour, SKU or keyword..."/>
+                        <button aria-label="Search inventory">
                             <Search size={19} />
                         </button>
-                    </Link>
+                    </form>
 
                     <h3>Browse Products</h3>
 
                     <div className="category-grid">
                         {categories.map((category) => (
-                            <Link to="/inventory" className="category-card" key={category.name}>
+                            <Link to={`/inventory?category=${encodeURIComponent(category.name)}`} className="category-card" key={category.name}>
                                 <img src={category.image} alt="" />
                                 <div>{category.name} →</div>
                             </Link>

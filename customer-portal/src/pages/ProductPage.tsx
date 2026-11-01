@@ -1,16 +1,21 @@
 import { ArrowLeft, Box, Ruler } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import ProductSalesCard from "../components/ProductSalesCard";
+import { salesInvoices } from "../data/productSales";
+import { useLocalAccount } from "../data/localAccount";
 import { products } from "../data/products";
 
 export default function ProductPage() {
     const { id } = useParams();
+    const location=useLocation();
+    const inventorySearch=typeof location.state?.inventorySearch==="string" ? location.state.inventorySearch : "";
+    const {profile}=useLocalAccount();
 
     const product = products.find((item) => item.id === id);
 
     if (!product) {
-        return <h1>Product not found.</h1>;
+        return <><PortalHeader/><main className="empty-state"><h1>Product not found</h1><Link to="/inventory">Back to inventory</Link></main></>;
     }
 
     return (
@@ -18,7 +23,7 @@ export default function ProductPage() {
             <PortalHeader />
 
             <main className="product-page">
-                <Link to="/inventory" className="back-link">
+                <Link to={`/inventory${inventorySearch}`} className="back-link">
                     <ArrowLeft size={17} /> Back to results
                 </Link>
 
@@ -42,11 +47,11 @@ export default function ProductPage() {
                                 </small>
                             </div>
 
-                            <span className="status-badge">● {product.status}</span>
+                            <span className={`status-badge ${product.status === "Low Stock" ? "stock-low" : product.status === "Out of Stock" ? "stock-out" : ""}`}>● {product.status}</span>
                         </div>
 
                         <div className="detail-price">
-                            ${product.price.toFixed(2)} <span>/ m²</span>
+                            ${product.price.toFixed(2)} <span>/ {product.packSize ? "m²" : "unit"}</span>
 
                             {product.discount && (
                                 <span className="discount">{product.discount}% OFF</span>
@@ -88,16 +93,25 @@ export default function ProductPage() {
 
                             <dt>Boards / Pack</dt>
                             <dd>{product.boardsPerPack ?? "—"}</dd>
+
+                            <dt>Scotia</dt>
+                            <dd>{product.scotia || "-"}</dd>
+
+                            <dt>Stair Nose</dt>
+                            <dd>{product.hdfStairNose || "-"}</dd>
+
+                            <dt>Trims</dt>
+                            <dd>{product.trims || "-"}</dd>
                         </dl>
                     </section>
 
                     <section className="stock-panel">
                         <div className="stock-heading">
                             <h2>Stock Availability</h2>
-                            <small>Updated 2 Oct 2026, 7:32 PM</small>
+                            <small>Local sample inventory</small>
                         </div>
 
-                        <h3>Melbourne</h3>
+                        <h3>{profile.region}</h3>
 
                         <div className="stock-cards">
                             <div>
@@ -128,7 +142,7 @@ export default function ProductPage() {
                         <h3>Related Products</h3>
 
                         <div className="related-products">
-                            {products.slice(1, 4).map((item) => (
+                            {products.filter(item=>item.id!==product.id).slice(0,3).map((item) => (
                                 <Link to={`/products/${item.id}`} key={item.id}>
                                     <img src={item.image} alt="" />
                                     <span>{item.name}</span>
@@ -138,7 +152,7 @@ export default function ProductPage() {
                     </section>
                 </div>
 
-                <ProductSalesCard key={product.id} productId={product.id} />
+                <ProductSalesCard key={product.id} productId={product.id} invoices={salesInvoices}/>
             </main>
         </>
     );

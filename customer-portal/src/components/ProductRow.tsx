@@ -1,8 +1,9 @@
 import { ChevronRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { Product } from "../data/products";
 
 export default function ProductRow({ product }: { product: Product }) {
+    const location = useLocation();
     const statusClass =
         product.status === "In Stock"
             ? "stock-good"
@@ -11,7 +12,7 @@ export default function ProductRow({ product }: { product: Product }) {
                 : "stock-out";
 
     return (
-        <Link to={`/products/${product.id}`} className="product-row">
+        <Link to={`/products/${product.id}`} className="product-row" state={{inventorySearch:location.search}}>
             <img src={product.image} alt={product.name} />
 
             <div className="product-main">
@@ -23,7 +24,7 @@ export default function ProductRow({ product }: { product: Product }) {
 
             <div className="price">
                 ${product.price.toFixed(2)}
-                <span>/ m²</span>
+                <span>/ {product.packSize ? "m²" : "unit"}</span>
             </div>
 
             <div className="promotion">

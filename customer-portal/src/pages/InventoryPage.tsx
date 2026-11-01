@@ -1,5 +1,7 @@
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useLocalAccount } from "../data/localAccount";
 import PortalHeader from "../components/PortalHeader";
 import ProductRow from "../components/ProductRow";
 import { products } from "../data/products";
@@ -13,24 +15,26 @@ const categories = [
 ];
 
 export default function InventoryPage() {
-    const [query, setQuery] = useState("");
-    const [category, setCategory] = useState("All");
+    const [params,setParams]=useSearchParams();
+    const query=params.get("q")??"", category=params.get("category")??"All", sort=params.get("sort")??"Relevance";
+    const {profile}=useLocalAccount();
+    const setFilter=(key:string,value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set(key,value);else next.delete(key);return next;},{replace:true});
 
     const visibleProducts = useMemo(() => {
         return products.filter((product) => {
             const matchesCategory =
                 category === "All" || product.category === category;
 
-            const search = query.toLowerCase();
+            const search = query.trim().toLowerCase();
 
             const matchesQuery =
                 product.name.toLowerCase().includes(search) ||
                 product.sku.toLowerCase().includes(search) ||
-                product.colour.toLowerCase().includes(search);
+                product.colour.toLowerCase().includes(search) || product.category.toLowerCase().includes(search);
 
             return matchesCategory && matchesQuery;
-        });
-    }, [query, category]);
+        }).sort((a,b)=>sort==="Price: Low to High" ? a.price-b.price : sort==="Price: High to Low" ? b.price-a.price : 0);
+    }, [query, category, sort]);
 
     return (
         <>
@@ -39,20 +43,18 @@ export default function InventoryPage() {
             <main className="inventory-page">
                 <section className="inventory-title">
                     <h1>Inventory Lookup</h1>
-                    <p>Check current stock availability in Melbourne.</p>
+                    <p>Check current stock availability in {profile.region}.</p>
 
                     <div className="inventory-search">
                         <Search size={19} />
 
                         <input
                             value={query}
-                            onChange={(e) => setQuery(e.target.value)}
+                            onChange={(e) => setFilter("q", e.target.value)}
                             placeholder="Search product, colour, SKU or keyword..."
                         />
 
-                        <button>
-                            <Search size={18} />
-                        </button>
+                        <span aria-hidden="true"><Search size={18}/></span>
                     </div>
                 </section>
 
@@ -63,7 +65,7 @@ export default function InventoryPage() {
                                 <button
                                     key={item}
                                     className={category === item ? "selected" : ""}
-                                    onClick={() => setCategory(item)}
+                                    onClick={() => setFilter("category",item)}
                                 >
                                     {item}
                                 </button>
@@ -74,7 +76,7 @@ export default function InventoryPage() {
                             <span>{visibleProducts.length} products</span>
                             <label>
                                 Sort by
-                                <select>
+                                <select value={sort} onChange={event=>setFilter("sort",event.target.value)}>
                                     <option>Relevance</option>
                                     <option>Price: Low to High</option>
                                     <option>Price: High to Low</option>
@@ -83,7 +85,7 @@ export default function InventoryPage() {
                         </div>
                     </div>
 
-                    <div className="product-list">
+                    <div className="product-list">{visibleProducts.length===0 && <div className="empty-state"><p>No products match your search.</p><button className="outline-copper-button" onClick={()=>setParams({})}>Clear filters</button></div>}
                         {visibleProducts.map((product) => (
                             <ProductRow product={product} key={product.id} />
                         ))}
