@@ -1,0 +1,47 @@
+-- D01 live authorized cross-entity discovery. No search index or economic writes.
+INSERT INTO identity.permissions(code,description)VALUES('search.global.read','Search authorized business entities');
+CREATE FUNCTION identity.seed_global_search_roles(c uuid)RETURNS void LANGUAGE sql SET search_path=pg_catalog AS $$
+ INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT c,r.id,'search.global.read' FROM identity.roles r WHERE r.company_id=c AND r.code IN('ADMIN','FINANCE','OFFICE','SALES','PROCUREMENT','WAREHOUSE')ON CONFLICT DO NOTHING
+$$;
+DO $$DECLARE c uuid;BEGIN FOR c IN SELECT id FROM core.companies LOOP PERFORM set_config('htt.company_id',c::text,true);PERFORM identity.seed_global_search_roles(c);END LOOP;PERFORM set_config('htt.company_id','',true);END$$;
+CREATE FUNCTION platform.global_search(p_query text,p_kind text DEFAULT NULL,p_page int DEFAULT 1,p_size int DEFAULT 25)RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
+DECLARE q text:=lower(btrim(p_query)); required text;result jsonb;BEGIN
+ PERFORM crm.require_mobile('search.global.read');
+ IF q IS NULL OR length(q)NOT BETWEEN 2 AND 100 OR q~'[[:cntrl:]]' OR p_page IS NULL OR p_size IS NULL OR p_page<1 OR p_size NOT BETWEEN 1 AND 100 OR (p_page::bigint-1)*p_size>10000 THEN RAISE EXCEPTION 'Search requires 2-100 non-control characters, page>=1, size 1-100 and offset<=10000' USING ERRCODE='HR422';END IF;
+ IF p_kind IS NOT NULL THEN required:=CASE p_kind WHEN 'CUSTOMER' THEN 'customers.read' WHEN 'BRANCH' THEN 'customers.read' WHEN 'CONTACT' THEN 'customers.read' WHEN 'SUPPLIER' THEN 'suppliers.read' WHEN 'PRODUCT' THEN 'catalog.read' WHEN 'QUOTE' THEN 'sales.quotes.read' WHEN 'SALES_ORDER' THEN 'sales.orders.read' WHEN 'INVOICE' THEN 'sales.invoices.read' WHEN 'PURCHASE_ORDER' THEN 'purchase.orders.read' WHEN 'SUPPLIER_BILL' THEN 'purchase.bills.read' WHEN 'CUSTOMER_CREDIT' THEN 'sales.credits.read' WHEN 'SUPPLIER_CREDIT' THEN 'purchase.credits.read' ELSE NULL END;IF required IS NULL THEN RAISE EXCEPTION 'Unknown search kind' USING ERRCODE='HR422';END IF;PERFORM crm.require_mobile(required);IF p_kind IN('QUOTE','SALES_ORDER','INVOICE','CUSTOMER_CREDIT')THEN PERFORM crm.require_mobile('customers.read');END IF;END IF;
+ WITH source AS NOT MATERIALIZED(
+SELECT 'CUSTOMER'::text kind,c.id id,c.code code,p.legal_name name,c.status status,NULL::uuid parent_id,'/customers/'||c.id::text api_path,''::text reference,NULL::date business_date FROM crm.customers c JOIN crm.parties p ON p.company_id=c.company_id AND p.id=c.party_id WHERE c.company_id=core.current_company() AND crm.mobile_permission('customers.read') AND crm.mobile_customer_visible(c.id)
+ UNION ALL
+SELECT 'BRANCH'::text kind,c.id id,c.code code,c.name name,CASE WHEN c.active THEN 'ACTIVE' ELSE 'INACTIVE' END status,c.customer_id parent_id,'/customers/'||c.customer_id::text api_path,''::text reference,NULL::date business_date FROM crm.customer_branches c WHERE c.company_id=core.current_company() AND crm.mobile_permission('customers.read') AND crm.mobile_customer_visible(c.customer_id)
+ UNION ALL
+SELECT 'CONTACT'::text kind,c.id id,''::text code,c.name name,CASE WHEN c.active THEN 'ACTIVE' ELSE 'INACTIVE' END status,x.id parent_id,'/customers/'||x.id::text api_path,''::text reference,NULL::date business_date FROM crm.contacts c JOIN crm.customers x ON x.company_id=c.company_id AND x.party_id=c.party_id WHERE c.company_id=core.current_company() AND crm.mobile_permission('customers.read') AND crm.mobile_customer_visible(x.id)
+ UNION ALL
+SELECT 'SUPPLIER'::text kind,c.id id,c.code code,p.legal_name name,c.status status,NULL::uuid parent_id,'/suppliers/'||c.id::text api_path,''::text reference,NULL::date business_date FROM crm.suppliers c JOIN crm.parties p ON p.company_id=c.company_id AND p.id=c.party_id WHERE c.company_id=core.current_company() AND crm.mobile_permission('suppliers.read') AND true
+ UNION ALL
+SELECT 'PRODUCT'::text kind,c.id id,c.sku code,c.name name,c.status status,NULL::uuid parent_id,'/products/'||c.id::text api_path,''::text reference,NULL::date business_date FROM catalog.products c WHERE c.company_id=core.current_company() AND crm.mobile_permission('catalog.read') AND true
+ UNION ALL
+SELECT 'QUOTE',c.id,coalesce(d.number,''),p.legal_name,c.status,NULL::uuid,'/quotes/'||c.id::text,''::text,d.business_date FROM sales.quotes c JOIN platform.documents d ON d.company_id=c.company_id AND d.id=c.id JOIN crm.customers x ON x.company_id=c.company_id AND x.id=c.customer_id JOIN crm.parties p ON p.company_id=x.company_id AND p.id=x.party_id WHERE c.company_id=core.current_company() AND platform.document_visible(d.id) AND crm.mobile_permission('sales.quotes.read') AND crm.mobile_customer_visible(c.customer_id)
+ UNION ALL
+SELECT 'SALES_ORDER',c.id,coalesce(d.number,''),p.legal_name,d.state,NULL::uuid,'/sales-orders/'||c.id::text,''::text,d.business_date FROM sales.orders c JOIN platform.documents d ON d.company_id=c.company_id AND d.id=c.id JOIN crm.customers x ON x.company_id=c.company_id AND x.id=c.customer_id JOIN crm.parties p ON p.company_id=x.company_id AND p.id=x.party_id WHERE c.company_id=core.current_company() AND platform.document_visible(d.id) AND crm.mobile_permission('sales.orders.read') AND crm.mobile_customer_visible(c.customer_id)
+ UNION ALL
+SELECT 'INVOICE',c.id,coalesce(d.number,''),p.legal_name,d.state,NULL::uuid,'/sales-invoices/'||c.id::text,coalesce(c.fulfilment_reference,''),d.business_date FROM sales.invoices c JOIN platform.documents d ON d.company_id=c.company_id AND d.id=c.id JOIN crm.customers x ON x.company_id=c.company_id AND x.id=c.customer_id JOIN crm.parties p ON p.company_id=x.company_id AND p.id=x.party_id WHERE c.company_id=core.current_company() AND platform.document_visible(d.id) AND crm.mobile_permission('sales.invoices.read') AND crm.mobile_customer_visible(c.customer_id)
+ UNION ALL
+SELECT 'PURCHASE_ORDER',c.id,coalesce(d.number,''),p.legal_name,c.status,NULL::uuid,'/purchase-orders/'||c.id::text,''::text,d.business_date FROM purchase.orders c JOIN platform.documents d ON d.company_id=c.company_id AND d.id=c.id JOIN crm.suppliers x ON x.company_id=c.company_id AND x.id=c.supplier_id JOIN crm.parties p ON p.company_id=x.company_id AND p.id=x.party_id WHERE c.company_id=core.current_company() AND platform.document_visible(d.id) AND crm.mobile_permission('purchase.orders.read') AND true
+ UNION ALL
+SELECT 'SUPPLIER_BILL',c.id,coalesce(d.number,''),p.legal_name,d.state,NULL::uuid,'/supplier-bills/'||c.id::text,c.supplier_invoice,d.business_date FROM purchase.bills c JOIN platform.documents d ON d.company_id=c.company_id AND d.id=c.id JOIN crm.suppliers x ON x.company_id=c.company_id AND x.id=c.supplier_id JOIN crm.parties p ON p.company_id=x.company_id AND p.id=x.party_id WHERE c.company_id=core.current_company() AND platform.document_visible(d.id) AND crm.mobile_permission('purchase.bills.read') AND true
+ UNION ALL
+SELECT 'CUSTOMER_CREDIT',c.id,coalesce(d.number,''),p.legal_name,d.state,NULL::uuid,'/sales-credit-notes/'||c.id::text,''::text,d.business_date FROM sales.credit_notes c JOIN sales.invoices i ON i.company_id=c.company_id AND i.id=c.invoice_id JOIN platform.documents d ON d.company_id=c.company_id AND d.id=c.id JOIN crm.customers x ON x.company_id=c.company_id AND x.id=i.customer_id JOIN crm.parties p ON p.company_id=x.company_id AND p.id=x.party_id WHERE c.company_id=core.current_company() AND platform.document_visible(d.id) AND crm.mobile_permission('sales.credits.read') AND crm.mobile_customer_visible(i.customer_id)
+ UNION ALL
+SELECT 'SUPPLIER_CREDIT',c.id,coalesce(d.number,''),p.legal_name,d.state,NULL::uuid,'/supplier-credits/'||c.id::text,c.reference,d.business_date FROM purchase.supplier_credit_notes c JOIN platform.documents d ON d.company_id=c.company_id AND d.id=c.id JOIN crm.suppliers x ON x.company_id=c.company_id AND x.id=c.supplier_id JOIN crm.parties p ON p.company_id=x.company_id AND p.id=x.party_id WHERE c.company_id=core.current_company() AND platform.document_visible(d.id) AND crm.mobile_permission('purchase.credits.read') AND true
+ ),matched AS MATERIALIZED(
+ SELECT DISTINCT *,CASE WHEN lower(code)=q THEN 0 WHEN starts_with(lower(code),q)THEN 1 WHEN starts_with(lower(name),q)THEN 2 ELSE 3 END rank
+ FROM source WHERE(p_kind IS NULL OR kind=p_kind)AND(strpos(lower(code),q)>0 OR strpos(lower(name),q)>0 OR strpos(lower(reference),q)>0)
+ ),paged AS(SELECT * FROM matched ORDER BY rank,lower(code)COLLATE "C",kind,id,parent_id NULLS FIRST LIMIT p_size OFFSET(p_page-1)*p_size)
+ SELECT jsonb_build_object('schemaVersion',1,'companyId',core.current_company(),'snapshotAt',statement_timestamp(),'readOnly',true,'query',btrim(p_query),'kind',p_kind,'page',p_page,'pageSize',p_size,'totalCount',(SELECT count(*)FROM matched),
+ 'counts',coalesce((SELECT jsonb_object_agg(kind,n)FROM(SELECT kind,count(*)n FROM matched GROUP BY kind)x),'{}'),
+ 'items',coalesce((SELECT jsonb_agg(jsonb_build_object('kind',kind,'id',id,'code',nullif(code,''),'name',name,'status',status,'parentId',parent_id,'apiPath','/api/v1'||api_path,'reference',nullif(reference,''),'businessDate',business_date)ORDER BY rank,lower(code)COLLATE "C",kind,id,parent_id NULLS FIRST)FROM paged),'[]'))INTO result;
+ RETURN result;
+END$$;
+REVOKE ALL ON FUNCTION identity.seed_global_search_roles(uuid)FROM PUBLIC;
+REVOKE ALL ON FUNCTION platform.global_search(text,text,int,int)FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION platform.global_search(text,text,int,int)TO htt_app;

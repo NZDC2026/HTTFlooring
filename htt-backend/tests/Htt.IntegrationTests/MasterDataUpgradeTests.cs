@@ -55,6 +55,12 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
     [InlineData(46)]
     [InlineData(47)]
     [InlineData(48)]
+    [InlineData(49)]
+    [InlineData(50)]
+    [InlineData(51)]
+    [InlineData(52)]
+    [InlineData(53)]
+    [InlineData(54)]
     public async Task Existing_stage_A_database_upgrades_without_rewriting_history_or_losing_legacy_branches(int originalVersion)
     {
         var name = "htt_upgrade_test_" + Guid.NewGuid().ToString("N");
@@ -268,7 +274,7 @@ public sealed class MasterDataUpgradeTests(DatabaseFixture db) : IClassFixture<D
             await MigrationRunner.ApplyAsync(owner);
             await MigrationRunner.ApplyAsync(owner);
             await using var check = new NpgsqlConnection(owner); await check.OpenAsync();
-            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(49L, await count.ExecuteScalarAsync());
+            await using var count = new NpgsqlCommand("SELECT count(*) FROM public.htt_schema_history", check); Assert.Equal(55L, await count.ExecuteScalarAsync());
             if(originalVersion>=23)
             {
                 count.CommandText=$"SELECT count(*)FROM sales.order_lines l JOIN sales.line_dimensions d ON d.company_id=l.company_id AND d.order_line_id=l.id WHERE d.basis='{(originalVersion>=47?"ORDER_LINE":"LEGACY_AT_CUTOVER")}'AND length(d.sku)>0 AND length(d.product_name)>0";Assert.Equal(2L,await count.ExecuteScalarAsync());

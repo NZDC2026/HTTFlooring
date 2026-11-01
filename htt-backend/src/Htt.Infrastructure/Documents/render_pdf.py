@@ -84,6 +84,9 @@ def render_statement(data):
 
 
 def render(data):
+    if data.get("templateVersion") == 3:
+        from render_report_pack import render_pack
+        return render_pack(data)
     if data.get('templateVersion') == 2:
         return render_statement(data)
     if data.get('templateVersion') != 1 or not 1 <= len(data['lines']) <= 50:

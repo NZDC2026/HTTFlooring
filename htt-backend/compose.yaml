@@ -44,6 +44,9 @@ services:
     build: { context: ., target: worker }
     environment:
       ConnectionStrings__Database: Host=db;Database=htt;Username=htt_worker;Password=${HTT_WORKER_PASSWORD};Timeout=5
+      BankFeeds__Enabled: ${HTT_BANK_FEEDS_ENABLED:-false}
+      BankFeeds__Endpoint: ${HTT_BANK_FEEDS_ENDPOINT:-}
+      BankFeeds__ApiKey: ${HTT_BANK_FEEDS_API_KEY:-}
       Push__ProjectId: ${HTT_PUSH_PROJECT_ID:-}
       Push__ClientEmail: ${HTT_PUSH_CLIENT_EMAIL:-}
       Push__PrivateKeyPem: ${HTT_PUSH_PRIVATE_KEY_PEM:-}

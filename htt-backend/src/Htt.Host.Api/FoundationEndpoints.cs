@@ -37,11 +37,16 @@ public static partial class FoundationEndpoints
         Sales.SalesAnalyticsEndpoints.Map(group);
         Sales.IncentiveEndpoints.Map(group);
         WorkbenchEndpoints.Map(group);
+        GlobalSearchEndpoints.Map(group);
+        RecurringEndpoints.Map(group);
+        ReportDesignerEndpoints.Map(group);
+        PayrollEndpoints.Map(group);
         Inventory.BinCountEndpoints.Map(group);
         CrmDraftEndpoints.Map(group);
         CollaborationEndpoints.Map(group);
         TaskNotificationEndpoints.Map(group);
         Accounting.BankReconciliationEndpoints.Map(group);
+        Accounting.BankFeedEndpoints.Map(group);
         Inventory.WarehouseDetailEndpoints.Map(group);
         group.MapGet("/foundation", async (CompanySession session, CancellationToken token) => Results.Ok(new
         {

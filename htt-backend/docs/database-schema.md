@@ -817,3 +817,11 @@ card_jobs图片私有，app不能直接SELECT/DML；Worker仅USAGE及认领/读�
 ## 049_workbench.sql
 
 新增workbench私有只读查询函数及6类入口权限，统一网关STABLE SECURITY DEFINER且逐项重查原权限；只向htt_app开放query，PUBLIC私有函数撤权。复用既有公司RLS/业务表、财务和净销售来源，不新增工作台表、余额副本或缓存。金融截止日/当前任务及匹配状态分开标注，列表有完整授权计数及独立分页。约定范围见[C09](stage-c-workbench.md)。
+
+## D05 payroll sandbox (054)
+
+Private `payroll.records` holds typed EMPLOYEE/SETTINGS/TIMESHEET/RUN records with optimistic versions and independent reviewer identity. `payroll.history` and `payroll.run_timesheets` are immutable; the latter uniquely reserves each approved timesheet for one run. Company RLS, composite FKs and SECURITY DEFINER permission-checked API functions protect all tables; app/worker/portal have no direct table privileges. Tenant advisory locks serialize writes and snapshot capture. Local sandbox results are excluded from all real accounting, inventory, BAS and banking facts. See [D05 scope](stage-d-payroll.md).
+
+## D06 阶梯激励（055）
+
+沿用048激励表与凭证，不引入第二套余额。新增私有tier_amount/apply_tiers/lock_tier_sources；增强政策校验、完整累计窗口快照/审批、结算/抵扣前重查。政策不可变、claim版本钉住、公司RLS和负债/来源凭证约束保持。详见[阶梯合同](stage-d-tiered-incentives.md)。

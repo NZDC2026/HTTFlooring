@@ -36,9 +36,9 @@
 | 21 / R021 | 管理/财务端：PO CRUD, delivery, convert to bill | P1 / 保留 | B | 后端已实现 | [stage-b-purchasing.md](stage-b-purchasing.md)；[stage-b-supplier-bills.md](stage-b-supplier-bills.md)；[stage-b-documents.md](stage-b-documents.md) | PO草稿、确认、分批收货、精确匹配账单及关闭余量已实现；017补正式PO的PDF/邮件与附件，仍只接受精确匹配。 |
 | 22 / R022 | 管理/财务端：Allocate payments, partial/multiple bills, remittance | P0 / 部分缩减 | B | 后端已实现 | [stage-b-supplier-payments.md](stage-b-supplier-payments.md) | 人工核实付款、多账单分配、预付核销和现金制进项GST已实现；026补付款撤销/关联重核销/一步更正、预付整笔解除及重新核销，兼容原供应商贷项抵扣/退款，见[供应商结算更正](stage-b-supplier-settlement-reversals.md)。汇款通知/打印按源边界排除。 |
 | 23 / R023 | 管理/财务端：Supplier debits, apply debit, supplier refunds | P1 / 保留 | B | 后端已实现 | [stage-b-purchase-returns.md](stage-b-purchase-returns.md)；[stage-b-credit-applications.md](stage-b-credit-applications.md) | 原收货退货、来源贷项、供应商/预付退款已实现；022补独立费用账单来源的金额贷项、退款及费用/AP/GST冲销，见stage-b-expense-credits.md。023已补同供应商/party可用贷项跨账单抵扣及整笔解除，含AP/GST、权限、幂等和并发；限制实际未退款/未转用余额，目标已退款或转用导致资金不足时拒绝解除。 028已补供应商退款撤销、关联替代及一步金额/合法来源更正，兼容有效AP/预付余额、付款撤销/核销与供应商贷项抵扣及进项GST，见[退款更正](stage-b-supplier-refund-corrections.md)。 |
-| 24 / R024 | 管理/财务端：Templates, schedules, auto-generate invoices/bills/transactions | P2 / 保留 | D | 未实现 | — | Recurring模板/调度/自动生成未实现；原矩阵属D。 |
-| 25 / R025 | 管理/财务端：Accounts, balances, feeds status, attention items | P0 / 保留 | B/C | 部分实现 | [C09工作台](stage-c-workbench.md) | 033银行档案、034对账、041规则例外及049银行Hub：截止日GL余额、最近有效流水/对账、未匹配及部分匹配关注、规则启停数和明确的手工导入状态。 B/C约定后台切片交付；D真实Bank Feeds连接状态、真实服务及客户端/生产另验，不虚构已连接。 |
-| 26 / R026 | 管理/财务端：Import/feed transactions, categorise, match, split | P0 / 保留 | C/D | 部分实现 | [stage-c-bank-rules.md](stage-c-bank-rules.md)；[stage-c-general-banking.md](stage-c-general-banking.md) | 034导入/防重/匹配及解除，040人工分类/拆分写入，041版本化规则自动匹配、解释预览、受控执行与例外查询。 D真实自动Bank Feeds；本行C导入/分类/拆分/匹配切片已交付，客户端与生产另验。 实施包：D。 |
+| 24 / R024 | 管理/财务端：Templates, schedules, auto-generate invoices/bills/transactions | P2 / 保留 | D | 部分实现 | [D03受控周期](stage-d-recurring.md) | 052有限日/周/月调度、不可变模板版本、暂停/恢复/取消、唯一草稿槽位、独立审核和原发票/费用账单/银行过账、受控重试及回滚；自动最终出单/复杂排程和客户端仍保留，未恢复被排除的直接开Invoice或自动支付。 |
+| 25 / R025 | 管理/财务端：Accounts, balances, feeds status, attention items | P0 / 保留 | B/C | 部分实现 | [C09工作台](stage-c-workbench.md) | 033银行档案、034对账、041规则例外及049银行Hub：截止日GL余额、最近有效流水/对账、未匹配及部分匹配关注、规则启停数和明确的手工导入状态。 B/C约定后台切片交付；D真实Bank Feeds连接状态、真实服务及客户端/生产另验，不虚构已连接。  D02/051已补标准网关沙箱授权验证、同步/防重/余额链、失败与撤销及工作台SANDBOX状态；用户尚未签约，真实银行连接/LIVE、托管同意及客户端/生产仍保留，整行继续部分。见[网关契约](stage-d-bank-feeds.md)。 |
+| 26 / R026 | 管理/财务端：Import/feed transactions, categorise, match, split | P0 / 保留 | C/D | 部分实现 | [stage-c-bank-rules.md](stage-c-bank-rules.md)；[stage-c-general-banking.md](stage-c-general-banking.md) | 034导入/防重/匹配及解除，040人工分类/拆分写入，041版本化规则自动匹配、解释预览、受控执行与例外查询。 D真实自动Bank Feeds；本行C导入/分类/拆分/匹配切片已交付，客户端与生产另验。 实施包：D。  D02/051已补标准网关沙箱授权验证、同步/防重/余额链、失败与撤销及工作台SANDBOX状态；用户尚未签约，真实银行连接/LIVE、托管同意及客户端/生产仍保留，整行继续部分。见[网关契约](stage-d-bank-feeds.md)。 |
 | 27 / R027 | 管理/财务端：Condition/action rules, enable/disable, auto-categorisation | P1 / 保留 | C | 后端已实现 | [stage-c-bank-rules.md](stage-c-bank-rules.md)；[stage-c-general-banking.md](stage-c-general-banking.md) | 041字面条件及金额范围、科目/GST比例动作、版本/优先级/启停、命中解释、预览快照、建议确认/自动执行分权及例外分页；复用C01过账/匹配及期间保护。 本行约定后端切片无新增欠项；AUTO为显式授权触发，不包含导入即后台过账、外部Feeds及客户端联调。 实施包：C02已完成。 |
 | 28 / R028 | 管理/财务端：Statement reconciliation, transaction selection, difference=0 completion | P0 / 保留 | C | 后端已实现 | [stage-b-bank-ledger.md](stage-b-bank-ledger.md)；[stage-c-bank-reconciliation.md](stage-c-bank-reconciliation.md) | 034连续银行对账、首期清算/未达、差异严格为0、冻结快照、最新期重开及闭期现金保护。 本行后端切片无新增欠项；真实银行格式/客户端/生产另验。 实施包：已交付切片。详见[本次C核查](stage-c-acceptance.md)。 |
 | 29 / R029 | 管理/财务端：Spend money, receive money, account transfers | P1 / 部分缩减 | C | 后端已实现 | [stage-c-general-banking.md](stage-c-general-banking.md)；[stage-c-bank-reconciliation.md](stage-c-bank-reconciliation.md) | 040通用Receive/Pay、流水分类及成对银行账户转账；来源/GL/GST独立核对、原日冲销、两账户对账及期间保护。 本行约定后端切片无新增欠项；不恢复已删独立Spend/Transfer页面，客户端与生产另验。 实施包：C01已完成。 |
@@ -47,23 +47,23 @@
 | 32 / R032 | 管理/财务端：Default GL account mappings for sales/purchases/payroll posting | P0 / 保留 | A | 部分实现 | [database-schema.md](database-schema.md) | 自动科目映射种子及业务校验已实现；独立维护/版本管理API、工资映射未实现。 |
 | 33 / R033 | 管理/财务端：Job/project tracking and profitability dimensions | P2 / 部分缩减 | 不启用独立模块 | 排除 | — | 原矩阵不启用独立Jobs/Time Billing；其他项目核算需新增业务定义。 |
 | 34 / R034 | 管理/财务端：Journal CRUD, debit/credit validation, posting | P0 / 部分缩减 | A，删手工界面 | 后端已实现 | [stage-a.md](stage-a.md)；[stage-b-reconciliation.md](stage-b-reconciliation.md) | 自动分录、借贷平衡、期间和来源/幂等检查已实现；按源边界不建设手工Journal CRUD。 |
-| 35 / R035 | 管理/财务端：Personal/employment/pay/bank/tax/leave/super details | P1 / 保留 | D | 未实现 | — | 员工工资/税务/养老金档案未实现；D。 |
-| 36 / R036 | 管理/财务端：Earnings, allowances, deductions, leave, taxes, contributions | P1 / 保留 | D | 未实现 | — | 工资项目和AU计算服务映射未实现；D。 |
-| 37 / R037 | 管理/财务端：Periods, employee calculation, review, record, journal posting | P1 / 保留 | D | 未实现 | — | 工资计算/审批/锁定/Journal未实现；D。 |
-| 38 / R038 | 管理/财务端：Hours, pay items, jobs, import into pay run | P2 / 保留 | D | 未实现 | — | Payroll Timesheets未实现；不恢复Time Billing；D。 |
-| 39 / R039 | 管理/财务端：STP equivalent / NZ Payday Filing integration layer | P2 / 保留 | D | 未实现 | — | 仅保留澳洲STP方向；工作簿中的NZ Payday字样不适用。AU申报服务未接入；D。 |
+| 35 / R035 | 管理/财务端：Personal/employment/pay/bank/tax/leave/super details | P1 / 保留 | D | 部分实现 | [D05工资沙箱](stage-d-payroll.md) | 基础员工/雇佣档案、受限权限和不可变历史；银行/税务/养老金敏感档案与正式提供方待接。 |
+| 36 / R036 | 管理/财务端：Earnings, allowances, deductions, leave, taxes, contributions | P1 / 保留 | D | 部分实现 | [D05工资沙箱](stage-d-payroll.md) | 仅显式整数分测试费率、模拟PAYG/养老金输入及冻结结果；正式工资项目、Award/税率/假期算法未实现。 |
+| 37 / R037 | 管理/财务端：Periods, employee calculation, review, record, journal posting | P1 / 保留 | D | 部分实现 | [D05工资沙箱](stage-d-payroll.md) | 沙箱期间、试算、独立复核、锁定及幂等并发；正式工资记录、GL映射/过账及更正待接。 |
+| 38 / R038 | 管理/财务端：Hours, pay items, jobs, import into pay run | P2 / 保留 | D | 部分实现 | [D05工资沙箱](stage-d-payroll.md) | Payroll Timesheets录入/提交/独立审批、日工时上限、一次性批次消费；正式工资项目导入待接，不恢复Time Billing。 |
+| 39 / R039 | 管理/财务端：STP equivalent / NZ Payday Filing integration layer | P2 / 保留 | D | 部分实现 | [D05工资沙箱](stage-d-payroll.md) | 内部STP沙箱协议及本地模拟回执；无网络提供方、无ATO申报或真实回执，不适用NZ Payday。 |
 | 40 / R040 | 管理/财务端：P&L, Balance Sheet, Cash Flow, Trial Balance, GL | P0 / 保留 | C | 后端已实现 | [stage-c-financial-reports.md](stage-c-financial-reports.md)；[stage-c-cash-flow.md](stage-c-cash-flow.md)；[stage-c-gst-bas.md](stage-c-gst-bas.md)；[stage-c-full-bas.md](stage-c-full-bas.md)；[stage-c-period-close.md](stage-c-period-close.md) | 033—036及039已提供P&L、BS、直接法CF、TB、GL；包含历史账龄及年结后利润/权益保护。 完成原行五类核心后端报表；通用导出归R052/R054，收藏/报表包归D的R042/R043；客户端和生产另验，不倒推新增法定模板/间接法为本行阻塞。 实施包：已交付切片。详见[本次C核查](stage-c-acceptance.md)。 |
-| 41 / R041 | 管理/财务端：Sales, purchases, receivables/payables, payroll, banking | P1 / 保留 | C/D | 部分实现 | [C07共用销售事实](stage-c-sales-analytics.md) | 既有财务/采购/往来/库存/银行报告；047补SALES未税净销售、同源事实/检查点/CSV、发运与采购价差成本来源及GL桥接。 本行C切片已交付；D工资报表、真实规模和客户端另验。 |
-| 42 / R042 | 管理/财务端：Filters, columns, saved reports/favourites | P2 / 保留 | D | 未实现 | — | 收藏/自定义报表未实现；D。 |
-| 43 / R043 | 管理/财务端：Multi-report packs, cover/TOC, PDF generation | P2 / 保留 | D | 未实现 | — | 报表包、封面/目录/PDF未实现；D。 |
+| 41 / R041 | 管理/财务端：Sales, purchases, receivables/payables, payroll, banking | P1 / 保留 | C/D | 部分实现 | [C07共用销售事实](stage-c-sales-analytics.md) | 既有财务/采购/往来/库存/银行报告；047补SALES未税净销售、同源事实/检查点/CSV、发运与采购价差成本来源及GL桥接。 本行C切片已交付；D05补锁定批次沙箱工资汇总与金额平衡；正式工资/GL/真实规模和客户端另验。 |
+| 42 / R042 | 管理/财务端：Filters, columns, saved reports/favourites | P2 / 保留 | D | 后端已实现 | [D04报表设计与PDF包](stage-d-report-designer.md) | 053十类原生报表的过滤/列白名单、个人/公司共享配置与不可变版本、收藏/归档恢复；原权限重查。当前后台切片交付，客户端及其他源适配另验。 |
+| 43 / R043 | 管理/财务端：Multi-report packs, cover/TOC, PDF generation | P2 / 保留 | D | 后端已实现 | [D04报表设计与PDF包](stage-d-report-designer.md) | 053同语句快照、多报告冻结PDF包、封面/真实目录页码/书签、连续表头、私有作业/失败重试和授权下载；当前十类后台切片交付，其他源/客户端/生产另验。 |
 | 44 / R044 | 管理/财务端：Upload/preview/delete, entity attachments, document inbox | P1 / 保留 | B | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-documents.md](stage-b-documents.md) | 017补QUOTE/INVOICE/PURCHASE_ORDER私有PDF/PNG/JPEG附件上传、扫描、版本绑定、撤销和授权下载；仓管交接照片、其他单据/实体附件、云存储接入未完成。 |
 | 45 / R045 | 管理/财务端：Receipt/bill extraction and assisted creation | P3 / 延期候选 | 候选P3 | 未实现 | — | 管理端票据OCR是候选P3，未实现；不得因此删除C销售名片OCR。 |
 | 46 / R046 | 管理/财务端：Business details, address, financial year, GST, logo | P0 / 保留 | A | 部分实现 | [stage-a.md](stage-a.md)；[stage-b-invoicing.md](stage-b-invoicing.md) | AU/AUD/ABN、财年、时区、GST种子/受控CLI已实现；完整公司地址/logo与管理设置未交付。 |
 | 47 / R047 | 管理/财务端：Numbering, terms, templates, email, reminders, online payment config | P1 / 部分缩减 | A/B | 部分实现 | [stage-b-sales.md](stage-b-sales.md)；[stage-b-documents.md](stage-b-documents.md) | 事务编号/账期及017默认PDF/邮件模板已实现；办公室编号/模板配置界面未交付；在线支付/独立催收仍按原边界排除。 |
 | 48 / R048 | 管理/财务端：Numbering, defaults, payment terms/preferences | P1 / 保留 | A/B | 部分实现 | [stage-b-purchasing.md](stage-b-purchasing.md) | 默认采购编号/账期和映射已实现；完整可维护采购设置API未交付。 |
-| 49 / R049 | 管理/财务端：Pay cycles, defaults, banking, filing config | P1 / 保留 | D | 未实现 | — | 工资配置未实现；D。 |
-| 50 / R050 | 管理/财务端：Basis, currency, headers, number formatting | P2 / 保留 | D | 未实现 | — | 独立报表口径/页眉/格式设置未实现；D。 |
-| 51 / R051 | 管理/财务端：Cross-entity search by number/name/reference | P2 / 保留 | D | 未实现 | — | 跨实体搜索未实现；D。 |
+| 49 / R049 | 管理/财务端：Pay cycles, defaults, banking, filing config | P1 / 保留 | D | 部分实现 | [D05工资沙箱](stage-d-payroll.md) | 版本化沙箱工资设置；正式工资日历、税务/养老金及GL设置待接。 |
+| 50 / R050 | 管理/财务端：Basis, currency, headers, number formatting | P2 / 保留 | D | 部分实现 | [D04报表设计与PDF包](stage-d-report-designer.md) | 053个人公司隔离显示设置版本、AUD、源定义口径、页眉页脚、金额/负数格式；不伪装新币种或现金损益计算口径。新计算口径及其他专用设置仍保留。 |
+| 51 / R051 | 管理/财务端：Cross-entity search by number/name/reference | P2 / 保留 | D | 部分实现 | [D01全局搜索](stage-d-global-search.md) | 050核心12类跨实体编号/名称/参考号查询、当前底层权限/公司与客户范围/回收站过滤、同语句计数与分页；不返回成本/金额/个人正文。其余业务实体及客户端联调保留。 |
 | 52 / R052 | 管理/财务端：Search/filter/sort/pagination/columns/bulk/export | P0 / 保留 | A起贯穿 | 部分实现 | [master-data-api.md](master-data-api.md) [stage-c-statements-operating-reports.md](stage-c-statements-operating-reports.md)；| 列表稳定分页与部分过滤已有，042补本期经营报表白名单过滤/分页和受控导出；其他列表完整搜索排序、列选择、批量和导出契约仍未完成。 |
 | 53 / R053 | 管理/财务端：System reminders, due items, action centre | P2 / 部分缩减 | C | 后端已实现 | [C06接口与边界](stage-c-tasks-notifications.md) | Task到期提醒、本人未读消息/行动中心、授权AR/AP到期关注；复用既有往来变动及GL日期，不另建经济余额。 后端切片已交付；独立自动Invoice催收仍排除，C09完整工作台另列。 |
 | 54 / R054 | 管理/财务端：CSV import mapping/validation/errors + data exports | P1 / 保留 | A起贯穿 | 部分实现 | [stage-c-statements-operating-reports.md](stage-c-statements-operating-reports.md) | 042已实现四类经营报表冻结CSV及受控下载/重试；通用主数据CSV映射、预览、逐行错误及其他业务导入导出仍未完成。 |
@@ -122,14 +122,14 @@
 | 107 / C-10 | 客户端：客户数据隔离 | P0 / 保留 | A起贯穿 | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018完成客户/公司/门店/仓库与商品受众隔离HTTP专项；真实客户端身份联调未完成。 |
 | 108 / C-11 | 客户端：库存API集成 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018已提供专用库存API及真实HTTP契约测试；Dart/TS客户端联调未交付，三个客户端未改。 |
 | 109 / C-12 | 客户端：异常与空状态 | P0 / 保留 | B | 部分实现 | [stage-b-portal.md](stage-b-portal.md) | 018覆盖空商品/合法零库存、401/400/403/404/422及no-store；客户端异常/缓存呈现和真实服务故障联调未交付。 |
-| 110 / R110 | 管理/财务端：客户返点规则与结算 | P1 / 新增 | C/D | 部分实现 | [C08基础激励](stage-c-incentives.md) | 048基础客户返点政策版本、独立审批、C07同源差额计提、锁期、合法客户贷项/客户服务AP关联、负余额及成对抵扣；当前GST分类和证据显式审核。 C基础NET_SALES切片交付；D阶梯、其他计算口径独立批准/验收，真实合同/税务及客户端另验。 |
-| 111 / R111 | 管理/财务端：销售代表分红/佣金 | P1 / 新增 | C/D | 部分实现 | [C08基础激励](stage-c-incentives.md) | 048基础佣金、不可变销售归属/政策绑定、独立审批、差额/追回、承包商AP及外部工资清算关联；不标记自动工资或银行付款。 C基础NET_SALES切片交付；回款/毛利口径另验，D阶梯保留；工资处理与客户端/真实政策另验。 |
+| 110 / R110 | 管理/财务端：客户返点规则与结算 | P1 / 新增 | C/D | 部分实现 | [D06阶梯激励](stage-d-tiered-incentives.md) | 055补显式全额/累进阶梯、AUD_NET单票/固定窗口、完整来源重估与分摊、贷项降档和原客户/AP结算；NET_SALES后台切片交付，其他口径、真实合同/税务、客户端与生产规模另验。 |
+| 111 / R111 | 管理/财务端：销售代表分红/佣金 | P1 / 新增 | C/D | 部分实现 | [D06阶梯激励](stage-d-tiered-incentives.md) | 055补佣金阶梯、固定窗口、政策版本隔离、差额/追回及原AP/外部工资清算；不计算工资或银行付款。回款/毛利/数量阶梯、真实政策与客户端另验。 |
 | 112 / R112 | 管理/财务端：客户×产品销量趋势分析 | P1 / 新增 | C | 后端已实现 | [C07共用销售事实](stage-c-sales-analytics.md) | 047发票减数量/金额贷项的共用事实，客户×门店×SKU×基础单位趋势/同环比/零桶/闰日、待处理退货、检查点及收入/成本GL桥接。 约定后台切片已交付；客户端曲线和真实规模/性能另验。 |
 | 113 / R113 | 管理/财务端：办公室统一客户视图 | P1 / 新增 | C | 后端已实现 | [C09工作台](stage-c-workbench.md) | 049办公室运营聚合及受控客户统一视图：正式资料/门店/联系人、单据、资料草稿来源、协作、任务、趋势和授权返点；保留PRIVATE及他人拜访边界。 约定后台统一视图交付；客户端呈现、真实规模与生产联调另验。 |
 | 114 / R114 | 销售端：客户产品销售曲线（销售端） | P1 / 新增 | C | 后端已实现 | [C07共用销售事实](stage-c-sales-analytics.md) | 与R112共用047规范来源及统计函数，按当前销售客户/门店范围过滤，零/负基数不伪造增长率，不泄漏公司GL/成本。 约定后台曲线API已交付；手机图表、缓存/撤权呈现及实机另验。 |
 | 115 / R115 | 销售端：返点/佣金展示（授权范围） | P1 / 新增 | C | 后端已实现 | [C08基础激励](stage-c-incentives.md) | 048本人已批准佣金净额/余额及额外授权客户返点摘要；当前成员/权限/客户范围重查，无其他人员、来源单据及成本科目字段，no-store。 约定后台切片交付；三个客户端展示及实机撤权呈现另验。 |
 | 116 / R116 | 销售端：客户销售资料办公室同步完善 | P1 / 新增 | C | 后端已实现 | [C09工作台](stage-c-workbench.md) | 044—046正式资料/草稿审核、协作、Task/消息及同步，049补办公室/客户统一聚合、原始创建草稿关联和现有维护入口的对象ID（编辑沿用原详情及版本契约），不扩大私有可见性。 约定后台切片交付；三个客户端编辑/同步呈现、设备缓存和实机联调另验。 |
-| 117 / R117 | 管理/财务端：返点与佣金结算回归测试 | P1 / 新增 | C/D | 部分实现 | [C08基础激励](stage-c-incentives.md) | 048基础公式、来源变化/贷项差额、版本钉住、独立审批、结算/追回、授权、幂等/并发及财务台账一致性专项；复用原AR/AP/GST/关账回归。 C基础规则专项交付，D阶梯专项、真实合同/大规模性能及客户端端到端仍保留。 |
+| 117 / R117 | 管理/财务端：返点与佣金结算回归测试 | P1 / 新增 | C/D | 部分实现 | [D06阶梯激励](stage-d-tiered-incentives.md) | 055阶梯边界、累计窗口、来源变化/降档、独立审批、原客户/AP/GST结算、授权、幂等/并发、失败回滚和GL核对专项；原激励/销售/财务/关账回归。其他口径、生产规模与客户端端到端另验。 |
 
 ## 完整性核对
 
@@ -228,3 +228,17 @@ R112/R114共用净销售事实和趋势后台完成；R041的C销售统计及受
 ## 阶段C后端基线最终验收（2026-11-01）
 
 C01—C09及约定追加切片的后端基线通过。C相关39行仍为32已实现/7部分/0未实现，总116行55/46/12/3；C/D、客户端及跨阶段行不因后台验收改变原身份或擅自闭项。两平台各2395项最终验证，范围及剩余顺序见[最终验收](stage-c-backend-final-acceptance.md)。
+
+
+阶段D增量（2026-11-01）：R051由未实现更新为部分实现；其余身份、原优先级和C验收历史不变。D01当时116行55已实现/47部分/11未实现/3排除，不是工时完成率。见[阶段D台账](stage-d-acceptance.md)。
+
+
+D03增量（2026-11-01）：R024由未实现更新为部分实现，原阶段和P2身份不变；D03当时116行55已实现/48部分/10未实现/3排除。独立复核的周期草稿流程不是自动最终出单或生产验收。
+
+D04增量（2026-11-01）：R042/R043十类白名单后台切片更新为后端已实现，R050更新为部分；原阶段/P2身份不变。当前116行57已实现/49部分/7未实现/3排除，不代表客户端或生产完成。
+
+D05增量（2026-11-01）：用户选择标准网关与沙箱；R035—R039/R049更新为部分实现，R041保留部分。当前116行57已实现/55部分/1未实现/3排除。正式工资、GL和真实STP尚未验收。
+
+D06增量（2026-11-01）：NET_SALES/AUD阶梯后台切片已交付，R110/R111/R117保留整体部分状态及原阶段身份。当前116行57已实现/55部分/1未实现/3排除；真实提供方、其他口径及客户端/生产未据此关闭。
+
+阶段D限定后端最终收口（2026-11-01）：[验收结论及剩余事项](stage-d-backend-final-acceptance.md)；D相关17行2后端已实现/15部分；原116行57/55/1/3及原身份不变。本次1155/288项集成回归分别列证，不声称全目录、真实接入或客户端/生产验收完成。

@@ -1,0 +1,241 @@
+{
+  "reviewDate": "2026-11-01",
+  "scope": "htt-backend only; D01-D06 scoped final backend baseline acceptance, not full original requirements/client/live provider/production completion",
+  "source": "Existing immutable-source identities recorded in requirements-acceptance.md and stage-c-audit.json; no workbook reclassification",
+  "stageDStatus": "SCOPED_BACKEND_BASELINE_PASSED_WITH_REMAINDERS",
+  "rows": [
+    {
+      "identity": "24 / R024",
+      "requirement": "管理/财务端：Templates, schedules, auto-generate invoices/bills/transactions",
+      "priorityAndDisposition": "P2 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_REVIEWED_RECURRING",
+      "evidence": "stage-d-recurring.md; 052_recurring.sql; RecurringTests",
+      "remaining": "自动最终出单、复杂排程、客户端和生产运行另验；不恢复被排除的直接开票/支付",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "25 / R025",
+      "requirement": "管理/财务端：Accounts, balances, feeds status, attention items",
+      "priorityAndDisposition": "P0 / 保留",
+      "originalStage": "B/C",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_GATEWAY_SANDBOX",
+      "evidence": "stage-d-bank-feeds.md; 051_bank_feeds.sql; BankFeedTests/BankFeedProtocolTests",
+      "remaining": "用户选择无签约提供方；真实托管同意/提供方/余额交易适配、LIVE、客户端与生产另验",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "26 / R026",
+      "requirement": "管理/财务端：Import/feed transactions, categorise, match, split",
+      "priorityAndDisposition": "P0 / 保留",
+      "originalStage": "C/D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_GATEWAY_SANDBOX",
+      "evidence": "stage-d-bank-feeds.md; 051_bank_feeds.sql; BankFeedTests/BankFeedProtocolTests",
+      "remaining": "用户选择无签约提供方；真实托管同意/提供方/余额交易适配、LIVE、客户端与生产另验",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "35 / R035",
+      "requirement": "管理/财务端：Personal/employment/pay/bank/tax/leave/super details",
+      "priorityAndDisposition": "P1 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_LOCAL_PAYROLL_SANDBOX",
+      "evidence": "stage-d-payroll.md; 054_payroll_sandbox.sql; PayrollSandboxTests",
+      "remaining": "基础员工/雇佣档案、受限权限和不可变历史；银行/税务/养老金敏感档案与正式提供方待接。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "36 / R036",
+      "requirement": "管理/财务端：Earnings, allowances, deductions, leave, taxes, contributions",
+      "priorityAndDisposition": "P1 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_LOCAL_PAYROLL_SANDBOX",
+      "evidence": "stage-d-payroll.md; 054_payroll_sandbox.sql; PayrollSandboxTests",
+      "remaining": "仅显式整数分测试费率、模拟PAYG/养老金输入及冻结结果；正式工资项目、Award/税率/假期算法未实现。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "37 / R037",
+      "requirement": "管理/财务端：Periods, employee calculation, review, record, journal posting",
+      "priorityAndDisposition": "P1 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_LOCAL_PAYROLL_SANDBOX",
+      "evidence": "stage-d-payroll.md; 054_payroll_sandbox.sql; PayrollSandboxTests",
+      "remaining": "沙箱期间、试算、独立复核、锁定及幂等并发；正式工资记录、GL映射/过账及更正待接。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "38 / R038",
+      "requirement": "管理/财务端：Hours, pay items, jobs, import into pay run",
+      "priorityAndDisposition": "P2 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_LOCAL_PAYROLL_SANDBOX",
+      "evidence": "stage-d-payroll.md; 054_payroll_sandbox.sql; PayrollSandboxTests",
+      "remaining": "Payroll Timesheets录入/提交/独立审批、日工时上限、一次性批次消费；正式工资项目导入待接，不恢复Time Billing。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "39 / R039",
+      "requirement": "管理/财务端：STP equivalent / NZ Payday Filing integration layer",
+      "priorityAndDisposition": "P2 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_LOCAL_PAYROLL_SANDBOX",
+      "evidence": "stage-d-payroll.md; 054_payroll_sandbox.sql; PayrollSandboxTests",
+      "remaining": "内部STP沙箱协议及本地模拟回执；无网络提供方、无ATO申报或真实回执，不适用NZ Payday。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "41 / R041",
+      "requirement": "管理/财务端：Sales, purchases, receivables/payables, payroll, banking",
+      "priorityAndDisposition": "P1 / 保留",
+      "originalStage": "C/D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_LOCAL_PAYROLL_SANDBOX",
+      "evidence": "stage-d-payroll.md; 054_payroll_sandbox.sql; PayrollSandboxTests",
+      "remaining": "沙箱工资汇总已实现；正式工资、GL和提供方/客户端/生产另验。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "42 / R042",
+      "requirement": "管理/财务端：Filters, columns, saved reports/favourites",
+      "priorityAndDisposition": "P2 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "后端已实现",
+      "stageDStatus": "IMPLEMENTED_TEN_SOURCE_BACKEND",
+      "evidence": "stage-d-report-designer.md; 053_report_designer.sql; ReportDesignerTests",
+      "remaining": "客户端/其他专用源/生产另验；R050新计算口径与非原生设置保留，不伪造换算或现金制损益",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "43 / R043",
+      "requirement": "管理/财务端：Multi-report packs, cover/TOC, PDF generation",
+      "priorityAndDisposition": "P2 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "后端已实现",
+      "stageDStatus": "IMPLEMENTED_TEN_SOURCE_BACKEND",
+      "evidence": "stage-d-report-designer.md; 053_report_designer.sql; ReportDesignerTests",
+      "remaining": "客户端/其他专用源/生产另验；R050新计算口径与非原生设置保留，不伪造换算或现金制损益",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "49 / R049",
+      "requirement": "管理/财务端：Pay cycles, defaults, banking, filing config",
+      "priorityAndDisposition": "P1 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_LOCAL_PAYROLL_SANDBOX",
+      "evidence": "stage-d-payroll.md; 054_payroll_sandbox.sql; PayrollSandboxTests",
+      "remaining": "版本化沙箱工资设置；正式工资日历、税务/养老金及GL设置待接。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "50 / R050",
+      "requirement": "管理/财务端：Basis, currency, headers, number formatting",
+      "priorityAndDisposition": "P2 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_SOURCE_DEFINED_SETTINGS",
+      "evidence": "stage-d-report-designer.md; 053_report_designer.sql; ReportDesignerTests",
+      "remaining": "客户端/其他专用源/生产另验；R050新计算口径与非原生设置保留，不伪造换算或现金制损益",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "51 / R051",
+      "requirement": "管理/财务端：Cross-entity search by number/name/reference",
+      "priorityAndDisposition": "P2 / 保留",
+      "originalStage": "D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "PARTIAL_CORE_SEARCH",
+      "evidence": "[D01全局搜索](stage-d-global-search.md)",
+      "remaining": "050核心12类跨实体编号/名称/参考号查询、当前底层权限/公司与客户范围/回收站过滤、同语句计数与分页；不返回成本/金额/个人正文。其余业务实体及客户端联调保留。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "110 / R110",
+      "requirement": "管理/财务端：客户返点规则与结算",
+      "priorityAndDisposition": "P1 / 新增",
+      "originalStage": "C/D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "IMPLEMENTED_NET_SALES_TIER_SLICE",
+      "evidence": "stage-d-tiered-incentives.md; 055_tiered_incentives.sql; TieredIncentiveTests",
+      "remaining": "055补显式全额/累进阶梯、AUD_NET单票/固定窗口、完整来源重估与分摊、贷项降档和原客户/AP结算；NET_SALES后台切片交付，其他口径、真实合同/税务、客户端与生产规模另验。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "111 / R111",
+      "requirement": "管理/财务端：销售代表分红/佣金",
+      "priorityAndDisposition": "P1 / 新增",
+      "originalStage": "C/D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "IMPLEMENTED_NET_SALES_TIER_SLICE",
+      "evidence": "stage-d-tiered-incentives.md; 055_tiered_incentives.sql; TieredIncentiveTests",
+      "remaining": "055补佣金阶梯、固定窗口、政策版本隔离、差额/追回及原AP/外部工资清算；不计算工资或银行付款。回款/毛利/数量阶梯、真实政策与客户端另验。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    },
+    {
+      "identity": "117 / R117",
+      "requirement": "管理/财务端：返点与佣金结算回归测试",
+      "priorityAndDisposition": "P1 / 新增",
+      "originalStage": "C/D",
+      "currentOverallStatus": "部分实现",
+      "stageDStatus": "IMPLEMENTED_NET_SALES_TIER_SLICE",
+      "evidence": "stage-d-tiered-incentives.md; 055_tiered_incentives.sql; TieredIncentiveTests",
+      "remaining": "055阶梯边界、累计窗口、来源变化/降档、独立审批、原客户/AP/GST结算、授权、幂等/并发、失败回滚和GL核对专项；原激励/销售/财务/关账回归。其他口径、生产规模与客户端端到端另验。",
+      "backendAcceptance": "PASSED_WITH_EXPLICIT_REMAINDERS",
+      "finalAcceptanceEvidence": "stage-d-backend-final-acceptance.md; stage-d-final-results.json"
+    }
+  ],
+  "implementationOrder": [
+    "D01 core cross-entity search",
+    "D02 bank feeds",
+    "D03 recurring",
+    "D04 saved reports and packs",
+    "D05 AU payroll and STP",
+    "D06 tiered incentives"
+  ],
+  "finalAcceptance": "stage-d-backend-final-acceptance.md",
+  "verification": "stage-d-final-results.json",
+  "requirementCounts": {
+    "部分实现": 15,
+    "后端已实现": 2
+  },
+  "allRequirementCounts": {
+    "部分实现": 55,
+    "后端已实现": 57,
+    "排除": 3,
+    "未实现": 1
+  },
+  "remainingOrder": [
+    "Global backlog scope confirmation",
+    "Provider-independent D search/report/schedule additions",
+    "Real Bank Feeds provider",
+    "Statutory AU payroll/STP and protected records/GL integration",
+    "Contract-driven incentive bases",
+    "Three-client integration",
+    "Production services/migration/operations acceptance"
+  ]
+}

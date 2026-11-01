@@ -1,5 +1,8 @@
 # HTT Backend
 
+阶段D已交付后端基线完成限定收口验收，见[最终结论及剩余事项](docs/stage-d-backend-final-acceptance.md)和[精确结果](docs/stage-d-final-results.json)。D01—D06均有明确验收范围；真实Bank Feeds、正式工资/STP及其他保留项未据此关闭。原C阶段签署证据保持独立。
+
+
 澳洲 HTT Flooring 三端统一后台。阶段 A 基础及主数据、阶段 B 报价到订单、仓库交接、销售开票、客户收款、退货贷项、采购收货与财务过账；独立于 `ledgerone-api`，现有三个客户端暂不改动。
 
 技术：.NET 10 LTS / ASP.NET Core、PostgreSQL 17、EF Core 10 / Npgsql。模块化单体，API、Worker、迁移工具独立进程。
@@ -177,3 +180,7 @@ SQL迁移是数据库结构的唯一权威。EF Core用于映射与查询，受�
 036：[直接法现金流、活动分类及银行/总账核对](docs/stage-c-cash-flow.md)。
 
 完整复验入口：配置四个独立测试库连接后运行 `sh scripts/verify.sh`；短批次独立TestHost避免大量WebApplicationFactory累计占用，结果清单严格核对，异常/跳过/漏跑均失败。并行分组需各用独立库，见[阶段C最终验收](docs/stage-c-backend-final-acceptance.md)。
+
+D05 AU payroll sandbox: [scope, API and provider boundary](docs/stage-d-payroll.md). Migration 054 adds private versioned employees/settings/timesheets/runs and independently reviewed local fixtures. No real payroll calculation, bank payment, ledger journal or ATO filing is enabled.
+
+D06 NET_SALES/AUD tiered incentives: [policy contract, fixed windows and remaining scope](docs/stage-d-tiered-incentives.md). Migration 055 preserves historical policies/journals and reuses existing independent approval, accrual, recovery and lawful settlement paths.
