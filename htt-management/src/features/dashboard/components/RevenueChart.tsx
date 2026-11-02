@@ -1,14 +1,18 @@
+import type { calculateDashboardBasis } from "../data/dashboardBasis";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { businessSettings } from "../../business-workspace/configurationState";
-import type { DashboardBasis } from "../data/dashboardBasis";
+import type { DashboardBasis, DashboardBreakdown } from "../data/dashboardBasis";
 import type { MonthlyFinancialData } from "../data/mockDashboard";
 
 const lastYearColor = "#d0008f";
 const thisYearColor = "#a45bff";
 
-export function RevenueChart({ months = 6, data, basis = "cash", includeGst = true }: { months?: 1 | 3 | 6; data: MonthlyFinancialData[]; basis?: DashboardBasis; includeGst?: boolean }) {
+export function RevenueChart({ months = 6, data, basis = "cash", includeGst = true, breakdown, monthlyTotals }: { months?: 1 | 3 | 6; data: MonthlyFinancialData[]; basis?: DashboardBasis; includeGst?: boolean; breakdown?: DashboardBreakdown; monthlyTotals?: ReturnType<typeof calculateDashboardBasis>["monthlyTotals"] }) {
     const [showSample, setShowSample] = useState(true);
+    const [expanded, setExpanded] = useState({ revenue: true, expenses: false });
+    const totals = monthlyTotals?.slice(-months).reduce((sum, item) => ({ cashReceived: sum.cashReceived + item.cashReceived, cashSpent: sum.cashSpent + item.cashSpent, invoiceCount: sum.invoiceCount + item.invoiceCount, invoiceAmount: sum.invoiceAmount + item.invoiceAmount, billCount: sum.billCount + item.billCount, billAmount: sum.billAmount + item.billAmount, wagesAndSuper: sum.wagesAndSuper + item.wagesAndSuper }), { cashReceived: 0, cashSpent: 0, invoiceCount: 0, invoiceAmount: 0, billCount: 0, billAmount: 0, wagesAndSuper: 0 });
     const money = (value: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: businessSettings().currency }).format(value);
     return <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -29,11 +33,12 @@ export function RevenueChart({ months = 6, data, basis = "cash", includeGst = tr
                     ...(isCurrentSample && index === data.length - 1 ? { expenses: Math.round(currentAmount * 100) / 100 } : {}),
                 };
             }).slice(-months);
+            const details = current === "revenue" ? breakdown?.invoices : breakdown?.bills;
+            const noun = current === "revenue" ? "invoices" : "bills";
             const lastYearLabel = isSample ? "Last year (sample)" : "Last year";
             const thisYearLabel = isCurrentSample ? "This year (sample)" : "This year";
             const currentTotal = comparisonData.reduce((sum, item) => sum + item[current], 0);
-            const priorTotal = comparisonData.reduce((sum, item) => sum + (item[prior] ?? 0), 0);
-            return <section key={title} aria-label={`${title} year comparison`} className="min-w-0 rounded-xl border border-[var(--color-border)] bg-white p-5 shadow-sm">
+            return <section key={title} aria-label={`${title} year comparison`} className="min-w-0 self-start rounded-xl border border-[var(--color-border)] bg-white p-5 shadow-sm">
                 <h2 className="text-base font-semibold">{title}</h2>
                 {isCurrentSample && <p className="mt-1 text-xs font-medium text-amber-800">Includes a sample current-year expense</p>}
                 <p className="mt-3 text-2xl font-semibold tabular-nums">{money(currentTotal)}</p>
@@ -53,11 +58,33 @@ export function RevenueChart({ months = 6, data, basis = "cash", includeGst = tr
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-[var(--color-text-secondary)]">
                     {[{ label: lastYearLabel, color: lastYearColor }, { label: thisYearLabel, color: thisYearColor }].map(item => <span key={item.label} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }}/>{item.label}</span>)}
                 </div>
-                <dl className="mt-5 space-y-3 border-t border-[var(--color-border)] pt-4 text-sm">
-                    <div className="flex flex-wrap justify-between gap-2"><dt className="text-[var(--color-text-secondary)]">{isCurrentSample ? "This year total (sample)" : "This year total"}</dt><dd className="font-medium tabular-nums">{money(currentTotal)}</dd></div>
-                    <div className="flex flex-wrap justify-between gap-2"><dt className="text-[var(--color-text-secondary)]">{isSample ? "Last year total (sample)" : "Last year total"}</dt><dd className="font-medium tabular-nums">{money(priorTotal)}</dd></div>
-                </dl>
-                <p className="mt-4 text-xs text-[var(--color-text-muted)]">{basis === "cash" ? "Actual cash movements" : "Unpaid balances"} · {includeGst ? "Incl. GST" : "Excl. GST"} · Same period last year</p>
+                {details && expanded[current] && <div id={`dashboard-${current}-breakdown`} className="mt-5 border-t border-[var(--color-border)] pt-4">
+                    <h3 className="text-sm text-[var(--color-text-muted)]">{current === "revenue" ? "Income totals" : "Expense totals"}</h3>
+                    {totals && <dl className="mt-4 space-y-4 text-sm">
+                        <div className="flex justify-between gap-3"><dt>{current === "revenue" ? "Cash received" : "Cash spent"}</dt><dd className="font-medium tabular-nums">{money(current === "revenue" ? totals.cashReceived : totals.cashSpent)}</dd></div>
+                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3"><dt className="text-violet-600">{current === "revenue" ? "Invoices" : "Bills"}</dt><dd className="text-xs tabular-nums">{current === "revenue" ? totals.invoiceCount : totals.billCount}</dd><dd className="font-medium tabular-nums">{money(current === "revenue" ? totals.invoiceAmount : totals.billAmount)}</dd></div>
+                        {current === "expenses" && <>
+                            <div className="flex justify-between gap-3"><dt>Wages and Super</dt><dd className="font-medium tabular-nums">{money(totals.wagesAndSuper)}</dd></div>
+                            <div className="flex justify-between gap-3"><dt>Inventory adjustment</dt><dd title="Separate inventory adjustment amount is not available">—</dd></div>
+                        </>}
+                    </dl>}
+                    <h3 className="mt-7 text-sm text-[var(--color-text-muted)]">In progress</h3>
+                    <dl className="mt-4 space-y-4 text-sm">
+                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3"><dt className="text-violet-600">Open {noun}</dt><dd className="text-xs tabular-nums">{details.openCount}</dd><dd className="text-right font-medium tabular-nums">{money(details.openAmount)}</dd></div>
+                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3"><dt className="text-violet-600">Overdue {noun}</dt><dd className="text-xs tabular-nums text-[var(--color-danger)]">{details.overdueCount}</dd><dd className="text-right font-medium tabular-nums text-[var(--color-danger)]">{money(details.overdueAmount)}</dd></div>
+                    </dl>
+                    <p className="mt-4 text-[11px] text-[var(--color-text-muted)]">Recorded data · {includeGst ? "Incl. GST" : "Excl. GST"}. Totals cover selected {months} {months === 1 ? "month" : "months"}; open balances cover all dates as at {breakdown?.asOf}. Open includes overdue. Samples excluded.</p>
+                </div>}
+                {details && <button
+                    type="button"
+                    aria-expanded={expanded[current]}
+                    aria-controls={`dashboard-${current}-breakdown`}
+                    aria-label={`${expanded[current] ? "Collapse" : "Expand"} ${title} breakdown`}
+                    onClick={() => setExpanded(previous => ({ ...previous, [current]: !previous[current] }))}
+                    className="mt-4 flex w-full items-center justify-center rounded-md py-2 text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                >
+                    {expanded[current] ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
+                </button>}
             </section>;
         })}
         </div>

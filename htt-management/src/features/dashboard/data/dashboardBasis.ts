@@ -1,3 +1,4 @@
+import { businessDateKey } from "../../../lib/businessDate";
 import type { Account } from "../../accounting/types/account";
 import type { JournalEntry } from "../../accounting/types/journalEntry";
 import type { BankAccount } from "../../banking/types/bankAccount";
@@ -9,6 +10,11 @@ import { calculateInvoiceBalanceAsAt } from "../../sales/data/invoiceBalanceAsAt
 import { calculateSupplierBillBalanceAsAt } from "../../purchases/data/supplierBillBalanceAsAtService";
 import { calculateBankRegister } from "../../banking/data/bankRegisterService";
 
+export interface DashboardBreakdown {
+    asOf: string;
+    invoices: { openCount: number; openAmount: number; overdueCount: number; overdueAmount: number };
+    bills: { openCount: number; openAmount: number; overdueCount: number; overdueAmount: number };
+}
 export type DashboardBasis = "cash" | "accrual";
 export interface DashboardBasisInput extends FinanceOverviewActivity {
     accounts: Account[]; journals: JournalEntry[]; banks: BankAccount[];
@@ -93,5 +99,48 @@ export function calculateDashboardBasis(input: DashboardBasisInput) {
         { label: basis === "cash" ? "Cash paid" : "Accounts payable", value: money(current.expenses), change: change(current.expenses, previous.expenses), description: `${tax} · ${basis === "cash" ? "By payment date" : "Unpaid bills due in selected month"}` },
         { label: basis === "cash" ? "Net cash flow" : "Net receivables / payables", value: money(round(current.revenue - current.expenses)), change: change(current.revenue - current.expenses, previous.revenue - previous.expenses), description: basis === "cash" ? "Cash received less cash paid" : "Selected-period receivables less payables" },
     ];
-    return { metrics, chart };
+    const breakdown: DashboardBreakdown = {
+        asOf: date,
+        invoices: { openCount: 0, openAmount: 0, overdueCount: 0, overdueAmount: 0 },
+        bills: { openCount: 0, openAmount: 0, overdueCount: 0, overdueAmount: 0 },
+    };
+    const addBalance = (target: DashboardBreakdown["invoices"], dueDate: string, amountDue: number, ratio: number) => {
+        if (amountDue <= 0) return;
+        const amount = round(amountDue * (includeGst ? 1 : ratio));
+        target.openCount++;
+        target.openAmount = round(target.openAmount + amount);
+        if (dueDate < date) {
+            target.overdueCount++;
+            target.overdueAmount = round(target.overdueAmount + amount);
+        }
+    };
+    for (const invoice of documents) {
+        if (invoice.type !== "INVOICE") continue;
+        const balance = calculateInvoiceBalanceAsAt(invoice, input.payments, input.creditAllocations, date);
+        addBalance(breakdown.invoices, invoice.dueDate, balance.amountDue, netRatio(invoice.totals));
+    }
+    for (const bill of bills) {
+        if (bill.status === "VOID" && !bill.voidedAt) continue;
+        const balance = calculateSupplierBillBalanceAsAt(bill, input.supplierPayments, input.supplierCreditAllocations, date);
+        addBalance(breakdown.bills, bill.dueDate, balance.amountDue, netRatio(bill.totals));
+    }
+    const expenseIds = new Set(accounts.filter(account => account.type === "EXPENSE").map(account => account.id));
+    const monthlyTotals = Array.from({ length: 6 }, (_, index) => {
+        const d = new Date(Date.UTC(year, month - 6 + index, 1));
+        const from = d.toISOString().slice(0,10);
+        const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 0)).toISOString().slice(0,10);
+        const to = end < date ? end : date;
+        const rows = cash.filter(row => row.date >= from && row.date <= to);
+        const issued = documents.filter(document => document.type === "INVOICE" && document.documentDate >= from && document.documentDate <= to && document.status !== "DRAFT" && !(document.status === "VOID" && !document.voidedAt) && !(document.type === "INVOICE" && document.voidedAt && businessDateKey(document.voidedAt) <= to));
+        const purchased = bills.filter(bill => bill.billDate >= from && bill.billDate <= to && !(bill.status === "VOID" && !bill.voidedAt) && !(bill.voidedAt && businessDateKey(bill.voidedAt) <= to));
+        const wages = journals.filter(journal => journal.journalDate >= from && journal.journalDate <= to && journal.sourceType === "PAYROLL").flatMap(journal => journal.lines).filter(line => expenseIds.has(line.accountId)).reduce((sum,line) => sum + line.debit - line.credit,0);
+        return {
+            cashReceived: round(rows.reduce((sum,row) => sum + Math.max(0,row.amount),0)),
+            cashSpent: round(rows.reduce((sum,row) => sum + Math.max(0,-row.amount),0)),
+            invoiceCount: issued.length, invoiceAmount: round(issued.reduce((sum,document) => sum + (includeGst ? document.totals.total : document.totals.subtotal),0)),
+            billCount: purchased.length, billAmount: round(purchased.reduce((sum,bill) => sum + (includeGst ? bill.totals.total : bill.totals.subtotal),0)),
+            wagesAndSuper: round(wages),
+        };
+    });
+    return { metrics, chart, breakdown, monthlyTotals };
 }

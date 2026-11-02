@@ -44,7 +44,6 @@ export default function InventoryPage() {
                             placeholder="Search series, colour, SKU or keyword..."
                         />
 
-                        <span aria-hidden="true"><Search size={18}/></span>
                     </div>
                 </section>
 

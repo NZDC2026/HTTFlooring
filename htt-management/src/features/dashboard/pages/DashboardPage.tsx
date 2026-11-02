@@ -1,3 +1,4 @@
+import { TaxPayrollCards } from "../components/TaxPayrollCards";
 import { useDashboardBasis } from "../data/useDashboardBasis";
 import type { DashboardBasis } from "../data/dashboardBasis";
 import {presentationWorkflows} from '../../security/optionalWorkflows';
@@ -12,7 +13,6 @@ import { QuickAccessCard } from "../components/QuickAccessCard";
 import { MetricCard } from "../components/MetricCard";
 import { PayablesCard } from "../components/PayablesCard";
 import { ReceivablesCard } from "../components/ReceivablesCard";
-import { RecentTransactions } from "../components/RecentTransactions";
 import { RevenueChart } from "../components/RevenueChart";
 import { TasksCard } from "../components/TasksCard";
 import { useAccounts, useJournalEntries } from "../../accounting/data/useAccounting";
@@ -45,6 +45,7 @@ export function DashboardPage() {
             </div>
             {presentationWorkflows.customerDemo && <Link to="/demo"><Button variant="accent">Customer demo <ArrowRight size={16}/></Button></Link>}
         </div>
+        <QuickAccessCard compact/>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs">
             <div role="group" aria-label="Reporting period" className="flex flex-wrap items-center gap-2 font-medium">
                 <CalendarDays size={15} aria-hidden="true"/>
@@ -86,17 +87,21 @@ export function DashboardPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[...basisDashboard.metrics, dashboard.metrics[3]].map((metric) => <MetricCard key={metric.label} metric={metric}/>)}
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[2fr_1fr]">
+        <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[2fr_1fr]">
             <div className="min-w-0">
                 <div className="mb-2 flex items-center justify-end gap-2 text-xs"><span className="text-[var(--color-text-muted)]">Chart range</span>
                     {([1,3,6] as const).map((months) => <button type="button" key={months} onClick={() => setChartMonths(months)} aria-pressed={chartMonths === months} className={`rounded-md border px-3 py-1.5 font-medium transition-colors ${chartMonths === months ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary)]" : "border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"}`}>{months} {months === 1 ? "month" : "months"}</button>)}
                 </div>
-                <RevenueChart months={chartMonths} data={basisDashboard.chart} basis={basis} includeGst={includeGst}/>
+                <RevenueChart months={chartMonths} data={basisDashboard.chart} breakdown={basisDashboard.breakdown} monthlyTotals={basisDashboard.monthlyTotals} basis={basis} includeGst={includeGst}/>
+                <div className="mt-4"><TaxPayrollCards date={reportingDate}/></div>
             </div>
-            <div className="min-w-0 xl:pt-[34px]"><ReceivablesCard/></div>
+            <div className="grid min-w-0 gap-4 xl:pt-[34px]">
+                <ReceivablesCard/>
+                <PayablesCard/>
+                <BankReconciliationCard/>
+                <TasksCard/>
+                <InventoryHealthCard/>
+            </div>
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"><PayablesCard/><BankReconciliationCard/><TasksCard/></div>
-        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2"><InventoryHealthCard/><QuickAccessCard/></div>
-        <div className="mt-7"><RecentTransactions/></div>
     </div>;
 }

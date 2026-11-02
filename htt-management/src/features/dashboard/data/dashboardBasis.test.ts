@@ -32,3 +32,12 @@ it('uses the settled invoice tax ratio when a receipt journal itself has no GST 
  input.journals=[{...journal('receipt','2026-11-01',55,'CUSTOMER_PAYMENT'),sourceId:'p'}];
  expect(calculateDashboardBasis(input).chart.at(-1)?.revenue).toBe(50);
 });
+it('breaks down all open balances, with overdue as a subset and due today still current',()=>{
+ const input=base();
+ input.documents=[{...invoice,id:'old',documentDate:'2026-10-01',dueDate:'2026-11-01'},{...invoice,id:'today',dueDate:'2026-11-02'},{...invoice,id:'draft',status:'DRAFT'},{...invoice,id:'future',documentDate:'2026-12-01'}];
+ input.bills=[{...bill,id:'oldbill',dueDate:'2026-10-30'},bill,{...bill,id:'void',status:'VOID'}];
+ expect(calculateDashboardBasis(input).breakdown).toEqual({asOf:'2026-11-02',invoices:{openCount:2,openAmount:220,overdueCount:1,overdueAmount:110},bills:{openCount:2,openAmount:440,overdueCount:1,overdueAmount:220}});
+ const net=calculateDashboardBasis({...input,includeGst:false}).breakdown;
+ expect(net.invoices).toMatchObject({openAmount:200,overdueAmount:100});
+ expect(net.bills).toMatchObject({openAmount:400,overdueAmount:200});
+});

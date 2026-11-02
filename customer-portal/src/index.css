@@ -1206,3 +1206,5 @@ h2 {
 select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url('/icons/chevron-down.svg');background-repeat:no-repeat;background-position:right 12px center;background-size:16px 16px;padding-right:40px;min-height:38px;cursor:pointer;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 select:not([multiple]):not([size]):disabled{cursor:not-allowed;opacity:.55}
 @media(forced-colors:active){select:not([multiple]):not([size]){-webkit-appearance:auto;appearance:auto;background-image:none;padding-right:12px}}
+
+.inventory-search input{min-width:0}.inventory-search>svg{flex-shrink:0}
