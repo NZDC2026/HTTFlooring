@@ -1,6 +1,7 @@
 export type AccessoryKind = "scotia" | "stair-nose" | "trims";
 export type Product = {
     accessoryKind?: AccessoryKind;
+    subcategory?: string;
     accessoryProductIds?: Partial<Record<AccessoryKind,string>>;
     id: string;
     name: string;
@@ -81,6 +82,7 @@ export const products: Product[] = [
         sku: "GUA-016",
         category: "Hybrid",
         colour: "Natural Grey",
+        pattern: "Herringbone",
         price: 47.5,
         standardPrice: 55,
         customerPrice: 50,
@@ -100,6 +102,7 @@ export const products: Product[] = [
         sku: "AQU-002",
         category: "Laminate",
         colour: "Silver",
+        pattern: "Herringbone",
         price: 44,
         standardPrice: 48,
         customerPrice: 46,
@@ -120,6 +123,7 @@ export const products: Product[] = [
         isClearance: true,
         category: "Engineered Timber",
         colour: "Rustic Oak",
+        pattern: "Plank",
         price: 72,
         standardPrice: 82,
         customerPrice: 78,
@@ -161,6 +165,7 @@ products.push(...bonitaColours.map((colour, index): Product => ({
 }))); // Local preview colours share the Bonita example price; stock remains unknown.
 
 // Accessory references use explicit local preview prices; stock remains unknown.
+const accessorySubcategories:Record<AccessoryKind,string>={scotia:"Scotia","stair-nose":"Stair Noses",trims:"Aluminium Trim"};
 const accessoryNames:Record<AccessoryKind,string>={scotia:"Scotia","stair-nose":"Stair Nose",trims:"Trims"};
 const accessoryExamplePrices:Record<AccessoryKind,number>={scotia:6.50,"stair-nose":45,trims:12};
 const accessoryStandardPrices:Record<AccessoryKind,number>={scotia:8,"stair-nose":55,trims:15};
@@ -176,7 +181,7 @@ for(const parent of [...products]){
         if(accessoryCatalogue.has(id))continue;
         accessoryCatalogue.set(id,{
             id,name:`${accessoryNames[kind]} ${customized?`${parent.seriesName} ${parent.colour} (Customized)`:code}`,
-            seriesId:`accessories-${kind}`,seriesName:accessoryNames[kind],accessoryKind:kind,
+            seriesId:`accessories-${kind}`,seriesName:accessoryNames[kind],accessoryKind:kind,subcategory:accessorySubcategories[kind],
             sku:customized?`CUSTOM-${parent.colourCode??parent.sku}`:code,colourCode:code,
             category:"Accessories",colour:customized?parent.colour:code,price:accessoryExamplePrices[kind],standardPrice:accessoryStandardPrices[kind],customerPrice:accessoryExamplePrices[kind],priceKnown:true,
             boxes:0,sqm:0,stockKnown:false,status:"Out of Stock",image:parent.image,
@@ -208,10 +213,17 @@ export const productSeries: ProductSeries[] = Array.from(new Set(products.map(pr
     return { id, logo: id === "bonita" ? "/images/brands/bonita-transparent.png" : undefined, name: colours[0].seriesName, category: colours[0].category, image: colours[0].image, products: colours };
 });
 
-export function filterProductSeries(query: string, category: string, collection: string, sort: string) {
+export const categorySubcategories: Record<string, readonly string[]> = {
+    "Engineered Timber": ["Plank", "Herringbone", "Chevron"],
+    "Hybrid": ["Plank", "Herringbone"],
+    "Laminate": ["Plank", "Herringbone"],
+    "Accessories": ["Plywood", "Underlay", "Floor Protection", "Plastic Moisture Barrier", "Scotia", "Stair Noses", "Aluminium Trim", "Tool's Accessories", "Glue", "Primer", "Self Leveling"],
+};
+
+export function filterProductSeries(query: string, category: string, collection: string, sort: string, subcategory = "All") {
     const search = query.trim().toLowerCase();
     const matches = productSeries.filter(series => (category === "All" || series.category === category) && series.products.some(product =>
-        matchesCollection(product, collection) && [series.name, product.name, product.colour, product.sku, product.colourCode ?? "", product.category].some(value => value.toLowerCase().includes(search))
+        (subcategory === "All" || (product.category === "Accessories" ? product.subcategory : product.pattern) === subcategory) && matchesCollection(product, collection) && [series.name, product.name, product.colour, product.sku, product.colourCode ?? "", product.category].some(value => value.toLowerCase().includes(search))
     ));
     const price = (series: ProductSeries) => Math.min(...series.products.filter(product => product.priceKnown !== false).map(product => product.price));
     return matches.sort((a,b) => sort === "Relevance" ? 0 : !Number.isFinite(price(a)) ? (Number.isFinite(price(b)) ? 1 : 0) : !Number.isFinite(price(b)) ? -1 : sort === "Price: Low to High" ? price(a) - price(b) : sort === "Price: High to Low" ? price(b) - price(a) : 0);

@@ -1199,3 +1199,10 @@ h2 {
 .colour-standard-price{white-space:nowrap}.colour-standard-price>strong{font-size:14px;font-weight:500}.colour-standard-price>small{display:block;font-size:11px;color:#777;margin-top:4px}.customer-promotion-price{display:flex;flex-direction:column;align-items:flex-start;gap:5px}.customer-promotion-price .promotion-sale-price{margin-bottom:0}.customer-original-price{font-size:14px;line-height:1.5;color:#666}.customer-promotion-price .discount{display:inline-block}
 
 .detail-original-customer-price{text-decoration:line-through}
+
+.inventory-subcategories{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 24px;padding:16px 0;border-top:1px solid var(--border)}.inventory-subcategories button{font:inherit;font-size:13px;padding:9px 18px;border:1px solid var(--border);background:transparent;color:#555;cursor:pointer}.inventory-subcategories button.selected{background:#e8eee9;border-color:var(--green);color:var(--green);font-weight:600}.inventory-subcategories button:hover{border-color:var(--copper)}
+
+/* Shared dropdown arrow, including inventory, account forms and document filters. */
+select:not([multiple]):not([size]){-webkit-appearance:none;appearance:none;background-image:url('/icons/chevron-down.svg');background-repeat:no-repeat;background-position:right 12px center;background-size:16px 16px;padding-right:40px;min-height:38px;cursor:pointer;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+select:not([multiple]):not([size]):disabled{cursor:not-allowed;opacity:.55}
+@media(forced-colors:active){select:not([multiple]):not([size]){-webkit-appearance:auto;appearance:auto;background-image:none;padding-right:12px}}

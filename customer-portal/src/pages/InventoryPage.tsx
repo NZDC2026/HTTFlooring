@@ -1,10 +1,9 @@
 import { Search } from "lucide-react";
-import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLocalAccount } from "../data/localAccount";
 import PortalHeader from "../components/PortalHeader";
 import SeriesRow from "../components/SeriesRow";
-import { filterProductSeries, productCollections } from "../data/products";
+import { categorySubcategories, filterProductSeries, productCollections } from "../data/products";
 
 const categories = [
     "All",
@@ -17,12 +16,15 @@ const categories = [
 export default function InventoryPage() {
     const [params,setParams]=useSearchParams();
     const query=params.get("q")??"", category=params.get("category")??"All", sort=params.get("sort")??"Relevance";
+    const subcategories = categorySubcategories[category] ?? [];
+    const requestedSubcategory = params.get("subcategory") ?? "All";
+    const subcategory = subcategories.includes(requestedSubcategory) ? requestedSubcategory : "All";
     const collection = params.get("collection") ?? "";
     const activeCollection = productCollections.find(item => item.id === collection);
     const {profile}=useLocalAccount();
-    const setFilter=(key:string,value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set(key,value);else next.delete(key);return next;},{replace:true});
+    const setFilter=(key:string,value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);if(key==="category")next.delete("subcategory");if(value)next.set(key,value);else next.delete(key);return next;},{replace:true});
 
-    const visibleSeries = useMemo(() => filterProductSeries(query, category, collection, sort), [query, category, collection, sort]);
+    const visibleSeries = filterProductSeries(query, category, collection, sort, subcategory);
 
     return (
         <>
@@ -54,6 +56,7 @@ export default function InventoryPage() {
                                 <button
                                     key={item}
                                     className={category === item ? "selected" : ""}
+                                    aria-pressed={category === item}
                                     onClick={() => setFilter("category",item)}
                                 >
                                     {item}
@@ -73,6 +76,10 @@ export default function InventoryPage() {
                             </label>
                         </div>
                     </div>
+
+                    {subcategories.length > 0 && <div className="inventory-subcategories" role="group" aria-label={`${category} subcategories`}>
+                        {["All", ...subcategories].map(item => <button key={item} type="button" aria-pressed={subcategory === item} className={subcategory === item ? "selected" : ""} onClick={()=>setFilter("subcategory", item === "All" ? "" : item)}>{item}</button>)}
+                    </div>}
 
                     <div className="series-card-grid">{visibleSeries.length===0 && <div className="empty-state"><p>No product series match your search.</p><button className="outline-copper-button" onClick={()=>setParams({})}>Clear filters</button></div>}
                         {visibleSeries.map((series) => (

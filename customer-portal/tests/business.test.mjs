@@ -250,3 +250,20 @@ test('non-promotional Bonita examples retain customer pricing and no campaign da
   assert.ok(!products.getColourCollection('promotion').products.some(item=>item.id===id));
  }
 });
+
+test('inventory secondary categories filter patterns within their parent category',()=>{
+ assert.deepEqual(products.categorySubcategories['Engineered Timber'],['Plank','Herringbone','Chevron']);
+ assert.deepEqual(products.categorySubcategories.Hybrid,['Plank','Herringbone']);assert.deepEqual(products.categorySubcategories.Laminate,['Plank','Herringbone']);
+ assert.deepEqual(products.filterProductSeries('','Engineered Timber','','Relevance','Plank').map(series=>series.id),['bonita','heritage']);
+ assert.equal(products.filterProductSeries('','Engineered Timber','','Relevance','Chevron').length,0);
+ assert.deepEqual(products.filterProductSeries('','Hybrid','','Relevance','Herringbone').map(series=>series.id),['guardian']);
+ assert.deepEqual(products.filterProductSeries('','Laminate','','Relevance','Herringbone').map(series=>series.id),['aquaglow']);
+ assert.equal(products.filterProductSeries('','Accessories','','Relevance').length,3);
+});
+
+test('accessories secondary menu maps existing items to their matching categories',()=>{
+ assert.deepEqual(products.categorySubcategories.Accessories,['Plywood','Underlay','Floor Protection','Plastic Moisture Barrier','Scotia','Stair Noses','Aluminium Trim',"Tool's Accessories",'Glue','Primer','Self Leveling']);
+ for(const [subcategory,id] of [['Scotia','accessories-scotia'],['Stair Noses','accessories-stair-nose'],['Aluminium Trim','accessories-trims']])assert.deepEqual(products.filterProductSeries('','Accessories','','Relevance',subcategory).map(series=>series.id),[id]);
+ assert.equal(products.filterProductSeries('','Accessories','','Relevance','Glue').length,0);
+ assert.equal(products.filterProductSeries('','Accessories','','Relevance','All').length,3);
+});
