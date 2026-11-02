@@ -20,7 +20,11 @@ export function buildLiveDashboard(accounts: Account[], journals: JournalEntry[]
         const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
         const to = end > today ? today : end;
         const pnl = calculateProfitAndLoss(accounts, journals, from, to);
-        return { month: date.toLocaleString("en-NZ", { month: "short", timeZone: "UTC" }), revenue: pnl.totalRevenue, expenses: pnl.totalExpenses, profit: pnl.netProfit };
+        const priorFrom = new Date(Date.UTC(date.getUTCFullYear() - 1, date.getUTCMonth(), 1)).toISOString().slice(0, 10);
+        const priorLastDay = new Date(Date.UTC(date.getUTCFullYear() - 1, date.getUTCMonth() + 1, 0)).getUTCDate();
+        const priorTo = new Date(Date.UTC(date.getUTCFullYear() - 1, date.getUTCMonth(), Math.min(Number(to.slice(8, 10)), priorLastDay))).toISOString().slice(0, 10);
+        const prior = calculateProfitAndLoss(accounts, journals, priorFrom, priorTo);
+        return { lastYearRevenue: prior.totalRevenue, lastYearExpenses: prior.totalExpenses, month: date.toLocaleString("en-NZ", { month: "short", timeZone: "UTC" }), revenue: pnl.totalRevenue, expenses: pnl.totalExpenses, profit: pnl.netProfit };
     });
     const current = calculateProfitAndLoss(accounts, journals, start, today);
     const configuredGlIds = new Set(bankAccounts.map(account => account.glAccountId));
@@ -40,6 +44,6 @@ export function buildLiveDashboard(accounts: Account[], journals: JournalEntry[]
         { label: "Net Profit", value: fmt(current.netProfit), change: change(current.netProfit, previous.profit), description: "Compared with last month" },
         { label: "Cash Balance", value: fmt(cash), change: 0, description: "Bank register balances including configured opening balances" },
     ];
-    const chart: MonthlyFinancialData[] = periods.map(({ month, revenue, expenses }) => ({ month, revenue, expenses }));
+    const chart: MonthlyFinancialData[] = periods.map(({ month, revenue, expenses, lastYearRevenue, lastYearExpenses }) => ({ month, revenue, expenses, lastYearRevenue, lastYearExpenses }));
     return { metrics, chart };
 }

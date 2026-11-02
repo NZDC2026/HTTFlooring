@@ -34,6 +34,9 @@ export function SalesOverviewPage() {
     const [tab, setTab] = useState<Tab>("ALL");
     const [query, setQuery] = useState("");
     const [status, setStatus] = useState("ALL");
+    const [dateMode, setDateMode] = useState<"day" | "range">("day");
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
     const [preview, setPreview] = useState<SalesDocument | null>(null);
     useEffect(() => {
         if (!preview) return;
@@ -49,11 +52,14 @@ export function SalesOverviewPage() {
         return documents.filter((document) => {
             if (tab !== "ALL" && document.type !== tab) return false;
             if (status !== "ALL" && document.status !== status) return false;
+            if (dateMode === "day" && dateFrom && document.documentDate !== dateFrom) return false;
+            if (dateMode === "range" && ((dateFrom && document.documentDate < dateFrom) || (dateTo && document.documentDate > dateTo))) return false;
             const customer = customerRepository.getById(document.customerId);
             return !needle || [document.recipient?.locationName, document.recipient?.accountingEmail, document.documentNumber, customer?.businessName ?? "", document.customerReference ?? ""]
                 .some((text) => (text ?? '').toLowerCase().includes(needle));
         }).sort((a, b) => b.documentDate.localeCompare(a.documentDate));
-    }, [documents, query, status, tab]);
+    }, [documents, query, status, tab, dateMode, dateFrom, dateTo]);
+    const filteredTotal = filtered.reduce((sum, document) => sum + Math.round(document.totals.total * 100), 0) / 100;
     const statuses = [...new Set(documents.filter((d) => tab === "ALL" || d.type === tab).map((d) => d.status))].sort();
     const counts = { quotes: documents.filter((d) => d.type === "QUOTE").length, orders: documents.filter((d) => d.type === "SALES_ORDER").length, invoices: documents.filter((d) => d.type === "INVOICE").length };
 
@@ -68,7 +74,27 @@ export function SalesOverviewPage() {
                 <Badge variant="info">Local business · {businessSettings().currency}</Badge>
             </header>
 
-            <div className="flex flex-wrap gap-3 text-sm"><Link className="rounded-lg border px-4 py-2" to="/sales/customer-deposits">Customer deposits</Link>{canReadCost&&<Link className="rounded-lg border px-4 py-2" to="/sales/customer-returns">Physical customer returns</Link>}<Link className="rounded-lg border px-4 py-2 text-sm" to="/documents/delivery">Document preparation</Link><Link className="underline" to="/sales/drafts/orders">Order drafts</Link><Link className="underline" to="/sales/drafts/invoices">Invoice drafts</Link>{canManage&&<><Link className="rounded-lg border px-4 py-2" to="/sales/drafts/orders/new">New sales order</Link><Link className="rounded-lg border px-4 py-2" to="/sales/drafts/invoices/new">New direct invoice</Link></>}</div>
+            <nav aria-label="Sales actions" className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap">
+                {[
+                    ...(canManage ? [
+                        { to: "/sales/drafts/orders/new", label: "New sales order" },
+                        { to: "/sales/drafts/invoices/new", label: "New direct invoice" },
+                    ] : []),
+                    { to: "/sales/drafts/orders", label: "Order drafts" },
+                    { to: "/sales/drafts/invoices", label: "Invoice drafts" },
+                    { to: "/sales/customer-deposits", label: "Customer deposits" },
+                    ...(canReadCost ? [{ to: "/sales/customer-returns", label: "Physical customer returns" }] : []),
+                    { to: "/documents/delivery", label: "Document preparation" },
+                ].map(({ to, label }) => (
+                    <Link
+                        key={to}
+                        to={to}
+                        className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-[var(--color-border)] bg-white px-4 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2"
+                    >
+                        {label}
+                    </Link>
+                ))}
+            </nav>
             <div className="grid gap-4 md:grid-cols-3">
                 {[
                     { label: "Quotes", value: counts.quotes, icon: FileText, tab: "QUOTE" as Tab },
@@ -89,9 +115,35 @@ export function SalesOverviewPage() {
                 <div className="flex flex-wrap items-center gap-3 p-4">
                     <label className="flex min-w-[240px] flex-1 items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2"><Search size={16} className="text-[var(--color-text-muted)]" /><input aria-label="Search sales documents" className="w-full bg-transparent text-sm outline-none" placeholder="Search number or customer" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
                     <select aria-label="Filter status" value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-lg border border-[var(--color-border)] bg-white px-3 py-2 text-sm"><option value="ALL">All statuses</option>{statuses.map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select>
-                    <span className="text-xs text-[var(--color-text-muted)]">{filtered.length} records</span>
+                    <label className="flex items-center gap-2 text-sm">Type
+                        <select aria-label="Filter type" value={tab} onChange={(event) => { setTab(event.target.value as Tab); setStatus("ALL"); }} className="h-10 rounded-lg border border-[var(--color-border)] bg-white px-3">
+                            {tabs.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">Document date
+                        <select aria-label="Date filter mode" value={dateMode} onChange={(event) => { setDateMode(event.target.value as "day" | "range"); setDateTo(""); }} className="h-10 rounded-lg border border-[var(--color-border)] bg-white px-3">
+                            <option value="day">Single day</option><option value="range">Date range</option>
+                        </select>
+                    </label>
+                    <input type="date" aria-label={dateMode === "day" ? "Document date" : "From date"} value={dateFrom} max={dateMode === "range" ? dateTo || undefined : undefined} onChange={(event) => setDateFrom(event.target.value)} className="h-10 rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm" />
+                    {dateMode === "range" && <label className="flex items-center gap-2 text-sm">to <input type="date" aria-label="To date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} className="h-10 rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm" /></label>}
+                    <Button variant="secondary" onClick={() => { setQuery(""); setStatus("ALL"); setTab("ALL"); setDateFrom(""); setDateTo(""); setDateMode("day"); }}>Clear filters</Button>
                 </div>
-                <DataTable data={filtered} columns={[{accessorKey:'documentNumber',header:'Document',cell:({row})=><Link className="underline" to={getSalesDocumentPath(row.original)}>{row.original.documentNumber}</Link>},{accessorKey:'type',header:'Type'},{id:'customer',accessorFn:d=>customerRepository.getById(d.customerId)?.businessName??'Unknown customer',header:'Customer'},{accessorKey:'documentDate',header:'Date'},{accessorKey:'status',header:'Status',cell:({row})=><StatusBadge status={row.original.status}/>},{id:'total',accessorFn:d=>d.totals.total,header:`Total (${businessSettings().currency})`,cell:({row})=>currency.format(row.original.totals.total)},{id:'actions',header:'Quick view',enableHiding:false,meta:{exportable:false},cell:({row})=><Button variant="ghost" size="sm" aria-label={`Preview ${row.original.documentNumber}`} onClick={()=>setPreview(row.original)}><Eye size={16}/> Preview</Button>}]} pagination={{pageSize:25}} capabilities={{id:'sales-documents',scope:'complete',permission:'sales.read',rowId:d=>d.type+'-'+d.id}}/>
+                <div aria-live="polite" className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-sm">
+                    <span>{filtered.length} records · All filtered pages</span>
+                    {tab === "ALL" && <span className="w-full text-xs text-[var(--color-text-secondary)]">{tabs.filter(item => item.value !== "ALL").map(item => `${item.label}: ${currency.format(filtered.filter(document => document.type === item.value).reduce((sum, document) => sum + Math.round(document.totals.total * 100), 0) / 100)}`).join(" · ")} · Combined document values, including linked quotes, orders and invoices.</span>}
+                </div>
+                <DataTable data={filtered} columns={[{accessorKey:'documentNumber',header:'Document',cell:({row})=><Link className="underline" to={getSalesDocumentPath(row.original)}>{row.original.documentNumber}</Link>},{accessorKey:'customerReference',header:'PO number',cell:({row})=>row.original.customerReference || '—'},{accessorKey:'type',header:'Type'},{id:'customer',accessorFn:d=>customerRepository.getById(d.customerId)?.businessName??'Unknown customer',header:'Customer'},{accessorKey:'documentDate',header:'Date'},{id:'promisedDate',accessorFn:document=>{const order=document.type==='SALES_ORDER'?document:document.type==='INVOICE'?documents.find(candidate=>candidate.type==='SALES_ORDER'&&candidate.id===document.sourceSalesOrderId):undefined;return order?.type==='SALES_ORDER'?order.requestedDeliveryDate??'':'';},header:'Promised date',cell:({getValue})=>getValue<string>()||'—'},{accessorKey:'status',header:'Status',cell:({row})=><StatusBadge status={row.original.status}/>},{id:'total',accessorFn:d=>d.totals.total,header:`Total (${businessSettings().currency})`,cell:({row})=>currency.format(row.original.totals.total)},{id:'actions',header:'Quick view',enableHiding:false,meta:{exportable:false},cell:({row})=><Button variant="ghost" size="sm" aria-label={`Preview ${row.original.documentNumber}`} onClick={()=>setPreview(row.original)}><Eye size={16}/> Preview</Button>}]} pagination={{pageSize:25}} capabilities={{id:'sales-documents',scope:'complete',permission:'sales.read',rowId:d=>d.type+'-'+d.id}}/>
+                <div aria-live="polite" className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-4 text-sm">
+                    <span className="text-[var(--color-text-secondary)]">
+                        {dateMode === "day"
+                            ? dateFrom || "All dates"
+                            : `${dateFrom || "Beginning"} – ${dateTo || "Present"}`}
+                        {" · "}{tabs.find(item => item.value === tab)?.label}{" · "}{filtered.length} records
+                    </span>
+                    <span className="font-semibold">Total ({businessSettings().currency})</span>
+                    <span className="text-xl font-semibold tabular-nums text-[var(--color-primary)]">{currency.format(filteredTotal)}</span>
+                </div>
             </section>
             {preview && <div role="presentation" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreview(null); }}>
                 <section role="dialog" aria-modal="true" aria-label="Sales document preview" aria-describedby="sales-preview-description" className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">

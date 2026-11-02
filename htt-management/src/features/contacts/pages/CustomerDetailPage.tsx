@@ -1,3 +1,5 @@
+import { CustomerOverviewSales } from "../components/CustomerOverviewSales";
+import { usePermission } from "../../security/usePermission";
 import { useCustomerDeposits, depositBalanceAt } from '../../customer-deposits/customerDepositRepository';
 import { businessSettings } from '../../business-workspace/configurationState';
 import { Link } from 'react-router-dom';
@@ -82,6 +84,7 @@ type EditorState =
     | null;
 
 export function CustomerDetailPage() {
+    const canReadSales = usePermission("sales.read");
     const deposits=useCustomerDeposits();
     const { customerId } = useParams();
 
@@ -304,6 +307,7 @@ export function CustomerDetailPage() {
                     </Tab>
                 </div>
 
+                {activeTab === "overview" && canReadSales && <CustomerOverviewSales customer={customer}/>}
                 {activeTab === "overview" && (
                     <OverviewTab
                         customer={customer}

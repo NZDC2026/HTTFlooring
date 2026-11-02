@@ -6,6 +6,8 @@ export interface DashboardMetric {
 }
 
 export interface MonthlyFinancialData {
+    lastYearRevenue?: number;
+    lastYearExpenses?: number;
     month: string;
     revenue: number;
     expenses: number;

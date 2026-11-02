@@ -615,9 +615,7 @@ export function InvoiceDetailPage() {
                 <div><Link className="text-sm underline" to={`/documents/delivery?kind=INVOICE&sourceId=${invoice.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={invoice.recipient}/><PricingTimeSummary lines={invoice.lines}/></div>
                 <InfoCard
                     label="Customer"
-                    value={
-                        customerName
-                    }
+                    value={<Link to={`/contacts/customers/${resolvedCustomerId}`} className="text-[var(--color-primary)] underline underline-offset-4 hover:opacity-80">{customerName}</Link>}
                 />
 
                 <InfoCard
@@ -1564,7 +1562,7 @@ function InfoCard({
     value,
 }: {
     label: string;
-    value: string;
+    value: import("react").ReactNode;
 }) {
     return (
         <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white px-5 py-4 shadow-[var(--shadow-xs)]">
