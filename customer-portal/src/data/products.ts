@@ -1,4 +1,7 @@
+export type AccessoryKind = "scotia" | "stair-nose" | "trims";
 export type Product = {
+    accessoryKind?: AccessoryKind;
+    accessoryProductIds?: Partial<Record<AccessoryKind,string>>;
     id: string;
     name: string;
     seriesId: string;
@@ -13,7 +16,11 @@ export type Product = {
     colour: string;
     price: number;
     standardPrice?: number;
+    customerPrice?: number;
+    promotionPrice?: number;
     discount?: number;
+    promotionStartDate?: string;
+    promotionEndDate?: string;
     isNew?: boolean;
     isClearance?: boolean;
     boxes: number;
@@ -46,7 +53,11 @@ export const products: Product[] = [
         colourSwatchOffset: 238,
         price: 69,
         standardPrice: 82,
+        customerPrice: 75,
+        promotionPrice: 69,
         discount: 16,
+        promotionStartDate: "2026-11-01",
+        promotionEndDate: "2026-11-30",
         boxes: 221,
         sqm: 478.686,
         status: "In Stock",
@@ -72,6 +83,8 @@ export const products: Product[] = [
         colour: "Natural Grey",
         price: 47.5,
         standardPrice: 55,
+        customerPrice: 50,
+        promotionPrice: 47.5,
         discount: 14,
         boxes: 87,
         sqm: 191.4,
@@ -89,6 +102,8 @@ export const products: Product[] = [
         colour: "Silver",
         price: 44,
         standardPrice: 48,
+        customerPrice: 46,
+        promotionPrice: 44,
         discount: 10,
         boxes: 26,
         sqm: 57.2,
@@ -107,6 +122,8 @@ export const products: Product[] = [
         colour: "Rustic Oak",
         price: 72,
         standardPrice: 82,
+        customerPrice: 78,
+        promotionPrice: 72,
         discount: 12,
         boxes: 18,
         sqm: 39.6,
@@ -137,20 +154,58 @@ products.push(...bonitaColours.map((colour, index): Product => ({
     scotia: colour.scotia,
     trims: colour.trims,
     colourSwatchOffset: 238 + (index + 1) * 49,
-    priceKnown: false,
-    standardPrice: undefined,
-    discount: undefined,
+    priceKnown: true,
     stockKnown: false,
     boxes: 0,
     sqm: 0,
-}))); // Price and stock await colour-specific data; zero values are never displayed as stock.
+}))); // Local preview colours share the Bonita example price; stock remains unknown.
+
+// Accessory references use explicit local preview prices; stock remains unknown.
+const accessoryNames:Record<AccessoryKind,string>={scotia:"Scotia","stair-nose":"Stair Nose",trims:"Trims"};
+const accessoryExamplePrices:Record<AccessoryKind,number>={scotia:6.50,"stair-nose":45,trims:12};
+const accessoryStandardPrices:Record<AccessoryKind,number>={scotia:8,"stair-nose":55,trims:15};
+const accessoryCatalogue=new Map<string,Product>();
+for(const parent of [...products]){
+    parent.accessoryProductIds={};
+    const references:[AccessoryKind,string|undefined][]=[["scotia",parent.scotia],["stair-nose",parent.hdfStairNose],["trims",parent.trims]];
+    for(const [kind,code] of references){
+        if(!code||code==="-")continue;
+        const customized=code.toLowerCase()==="customized";
+        const id=`accessory-${kind}-${customized?parent.id:code.toLowerCase().replace(/[^a-z0-9]+/g,"-")}`;
+        parent.accessoryProductIds[kind]=id;
+        if(accessoryCatalogue.has(id))continue;
+        accessoryCatalogue.set(id,{
+            id,name:`${accessoryNames[kind]} ${customized?`${parent.seriesName} ${parent.colour} (Customized)`:code}`,
+            seriesId:`accessories-${kind}`,seriesName:accessoryNames[kind],accessoryKind:kind,
+            sku:customized?`CUSTOM-${parent.colourCode??parent.sku}`:code,colourCode:code,
+            category:"Accessories",colour:customized?parent.colour:code,price:accessoryExamplePrices[kind],standardPrice:accessoryStandardPrices[kind],customerPrice:accessoryExamplePrices[kind],priceKnown:true,
+            boxes:0,sqm:0,stockKnown:false,status:"Out of Stock",image:parent.image,
+            colourSwatchOffset:parent.colourSwatchOffset,
+        });
+    }
+}
+products.push(...accessoryCatalogue.values());
+// Non-promotional colour examples keep the everyday customer discount from standard price.
+for(const product of products)if(["bonita-latte-oak","bonita-lime-wash","bonita-grey-wash"].includes(product.id)){
+    product.promotionPrice=undefined;
+    product.promotionStartDate=undefined;
+    product.promotionEndDate=undefined;
+}
+
+// Legacy price remains the effective selling price; customer and promotion rates are explicit.
+for(const product of products){
+    const pricing=getProductPricing(product);
+    product.price=pricing.current;
+    product.discount=pricing.discount||undefined;
+    if(pricing.promotion){product.promotionStartDate ??= "2026-11-01";product.promotionEndDate ??= "2026-11-30";}
+}
 
 export type ProductSeries = {
-    id: string; name: string; category: string; image: string; products: Product[];
+    id: string; name: string; category: string; image: string; logo?: string; products: Product[];
 };
 export const productSeries: ProductSeries[] = Array.from(new Set(products.map(product => product.seriesId))).map(id => {
     const colours = products.filter(product => product.seriesId === id);
-    return { id, name: colours[0].seriesName, category: colours[0].category, image: colours[0].image, products: colours };
+    return { id, logo: id === "bonita" ? "/images/brands/bonita-transparent.png" : undefined, name: colours[0].seriesName, category: colours[0].category, image: colours[0].image, products: colours };
 });
 
 export function filterProductSeries(query: string, category: string, collection: string, sort: string) {
@@ -159,7 +214,7 @@ export function filterProductSeries(query: string, category: string, collection:
         matchesCollection(product, collection) && [series.name, product.name, product.colour, product.sku, product.colourCode ?? "", product.category].some(value => value.toLowerCase().includes(search))
     ));
     const price = (series: ProductSeries) => Math.min(...series.products.filter(product => product.priceKnown !== false).map(product => product.price));
-    return matches.sort((a,b) => sort === "Price: Low to High" ? price(a) - price(b) : sort === "Price: High to Low" ? price(b) - price(a) : 0);
+    return matches.sort((a,b) => sort === "Relevance" ? 0 : !Number.isFinite(price(a)) ? (Number.isFinite(price(b)) ? 1 : 0) : !Number.isFinite(price(b)) ? -1 : sort === "Price: Low to High" ? price(a) - price(b) : sort === "Price: High to Low" ? price(b) - price(a) : 0);
 }
 
 export const productCollections = [
@@ -168,9 +223,26 @@ export const productCollections = [
     { id: "clearance", name: "Clearance", description: "Shop the remaining stock", image: products[3].image },
 ] as const;
 
+export function getProductPricing(product: Product) {
+    const customer=product.customerPrice??product.price;
+    const promotion=product.priceKnown!==false&&product.promotionPrice!=null&&Number.isFinite(product.promotionPrice)&&product.promotionPrice>0&&product.promotionPrice<customer;
+    const current=promotion?product.promotionPrice!:customer;
+    const discount=promotion?Math.round((customer-current)/customer*1000)/10:0;
+    return {standard:product.standardPrice??customer,customer,current,promotion,discount};
+}
+export function hasPromotion(product: Product) {
+    return getProductPricing(product).promotion;
+}
+
 export function matchesCollection(product: Product, collection: string) {
     if (collection === "new") return product.isNew === true;
-    if (collection === "promotion") return (product.discount ?? 0) > 0;
-    if (collection === "clearance") return product.isClearance === true;
+    if (collection === "promotion") return hasPromotion(product);
+    if (collection === "clearance") return product.isClearance === true && hasPromotion(product);
     return true;
+}
+
+export function getColourCollection(id: string) {
+    const collection = productCollections.find(collection => collection.id === id);
+    if (!collection) return undefined;
+    return { ...collection, products: products.filter(product => !product.accessoryKind && matchesCollection(product, id)) };
 }

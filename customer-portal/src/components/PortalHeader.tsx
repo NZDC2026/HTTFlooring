@@ -13,7 +13,7 @@ export default function PortalHeader() {
 
             <nav className="portal-nav">
                 <NavLink to="/dashboard">Dashboard</NavLink>
-                <NavLink to="/inventory" className={({isActive})=>isActive || pathname.startsWith("/series/") || pathname.startsWith("/products/") ? "active" : ""}>Inventory Lookup</NavLink>
+                <NavLink to="/inventory" className={({isActive})=>isActive || (pathname.startsWith("/series/") || pathname.startsWith("/collections/")) || pathname.startsWith("/products/") ? "active" : ""}>Inventory Lookup</NavLink>
                 <NavLink to="/invoices">Invoices</NavLink>
                 <NavLink to="/account">My Account</NavLink>
             </nav>

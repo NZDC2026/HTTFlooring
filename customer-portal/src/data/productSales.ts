@@ -1,7 +1,9 @@
 import { invoices } from "./invoices";
+import type { ReturnNote } from "./returnNotes";
 import { products } from "./products";
 
 export type SalesInvoice = {
+  id?: string;
   customerId: string;
   status: "invoice" | "order" | "quotation";
   date: Date;
@@ -41,6 +43,19 @@ export function demoProductSales(customerId: string, now: Date): SalesInvoice[] 
 }
 
 export const salesInvoices: SalesInvoice[] = invoices.map(invoice => ({
- customerId: "abc-flooring", status: "invoice", date: new Date(invoice.issueDate),
+ id: invoice.id, customerId: "abc-flooring", status: "invoice", date: new Date(invoice.issueDate),
  items: invoice.items.map(item => ({productId:item.productId,name:item.description,sku:products.find(product=>product.id===item.productId)?.sku??item.productId,sqm:item.totalSize??0,boxes:item.quantity})),
 }));
+
+// Restate the original sale period as net volume; applying financial credit is independent.
+export function netSalesInvoices(notes: ReturnNote[]): SalesInvoice[] {
+ return salesInvoices.map(invoice=>{
+  const returnedItems=notes.filter(note=>note.status==="Confirmed"&&note.invoiceId===invoice.id).flatMap(note=>note.creditNote?.items??[]);
+  return {...invoice,items:invoice.items.map(item=>{
+   const returned=returnedItems.filter(returned=>returned.productId===item.productId);
+   const boxes=returned.reduce((sum,line)=>sum+line.quantity,0);
+   const sqm=returned.reduce((sum,line)=>sum+(line.totalSize??0),0);
+   return {...item,boxes:Math.max(0,item.boxes-boxes),sqm:Math.max(0,Number((item.sqm-sqm).toFixed(6)))};
+  })};
+ });
+}

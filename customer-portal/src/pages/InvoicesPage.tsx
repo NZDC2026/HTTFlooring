@@ -1,20 +1,27 @@
 import { Search } from "lucide-react";
 import { useSearchParams, Link } from "react-router-dom";
+import CreditNotesPanel from "../components/CreditNotesPanel";
+import ReturnsPanel from "../components/ReturnsPanel";
 import PortalHeader from "../components/PortalHeader";
-import { invoices, invoiceSummary } from "../data/invoices";
+import { useInvoiceLedger } from "../data/ledger";
 
 const money = (value: number) => value.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
 
 export default function InvoicesPage() {
+  const {invoices,invoiceSummary}=useInvoiceLedger();
   const [params,setParams]=useSearchParams();
+  const creditsTab=params.get("tab")==="credits";
+  const returnsTab=params.get("tab")==="returns";
   const query=params.get("q")??"", status=params.get("status")??"All";
   const setFilter=(key:string,value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);next.set(key,value);return next;},{replace:true});
   const visibleInvoices=invoices.filter(invoice=>invoice.invoiceNumber.toLowerCase().includes(query.trim().toLowerCase()) && (status==="All" || invoice.status===status));
   const { outstanding, outstandingCount, overdue, overdueCount, paidCount, aging } = invoiceSummary;
 
   return <><PortalHeader /><main className="invoices-page">
-    <section className="invoices-heading"><h1>Invoices</h1><p>View invoices, outstanding balances and overdue accounts.</p></section>
+    <section className="invoices-heading"><h1>Invoices</h1><p>View invoices, outstanding balances and return notes.</p></section>
     <section className="invoice-content">
+      <nav className="document-tabs" aria-label="Invoice documents"><Link to="/invoices" aria-current={!returnsTab&&!creditsTab?"page":undefined} className={!returnsTab&&!creditsTab?"active":""}>Invoices</Link><Link to="/invoices?tab=credits" aria-current={creditsTab?"page":undefined} className={creditsTab?"active":""}>Credit Notes</Link></nav>
+      {creditsTab ? <CreditNotesPanel/> : returnsTab ? <ReturnsPanel/> : <>
       <div className="invoice-summary">
         <div><small>Outstanding</small><strong>{money(outstanding)}</strong><span>{outstandingCount} invoices</span></div>
         <div className="danger-card"><small>Overdue</small><strong>{money(overdue)}</strong><span>{overdueCount} {overdueCount===1?"invoice":"invoices"}</span></div>
@@ -30,6 +37,7 @@ export default function InvoicesPage() {
         {visibleInvoices.length===0 && <div className="empty-state"><p>No invoices match your search.</p><button className="outline-copper-button" onClick={()=>setParams({})}>Clear filters</button></div>}
       </div>
       <div className="aging"><h2>Account Aging</h2><div>{aging.map(bucket => <span key={bucket.label}>{bucket.label} <strong>{money(bucket.balance)}</strong></span>)}</div></div>
+      </>}
     </section>
   </main></>;
 }

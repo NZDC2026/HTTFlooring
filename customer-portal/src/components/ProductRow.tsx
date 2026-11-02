@@ -1,9 +1,10 @@
 import { ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import type { Product } from "../data/products";
+import { getProductPricing, type Product } from "../data/products";
 
 export default function ProductRow({ product }: { product: Product }) {
     const location = useLocation();
+    const pricing=getProductPricing(product);
     const statusClass =
         product.status === "In Stock"
             ? "stock-good"
@@ -34,8 +35,8 @@ export default function ProductRow({ product }: { product: Product }) {
 
                 {product.standardPrice && (
                     <small>
-                        Standard
-                        <strong>${product.standardPrice.toFixed(2)}</strong>
+                        {pricing.promotion ? "Your Price" : "Standard"}
+                        <strong>${(pricing.promotion?pricing.customer:pricing.standard).toFixed(2)}</strong>
                     </small>
                 )}
             </div>

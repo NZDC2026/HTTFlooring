@@ -1,0 +1,14 @@
+import { Search } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useInvoiceLedger } from "../data/ledger";
+const money=(value:number)=>value.toLocaleString("en-AU",{style:"currency",currency:"AUD"});
+export default function CreditNotesPanel(){
+ const {credits,invoices,unappliedCredit}=useInvoiceLedger();
+ const [params,setParams]=useSearchParams();const query=params.get("creditQ")??"";
+ const visible=credits.filter(credit=>[credit.number,credit.returnNumber,...credit.applications.map(application=>invoices.find(invoice=>invoice.id===application.invoiceId)?.invoiceNumber??""),invoices.find(invoice=>invoice.id===credit.invoiceId)?.invoiceNumber??""].some(value=>value.toLowerCase().includes(query.trim().toLowerCase())));
+ const total=credits.reduce((sum,credit)=>sum+Math.round(credit.total*100),0)/100;
+ return <section><div className="returns-toolbar"><div><h2>Credit Notes</h2><p>Issued credit notes only reduce invoice balances after Apply.</p></div></div>
+ <div className="invoice-summary"><div><small>Credit Notes</small><strong>{credits.length}</strong><span>issued from confirmed returns</span></div><div><small>Total Credits</small><strong>{money(total)}</strong><span>including GST</span></div><div><small>Unapplied Credit</small><strong>{money(unappliedCredit)}</strong><span>available to apply to invoices</span></div></div>
+ <div className="invoice-search"><Search size={18}/><input aria-label="Search credit notes" placeholder="Search credit, return or invoice number..." value={query} onChange={event=>setParams(previous=>{const next=new URLSearchParams(previous);next.set("creditQ",event.target.value);return next;},{replace:true})}/></div>
+ <div className="invoice-table"><div className="invoice-table-head"><span>Credit Note</span><span>Issued</span><span>Original Invoice</span><span>Credit Amount</span><span>Apply to Invoice</span><span>Status</span></div>{visible.map(credit=><Link className="invoice-line" key={credit.id} to={`/invoices/credits/${credit.id}`}><strong>{credit.number}</strong><span>{new Date(`${credit.date}T12:00:00`).toLocaleDateString("en-AU",{day:"2-digit",month:"short",year:"numeric"})}</span><span>{invoices.find(invoice=>invoice.id===credit.invoiceId)?.invoiceNumber}</span><span>{money(credit.total)}</span><span>{credit.applications.length ? [...new Set(credit.applications.map(application=>invoices.find(invoice=>invoice.id===application.invoiceId)?.invoiceNumber??application.invoiceId))].join(", ") : "-"}</span><span className="invoice-status return-confirmed">{credit.remainingAmount===0?"Applied":credit.appliedAmount>0?"Partially Applied":"Issued"}</span></Link>)}{visible.length===0&&<div className="empty-state"><p>{credits.length?"No credit notes match your search.":"No credit notes yet. Confirm a return to issue its credit note."}</p></div>}</div></section>;
+}

@@ -2,15 +2,19 @@ import { ArrowLeft, Box, Ruler } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import ProductSalesCard from "../components/ProductSalesCard";
-import { salesInvoices } from "../data/productSales";
+import { netSalesInvoices } from "../data/productSales";
+import { useReturnNotes } from "../data/returnNotes";
 import { useLocalAccount } from "../data/localAccount";
-import { products } from "../data/products";
+import { getProductPricing, products } from "../data/products";
 
 export default function ProductPage() {
     const { id } = useParams();
+    const salesInvoices=netSalesInvoices(useReturnNotes());
     const location=useLocation();
     const inventorySearch=typeof location.state?.inventorySearch==="string" ? location.state.inventorySearch : "";
+    const listingReturnTo=typeof location.state?.listingReturnTo==="string" && /^\/collections\/(new|promotion|clearance)(?:\?|$)/.test(location.state.listingReturnTo) ? location.state.listingReturnTo : "";
     const seriesSearch=typeof location.state?.seriesSearch==="string" ? location.state.seriesSearch : "";
+    const accessoryReturnTo=typeof location.state?.accessoryReturnTo==="string" && /^\/(series|products|collections)\//.test(location.state.accessoryReturnTo) ? location.state.accessoryReturnTo : "";
     const {profile}=useLocalAccount();
 
     const product = products.find((item) => item.id === id);
@@ -19,18 +23,19 @@ export default function ProductPage() {
         return <><PortalHeader/><main className="empty-state"><h1>Product not found</h1><Link to="/inventory">Back to inventory</Link></main></>;
     }
 
+    const pricing=getProductPricing(product);
     return (
         <>
             <PortalHeader />
 
             <main className="product-page">
-                <Link to={`/series/${product.seriesId}${seriesSearch}`} state={{inventorySearch}} className="back-link">
-                    <ArrowLeft size={17} /> Back to {product.seriesName} colours
+                <Link to={product.accessoryKind && accessoryReturnTo ? accessoryReturnTo : listingReturnTo || `/series/${product.seriesId}${seriesSearch}`} state={{inventorySearch}} className="back-link">
+                    <ArrowLeft size={17} /> {product.accessoryKind && accessoryReturnTo ? "Back to product colours" : listingReturnTo ? "Back to collection" : `Back to ${product.seriesName} colours`}
                 </Link>
 
                 <div className="product-detail-grid">
                     <section className="product-gallery">
-                        <img className="main-product-image" src={product.image} alt="" />
+                        <img className="main-product-image" src={product.image} alt="" />{product.accessoryKind && <p className="accessory-image-note">Room image for colour reference. Accessory photo not supplied.</p>}
 
                         <div className="thumbnails">
                             <img src={product.image} alt="" />
@@ -58,17 +63,10 @@ export default function ProductPage() {
                                 <span className="discount">{product.discount}% OFF</span>
                             )}
 
-                            <small>
-                                Standard
-                                <strong>${product.standardPrice?.toFixed(2)}</strong>
-                            </small>
+                            <small>Standard Price<strong>${pricing.standard.toFixed(2)}</strong></small>{pricing.promotion && <small>Your Price<strong className="detail-original-customer-price">${pricing.customer.toFixed(2)}</strong></small>}
                         </>} </div>
 
-                        <p className="description">
-                            A timeless oak design with natural tones and excellent wear
-                            resistance. Perfect for modern Australian homes and commercial
-                            spaces.
-                        </p>
+                        <p className="description">{product.accessoryKind ? `Matching ${product.seriesName.toLowerCase()} accessory. Contact your HTT account manager for pricing, availability and specifications.` : "A timeless oak design with natural tones and excellent wear resistance. Perfect for modern Australian homes and commercial spaces."}</p>
 
                         <dl className="specs">
                             <dt>Category</dt>
@@ -99,13 +97,13 @@ export default function ProductPage() {
                             <dd>{product.boardsPerPack ?? "—"}</dd>
 
                             <dt>Scotia</dt>
-                            <dd>{product.scotia || "-"}</dd>
+                            <dd>{product.accessoryProductIds?.["scotia"] ? <Link className="accessory-product-link" to={`/products/${product.accessoryProductIds["scotia"]}`} state={{inventorySearch,accessoryReturnTo:location.pathname+location.search}}>{product.scotia}</Link> : product.scotia || "-"}</dd>
 
                             <dt>Stair Nose</dt>
-                            <dd>{product.hdfStairNose || "-"}</dd>
+                            <dd>{product.accessoryProductIds?.["stair-nose"] ? <Link className="accessory-product-link" to={`/products/${product.accessoryProductIds["stair-nose"]}`} state={{inventorySearch,accessoryReturnTo:location.pathname+location.search}}>{product.hdfStairNose}</Link> : product.hdfStairNose || "-"}</dd>
 
                             <dt>Trims</dt>
-                            <dd>{product.trims || "-"}</dd>
+                            <dd>{product.accessoryProductIds?.["trims"] ? <Link className="accessory-product-link" to={`/products/${product.accessoryProductIds["trims"]}`} state={{inventorySearch,accessoryReturnTo:location.pathname+location.search}}>{product.trims}</Link> : product.trims || "-"}</dd>
                         </dl>
                     </section>
 
@@ -143,11 +141,11 @@ export default function ProductPage() {
                             &nbsp;&nbsp;&nbsp;&nbsp;promotions and large order enquiries.
                         </div>
 
-                        <h3>Related Colours</h3>
+                        <h3>{product.accessoryKind ? "Matching Colours" : "Related Colours"}</h3>
 
                         <div className="related-products">
-                            {products.filter(item=>item.id!==product.id).sort((a,b)=>Number(b.seriesId===product.seriesId)-Number(a.seriesId===product.seriesId)).slice(0,3).map((item) => (
-                                <Link to={`/products/${item.id}`} state={{inventorySearch,seriesSearch:item.seriesId===product.seriesId?seriesSearch:""}} key={item.id}>
+                            {products.filter(item=>item.id!==product.id && (product.accessoryKind ? Object.values(item.accessoryProductIds??{}).includes(product.id) : !item.accessoryKind)).sort((a,b)=>Number(b.seriesId===product.seriesId)-Number(a.seriesId===product.seriesId)).slice(0,3).map((item) => (
+                                <Link to={`/products/${item.id}`} state={{inventorySearch,seriesSearch:item.seriesId===product.seriesId?seriesSearch:"",listingReturnTo}} key={item.id}>
                                     <img src={item.image} alt="" />
                                     <span>{item.name}</span>
                                 </Link>

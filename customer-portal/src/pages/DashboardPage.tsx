@@ -1,7 +1,7 @@
 import { AlertCircle, ArrowUpRight, MapPin, Search } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
-import { invoiceSummary } from "../data/invoices";
+import { useInvoiceLedger } from "../data/ledger";
 import { productCollections } from "../data/products";
 
 const money = (value: number) => value.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
@@ -32,6 +32,7 @@ const categories = [
 ];
 
 export default function DashboardPage() {
+    const {invoiceSummary,unappliedCredit,credits}=useInvoiceLedger();
     const {profile}=useLocalAccount(); const navigate=useNavigate();
     const { outstanding, outstandingCount, overdue, overdueCount, attentionInvoice } = invoiceSummary;
     return (
@@ -58,9 +59,10 @@ export default function DashboardPage() {
                 </section>
 
                 <section className="dashboard-content">
-                    <div className="account-summary-cards">
+                    <div className="account-summary-cards dashboard-account-summary">
                         <div><small>Outstanding</small><strong>{money(outstanding)}</strong><span>{outstandingCount} {outstandingCount === 1 ? "invoice" : "invoices"}</span></div>
                         <div className="overdue-summary"><small>Overdue</small><strong>{money(overdue)}</strong><span>{overdueCount} {overdueCount === 1 ? "invoice" : "invoices"}</span></div>
+                        <Link to="/invoices?tab=credits" className="credit-summary"><small>Credit</small><strong>{money(unappliedCredit)}</strong><span>{credits.filter(credit=>credit.remainingAmount>0).length} unapplied credit {credits.filter(credit=>credit.remainingAmount>0).length===1?"note":"notes"}</span></Link>
                         {attentionInvoice && <Link to={`/invoices/${attentionInvoice.id}`} className="payment-attention"><AlertCircle size={20}/><div><small>Payment attention</small><strong>{attentionInvoice.invoiceNumber} · {money(attentionInvoice.balance)}</strong><span>{attentionInvoice.overdueDays} days overdue</span></div></Link>}
                     </div>
                     <form className="search-large" onSubmit={event=>{event.preventDefault();const values=new FormData(event.currentTarget);navigate(`/inventory?q=${encodeURIComponent(String(values.get("q")??""))}`);}}>
@@ -73,7 +75,7 @@ export default function DashboardPage() {
 
                     <div className="product-collections" aria-label="Featured product collections">
                         {productCollections.map(collection => (
-                            <Link className={`collection-card collection-${collection.id}`} to={`/inventory?collection=${collection.id}`} key={collection.id}>
+                            <Link className={`collection-card collection-${collection.id}`} to={`/collections/${collection.id}`} key={collection.id}>
                                 <img src={collection.image} alt="" loading="lazy"/>
                                 <div className="collection-card-content">
                                     <h3>{collection.name}</h3>

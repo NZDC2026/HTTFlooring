@@ -3,9 +3,10 @@ import { LockKeyhole, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import { changePassword, updateProfile, useLocalAccount } from "../data/localAccount";
-import { invoiceSummary } from "../data/invoices";
+import { useInvoiceLedger } from "../data/ledger";
 const money = (value: number) => value.toLocaleString("en-AU", {style:"currency",currency:"AUD"});
 export default function AccountPage() {
+ const {invoiceSummary}=useInvoiceLedger();
  const {profile} = useLocalAccount(), navigate = useNavigate();
  const [editing,setEditing] = useState(false), [security,setSecurity] = useState(false), [busy,setBusy] = useState(false), [error,setError] = useState(""), [message,setMessage] = useState("");
  return <><PortalHeader/><main className="account-page"><aside className="account-banner"><h1>My Account</h1><p>View and manage your<br/>business information.</p></aside><section className="account-content"><h1>{profile.businessName}</h1>{error && <p role="alert" className="form-error">{error}</p>}{message && <p role="status" className="form-success">{message}</p>}

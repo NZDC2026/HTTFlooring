@@ -1,16 +1,18 @@
 import { ArrowLeft, Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
-import { invoices } from "../data/invoices";
+import { useInvoiceLedger } from "../data/ledger";
 import { useLocalAccount } from "../data/localAccount";
 const money=(v:number)=>v.toLocaleString("en-AU",{style:"currency",currency:"AUD"});
 const area = (value: number | null | undefined) => value == null ? "-" : `${value.toFixed(3)} m²`;
 export default function InvoiceDetailPage(){
+ const {invoices,credits}=useInvoiceLedger();
  const {profile}=useLocalAccount();
  const {id}=useParams(); const invoice=invoices.find(i=>i.id===id);
  if(!invoice) return <><PortalHeader/><main className="invoice-detail"><h1>Invoice not found</h1></main></>;
  const items = invoice.items;
  const totals = invoice;
+ const appliedCredits = credits.filter(credit=>credit.applications.some(application=>application.invoiceId===invoice.id));
  return <><PortalHeader/><main className="invoice-detail">
   <Link className="back-link" to="/invoices"><ArrowLeft size={17}/> Back to invoices</Link>
   <section className="invoice-paper">
@@ -20,7 +22,8 @@ export default function InvoiceDetailPage(){
     <div className="invoice-items-head"><span>Description</span><span>Size Per Box</span><span>Qty</span><span>Total Size</span><span>Unit Price</span><span>Amount</span></div>
     {items.map(item => <div key={item.productId}><span>{item.description}</span><span>{area(item.sizePerBox)}</span><span>{item.quantity}</span><span>{area(item.totalSize)}</span><span>{money(item.unitPrice)}</span><span>{money(item.amountCents / 100)}</span></div>)}
    </div></div>
-   <div className="invoice-totals"><span>Subtotal <strong>{money(totals.subtotal)}</strong></span><span>Freight <strong>{money(totals.freight)}</strong></span><span>GST <strong>{money(totals.gst)}</strong></span><span>Total <strong>{money(totals.total)}</strong></span><span>Paid <strong>{money(totals.paid)}</strong></span><span className="balance">Balance Due <strong>{money(totals.balance)}</strong></span></div>
+   <div className="invoice-totals"><span>Subtotal <strong>{money(totals.subtotal)}</strong></span><span>Freight <strong>{money(totals.freight)}</strong></span><span>GST <strong>{money(totals.gst)}</strong></span><span>Total <strong>{money(totals.total)}</strong></span><span>Paid <strong>{money(totals.paid)}</strong></span><span>Credits Applied <strong>{totals.creditApplied > 0 ? `−${money(totals.creditApplied)}` : money(0)}</strong></span><div className="invoice-applied-credit-list" aria-label="Applied Credit Notes">{appliedCredits.length ? appliedCredits.map(credit=><div className="invoice-applied-credit-row" key={credit.id}><Link to={`/invoices/credits/${credit.id}`}>{credit.number}</Link><strong>−{money(credit.applications.filter(application=>application.invoiceId===invoice.id).reduce((sum,application)=>sum+Math.round(application.amount*100),0)/100)}</strong></div>) : "-"}</div><span className="balance">Balance Due <strong>{money(totals.balance)}</strong></span></div>
+
    <button className="primary-button invoice-download" onClick={()=>window.print()}><Download size={17}/> Print / Save PDF</button>
   </section>
  </main></>;

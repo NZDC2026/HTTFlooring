@@ -22,12 +22,13 @@ export default function ProductSalesCard({ invoices = emptyInvoices, customerId 
   const hasArea = getSizePerBox(products.find(product=>product.id===productId)?.packSize) != null;
   const productTrends = report.products.filter(product => product.productId === productId);
   return <section className="product-sales" aria-labelledby="product-sales-title">
-    <div className="sales-heading"><div><h2 id="product-sales-title">Product Sales</h2><p>Invoiced volume · trend by {hasArea ? "m²" : "boxes"} · returns not deducted</p></div>
+    <div className="sales-heading"><div><h2 id="product-sales-title">Product Sales</h2><p>{demo ? "Sample invoiced volume" : "Net invoiced volume"} · trend by {hasArea ? "m²" : "boxes"} · {demo ? "preview only" : "confirmed returns deducted"}</p></div>
       <label className="sales-demo"><input type="checkbox" checked={demo} onChange={event => setDemoOverride(event.target.checked)} /> Demo data</label>
     </div>
     <div className="sales-toolbar"><div className="sales-periods" role="group" aria-label="Sales period">{[30, 90].map(value => <button type="button" key={value} aria-pressed={days === value} onClick={() => setDays(value)}>Last {value} days</button>)}</div>
-      <span>{demo ? "Sample sales for preview only" : invoices.length ? "Showing local invoice data" : "No local invoice sales"}</span>
+      <span>{demo ? "Sample sales for preview only" : invoices.length ? "Showing local invoices net of confirmed returns" : "No local invoice sales"}</span>
     </div>
+    {!demo && <p className="sales-net-note">Confirmed returns are deducted from the original invoice period, whether or not the credit has been applied.</p>}
     <div className="sales-dates"><strong>{period(report.start, report.end)}</strong><span>vs {period(report.previousStart, report.start)}</span></div>
     <div aria-live="polite">{productTrends.length === 0 ? <p className="sales-empty">No product sales in these periods.</p> : <div className="sales-table-wrap"><table className="sales-table"><thead><tr><th scope="col">Product</th><th scope="col">Current period</th><th scope="col">Previous period</th><th scope="col">Trend</th></tr></thead><tbody>{productTrends.map(product => {
       const current = hasArea ? product.currentSqm : product.currentBoxes;

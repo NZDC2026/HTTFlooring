@@ -9,6 +9,8 @@ import ProductPage from "./pages/ProductPage";
 import SeriesPage from "./pages/SeriesPage";
 import RegisterPage from "./pages/RegisterPage";
 import InvoicesPage from "./pages/InvoicesPage";
+import CreditDetailPage from "./pages/CreditDetailPage";
+import ReturnDetailPage from "./pages/ReturnDetailPage";
 import InvoiceDetailPage from "./pages/InvoiceDetailPage";
 
 import { useEffect } from "react";
@@ -35,8 +37,11 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/series/:id" element={<SeriesPage />} />
+        <Route path="/collections/:id" element={<SeriesPage />} />
         <Route path="/products/:id" element={<ProductPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
+        <Route path="/invoices/credits/:id" element={<CreditDetailPage />} />
+        <Route path="/invoices/returns/:id" element={<ReturnDetailPage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="/account" element={<AccountPage />} />
         </Route>
