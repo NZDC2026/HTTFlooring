@@ -1,6 +1,4 @@
-import { useState } from "react";
-import { CustomerNoteThreads } from "../components/CustomerNoteThreads";
-import { workspaceRepositories } from "../../business-workspace/workspaceRepository";
+import { useVisits } from "../../sales-visits/visitRepository";
 import { useWorkspaceRecords } from "../../business-workspace/workspaceRepository";
 import type { ConfigRow } from "../../business-workspace/configurationState";
 import { useSecurity } from "../../security/securityClient";
@@ -28,32 +26,32 @@ import { useCustomers } from "../data/useCustomers";
 
 import type { Customer, CustomerContact, CustomerNote } from "../types/customer";
 
-const sampleThreads: CustomerNote[] = [
-    { id: "sample-visit", customerId: "", operationId: "", source: "Desktop", text: "Visited the showroom. The customer requested two oak samples.", actorId: "sample-alex", actorName: "Alex · Sales", createdAt: "2026-11-02T21:00:00Z" },
-    { id: "sample-reply", customerId: "", operationId: "", source: "Desktop", threadId: "sample-visit", action: "reply", text: "Samples are ready at the front desk for collection.", actorId: "sample-jamie", actorName: "Jamie · Front desk", createdAt: "2026-11-02T22:00:00Z" },
-    { id: "sample-resolved", customerId: "", operationId: "", source: "Desktop", threadId: "sample-visit", action: "resolve", text: "Marked resolved", actorId: "sample-alex", actorName: "Alex · Sales", createdAt: "2026-11-02T23:00:00Z" },
-    { id: "sample-delivery", customerId: "", operationId: "", source: "Desktop", text: "Customer requested delivery on Thursday morning. Confirm site access before dispatch.", actorId: "sample-jamie", actorName: "Jamie · Front desk", createdAt: "2026-11-03T00:00:00Z" },
-];
-
-function NotesAndTasksSample({ expanded }: { expanded: boolean }) {
-    return <details open={expanded || undefined} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-        <summary className="cursor-pointer text-sm font-medium text-amber-900">Sample preview · Notes &amp; Tasks</summary>
-        <div className="mt-3 space-y-3">
-            <CustomerNoteThreads customerId="" notes={sampleThreads} showComposer={false} readOnly/>
-            <ul aria-label="Sample tasks" className="divide-y rounded-lg border bg-white">
-                <li className="px-3 py-2 text-sm"><p className="font-medium">Confirm delivery address</p><p className="text-xs text-[var(--color-text-secondary)]">05 Nov 2026 · Jamie · Front desk · Open</p></li>
-                <li className="px-3 py-2 text-sm"><p className="font-medium">Prepare oak samples</p><p className="text-xs text-[var(--color-text-secondary)]">03 Nov 2026 · Completed by Alex · Sales</p></li>
-            </ul>
-        </div>
-    </details>;
-}
-
 type CustomerRow = Customer & {
     availableCredit: number;
     tasks: ConfigRow[];
+    lastContactDate: string;
+    sampleContactDays: number | null | undefined;
     lastSaleDate: string;
     lastPaymentDate: string;
 };
+
+const dayMilliseconds = 86_400_000;
+
+function ContactAge({ days }: { days: number | null }) {
+    const color = days === null ? "bg-gray-400" : days < 14 ? "bg-green-500"
+        : days < 30 ? "bg-yellow-500" : days <= 60 ? "bg-orange-500" : "bg-red-600";
+    return <span className="inline-flex items-center gap-2 whitespace-nowrap">
+        <span aria-hidden="true" className={`size-2.5 rounded-full ${color}`}/>
+        {days === null ? "No contact recorded" : `${days} days ago`}
+    </span>;
+}
+
+function contactAge(date: string) {
+    if (!date) return null;
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.max(0, Math.floor((today - Date.parse(date)) / dayMilliseconds));
+}
 
 function displayActivityDate(value: string) {
     if (!value) return "—";
@@ -216,6 +214,25 @@ const columns: ColumnDef<
             cell: ({ row }) => displayActivityDate(row.original.lastSaleDate),
         },
         {
+            accessorKey: "lastContactDate",
+            header: "Last Contact Date",
+            meta: { align: "center" },
+            cell: ({ row }) => {
+                const { lastContactDate, sampleContactDays } = row.original;
+                if (lastContactDate || sampleContactDays === undefined) return <div>
+                    {lastContactDate && <div>{displayActivityDate(lastContactDate)}</div>}
+                    <ContactAge days={contactAge(lastContactDate)}/>
+                </div>;
+                const date = new Date();
+                if (sampleContactDays !== null) date.setDate(date.getDate() - sampleContactDays);
+                return <div>
+                    <span className="rounded bg-amber-100 px-1 text-xs text-amber-900">Sample</span>
+                    {sampleContactDays !== null && <div>{date.toLocaleDateString("en-AU")}</div>}
+                    <ContactAge days={sampleContactDays}/>
+                </div>;
+            },
+        },
+        {
             accessorKey: "lastPaymentDate",
             header: "Last Payment",
             meta: { align: "center" },
@@ -224,7 +241,7 @@ const columns: ColumnDef<
 
         {
             id: "notes",
-            header: "Notes & Tasks",
+            header: "Activities",
             enableSorting: false,
             meta: { exportable: false },
         },
@@ -267,24 +284,43 @@ function CustomerStatusCell({ customer }: { customer: Customer }) {
     </span>;
 }
 
+function activityCounts(notes: CustomerNote[], tasks: ConfigRow[]) {
+    const resolved = new Set(notes.filter(note => note.action === "resolve").map(note => note.threadId));
+    const openNotes = notes.filter(note => !note.threadId && !resolved.has(note.id)).length;
+    const openTasks = tasks.filter(task => task.status !== "Completed" && task.status !== "Cancelled");
+    const soon = Date.now() + 24 * 60 * 60 * 1000;
+    const urgent = openTasks.filter(task => {
+        const due = task.deliveryAt || (task.due ? `${task.due}T23:59:59` : "");
+        return /^(urgent|high)$/i.test(task.priority ?? "") || Date.parse(due) <= soon;
+    }).length;
+    return { urgent, total: openNotes + openTasks.length };
+}
+
+function ActivityIndicator({ urgent, total }: ReturnType<typeof activityCounts>) {
+    if (!total) return <span aria-label="No open notes or tasks">—</span>;
+    return <span className="inline-flex items-center gap-2">
+        <span aria-hidden="true" className={`size-2.5 rounded-full ${urgent ? "bg-red-600" : "bg-orange-500"}`}/>
+        {urgent || total}
+    </span>;
+}
+
 export function CustomersPage() {
     const navigate = useNavigate();
-    const [expandedCustomer, setExpandedCustomer] = useState<string>();
-    const canCompleteTasks = usePermission("sales.write");
     const customerColumns = useMemo(() => columns.map(column => column.id !== "notes" ? column : {
         ...column,
         cell: ({ row }: CellContext<CustomerRow, unknown>) => {
             const customer = row.original;
-            const expanded = expandedCustomer === customer.id;
-            return <Button size="sm" variant="secondary" aria-expanded={expanded}
-                onClick={event => {
-                    event.stopPropagation();
-                    setExpandedCustomer(expanded ? undefined : customer.id);
-                }}>
-                Notes &amp; Tasks <ChevronDown size={13} className={expanded ? "rotate-180" : ""} aria-hidden="true"/>
-            </Button>;
+            const counts = activityCounts(customer.notes ?? [], customer.tasks);
+            const sample = !customer.notes?.length && !customer.tasks.length
+                ? customer.sampleContactDays === 7 ? { urgent: 0, total: 1 }
+                    : customer.sampleContactDays === 21 ? { urgent: 2, total: 2 } : undefined
+                : undefined;
+            return <span className="inline-block px-2 py-1" onClick={event => event.stopPropagation()}>
+                <ActivityIndicator {...(sample ?? counts)}/>
+                {sample && <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-900">Sample</span>}
+            </span>;
         },
-    }), [expandedCustomer]);
+    }), []);
     const { session } = useSecurity();
     const roles = session?.user.roles ?? [];
     const showAccountant = roles.includes("ACCOUNTANT") && !roles.includes("ADMIN") && !roles.includes("FINANCE_ADMIN");
@@ -295,10 +331,21 @@ export function CustomersPage() {
     const allocations = useCreditAllocations();
     const creditNotes = useCreditNotes();
     const tasks = useWorkspaceRecords("tasks");
-    const customers = useMemo<CustomerRow[]>(() => profiles.map(customer => {
+    const visits = useVisits();
+    const customers = useMemo<CustomerRow[]>(() => profiles.map((customer, index) => {
         const receivable = calculateCustomerAccountsReceivable(customer, documents, payments, allocations, creditNotes);
+        const lastContactDate = visits
+            .filter(visit => visit.customerId === customer.id && visit.status === "Completed")
+            .reduce((latest, visit) => {
+                if (!visit.checkOutAt) return latest;
+                const completed = new Date(visit.checkOutAt);
+                const date = `${completed.getFullYear()}-${String(completed.getMonth() + 1).padStart(2, "0")}-${String(completed.getDate()).padStart(2, "0")}`;
+                return date > latest ? date : latest;
+            }, "");
         return {
             ...customer,
+            lastContactDate,
+            sampleContactDays: [7, 21, 39, 72, null][index],
             tasks: tasks.filter(task => task.customerId === customer.id && task.status !== "Inactive")
                 .sort((a, b) => (a.deliveryAt || a.due).localeCompare(b.deliveryAt || b.due)),
             currentBalance: receivable.netAccountBalance,
@@ -311,7 +358,10 @@ export function CustomersPage() {
                 .filter(payment => payment.customerId === customer.id && payment.status === "RECEIVED" && !payment.depositApplicationId)
                 .reduce((latest, payment) => payment.paymentDate > latest ? payment.paymentDate : latest, ""),
         };
-    }), [profiles, documents, payments, allocations, creditNotes, tasks]);
+    }), [profiles, documents, payments, allocations, creditNotes, tasks, visits]);
+    const needingAttention = customers
+        .filter(customer => customer.status === "ACTIVE" && (contactAge(customer.lastContactDate) ?? -1) >= 30)
+        .sort((a, b) => a.lastContactDate.localeCompare(b.lastContactDate));
 
     const activeCustomers =
         customers.filter(
@@ -400,32 +450,21 @@ export function CustomersPage() {
                 />
             </div>
 
+            <section className="rounded-xl border border-[var(--color-border)] bg-white p-4">
+                <h2 className="text-sm font-semibold">Customers Needing Attention — {needingAttention.length}</h2>
+                <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Active customers with a recorded visit at least 30 days ago.</p>
+                {needingAttention.length > 0 && <ul className="mt-2 divide-y">
+                    {needingAttention.map(customer => <li key={customer.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                        <Link className="underline" to={`/contacts/customers/${customer.id}/activity`}>{customer.businessName}</Link>
+                        <ContactAge days={contactAge(customer.lastContactDate)}/>
+                    </li>)}
+                </ul>}
+            </section>
+
             <DataTable
                 capabilities={{id:"customers",scope:"complete",permission:"sales.read",rowId:r=>r.id}}
                 data={customers}
                 columns={customerColumns}
-                renderRowDetails={customer => expandedCustomer === customer.id ? <div className="space-y-4">
-                    <NotesAndTasksSample key={customer.id} expanded={!customer.notes?.length && !customer.tasks.length}/>
-                    <CustomerNoteThreads key={customer.id} customerId={customer.id} notes={customer.notes ?? []}/>
-                    <section aria-label="Customer tasks">
-                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                            <h3 className="text-sm font-semibold">Tasks</h3>
-                            <Link className="text-sm underline" to={`/contacts/customers/${customer.id}/activity`}>Open Notes &amp; Tasks →</Link>
-                        </div>
-                        {customer.tasks.length ? <ul className="divide-y rounded-lg border bg-white">
-                            {customer.tasks.map(task => <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-                                <div>
-                                    <Link className="font-medium underline" to={task.orderId ? `/sales/orders/${task.orderId}` : `/tasks/${task.id}`}>{task.name}</Link>
-                                    <p className="text-xs text-[var(--color-text-secondary)]">{task.due} · {task.ownerName || task.owner} · {task.status}{task.completedBy ? ` · Completed by ${task.completedByName || task.completedBy}` : ""}</p>
-                                </div>
-                                {canCompleteTasks && task.status !== "Completed" && <Button size="sm" variant="secondary" onClick={() => {
-                                    try { workspaceRepositories.tasks.setStatus(task.id, "Completed", task.revision); }
-                                    catch (error) { feedback.error(error instanceof Error ? error.message : "Unable to complete task."); }
-                                }}>Mark complete</Button>}
-                            </li>)}
-                        </ul> : <p className="text-sm text-[var(--color-text-secondary)]">No saved tasks.</p>}
-                    </section>
-                </div> : null}
                 key={`${session?.user.id ?? ""}:${showAccountant}`}
                 defaultColumnVisibility={{ primaryContact: !showAccountant, accountantContact: showAccountant }}
                 search={{
