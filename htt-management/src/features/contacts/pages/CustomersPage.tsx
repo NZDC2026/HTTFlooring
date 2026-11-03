@@ -289,7 +289,7 @@ export function CustomersPage() {
             <div className="mb-7 flex items-start justify-between">
                 <div>
                     <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
-                        Management
+                        Contacts
                     </p>
 
                     <h1 className="font-display text-[34px] leading-tight">
@@ -306,16 +306,6 @@ export function CustomersPage() {
                 <div className="flex gap-2">
                     <Button variant="secondary" onClick={() => navigate("/contacts/review")}>
                         Incoming reviews
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        onClick={() =>
-                            navigate(
-                                "/contacts/suppliers",
-                            )
-                        }
-                    >
-                        Suppliers
                     </Button>
 
                     <Button

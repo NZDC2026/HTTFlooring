@@ -24,7 +24,7 @@ const pageNames: Record<string, string> = {
     "/accounting": "Accounting",
     "/payroll": "Payroll",
     "/reports": "Reports",
-    "/contacts": "Contacts",
+    "/contacts": "Customers",
     "/documents": "Documents",
     "/settings": "Settings",
 };
@@ -38,7 +38,9 @@ export function Topbar() {
         pageNames[location.pathname] ??
         Object.entries(pageNames).find(([path]) => location.pathname.startsWith(path + "/"))?.[1] ?? "HTT Management";
 
-    if (
+    if (location.pathname === "/contacts/suppliers" || location.pathname.startsWith("/contacts/suppliers/")) {
+        pageTitle = "Suppliers";
+    } else if (
         location.pathname ===
         "/contacts/customers/new"
     ) {

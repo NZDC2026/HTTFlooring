@@ -20,7 +20,7 @@ import {
     ShoppingCart,
     UsersRound,
 } from "lucide-react";
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 
 import { cn } from "../lib/cn";
 
@@ -121,12 +121,17 @@ const sections = [
     },
 
     {
-        label: "Management",
+        label: "Contacts",
         items: [
             {
-                label: "Contacts",
+                label: "Customers",
                 path: "/contacts",
                 icon: ContactRound,
+            },
+            {
+                label: "Suppliers",
+                path: "/contacts/suppliers",
+                icon: PackageCheck,
             },
             {
                 label: "Documents",
@@ -161,6 +166,8 @@ const sections = [
 export function Sidebar() {
     useWorkspaceRecords('settings');
     const { session } = useSecurity();
+    const { pathname } = useLocation();
+    const inSuppliers = pathname === "/contacts/suppliers" || pathname.startsWith("/contacts/suppliers/");
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
         if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
@@ -172,7 +179,7 @@ export function Sidebar() {
         if (path === '/banking') return 'banking.read';
         if (path === '/sales' || path === '/demo' || path === '/reports') return 'sales.read';
         if (path === '/inventory') return 'inventory.read';
-        if (path === '/contacts') return 'contacts.write';
+        if (path === '/contacts' || path === '/contacts/suppliers') return 'contacts.write';
     };
     const visibleSections = sections.map(section => ({ ...section, items: section.items.filter(item => presentationPathEnabled(item.path)).filter(item => !permissionForPath(item.path) || hasPermission(principal, permissionForPath(item.path)!)) })).filter(section => section.items.length);
     return (
@@ -226,7 +233,7 @@ export function Sidebar() {
                                         <NavLink
                                             key={item.path}
                                             to={item.path}
-                                            end={item.path === "/reports" || item.path === "/settings"}
+                                            end={item.path === "/reports" || item.path === "/settings" || (item.path === "/contacts" && inSuppliers)}
                                             className={({ isActive }) =>
                                                 cn(
                                                     "group flex h-10 items-center gap-3 rounded-lg px-3",
