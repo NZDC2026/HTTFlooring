@@ -312,6 +312,33 @@ app.setName(
     APP_NAME,
 );
 
+const desktopDownloadUrl = "https://htt-flooring-management.nzdc.co.uk/downloads/index.html";
+
+async function updateAvailable(): Promise<boolean> {
+    // Temporary response until the desktop update endpoint is available.
+    return true;
+}
+
+async function promptForUpdate(window: BrowserWindow) {
+    try {
+        if (!(await updateAvailable()) || window.isDestroyed()) return;
+
+        const { response } = await dialog.showMessageBox(window, {
+            type: "info",
+            title: "Desktop update available",
+            message: "A new version of HTT Flooring Management is available.",
+            detail: "Open the download page in your browser to get the installer.",
+            buttons: ["Download update", "Later"],
+            defaultId: 0,
+            cancelId: 1,
+        });
+
+        if (response === 0) await shell.openExternal(desktopDownloadUrl);
+    } catch {
+        console.warn("Desktop update prompt could not complete.");
+    }
+}
+
 app.whenReady().then(
     () => {
         setMacDockIcon();
@@ -329,6 +356,12 @@ app.whenReady().then(
             } }] },
         ]));
         createMainWindow();
+        const startupWindow = mainWindow;
+        if (app.isPackaged && startupWindow) {
+            startupWindow.once("ready-to-show", () => {
+                void promptForUpdate(startupWindow);
+            });
+        }
         diagnostics?.event("ready");
 
         app.on(

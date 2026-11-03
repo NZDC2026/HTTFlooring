@@ -44,6 +44,7 @@ export function SecurityGate({ children }: { children: ReactNode }) {
             {!status.initialized && <><label className="grid gap-1 text-sm">Confirm password<input type="password" className="rounded border p-2" autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)} required /></label><p className="text-xs text-slate-600">{isWeb ? 'Use at least 12 characters. This account will administer the shared web workspace.' : 'Use at least 12 characters. Existing local business records from this desktop profile will be migrated on first sign-in.'}</p></>}
             <button disabled={busy} className="rounded bg-[var(--color-primary)] p-3 text-white">{busy ? 'Please wait…' : status.initialized ? 'Sign in' : 'Create administrator'}</button>
         </form>}
+        {isWeb && <a className="mt-3 flex justify-center rounded-lg border border-[var(--color-border)] px-4 py-3 text-sm font-medium hover:bg-[var(--color-surface-muted)]" href="/downloads/index.html">Download desktop app</a>}
     </section></main>;
 }
 export function RouteAccess({ children }: { children: ReactNode }) {

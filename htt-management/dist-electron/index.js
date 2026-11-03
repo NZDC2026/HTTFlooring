@@ -4248,7 +4248,29 @@ bn && A.setPath("userData", T.resolve(bn)), A.requestSingleInstanceLock() ? (Z =
 	Z?.event("main-rejection"), Q(), A.exit(1);
 }), A.on("will-quit", () => Z?.finish())) : A.quit(), A.on("second-instance", () => {
 	$?.show(), $?.focus();
-}), A.setName(mn), A.whenReady().then(() => {
+}), A.setName(mn);
+var xn = "https://htt-flooring-management.nzdc.co.uk/downloads/index.html";
+async function Sn() {
+	return !0;
+}
+async function Cn(e) {
+	try {
+		if (!await Sn() || e.isDestroyed()) return;
+		let { response: t } = await j.showMessageBox(e, {
+			type: "info",
+			title: "Desktop update available",
+			message: "A new version of HTT Flooring Management is available.",
+			detail: "Open the download page in your browser to get the installer.",
+			buttons: ["Download update", "Later"],
+			defaultId: 0,
+			cancelId: 1
+		});
+		t === 0 && await Ne.openExternal(xn);
+	} catch {
+		console.warn("Desktop update prompt could not complete.");
+	}
+}
+A.whenReady().then(() => {
 	gn(), _n(), Q = dn(T.join(A.getPath("userData"), "local-security"), () => $, () => Z?.event("recurring-stopped")).lock, Ae.setApplicationMenu(Ae.buildFromTemplate([
 		...process.platform === "darwin" ? [{ role: "appMenu" }] : [],
 		{ role: "fileMenu" },
@@ -4271,7 +4293,11 @@ bn && A.setPath("userData", T.resolve(bn)), A.requestSingleInstanceLock() ? (Z =
 				}
 			}]
 		}
-	])), yn(), Z?.event("ready"), A.on("activate", () => {
+	])), yn();
+	let e = $;
+	A.isPackaged && e && e.once("ready-to-show", () => {
+		Cn(e);
+	}), Z?.event("ready"), A.on("activate", () => {
 		ke.getAllWindows().length === 0 && yn();
 	});
 }).catch(() => {

@@ -21,7 +21,7 @@
     "release:signed": "node scripts/release-signed.mjs",
     "release:manifest": "node scripts/release-manifest.mjs",
     "build:server": "vite build --config vite.server.config.ts",
-    "build:web": "tsc -b && cross-env WEB_ONLY=1 vite build && pnpm build:server",
+    "build:web": "tsc -b && cross-env WEB_ONLY=1 vite build && pnpm build:server && node scripts/stage-download-preview.mjs",
     "start:web": "node dist-server/index.js",
     "test:web": "vitest run --config vitest.web.config.ts server/web.test.ts"
   },

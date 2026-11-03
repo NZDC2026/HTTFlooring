@@ -1,3 +1,4 @@
+import { isWeb } from "../features/security/webBridge";
 import { useSecurity, logout } from "../features/security/securityClient";
 import { useEffect } from 'react';
 import { Link, useNavigate } from "react-router-dom";
@@ -5,6 +6,7 @@ import {
     Bell,
     CircleHelp,
     Search,
+    Download,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
@@ -73,6 +75,10 @@ export function Topbar() {
             </h1>
 
             <div className="ml-auto flex shrink-0 items-center gap-2">
+                {isWeb && <a href="/downloads/index.html" aria-label="Download desktop app" title="Download desktop app" className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--color-border)] px-3 text-sm hover:bg-[var(--color-surface-muted)]">
+                    <Download size={15} aria-hidden="true"/>
+                    <span className="hidden xl:inline">Download desktop app</span>
+                </a>}
                 <button
                     onClick={() => navigate('/search')}
                     className="

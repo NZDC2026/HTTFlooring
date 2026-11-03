@@ -43,7 +43,9 @@ export function DashboardPage() {
                 <h1 className="font-display text-[clamp(26px,3vw,34px)] leading-tight">Welcome back, {businessSettings().companyName}</h1>
                 <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Your business performance, priorities and next steps in one place.</p>
             </div>
-            {presentationWorkflows.customerDemo && <Link to="/demo"><Button variant="accent">Customer demo <ArrowRight size={16}/></Button></Link>}
+            <div className="flex flex-wrap gap-2">
+                {presentationWorkflows.customerDemo && <Link to="/demo"><Button variant="accent">Customer demo <ArrowRight size={16}/></Button></Link>}
+            </div>
         </div>
         <QuickAccessCard compact/>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs">

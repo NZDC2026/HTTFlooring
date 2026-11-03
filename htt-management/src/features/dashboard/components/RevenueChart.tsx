@@ -38,9 +38,8 @@ export function RevenueChart({ months = 6, data, basis = "cash", includeGst = tr
             const lastYearLabel = isSample ? "Last year (sample)" : "Last year";
             const thisYearLabel = isCurrentSample ? "This year (sample)" : "This year";
             const currentTotal = comparisonData.reduce((sum, item) => sum + item[current], 0);
-            return <section key={title} aria-label={`${title} year comparison`} className="min-w-0 self-start rounded-xl border border-[var(--color-border)] bg-white p-5 shadow-sm">
-                <h2 className="text-base font-semibold">{title}</h2>
-                {isCurrentSample && <p className="mt-1 text-xs font-medium text-amber-800">Includes a sample current-year expense</p>}
+            return <section key={title} aria-label={`${title} year comparison`} className={`flex min-w-0 flex-col rounded-xl border border-[var(--color-border)] bg-white p-5 shadow-sm ${expanded.revenue === expanded.expenses ? "self-stretch" : "self-start"}`}>
+                <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">{title}{isCurrentSample && <span title="Includes a sample current-year expense" className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium leading-4 text-amber-900">Sample</span>}</h2>
                 <p className="mt-3 text-2xl font-semibold tabular-nums">{money(currentTotal)}</p>
                 <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{months === 1 ? "Selected month" : `Selected ${months} months`} · {businessSettings().currency}</p>
                 <div className="mt-5 h-[240px]">
@@ -60,7 +59,7 @@ export function RevenueChart({ months = 6, data, basis = "cash", includeGst = tr
                 </div>
                 {details && expanded[current] && <div id={`dashboard-${current}-breakdown`} className="mt-5 border-t border-[var(--color-border)] pt-4">
                     <h3 className="text-sm text-[var(--color-text-muted)]">{current === "revenue" ? "Income totals" : "Expense totals"}</h3>
-                    {totals && <dl className="mt-4 space-y-4 text-sm">
+                    {totals && <dl className="mt-4 space-y-4 text-sm md:min-h-[128px]">
                         <div className="flex justify-between gap-3"><dt>{current === "revenue" ? "Cash received" : "Cash spent"}</dt><dd className="font-medium tabular-nums">{money(current === "revenue" ? totals.cashReceived : totals.cashSpent)}</dd></div>
                         <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3"><dt className="text-violet-600">{current === "revenue" ? "Invoices" : "Bills"}</dt><dd className="text-xs tabular-nums">{current === "revenue" ? totals.invoiceCount : totals.billCount}</dd><dd className="font-medium tabular-nums">{money(current === "revenue" ? totals.invoiceAmount : totals.billAmount)}</dd></div>
                         {current === "expenses" && <>

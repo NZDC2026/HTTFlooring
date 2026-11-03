@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Download HTT Flooring Management</title>
+  <link rel="icon" href="/favicon.svg">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.55 system-ui, sans-serif; color: #192622; background: #f4f1ea; }
+    main { max-width: 820px; margin: 8vh auto; padding: 24px; }
+    header { margin-bottom: 24px; }
+    h1 { font-size: clamp(28px, 5vw, 42px); line-height: 1.15; margin: 12px 0; }
+    h2 { font-size: 20px; margin: 0; }
+    p { margin: 8px 0; color: #52625a; }
+    .brand { font-weight: 700; letter-spacing: .12em; font-size: 13px; color: #245447; }
+    section { padding: 24px; margin: 16px 0; background: white; border: 1px solid #ded8cd; border-radius: 14px; }
+    ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; list-style: none; padding: 0; }
+    a { color: #123d32; text-underline-offset: 3px; }
+    .button { display: inline-block; padding: 10px 15px; border: 1px solid #b8c8be; border-radius: 8px; font-weight: 650; text-decoration: none; }
+    .primary { background: #123d32; color: white; border-color: #123d32; }
+    a:focus-visible { outline: 3px solid #bf743c; outline-offset: 3px; }
+    small { display: block; color: #52625a; margin-top: 4px; }
+  </style>
+  <script type="module" src="./download.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <a class="brand" href="/">HTT FLOORING MANAGEMENT</a>
+      <h1>Download the desktop app</h1>
+      <p>Get the installer for Windows or macOS.</p>
+    </header>
+    <section>
+      <h2>Recommended for this device</h2>
+      <p id="status" role="status">Checking available installers…</p>
+      <div id="recommended"></div>
+    </section>
+    <section>
+      <h2>All installers</h2>
+      <ul id="installers"></ul>
+    </section>
+    <a href="/">Open the web app →</a>
+  </main>
+</body>
+</html>
