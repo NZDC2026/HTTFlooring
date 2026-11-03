@@ -1,3 +1,8 @@
+import { useState } from "react";
+import { CustomerNoteThreads } from "../components/CustomerNoteThreads";
+import { workspaceRepositories } from "../../business-workspace/workspaceRepository";
+import { useWorkspaceRecords } from "../../business-workspace/workspaceRepository";
+import type { ConfigRow } from "../../business-workspace/configurationState";
 import { useSecurity } from "../../security/securityClient";
 import { usePermission } from "../../security/usePermission";
 import { customerRepository } from "../data/customerRepository";
@@ -10,9 +15,9 @@ import { usePayments } from "../../sales/data/usePayments";
 import { useCreditAllocations, useCreditNotes } from "../../sales/data/useCreditNotes";
 import { ChevronDown, Plus } from "lucide-react";
 
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import type { ColumnDef } from "@tanstack/react-table";
+import type { CellContext, ColumnDef } from "@tanstack/react-table";
 
 import { DataTable } from "../../../components/data-table/DataTable";
 import { Button } from "../../../components/ui/Button";
@@ -21,10 +26,31 @@ import { CustomerStatusBadge, customerStatusLabels } from "../components/Custome
 
 import { useCustomers } from "../data/useCustomers";
 
-import type { Customer, CustomerContact } from "../types/customer";
+import type { Customer, CustomerContact, CustomerNote } from "../types/customer";
+
+const sampleThreads: CustomerNote[] = [
+    { id: "sample-visit", customerId: "", operationId: "", source: "Desktop", text: "Visited the showroom. The customer requested two oak samples.", actorId: "sample-alex", actorName: "Alex · Sales", createdAt: "2026-11-02T21:00:00Z" },
+    { id: "sample-reply", customerId: "", operationId: "", source: "Desktop", threadId: "sample-visit", action: "reply", text: "Samples are ready at the front desk for collection.", actorId: "sample-jamie", actorName: "Jamie · Front desk", createdAt: "2026-11-02T22:00:00Z" },
+    { id: "sample-resolved", customerId: "", operationId: "", source: "Desktop", threadId: "sample-visit", action: "resolve", text: "Marked resolved", actorId: "sample-alex", actorName: "Alex · Sales", createdAt: "2026-11-02T23:00:00Z" },
+    { id: "sample-delivery", customerId: "", operationId: "", source: "Desktop", text: "Customer requested delivery on Thursday morning. Confirm site access before dispatch.", actorId: "sample-jamie", actorName: "Jamie · Front desk", createdAt: "2026-11-03T00:00:00Z" },
+];
+
+function NotesAndTasksSample({ expanded }: { expanded: boolean }) {
+    return <details open={expanded || undefined} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <summary className="cursor-pointer text-sm font-medium text-amber-900">Sample preview · Notes &amp; Tasks</summary>
+        <div className="mt-3 space-y-3">
+            <CustomerNoteThreads customerId="" notes={sampleThreads} showComposer={false} readOnly/>
+            <ul aria-label="Sample tasks" className="divide-y rounded-lg border bg-white">
+                <li className="px-3 py-2 text-sm"><p className="font-medium">Confirm delivery address</p><p className="text-xs text-[var(--color-text-secondary)]">05 Nov 2026 · Jamie · Front desk · Open</p></li>
+                <li className="px-3 py-2 text-sm"><p className="font-medium">Prepare oak samples</p><p className="text-xs text-[var(--color-text-secondary)]">03 Nov 2026 · Completed by Alex · Sales</p></li>
+            </ul>
+        </div>
+    </details>;
+}
 
 type CustomerRow = Customer & {
     availableCredit: number;
+    tasks: ConfigRow[];
     lastSaleDate: string;
     lastPaymentDate: string;
 };
@@ -197,6 +223,12 @@ const columns: ColumnDef<
         },
 
         {
+            id: "notes",
+            header: "Notes & Tasks",
+            enableSorting: false,
+            meta: { exportable: false },
+        },
+        {
             accessorKey: "status",
             header: "Status",
 
@@ -237,6 +269,22 @@ function CustomerStatusCell({ customer }: { customer: Customer }) {
 
 export function CustomersPage() {
     const navigate = useNavigate();
+    const [expandedCustomer, setExpandedCustomer] = useState<string>();
+    const canCompleteTasks = usePermission("sales.write");
+    const customerColumns = useMemo(() => columns.map(column => column.id !== "notes" ? column : {
+        ...column,
+        cell: ({ row }: CellContext<CustomerRow, unknown>) => {
+            const customer = row.original;
+            const expanded = expandedCustomer === customer.id;
+            return <Button size="sm" variant="secondary" aria-expanded={expanded}
+                onClick={event => {
+                    event.stopPropagation();
+                    setExpandedCustomer(expanded ? undefined : customer.id);
+                }}>
+                Notes &amp; Tasks <ChevronDown size={13} className={expanded ? "rotate-180" : ""} aria-hidden="true"/>
+            </Button>;
+        },
+    }), [expandedCustomer]);
     const { session } = useSecurity();
     const roles = session?.user.roles ?? [];
     const showAccountant = roles.includes("ACCOUNTANT") && !roles.includes("ADMIN") && !roles.includes("FINANCE_ADMIN");
@@ -246,10 +294,13 @@ export function CustomersPage() {
     const payments = usePayments();
     const allocations = useCreditAllocations();
     const creditNotes = useCreditNotes();
+    const tasks = useWorkspaceRecords("tasks");
     const customers = useMemo<CustomerRow[]>(() => profiles.map(customer => {
         const receivable = calculateCustomerAccountsReceivable(customer, documents, payments, allocations, creditNotes);
         return {
             ...customer,
+            tasks: tasks.filter(task => task.customerId === customer.id && task.status !== "Inactive")
+                .sort((a, b) => (a.deliveryAt || a.due).localeCompare(b.deliveryAt || b.due)),
             currentBalance: receivable.netAccountBalance,
             overdueBalance: receivable.overdueAmount,
             availableCredit: customer.paymentTermsDays === 0 ? 0 : receivable.availableCredit,
@@ -260,7 +311,7 @@ export function CustomersPage() {
                 .filter(payment => payment.customerId === customer.id && payment.status === "RECEIVED" && !payment.depositApplicationId)
                 .reduce((latest, payment) => payment.paymentDate > latest ? payment.paymentDate : latest, ""),
         };
-    }), [profiles, documents, payments, allocations, creditNotes]);
+    }), [profiles, documents, payments, allocations, creditNotes, tasks]);
 
     const activeCustomers =
         customers.filter(
@@ -352,7 +403,29 @@ export function CustomersPage() {
             <DataTable
                 capabilities={{id:"customers",scope:"complete",permission:"sales.read",rowId:r=>r.id}}
                 data={customers}
-                columns={columns}
+                columns={customerColumns}
+                renderRowDetails={customer => expandedCustomer === customer.id ? <div className="space-y-4">
+                    <NotesAndTasksSample key={customer.id} expanded={!customer.notes?.length && !customer.tasks.length}/>
+                    <CustomerNoteThreads key={customer.id} customerId={customer.id} notes={customer.notes ?? []}/>
+                    <section aria-label="Customer tasks">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="text-sm font-semibold">Tasks</h3>
+                            <Link className="text-sm underline" to={`/contacts/customers/${customer.id}/activity`}>Open Notes &amp; Tasks →</Link>
+                        </div>
+                        {customer.tasks.length ? <ul className="divide-y rounded-lg border bg-white">
+                            {customer.tasks.map(task => <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                                <div>
+                                    <Link className="font-medium underline" to={task.orderId ? `/sales/orders/${task.orderId}` : `/tasks/${task.id}`}>{task.name}</Link>
+                                    <p className="text-xs text-[var(--color-text-secondary)]">{task.due} · {task.ownerName || task.owner} · {task.status}{task.completedBy ? ` · Completed by ${task.completedByName || task.completedBy}` : ""}</p>
+                                </div>
+                                {canCompleteTasks && task.status !== "Completed" && <Button size="sm" variant="secondary" onClick={() => {
+                                    try { workspaceRepositories.tasks.setStatus(task.id, "Completed", task.revision); }
+                                    catch (error) { feedback.error(error instanceof Error ? error.message : "Unable to complete task."); }
+                                }}>Mark complete</Button>}
+                            </li>)}
+                        </ul> : <p className="text-sm text-[var(--color-text-secondary)]">No saved tasks.</p>}
+                    </section>
+                </div> : null}
                 key={`${session?.user.id ?? ""}:${showAccountant}`}
                 defaultColumnVisibility={{ primaryContact: !showAccountant, accountantContact: showAccountant }}
                 search={{

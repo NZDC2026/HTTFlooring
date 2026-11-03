@@ -29,7 +29,7 @@ export const workspaceDomains: Record<string, {
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },
     promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
     jobs: { read: 'accounting.read', write: 'accounting.post', required: ['code', 'customerId', 'starts', 'ends', 'budget', 'costBudget'], fields: ['code', 'customerId', 'owner', 'starts', 'ends', 'budget', 'costBudget'] },
-    tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'completedAt', 'completedBy', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
+    tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'completedAt', 'completedBy', 'completedByName', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
     'bank-rules': { read: 'banking.read', write: 'banking.write', required: ['field', 'operator', 'value', 'accountId', 'taxCode'], fields: ['field', 'operator', 'value', 'accountId', 'taxCode', 'enabled', 'conditions', 'match', 'priority', 'automatic', 'bankAccountId'] },
     templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
@@ -227,10 +227,12 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
         save(raw: Record<string, string>, expectedRevision?: string) { const input = strings.parse(raw), existing = configurationRows[domain].find(r => r.id === input.id); if (existing && existing.revision !== expectedRevision)
             throw new Error('Record changed. Reload before saving.'); if (!existing && expectedRevision !== undefined)
             throw new Error('Record no longer exists.'); const timestamp = now(), row: ConfigRow = { ...input, id: existing?.id ?? crypto.randomUUID(), name: input.name.trim(), status: input.status ?? (domain === 'tasks' ? 'Open' : 'Active'), revision: String(Number(existing?.revision ?? '0') + 1), createdAt: existing?.createdAt ?? timestamp, updatedAt: timestamp }; if (domain === 'tasks') {
-            delete row.completedAt; delete row.completedBy;
+            delete row.completedAt; delete row.completedBy; delete row.completedByName;
             if (row.status === 'Completed') {
                 row.completedAt = existing?.status === 'Completed' ? existing.completedAt || timestamp : timestamp;
                 row.completedBy = existing?.status === 'Completed' ? existing.completedBy || trustedAuthorization.current()?.userId || 'local-test' : trustedAuthorization.current()?.userId ?? 'local-test';
+                const displayName = existing?.status === 'Completed' ? existing.completedByName : trustedAuthorization.current()?.displayName;
+                if (displayName) row.completedByName = displayName;
             }
         } validate(domain, row, configurationRows[domain]); configurationRows[domain] = [...configurationRows[domain].filter(r => r.id !== row.id), row]; log(domain, row, existing ? 'Updated' : 'Created'); emit(); return row; },
         setStatus(id: string, status: string, expectedRevision: string) { const row = repository.getById(id); if (!row)

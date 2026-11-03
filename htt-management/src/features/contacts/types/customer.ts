@@ -56,6 +56,9 @@ export interface CustomerNote {
     source: 'Desktop' | 'Sales import';
     externalId?: string;
     actorId: string;
+    actorName?: string;
+    threadId?: string;
+    action?: "reply" | "resolve";
     createdAt: string;
 }
 export interface Customer {

@@ -84,6 +84,30 @@ describe('web authentication and durable business database', () => {
         const view = await request('business.view', {}, adminCookie);
         expect(view.body.value.repositories.workspace_tasks.records).toContainEqual(expect.objectContaining({ id: created.id, status: 'Completed', completedBy: owner.id }));
     });
+    it('records who wrote, replied to, and resolved a customer note', async () => {
+        const add = (input: Record<string, unknown>, cookie = adminCookie) =>
+            request('business.command', {
+                repository: 'customers', method: 'addNote',
+                args: [{ customerId: 'cus_001', source: 'Desktop', operationId: crypto.randomUUID(), ...input }],
+            }, cookie);
+        const created = await add({ text: 'Arrange a delivery follow-up.' });
+        expect(created.body.ok, JSON.stringify(created.body)).toBe(true);
+        const original = created.body.value.result;
+        expect(original.actorName).toBe('Administrator');
+        expect((await add({ customerId: 'cus_002', text: 'Wrong customer', action: 'reply', threadId: original.id }, readerCookie)).body.ok).toBe(false);
+        const reply = await add({ text: 'Called the customer.', action: 'reply', threadId: original.id }, readerCookie);
+        expect(reply.body.value.result).toMatchObject({ actorName: 'Reader', action: 'reply', threadId: original.id });
+        const resolved = await add({ text: 'Marked resolved', action: 'resolve', threadId: original.id });
+        expect(resolved.body.value.result).toMatchObject({ actorName: 'Administrator', action: 'resolve', threadId: original.id });
+        expect((await add({ text: 'Late reply', action: 'reply', threadId: original.id }, readerCookie)).body.ok).toBe(false);
+        const view = await request('business.view', {}, readerCookie);
+        const customer = view.body.value.repositories.customers.customers.find((row: { id: string }) => row.id === 'cus_001');
+        expect(customer.notes).toEqual(expect.arrayContaining([
+            expect.objectContaining({ id: original.id, actorName: 'Administrator' }),
+            expect.objectContaining({ action: 'reply', actorName: 'Reader' }),
+            expect.objectContaining({ action: 'resolve', actorName: 'Administrator' }),
+        ]));
+    });
     it('persists a business mutation and user accounts across a server restart', async () => {
         const targets = await request('business.command', { repository: 'customers', method: 'create', args: [{}] }, adminCookie);
         // Malformed writes fail validation instead of damaging the database.

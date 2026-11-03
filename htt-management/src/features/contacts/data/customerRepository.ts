@@ -120,7 +120,7 @@ function updateCustomerRecord(
     emitChange();
 }
 
-const noteInput = z.object({customerId:z.string().min(1),operationId:z.uuid(),text:z.string().trim().min(1).max(2000),source:z.enum(['Desktop','Sales import']),externalId:z.string().trim().min(1).max(200).optional()}).strict();
+const noteInput = z.object({customerId:z.string().min(1),operationId:z.uuid(),text:z.string().trim().min(1).max(2000),source:z.enum(['Desktop','Sales import']),externalId:z.string().trim().min(1).max(200).optional(),threadId:z.string().min(1).max(200).optional(),action:z.enum(['reply','resolve']).optional()}).strict();
 export const customerRepository = {
     addNote(raw: z.infer<typeof noteInput>) {
         const input=noteInput.parse(raw),actor=trustedAuthorization.require('contacts.write');
@@ -129,8 +129,17 @@ export const customerRepository = {
         const customer=customerRepository.getById(input.customerId);
         if (!customer) throw Error('Customer was not found.');
         const prior=customers.flatMap(c=>(c.notes??[]).map(note=>({customerId:c.id,note}))).find(x=>x.note.operationId===input.operationId || (input.externalId && x.note.source===input.source && x.note.externalId===input.externalId));
-        if(prior){if(prior.customerId!==input.customerId||prior.note.text!==input.text||prior.note.source!==input.source||prior.note.externalId!==input.externalId||prior.note.actorId!==actor.userId)throw Error('Note source or operation ID already has different content.');return prior.note;}
-        const note={...input,id:createId('note'),actorId:actor.userId,createdAt:new Date().toISOString()};
+        if(prior){if(prior.customerId!==input.customerId||prior.note.text!==input.text||prior.note.source!==input.source||prior.note.externalId!==input.externalId||prior.note.actorId!==actor.userId||prior.note.threadId!==input.threadId||prior.note.action!==input.action)throw Error('Note source or operation ID already has different content.');return prior.note;}
+        if (Boolean(input.action) !== Boolean(input.threadId) || (input.action && input.source !== 'Desktop')) {
+            throw Error('Invalid customer note action.');
+        }
+        if (input.threadId) {
+            const notes = customer.notes ?? [];
+            if (!notes.some(note => note.id === input.threadId && !note.action)) throw Error('Original note was not found.');
+            if (notes.some(note => note.threadId === input.threadId && note.action === 'resolve')) throw Error('This note has already been resolved.');
+        }
+        const note = { ...input, id: createId('note'), actorId: actor.userId,
+            ...(actor.displayName ? { actorName: actor.displayName } : {}), createdAt: new Date().toISOString() };
         updateCustomerRecord(customer.id,c=>({...c,notes:[...(c.notes??[]),note],updatedAt:note.createdAt}));
         return note;
     },
@@ -690,8 +699,10 @@ registerRepository("customers", {
     validate: value => {
         const ids=new Set<string>(), operations=new Set<string>(),sources=new Set<string>();
         for(const c of (value as {customers:Customer[]}).customers){if(c.notes===undefined)continue;if(!Array.isArray(c.notes))throw Error('Invalid customer notes.');for(const n of c.notes){
-            const parsed=noteInput.extend({id:z.string().min(1),actorId:z.string().min(1),createdAt:z.iso.datetime()}).parse(n);
+            const parsed=noteInput.extend({id:z.string().min(1),actorId:z.string().min(1),actorName:z.string().min(1).optional(),createdAt:z.iso.datetime()}).parse(n);
             if(parsed.customerId!==c.id || ids.has(n.id)||operations.has(n.operationId)||(n.source==='Sales import')!==!!n.externalId)throw Error('Invalid customer note provenance.');
+            if (Boolean(parsed.action) !== Boolean(parsed.threadId) || (parsed.action && parsed.source !== 'Desktop') ||
+                (parsed.threadId && !c.notes.some(root => root.id === parsed.threadId && !root.action))) throw Error('Invalid note thread.');
             ids.add(n.id);operations.add(n.operationId);if(n.externalId){const key=n.source+':'+n.externalId;if(sources.has(key))throw Error('Duplicate imported customer note.');sources.add(key);}
         }}
     },

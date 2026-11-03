@@ -7,7 +7,7 @@ export const permissions = [
 export type Permission = typeof permissions[number];
 export const roles = ['ADMIN','FINANCE_ADMIN','ACCOUNTANT','SALES','WAREHOUSE','PURCHASING','AUDITOR'] as const;
 export type Role = typeof roles[number];
-export type VerifiedPrincipal = { readonly userId: string; readonly roles: readonly string[]; readonly authenticated: true };
+export type VerifiedPrincipal = { readonly userId: string; readonly displayName?: string; readonly roles: readonly string[]; readonly authenticated: true };
 const policy: Record<Role, readonly Permission[]> = {
   ADMIN: permissions,
   FINANCE_ADMIN: ['payroll.read','payroll.manage','payroll.approve','payroll.post','purchases.return.read','purchases.return','documents.prepare','accounting.periods','accounting.reopen','sales.read','sales.manage','sales.payment','purchases.read','purchases.bill','purchases.void','inventory.read','inventory.cost.read','accounting.read','accounting.post','accounting.recover','audit.read','banking.read','banking.write','banking.reconcile','purchases.payment','purchases.write','contacts.write'],

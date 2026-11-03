@@ -86,7 +86,7 @@ export class LocalSecurity {
         const now = this.now();
         const user = this.state.users.find(row => row.id === this.session!.userId);
         if (now >= this.session.idleUntil || now >= this.session.absoluteUntil || !user?.active) { this.session = null; return null; }
-        return { userId: user.id, roles: [...user.roles], authenticated: true };
+        return { userId: user.id, displayName: user.displayName || user.username, roles: [...user.roles], authenticated: true };
     }
     require(permission: Permission): VerifiedPrincipal {
         const actor = this.principal();
