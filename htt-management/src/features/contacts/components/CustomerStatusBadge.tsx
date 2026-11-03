@@ -6,7 +6,7 @@ interface CustomerStatusBadgeProps {
     status: CustomerStatus;
 }
 
-const labels: Record<CustomerStatus, string> = {
+export const customerStatusLabels: Record<CustomerStatus, string> = {
     ACTIVE: "Active",
     ON_HOLD: "On hold",
     INACTIVE: "Inactive",
@@ -18,7 +18,7 @@ export function CustomerStatusBadge({
     if (status === "ACTIVE") {
         return (
             <Badge variant="success">
-                {labels[status]}
+                {customerStatusLabels[status]}
             </Badge>
         );
     }
@@ -26,14 +26,14 @@ export function CustomerStatusBadge({
     if (status === "ON_HOLD") {
         return (
             <Badge variant="warning">
-                {labels[status]}
+                {customerStatusLabels[status]}
             </Badge>
         );
     }
 
     return (
         <Badge variant="neutral">
-            {labels[status]}
+            {customerStatusLabels[status]}
         </Badge>
     );
 }

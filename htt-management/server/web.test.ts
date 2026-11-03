@@ -47,6 +47,17 @@ describe('web authentication and durable business database', () => {
         expect((await request('business.command', { repository: 'unknown', method: 'anything', args: [] }, readerCookie)).body.ok).toBe(false);
         expect((await request('business.command', { repository: '__proto__', method: 'toString', args: [] }, readerCookie)).body.ok).toBe(false);
     });
+    it('persists column order across login sessions without sharing it with other accounts', async () => {
+        const table = 'customers';
+        const order = ['status', 'customer'];
+        expect((await request('preferences.columnOrder.set', { table, order })).body.ok).toBe(false);
+        expect((await request('preferences.columnOrder.set', { table, order }, adminCookie)).body.value).toEqual(order);
+        const secondBrowser = await request('login', { username: 'admin', password });
+        expect((await request('preferences.columnOrder.get', { table }, secondBrowser.cookie)).body.value).toEqual(order);
+        expect((await request('preferences.columnOrder.get', { table }, readerCookie)).body.value).toBeNull();
+        expect((await request('preferences.columnOrder.set', { table, order: [] }, secondBrowser.cookie)).body.value).toEqual([]);
+        expect((await request('preferences.columnOrder.get', { table }, adminCookie)).body.value).toEqual([]);
+    });
     it('persists a business mutation and user accounts across a server restart', async () => {
         const targets = await request('business.command', { repository: 'customers', method: 'create', args: [{}] }, adminCookie);
         // Malformed writes fail validation instead of damaging the database.

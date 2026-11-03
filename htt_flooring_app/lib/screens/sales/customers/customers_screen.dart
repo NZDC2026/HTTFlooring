@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:htt_flooring_app/models/sales_user.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +10,7 @@ import '../../../services/customer_service.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
 
+import 'sales_visit_screen.dart';
 import 'business_card_scanner_screen.dart';
 import 'customer_detail_screen.dart';
 import 'customer_map_screen.dart';
@@ -57,6 +59,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
         automaticallyImplyLeading: false,
         title: const Text('Customers'),
         actions: [
+          IconButton(
+            tooltip: 'Sales Visit Check-in',
+            icon: const Icon(Icons.location_on_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SalesVisitScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Scan Business Card',
             onPressed: () {

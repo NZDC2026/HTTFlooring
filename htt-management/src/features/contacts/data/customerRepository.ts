@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { trustedAuthorization } from '../../security/trustedAuthorization';
-import { contactFormSchema } from '../schemas/customerSchemas';
+import { contactFormSchema, customerStatuses } from '../schemas/customerSchemas';
 import { registerRepository } from "../../security/repositoryHost";
 import { readMockRepository, writeMockRepository, canWriteMockRepository } from "../../../lib/persistence/mockRepositoryStorage";
 import { mockCustomers } from "./mockCustomers";
@@ -215,6 +215,16 @@ export const customerRepository = {
         emitChange();
 
         return customer;
+    },
+
+    setStatus(customerId: string, status: unknown) {
+        trustedAuthorization.require("contacts.write");
+        const nextStatus = z.enum(customerStatuses).parse(status);
+        updateCustomerRecord(customerId, customer => ({
+            ...customer,
+            status: nextStatus,
+            updatedAt: new Date().toISOString(),
+        }));
     },
 
     update(
@@ -676,7 +686,7 @@ export const customerRepository = {
 };
 registerRepository("customers", {
     repository: customerRepository, read: "sales.read",
-    commands: {"addNote": "contacts.write", "if": null, "emitChange": null, "create": "contacts.write", "update": "contacts.write", "addLocation": "contacts.write", "updateLocation": "contacts.write", "addContact": "contacts.write", "updateContact": "contacts.write"},
+    commands: {"addNote": "contacts.write", "if": null, "emitChange": null, "create": "contacts.write", "update": "contacts.write", "setStatus": "contacts.write", "addLocation": "contacts.write", "updateLocation": "contacts.write", "addContact": "contacts.write", "updateContact": "contacts.write"},
     validate: value => {
         const ids=new Set<string>(), operations=new Set<string>(),sources=new Set<string>();
         for(const c of (value as {customers:Customer[]}).customers){if(c.notes===undefined)continue;if(!Array.isArray(c.notes))throw Error('Invalid customer notes.');for(const n of c.notes){

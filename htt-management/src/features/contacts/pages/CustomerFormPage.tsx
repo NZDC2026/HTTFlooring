@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 
 import {
+    Link,
     Navigate,
     useNavigate,
     useParams,
@@ -152,6 +153,10 @@ export function CustomerFormPage({
                 </div>
             </div>
 
+            {mode === "edit" && customer && <Link
+                to={`/contacts/customers/${customer.id}?editAccountant=1`}
+                className="mb-4 inline-flex rounded-lg border border-[var(--color-border)] bg-white px-4 py-2 text-sm"
+            >Edit accountant contact</Link>}
             <div className="max-w-[980px]">
                 <CustomerForm
                     customer={customer}

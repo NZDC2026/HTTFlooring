@@ -1,6 +1,6 @@
 import { configureCaptureHelper } from '../electron/security/captureRecognizer';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, join, extname, sep } from 'node:path';
 import { LocalSecurity } from '../electron/security/localSecurity';
@@ -36,6 +36,28 @@ export function createWebApplication(options: { directory: string; staticDirecto
             case 'password.change': return security.changePassword(input);
             case 'audit.list': return security.listAudit(input);
             // Browser caches are never imported into the authoritative shared database.
+            case 'preferences.columnOrder.get':
+            case 'preferences.columnOrder.set': {
+                const actor = security.principal();
+                if (!actor) throw new Error('Sign in to access column preferences.');
+                if (typeof input.table !== 'string' || !input.table || input.table.length > 4096) {
+                    throw new Error('Invalid table identifier.');
+                }
+                const key = createHash('sha256').update(JSON.stringify([actor.userId, input.table])).digest('hex');
+                const file = `column-order-${key}.json`;
+                if (action === 'preferences.columnOrder.get') {
+                    const saved = storage.read(file);
+                    return saved === undefined ? null : JSON.parse(saved);
+                }
+                const order: unknown = input.order;
+                if (!Array.isArray(order) || order.length > 250 ||
+                    !order.every(item => typeof item === 'string' && item.length > 0 && item.length <= 250) ||
+                    new Set(order).size !== order.length) {
+                    throw new Error('Invalid column order.');
+                }
+                storage.write(file, order);
+                return order;
+            }
             case 'business.view': {
                 const actor = security.principal();
                 if (actor && Date.now() - (lastScans.get(actor.userId) ?? 0) >= 60_000) {

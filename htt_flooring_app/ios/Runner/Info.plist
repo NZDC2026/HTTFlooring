@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location is used to verify that you are within 50 metres of the customer address when checking in.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>HTT Flooring uses the camera to scan customer business cards.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

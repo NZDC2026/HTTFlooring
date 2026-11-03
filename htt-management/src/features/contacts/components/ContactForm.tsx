@@ -18,6 +18,7 @@ import type {
 
 interface ContactFormProps {
     contact?: CustomerContact;
+    accountingByDefault?: boolean;
     locations: CustomerLocation[];
 
     onSubmit: (
@@ -29,6 +30,7 @@ interface ContactFormProps {
 
 export function ContactForm({
     contact,
+    accountingByDefault = false,
     locations,
     onSubmit,
     onCancel,
@@ -45,7 +47,7 @@ export function ContactForm({
         resolver: zodResolver(contactFormSchema),
 
         defaultValues: {
-            isAccounting: contact?.isAccounting ?? false,
+            isAccounting: contact?.isAccounting ?? accountingByDefault,
             firstName:
                 contact?.firstName ?? "",
             lastName:

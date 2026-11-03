@@ -75,6 +75,7 @@ type EditorState =
     }
     | {
         type: "contact";
+        accountingByDefault?: boolean;
         item?: CustomerContact;
     }
     | {
@@ -83,8 +84,17 @@ type EditorState =
     }
     | null;
 
+const sampleAccountants: Record<string, { firstName: string; lastName: string; mobile: string }> = {
+    cus_001: { firstName: "Sarah", lastName: "Lee", mobile: "0418 234 567" },
+    cus_002: { firstName: "Alex", lastName: "Morgan", mobile: "0491 570 006" },
+    cus_003: { firstName: "Taylor", lastName: "Chen", mobile: "0491 570 110" },
+    cus_004: { firstName: "Jordan", lastName: "Ellis", mobile: "0491 570 156" },
+    cus_005: { firstName: "Casey", lastName: "Wilson", mobile: "0491 570 157" },
+};
+
 export function CustomerDetailPage() {
     const canReadSales = usePermission("sales.read");
+    const canEditContacts = usePermission("contacts.write");
     const deposits=useCustomerDeposits();
     const { customerId } = useParams();
 
@@ -95,7 +105,9 @@ export function CustomerDetailPage() {
         useCustomer(customerId);
 
     const [editor, setEditor] =
-        useState<EditorState>(null);
+        useState<EditorState>(() => new URLSearchParams(location.search).has("editAccountant") && canEditContacts
+            ? { type: "contact", item: customer?.contacts.find(contact => contact.isAccounting), accountingByDefault: true }
+            : null);
 
     if (!customer) {
         return (
@@ -152,6 +164,33 @@ export function CustomerDetailPage() {
             feedback.success(editing ? "Location updated." : "Location added.");
         } catch (error) {
             feedback.error(error instanceof Error ? error.message : "Unable to save location.");
+        }
+    }
+
+    const sampleAccountant = sampleAccountants[customer.id];
+    const canSaveSample = canEditContacts && sampleAccountant && !customer.contacts.some(contact => contact.isAccounting);
+
+    function saveSampleAccountant() {
+        if (!canSaveSample || !customer) return;
+        const existing = customer.contacts.find(contact =>
+            contact.firstName === sampleAccountant.firstName && contact.lastName === sampleAccountant.lastName,
+        );
+        const values: ContactFormValues = {
+            ...sampleAccountant,
+            jobTitle: existing?.jobTitle ?? "Accounts (sample)",
+            email: existing?.email ?? `${sampleAccountant.firstName.toLowerCase()}@example.invalid`,
+            phone: existing?.phone ?? "",
+            mobile: existing?.mobile ?? sampleAccountant.mobile,
+            locationId: existing?.locationId ?? "",
+            isPrimary: existing?.isPrimary ?? false,
+            isAccounting: true,
+        };
+        try {
+            if (existing) customerRepository.updateContact(resolvedCustomerId, existing.id, values);
+            else customerRepository.addContact(resolvedCustomerId, values);
+            feedback.success("Accounting contact saved.");
+        } catch (error) {
+            feedback.error(error instanceof Error ? error.message : "Unable to save accounting contact.");
         }
     }
 
@@ -317,6 +356,11 @@ export function CustomerDetailPage() {
                         primaryLocation={
                             primaryLocation
                         }
+                        onEditAccountant={canEditContacts ? () => setEditor({
+                            type: "contact",
+                            item: customer.contacts.find(contact => contact.isAccounting),
+                            accountingByDefault: true,
+                        }) : undefined}
                         onViewContacts={() =>
                             goToTab("contacts")
                         }
@@ -338,6 +382,13 @@ export function CustomerDetailPage() {
                             })
                         }
                     />
+                )}
+
+                {activeTab === "contacts" && canSaveSample && (
+                    <div className="mb-4 flex flex-wrap items-center gap-3">
+                        <Button variant="secondary" onClick={saveSampleAccountant}>Save sample accountant</Button>
+                        <span className="text-sm text-[var(--color-text-secondary)]">{sampleAccountant.firstName} {sampleAccountant.lastName} · {sampleAccountant.mobile}</span>
+                    </div>
                 )}
 
                 {activeTab === "contacts" && (
@@ -431,6 +482,7 @@ export function CustomerDetailPage() {
                 >
                     <ContactForm
                         contact={editor.item}
+                        accountingByDefault={editor.accountingByDefault}
                         locations={
                             customer.locations
                         }
@@ -483,6 +535,7 @@ function OverviewTab({
     primaryContact,
     primaryLocation,
     onViewContacts,
+    onEditAccountant,
 }: {
     customer: NonNullable<
         ReturnType<typeof useCustomer>
@@ -494,7 +547,9 @@ function OverviewTab({
     | CustomerLocation
     | undefined;
     onViewContacts: () => void;
+    onEditAccountant?: () => void;
 }) {
+    const accountant = customer.contacts.find(contact => contact.isAccounting);
     return (
         <div className="grid grid-cols-[2fr_1fr] gap-4">
             <div className="space-y-4">
@@ -616,6 +671,23 @@ function OverviewTab({
                                 No primary contact assigned.
                             </div>
                         )}
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h2 className="font-display text-xl">Accountant Contact</h2>
+                            {onEditAccountant && <Button size="sm" variant="ghost" onClick={onEditAccountant}>
+                                {accountant ? "Edit accountant contact" : "Add accountant contact"}
+                            </Button>}
+                        </div>
+                        {accountant ? <div className="mt-4">
+                            <p className="font-medium">{accountant.firstName} {accountant.lastName}</p>
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                <ContactDetail icon={Mail} label="Email" value={accountant.email || "—"}/>
+                                <ContactDetail icon={Phone} label="Mobile" value={accountant.mobile || "—"}/>
+                            </div>
+                        </div> : <p className="mt-3 text-sm text-[var(--color-text-secondary)]">No accountant contact assigned.</p>}
                     </CardContent>
                 </Card>
             </div>
