@@ -58,6 +58,32 @@ describe('web authentication and durable business database', () => {
         expect((await request('preferences.columnOrder.set', { table, order: [] }, secondBrowser.cookie)).body.value).toEqual([]);
         expect((await request('preferences.columnOrder.get', { table }, adminCookie)).body.value).toEqual([]);
     });
+    it('saves a customer delivery task against its order and persists snooze and completion', async () => {
+        const assignees = await request('tasks.assignees', {}, adminCookie);
+        expect(assignees.body.ok).toBe(true);
+        expect((await request('tasks.assignees')).body.ok).toBe(false);
+        const owner = assignees.body.value.find((staff: { displayName: string }) => staff.displayName === 'Reader');
+        expect(owner).toBeDefined();
+        const task = {
+            name: 'Delivery · SO-2026-0001', customerId: 'cus_001', orderId: 'order_001', owner: owner.id,
+            deliveryAt: '2026-11-05T10:00', deliveryAddress: 'Test delivery site', due: '2026-11-05',
+            reminderAt: '2026-11-05T09:00', reminderTimeZone: 'Pacific/Auckland', priority: 'Normal', notes: 'Call on arrival',
+        };
+        const command = (method: string, args: unknown[], cookie = adminCookie) =>
+            request('business.command', { repository: 'workspace_tasks', method, args }, cookie);
+        expect((await command('save', [{ ...task, customerId: 'cus_002' }])).body.ok).toBe(false);
+        expect((await command('save', [{ ...task, owner: 'nonexistent' }])).body.ok).toBe(false);
+        const saved = await command('save', [task]);
+        expect(saved.body.ok, JSON.stringify(saved.body)).toBe(true);
+        const created = saved.body.value.result;
+        const snoozed = await command('save', [{ ...created, snoozedUntil: '2026-11-04T20:15:00.000Z' }, created.revision], readerCookie);
+        expect(snoozed.body.ok, JSON.stringify(snoozed.body)).toBe(true);
+        expect(snoozed.body.value.result.snoozedUntil).toBe('2026-11-04T20:15:00.000Z');
+        const completed = await command('setStatus', [created.id, 'Completed', snoozed.body.value.result.revision], readerCookie);
+        expect(completed.body.ok, JSON.stringify(completed.body)).toBe(true);
+        const view = await request('business.view', {}, adminCookie);
+        expect(view.body.value.repositories.workspace_tasks.records).toContainEqual(expect.objectContaining({ id: created.id, status: 'Completed', completedBy: owner.id }));
+    });
     it('persists a business mutation and user accounts across a server restart', async () => {
         const targets = await request('business.command', { repository: 'customers', method: 'create', args: [{}] }, adminCookie);
         // Malformed writes fail validation instead of damaging the database.

@@ -1,4 +1,4 @@
-import { $t as e, C as t, Cn as n, Dn as r, Ot as i, Q as a, Qt as o, Tn as s, Xt as c, Zt as l, _n as u, a as d, bn as f, c as p, cn as m, d as ee, dn as h, en as g, f as te, fn as _, gn as v, hn as y, i as ne, in as re, ln as ie, n as ae, o as oe, pn as b, r as se, t as ce, u as le, w as ue, xn as de, y as fe, yn as x } from "./businessSnapshot-BhalBeLs.js";
+import { $t as e, C as t, Cn as n, Dn as r, Ot as i, Q as a, Qt as o, Tn as s, Xt as c, Zt as l, _n as u, a as d, bn as f, c as p, cn as m, d as ee, dn as h, en as g, f as te, fn as _, gn as v, hn as y, i as ne, in as re, ln as ie, n as ae, o as oe, pn as b, r as se, t as ce, u as le, w as ue, xn as de, y as fe, yn as x } from "./businessSnapshot-ClHDv5dZ.js";
 import { appendFileSync as pe, closeSync as me, existsSync as S, fsyncSync as he, mkdirSync as ge, openSync as _e, readFileSync as C, realpathSync as w, renameSync as ve, statSync as ye, writeFileSync as be } from "node:fs";
 import xe, { basename as Se, dirname as T, isAbsolute as Ce, join as E, relative as we, sep as Te } from "node:path";
 import { createHash as D, createHmac as Ee, randomBytes as De, randomUUID as O, scryptSync as Oe, timingSafeEqual as ke } from "node:crypto";
@@ -500,6 +500,24 @@ var tt = (e, t) => Oe(e, t, 64).toString("hex"), nt = class {
 	}
 	logout() {
 		return this.audit("session.logout", this.principal()?.userId ?? "", "SUCCESS"), this.session = null, this.status();
+	}
+	taskAssignees() {
+		return this.require("sales.read"), this.state.users.filter((e) => e.active && m({
+			userId: e.id,
+			roles: e.roles,
+			authenticated: !0
+		}, "sales.write")).map((e) => ({
+			id: e.id,
+			displayName: e.displayName
+		}));
+	}
+	validateDeliveryAssignee(e) {
+		if (e.repository !== "workspace_tasks" || e.method !== "save") return;
+		let t = e.args?.[0];
+		if (!t?.orderId) return;
+		let n = this.taskAssignees().find((e) => e.id === t.owner);
+		if (!n) throw Error("Select an active staff member who can manage sales tasks.");
+		t.ownerName = n.displayName;
 	}
 	listUsers() {
 		return this.require("users.manage"), this.state.users.map(Ze);
@@ -3376,7 +3394,7 @@ var un = {
 			configurable: !0,
 			value: { localStorage: i }
 		});
-		let o = await import("./businessEngine-AJ_sVnCQ.js");
+		let o = await import("./businessEngine-C8MgutAD.js");
 		this.workspaceDefaults = o.workspaceDefaults, r && (ae(r, this.workspaceDefaults), d(r.repositories, e()), g(r.repositories), l(r.repositories), this.lastCommandId = r.lastCommandId), o.initialize(() => this.security.principal()), this.automationEngine = o, this.assertPeriod = o.assertPostingPeriod, oe(() => {
 			if (!this.security.require("users.manage").roles.includes("ADMIN") || !this.initialized || this.blocked) throw Error("Permanent purge requires a healthy ADMIN desktop session.");
 			let t = e();
@@ -3526,7 +3544,7 @@ var un = {
 				value: { localStorage: t }
 			});
 		}
-		let i = await import("./businessEngine-AJ_sVnCQ.js");
+		let i = await import("./businessEngine-C8MgutAD.js");
 		if (ae(r.database, i.workspaceDefaults), d(r.database.repositories, e()), g(r.database.repositories), this.security.require("users.manage").userId !== n.userId) throw Error("Restore session changed.");
 		let a = this.security.pendingBusinessCommands();
 		if (a.length) {
@@ -3888,6 +3906,9 @@ function fn(e, t, n = () => {}, r = () => {}) {
 				case "logout":
 					f = i.logout();
 					break;
+				case "tasks.assignees":
+					f = i.taskAssignees();
+					break;
 				case "users.list":
 					f = i.listUsers();
 					break;
@@ -4105,7 +4126,7 @@ function fn(e, t, n = () => {}, r = () => {}) {
 					break;
 				case "business.command": {
 					let e = t;
-					ze(e), f = a.command(e);
+					ze(e), i.validateDeliveryAssignee(e), f = a.command(e);
 					break;
 				}
 				default: throw Error("Unknown desktop security action.");

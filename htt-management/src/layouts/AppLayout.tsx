@@ -1,3 +1,4 @@
+import { DeliveryReminder } from "../features/delivery-tasks/DeliveryTasks";
 import {ModuleNavigation} from './ModuleNavigation';
 import {presentationWorkflows} from '../features/security/optionalWorkflows';
 import { useSecurity } from '../features/security/securityClient';
@@ -27,6 +28,7 @@ export function AppLayout() {
     return (
         <div data-workspace-density={preferences.density.toLowerCase()} data-reduce-motion={preferences.reduceMotion ? "true" : "false"} className="min-h-screen bg-[var(--color-background)]">
             <FeedbackHost />
+            <DeliveryReminder/>
             <Sidebar />
             <Topbar />
 

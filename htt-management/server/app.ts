@@ -30,6 +30,7 @@ export function createWebApplication(options: { directory: string; staticDirecto
             case 'setup': return security.setup(input);
             case 'login': return security.login(input);
             case 'logout': return security.logout();
+            case 'tasks.assignees': return security.taskAssignees();
             case 'users.list': return security.listUsers();
             case 'users.create': return security.createUser(input);
             case 'users.update': return security.updateUser(input);
@@ -66,7 +67,7 @@ export function createWebApplication(options: { directory: string; staticDirecto
                 return business.view();
             }
             case 'business.bootstrap': await business.initialize(); business.scanRecurringDue(); return business.view();
-            case 'business.command': assertApprovedDesktopCommand(input); return business.command(input);
+            case 'business.command': assertApprovedDesktopCommand(input); security.validateDeliveryAssignee(input); return business.command(input);
             case 'business.recurring.scan': {
                 if (Object.keys(input).length) throw new Error('Recurring scan does not accept caller dates, actors or limits.');
                 security.require('inventory.read');

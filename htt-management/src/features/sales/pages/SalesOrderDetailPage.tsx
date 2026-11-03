@@ -1,3 +1,4 @@
+import { DeliveryTasks } from "../../delivery-tasks/DeliveryTasks";
 import { PricingTimeSummary } from '../components/PricingTimeFields';
 import { ItemTypeSummary } from '../components/ItemTypeSummary';
 import { Link } from 'react-router-dom';
@@ -145,6 +146,7 @@ export function SalesOrderDetailPage() {
 
                 Back to customer sales
             </button>
+            <div className="mb-5"><DeliveryTasks customerId={order.customerId} orderId={order.id}/></div>
 
             <div className="mb-6 flex items-start justify-between gap-6">
                 <div>

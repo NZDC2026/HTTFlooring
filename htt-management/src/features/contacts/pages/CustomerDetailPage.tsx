@@ -1,3 +1,4 @@
+import { DeliveryTasks } from "../../delivery-tasks/DeliveryTasks";
 import { CustomerOverviewSales } from "../components/CustomerOverviewSales";
 import { usePermission } from "../../security/usePermission";
 import { useCustomerDeposits, depositBalanceAt } from '../../customer-deposits/customerDepositRepository';
@@ -342,7 +343,7 @@ export function CustomerDetailPage() {
                             goToTab("activity")
                         }
                     >
-                        Notes &amp; Activity
+                        Notes &amp; Tasks
                     </Tab>
                 </div>
 
@@ -432,7 +433,7 @@ export function CustomerDetailPage() {
                 )}
 
                 {activeTab === "activity" && (
-                    <CustomerActivityTab customerId={customer.id} />
+                    <div className="space-y-4"><DeliveryTasks customerId={customer.id}/><CustomerActivityTab customerId={customer.id}/></div>
                 )}
             </div>
 

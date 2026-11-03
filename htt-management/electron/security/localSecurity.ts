@@ -134,6 +134,21 @@ export class LocalSecurity {
         return this.status();
     }
     logout(): SecurityStatus { this.audit('session.logout', this.principal()?.userId ?? '', 'SUCCESS'); this.session = null; return this.status(); }
+    taskAssignees() {
+        this.require('sales.read');
+        return this.state.users.filter(user => user.active && hasPermission({
+            userId: user.id, roles: user.roles, authenticated: true,
+        }, 'sales.write')).map(user => ({ id: user.id, displayName: user.displayName }));
+    }
+
+    validateDeliveryAssignee(command: { repository: string; method: string; args: unknown[] }) {
+        if (command.repository !== 'workspace_tasks' || command.method !== 'save') return;
+        const task = command.args?.[0] as { orderId?: unknown; owner?: unknown; ownerName?: string } | undefined;
+        if (!task?.orderId) return;
+        const assignee = this.taskAssignees().find(user => user.id === task.owner);
+        if (!assignee) throw new Error('Select an active staff member who can manage sales tasks.');
+        task.ownerName = assignee.displayName;
+    }
     listUsers(): PublicUser[] { this.require('users.manage'); return this.state.users.map(publicUser); }
     createUser(input: { username: string; displayName: string; password: string; roles: Role[] }): PublicUser { this.require('users.manage'); return this.addUser(input, input.roles); }
     updateUser(input: { id: string; roles: Role[]; active: boolean }): void {

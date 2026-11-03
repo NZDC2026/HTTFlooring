@@ -1,3 +1,4 @@
+import { validTaskLocalTime } from "../delivery-tasks/deliveryTaskTime";
 import { parseBulkStatus } from './bulkStatus';
 import { reportPresentationSchema } from '../report-settings/reportPresentation';
 import { parseRuleConditions } from '../bank-rules/ruleConditions';
@@ -28,7 +29,7 @@ export const workspaceDomains: Record<string, {
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },
     promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
     jobs: { read: 'accounting.read', write: 'accounting.post', required: ['code', 'customerId', 'starts', 'ends', 'budget', 'costBudget'], fields: ['code', 'customerId', 'owner', 'starts', 'ends', 'budget', 'costBudget'] },
-    tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'completedAt', 'completedBy'] },
+    tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'completedAt', 'completedBy', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
     'bank-rules': { read: 'banking.read', write: 'banking.write', required: ['field', 'operator', 'value', 'accountId', 'taxCode'], fields: ['field', 'operator', 'value', 'accountId', 'taxCode', 'enabled', 'conditions', 'match', 'priority', 'automatic', 'bankAccountId'] },
     templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
@@ -134,6 +135,22 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
     if (domain === 'tasks') {
         if (checkReferences && input.id && ((snapshotRepositories().salesVisits as {visits:{followupTaskId?:string;customerId:string}[]}|undefined)?.visits??[]).some(v=>v.followupTaskId===input.id&&v.customerId!==input.customerId)) throw new Error('A visit follow-up must retain the visit customer.');
         if (checkReferences && !['Open', 'In progress', 'Completed'].includes(input.status ?? 'Open')) throw new Error('Task status must be Open, In progress or Completed.');
+        if (input.orderId) {
+            if (!validTaskLocalTime(input.deliveryAt ?? '') || !validTaskLocalTime(input.reminderAt ?? '') ||
+                input.deliveryAt.slice(0, 10) !== input.due || input.reminderAt > input.deliveryAt) {
+                throw new Error('Enter valid delivery and reminder times. The reminder must be on or before delivery.');
+            }
+            if (!input.deliveryAddress?.trim() || input.deliveryAddress.length > 500) throw new Error('Enter a delivery address (up to 500 characters).');
+            if (!input.reminderTimeZone) throw new Error('A delivery time zone is required.');
+            new Intl.DateTimeFormat('en', { timeZone: input.reminderTimeZone });
+            if (input.snoozedUntil && !z.iso.datetime().safeParse(input.snoozedUntil).success) throw new Error('Invalid snooze time.');
+            if (checkReferences) {
+                const sales = snapshotRepositories().sales as { salesOrders: { id: string; customerId: string }[] } | undefined;
+                if (!sales?.salesOrders.some(order => order.id === input.orderId && order.customerId === input.customerId)) {
+                    throw new Error('Select an order that belongs to this customer.');
+                }
+            }
+        }
         if (!validDate(input.due) || !['Low', 'Normal', 'High'].includes(input.priority))
             throw new Error('Invalid due date or priority.');
     }

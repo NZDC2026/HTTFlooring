@@ -100,6 +100,7 @@ export function registerSecurityIpc(directory: string, getWindow: (sender: WebCo
                 case 'setup': value = security.setup(input as { username: string; displayName: string; password: string }); break;
                 case 'login': value = security.login(input as { username: string; password: string }); break;
                 case 'logout': value = security.logout(); break;
+                case 'tasks.assignees': value = security.taskAssignees(); break;
                 case 'users.list': value = security.listUsers(); break;
                 case 'users.create': value = security.createUser(input as { username: string; displayName: string; password: string; roles: Role[] }); break;
                 case 'users.update': value = security.updateUser(input as { id: string; roles: Role[]; active: boolean }); break;
@@ -174,7 +175,7 @@ export function registerSecurityIpc(directory: string, getWindow: (sender: WebCo
                     if(Object.keys(input).length) throw new Error('Recurring scan does not accept caller dates, actors or limits.');
                     const result=business.scanRecurringDue(); value={result,view:business.view()}; break;
                 }
-                case 'business.command': {const command=input as {repository:string;method:string;args:unknown[]};assertApprovedDesktopCommand(command);value=business.command(command);break;}
+                case 'business.command': {const command=input as {repository:string;method:string;args:unknown[]};assertApprovedDesktopCommand(command);security.validateDeliveryAssignee(command);value=business.command(command);break;}
                 default: throw new Error('Unknown desktop security action.');
             }
             event.returnValue = { ok: true, value };
