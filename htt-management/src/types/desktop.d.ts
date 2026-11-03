@@ -4,6 +4,8 @@ declare global {
     interface Window {
         desktop: {
             platform: string;
+            onSessionChanged?: (callback: (restart: boolean) => void) => () => void;
+            openPage?: (route: string) => Promise<void>;
 
             exportStatementPdf: (
                 options: {

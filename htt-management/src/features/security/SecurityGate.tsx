@@ -16,8 +16,28 @@ export function SecurityGate({ children }: { children: ReactNode }) {
     useEffect(() => {
         try { const current = refreshSecurity(); if (current.session) { enterBusiness(); setReady(true); } } catch (e) { setError(String(e instanceof Error ? e.message : e)); }
         setLoaded(true);
-        const timer = setInterval(() => { try { if (!refreshSecurity().session) setReady(false); else if (isWeb) hydrateBusiness(nativeRequest<BusinessView>('business.view')); } catch { setReady(false); } }, 15_000);
-        return () => clearInterval(timer);
+        const refresh = () => {
+            try {
+                if (!refreshSecurity().session) setReady(false);
+                else {
+                    hydrateBusiness(nativeRequest<BusinessView>('business.view'));
+                    setReady(true);
+                }
+            } catch {
+                if (isWeb) setReady(false);
+            }
+        };
+        const timer = setInterval(refresh, 15_000);
+        if (!isWeb) window.addEventListener('focus', refresh);
+        const unsubscribe = window.desktop?.onSessionChanged?.(restart => {
+            if (restart) setRestartRequired(true);
+            else refresh();
+        });
+        return () => {
+            clearInterval(timer);
+            unsubscribe?.();
+            window.removeEventListener('focus', refresh);
+        };
     }, []);
     async function submit(event: FormEvent) {
         event.preventDefault(); setBusy(true); setError('');

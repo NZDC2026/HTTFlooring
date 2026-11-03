@@ -7,7 +7,7 @@ import {ExternalServices} from '../integrations/externalServices';
 import {IntegrationStore,IntegrationVault} from '../integrations/localIntegrationStore';
 import {renderDeliveryPdf} from '../integrations/outputPdf';
 import {configureCaptureHelper} from './captureRecognizer';
-import { app, ipcMain, dialog, safeStorage, shell, type BrowserWindow } from 'electron';
+import { app, ipcMain, dialog, safeStorage, shell, type BrowserWindow, type WebContents } from 'electron';
 import { readFileSync, statSync, realpathSync } from 'node:fs';
 import {attachmentBytes,atomicAttachmentExport,readSelectedAttachment} from './attachmentFiles';
 import { atomicJson } from './localSecurity';
@@ -15,7 +15,7 @@ import { join, relative, isAbsolute, dirname, basename, sep } from 'node:path';
 import { LocalSecurity } from './localSecurity';
 import { BusinessHost } from './businessHost';
 import type { Role } from '../../src/features/security/rbac';
-export function registerSecurityIpc(directory: string, getWindow: () => BrowserWindow | null, onRecurringStopped: () => void = () => {}) {
+export function registerSecurityIpc(directory: string, getWindow: (sender: WebContents) => BrowserWindow | null, onRecurringStopped: () => void = () => {}, onSessionChanged: (restart: boolean) => void = () => {}) {
     configureCaptureHelper(join(app.isPackaged?process.resourcesPath:app.getAppPath(),app.isPackaged?'ocr':'dist-ocr','htt-ocr'));
     const security = new LocalSecurity(join(directory, 'security-v1.json'));
     const business = new BusinessHost(join(directory, 'business-v1.json'), security);
@@ -31,7 +31,7 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
     catch {payrollFilingError='Payroll filing journal is unavailable. Preserve the full profile and OS credentials; business data has not been reset.';}
     let busy = false;
     ipcMain.on('security:request', async (event, action: unknown, raw: unknown) => {
-        const owner = getWindow();
+        const owner = getWindow(event.sender);
         if (!owner || event.sender !== owner.webContents || event.senderFrame !== owner.webContents.mainFrame) { event.returnValue = { ok: false, error: 'Untrusted desktop sender.' }; return; }
         if (busy) { event.returnValue = { ok: false, error: 'A desktop operation is already running.' }; return; }
         busy = true;
@@ -105,6 +105,7 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
                 case 'users.update': value = security.updateUser(input as { id: string; roles: Role[]; active: boolean }); break;
                 case 'password.change': value = security.changePassword(input as { currentPassword: string; password: string }); break;
                 case 'audit.list': value = security.listAudit(input); break;
+                case 'business.view': value = business.view(); break;
                 case 'business.bootstrap': await business.initialize(input.legacyStorage); business.scanRecurringDue(); value = business.view(); break;
                 case 'business.backup.save': {
                     security.require('users.manage');
@@ -177,6 +178,9 @@ export function registerSecurityIpc(directory: string, getWindow: () => BrowserW
                 default: throw new Error('Unknown desktop security action.');
             }
             event.returnValue = { ok: true, value };
+            if (['logout', 'login', 'setup', 'users.update', 'business.restore.commit'].includes(action)) {
+                queueMicrotask(() => onSessionChanged(action === 'business.restore.commit'));
+            }
         } catch (error) { event.returnValue = { ok: false, error: error instanceof Error ? error.message : 'Desktop operation failed.' }; }
         finally { busy = false; }
     });

@@ -1,6 +1,7 @@
 import {
     contextBridge,
     ipcRenderer,
+    type IpcRendererEvent,
 } from "electron";
 
 contextBridge.exposeInMainWorld(
@@ -8,6 +9,14 @@ contextBridge.exposeInMainWorld(
     {
         platform:
             process.platform,
+
+        onSessionChanged: (callback: (restart: boolean) => void) => {
+            const listener = (_event: IpcRendererEvent, restart: boolean) => callback(restart);
+            ipcRenderer.on("desktop:session-changed", listener);
+            return () => ipcRenderer.removeListener("desktop:session-changed", listener);
+        },
+
+        openPage: (route: string) => ipcRenderer.invoke("desktop:open-page", route),
 
         exportStatementPdf: (
             options: {

@@ -8,6 +8,7 @@ import {
     nativeImage,
     Menu,
     shell,
+    type WebContents,
 } from "electron";
 
 import path from "node:path";
@@ -216,10 +217,23 @@ function sanitizePdfFileName(
         : `${fileName}.pdf`;
 }
 
-function createMainWindow() {
+const desktopWindows = new Map<BrowserWindow, string>();
+
+function trustedWindow(sender: WebContents) {
+    const window = BrowserWindow.fromWebContents(sender);
+    return window && desktopWindows.has(window) ? window : null;
+}
+
+function focusWindow(window: BrowserWindow) {
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
+}
+
+function createMainWindow(route = "/") {
     // Explicit alternate profile + compact window for repeatable minimum-desktop acceptance.
     const compact=app.commandLine.hasSwitch("user-data-dir")&&app.commandLine.getSwitchValue("acceptance-window")==="compact";
-    mainWindow =
+    const window =
         new BrowserWindow({
             title:
                 APP_NAME,
@@ -252,10 +266,12 @@ function createMainWindow() {
             },
         });
 
-    mainWindow.once(
+    desktopWindows.set(window, route);
+    mainWindow ??= window;
+    window.once(
         "ready-to-show",
         () => {
-            mainWindow?.show();
+            window.show();
         },
     );
 
@@ -263,36 +279,44 @@ function createMainWindow() {
         process.env
             .VITE_DEV_SERVER_URL
     ) {
-        mainWindow.loadURL(
+        window.loadURL(
             process.env
                 .VITE_DEV_SERVER_URL,
         );
     } else {
-        mainWindow.loadFile(
+        window.loadFile(
             path.join(
                 __dirname,
                 "../dist/index.html",
             ),
+            { hash: route },
         );
     }
 
-    mainWindow.webContents.on("did-start-navigation", (_event, _url, inPlace, isMainFrame) => { if (isMainFrame && !inPlace) lockSecurity(); });
-    mainWindow.webContents.on("render-process-gone", () => { lockSecurity(); diagnostics?.event("renderer-gone"); });
-    mainWindow.on("unresponsive", () => { lockSecurity(); diagnostics?.event("renderer-unresponsive"); });
-    mainWindow.on("responsive", () => diagnostics?.event("renderer-responsive"));
-    mainWindow.webContents.on("did-fail-load", (_event, code, _description, _url, mainFrame) => { if (mainFrame && code !== -3) diagnostics?.event("load-failed"); });
-    mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-    mainWindow.webContents.on("will-navigate", (event, url) => {
+    let loaded = false;
+    window.webContents.once("did-finish-load", () => { loaded = true; });
+    window.webContents.on("did-start-navigation", (_event, _url, inPlace, isMainFrame) => {
+        if (loaded && isMainFrame && !inPlace) lockSecurity();
+    });
+    window.webContents.on("render-process-gone", () => { lockSecurity(); diagnostics?.event("renderer-gone"); });
+    window.on("unresponsive", () => { lockSecurity(); diagnostics?.event("renderer-unresponsive"); });
+    window.on("responsive", () => diagnostics?.event("renderer-responsive"));
+    window.webContents.on("did-fail-load", (_event, code, _description, _url, mainFrame) => { if (mainFrame && code !== -3) diagnostics?.event("load-failed"); });
+    window.webContents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
+        if (isMainFrame) desktopWindows.set(window, new URL(url).hash.slice(1) || "/");
+    });
+    window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    window.webContents.on("will-navigate", (event, url) => {
         const target = new URL(url);
-        const current = new URL(mainWindow!.webContents.getURL());
+        const current = new URL(window.webContents.getURL());
         if (target.protocol !== current.protocol || target.host !== current.host || target.pathname !== current.pathname) event.preventDefault();
     });
-    mainWindow.on(
+    window.on(
         "closed",
         () => {
-            lockSecurity();
-            mainWindow =
-                null;
+            desktopWindows.delete(window);
+            if (mainWindow === window) mainWindow = desktopWindows.keys().next().value ?? null;
+            if (desktopWindows.size === 0) lockSecurity();
         },
     );
 }
@@ -344,7 +368,25 @@ app.whenReady().then(
         setMacDockIcon();
 
         registerIpcHandlers();
-        lockSecurity = registerSecurityIpc(path.join(app.getPath("userData"), "local-security"), () => mainWindow, () => diagnostics?.event("recurring-stopped")).lock;
+        ipcMain.handle("desktop:open-page", (event, route: unknown) => {
+            const owner = trustedWindow(event.sender);
+            if (!owner || event.senderFrame !== owner.webContents.mainFrame) return;
+            if (typeof route !== "string" || !/^\/(?!\/)[^\u0000-\u001f]*$/.test(route) || route.length > 4096) return;
+
+            const existing = [...desktopWindows].find(([, page]) => page === route)?.[0];
+            if (existing) focusWindow(existing);
+            else createMainWindow(route);
+        });
+        const notifySessionChanged = (restart: boolean) => {
+            for (const window of desktopWindows.keys()) {
+                if (!window.webContents.isDestroyed()) window.webContents.send("desktop:session-changed", restart);
+            }
+        };
+        const security = registerSecurityIpc(path.join(app.getPath("userData"), "local-security"), trustedWindow, () => diagnostics?.event("recurring-stopped"), notifySessionChanged);
+        lockSecurity = () => {
+            security.lock();
+            notifySessionChanged(false);
+        };
 
         Menu.setApplicationMenu(Menu.buildFromTemplate([
             ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
