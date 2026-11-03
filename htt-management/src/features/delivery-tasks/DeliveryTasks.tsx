@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card, CardContent } from "../../components/ui/Card";
@@ -151,21 +151,43 @@ export function DeliveryReminder() {
     ) : undefined;
     if (!task) return null;
 
-    return <div className="fixed inset-0 z-50 grid place-items-center bg-black/25 p-4">
-        <section role="dialog" aria-modal="true" aria-labelledby="delivery-reminder-title" className="w-full max-w-md rounded-xl border bg-white p-5 shadow-lg">
-            <h2 id="delivery-reminder-title" className="font-display text-xl">Delivery reminder</h2>
-            <p className="mt-3 font-medium">{task.name}</p>
-            <p className="mt-1 text-sm">{task.deliveryAt.replace("T", " ")} · {task.reminderTimeZone}</p>
-            <p className="mt-1 break-words text-sm">{task.deliveryAddress}</p>
+    return <DeliveryReminderDialog
+        name={task.name}
+        deliveryAt={task.deliveryAt}
+        timeZone={task.reminderTimeZone}
+        address={task.deliveryAddress}
+        onSnooze={() => {
+            try {
+                tasks.save({ ...task, snoozedUntil: new Date(Date.now() + 15 * 60_000).toISOString() }, task.revision);
+            } catch (error) {
+                feedback.error(error instanceof Error ? error.message : "Unable to snooze the task.");
+            }
+        }}
+        onComplete={() => complete(task)}
+    />;
+}
+
+export function DeliveryReminderDialog({ name, deliveryAt, timeZone, address, sample, onSnooze, onComplete, onClose }: {
+    name: string;
+    deliveryAt: string;
+    timeZone: string;
+    address: string;
+    sample?: boolean;
+    onSnooze: () => void;
+    onComplete: () => void;
+    onClose?: () => void;
+}) {
+    const titleId = useId();
+    return <div className="fixed inset-0 z-[60] grid place-items-center bg-black/25 p-4">
+        <section role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-full max-w-md rounded-xl border bg-white p-5 shadow-lg">
+            <h2 id={titleId} className="font-display text-xl">Delivery reminder {sample && <span className="rounded bg-amber-100 px-2 py-1 font-sans text-xs text-amber-900">Sample</span>}</h2>
+            <p className="mt-3 font-medium">{name}</p>
+            <p className="mt-1 text-sm">{deliveryAt.replace("T", " ")} · {timeZone}</p>
+            <p className="mt-1 break-words text-sm">{address}</p>
             <div className="mt-5 flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => {
-                    try {
-                        tasks.save({ ...task, snoozedUntil: new Date(Date.now() + 15 * 60_000).toISOString() }, task.revision);
-                    } catch (error) {
-                        feedback.error(error instanceof Error ? error.message : "Unable to snooze the task.");
-                    }
-                }}>Remind in 15 min</Button>
-                <Button onClick={() => complete(task)}>Mark complete</Button>
+                <Button variant="secondary" onClick={onSnooze}>Remind in 15 min</Button>
+                <Button onClick={onComplete}>Mark complete</Button>
+                {onClose && <Button variant="ghost" onClick={onClose}>Close preview</Button>}
             </div>
         </section>
     </div>;

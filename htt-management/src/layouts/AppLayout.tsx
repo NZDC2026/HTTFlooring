@@ -1,3 +1,4 @@
+import { PageSamples } from "../features/sample-previews/PageSamples";
 import { DeliveryReminder } from "../features/delivery-tasks/DeliveryTasks";
 import {ModuleNavigation} from './ModuleNavigation';
 import {presentationWorkflows} from '../features/security/optionalWorkflows';
@@ -53,7 +54,7 @@ export function AppLayout() {
                         </div>
                     )}
                     {searchReturn && location.pathname !== '/search/records' && <Link className="mb-4 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm underline" to={searchReturn}><ArrowLeft size={15}/>Back to record search</Link>}
-                    <p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess><ModuleNavigation/><Outlet /></RouteAccess>
+                    <p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess><ModuleNavigation/><PageSamples/><Outlet /></RouteAccess>
                 </div>
             </main>
         </div>
