@@ -12,7 +12,7 @@ const shortcuts = [
 ];
 
 export function QuickAccessCard({ compact = false }: { compact?: boolean }) {
-    if (compact) return <nav aria-label="Quick Access" className="mb-5 flex flex-wrap items-center gap-2">
+    if (compact) return <nav aria-label="Quick Access" className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-xs font-semibold text-[var(--color-text-secondary)]">Quick Access</span>
         {shortcuts.map(({ label, path, icon: Icon }) => <Link key={path} to={path} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--color-border)] bg-white px-3 text-xs font-medium transition-colors hover:bg-[var(--color-primary-soft)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]"><Icon size={14} className="text-[var(--color-primary)]"/>{label}<ArrowUpRight size={12} className="text-[var(--color-text-muted)]"/></Link>)}
     </nav>;

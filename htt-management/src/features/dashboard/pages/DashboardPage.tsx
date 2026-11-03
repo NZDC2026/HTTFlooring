@@ -37,17 +37,16 @@ export function DashboardPage() {
     const dashboard = useMemo(() => buildLiveDashboard(accounts, journals, reportingDate, bankAccounts), [accounts, journals, reportingDate, bankAccounts]);
     const basisDashboard = useDashboardBasis({ accounts, journals, banks: bankAccounts, date: reportingDate, basis, includeGst, currency: businessSettings().currency });
     return <div className="pb-8">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-            <div>
+        <div className="mb-3 grid items-stretch gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="flex min-w-0 flex-col">
                 <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">Business overview · {reportingPeriod}</p>
                 <h1 className="font-display text-[clamp(26px,3vw,34px)] leading-tight">Welcome back, {businessSettings().companyName}</h1>
                 <p className="mt-2 text-sm text-[var(--color-text-secondary)]">Your business performance, priorities and next steps in one place.</p>
+                {presentationWorkflows.customerDemo && <div className="mt-4"><Link to="/demo"><Button variant="accent">Customer demo <ArrowRight size={16}/></Button></Link></div>}
+                <div className="mt-auto pt-3"><QuickAccessCard compact/></div>
             </div>
-            <div className="flex flex-wrap gap-2">
-                {presentationWorkflows.customerDemo && <Link to="/demo"><Button variant="accent">Customer demo <ArrowRight size={16}/></Button></Link>}
-            </div>
+            <TasksCard/>
         </div>
-        <QuickAccessCard compact/>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs">
             <div role="group" aria-label="Reporting period" className="flex flex-wrap items-center gap-2 font-medium">
                 <CalendarDays size={15} aria-hidden="true"/>
@@ -101,7 +100,6 @@ export function DashboardPage() {
                 <ReceivablesCard/>
                 <PayablesCard/>
                 <BankReconciliationCard/>
-                <TasksCard/>
                 <InventoryHealthCard/>
             </div>
         </div>

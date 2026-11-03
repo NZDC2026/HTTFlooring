@@ -1,3 +1,4 @@
+import { Bell, ChevronRight } from "lucide-react";
 import {businessSettings} from '../../business-workspace/configurationState';
 import { useWorkspaceRecords } from '../../business-workspace/workspaceRepository';
 import { Link } from "react-router-dom";
@@ -15,5 +16,21 @@ export function TasksCard() {
   {title:`${data.unreconciledCount} ${data.bankReviewCount ? "bank rows without verified clearing" : "uncleared bank transactions"}`, description:"Review outstanding bank activity", path:"/banking", active:data.unreconciledCount>0},
   {title:"Overdue supplier payments", description:`${fmt(data.overduePayables)} overdue`, path:"/purchases", active:data.overduePayables>0},
  ];
- return <Card><CardContent><h2 className="font-display text-xl">Tasks &amp; Alerts</h2><p className="mt-1 text-xs text-[var(--color-text-muted)]">Items requiring your attention</p><div className="mt-5 divide-y divide-[var(--color-border)]">{tasks.filter(t=>t.active).length ? tasks.filter(t=>t.active).map(task=><Link key={task.title} to={task.path} className="block py-3"><p className="text-sm font-medium">{task.title}</p><p className="text-xs text-[var(--color-text-muted)]">{task.description}</p></Link>) : <p className="py-4 text-sm">No overdue finance tasks.</p>}</div></CardContent></Card>;
+ const activeTasks = tasks.filter(task => task.active);
+ return <Card><CardContent className="px-3 py-2.5">
+     <div className="flex items-center gap-2.5">
+         <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)]"><Bell size={15} aria-hidden="true"/></span>
+         <h2 className="text-sm font-semibold">Tasks &amp; Alerts</h2>
+         <span className="ml-auto rounded-full bg-[var(--color-surface-muted)] px-2 py-0.5 text-xs tabular-nums">{activeTasks.length}</span>
+     </div>
+     <div className="mt-1 max-h-28 overflow-y-auto divide-y divide-[var(--color-border)]">
+         {activeTasks.length ? activeTasks.map(task => <Link key={task.path + task.title} to={task.path} className="flex items-center justify-between gap-3 rounded px-1 py-1 hover:bg-[var(--color-surface-muted)]">
+             <div className="min-w-0">
+                 <p className="text-xs font-medium">{task.title}</p>
+                 <p className="text-[11px] text-[var(--color-text-secondary)]">{task.description}</p>
+             </div>
+             <ChevronRight size={15} className="shrink-0 text-[var(--color-text-muted)]" aria-hidden="true"/>
+         </Link>) : <p className="py-2 text-sm text-[var(--color-text-secondary)]">No overdue finance tasks.</p>}
+     </div>
+ </CardContent></Card>;
 }

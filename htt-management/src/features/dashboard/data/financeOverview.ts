@@ -20,6 +20,14 @@ const addDays = (date: string, days: number) => {
     d.setUTCDate(d.getUTCDate() + days);
     return d.toISOString().slice(0, 10);
 };
+function balanceAgeing(rows: { dueDate: string; amountDue: number }[], total: number, today: string) {
+    return [
+        { label: "Current", amount: rows.filter(i => i.dueDate >= today).reduce((s, i) => s + i.amountDue, 0) },
+        { label: "1–30 days", amount: rows.filter(i => i.dueDate < today && i.dueDate >= addDays(today, -30)).reduce((s, i) => s + i.amountDue, 0) },
+        { label: "31–60 days", amount: rows.filter(i => i.dueDate < addDays(today, -30) && i.dueDate >= addDays(today, -60)).reduce((s, i) => s + i.amountDue, 0) },
+        { label: "60+ days", amount: rows.filter(i => i.dueDate < addDays(today, -60)).reduce((s, i) => s + i.amountDue, 0) },
+    ].map(x => ({ ...x, amount: money(x.amount), percentage: total ? Math.round(x.amount / total * 100) : 0 }));
+}
 export interface FinanceOverviewActivity {
     payments: Payment[];
     creditAllocations: CreditAllocation[];
@@ -36,12 +44,7 @@ export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBil
     const openInvoices = activeInvoices.filter(i => i.amountDue > 0);
     const receivables = money(openInvoices.reduce((s, i) => s + i.amountDue, 0));
     const overdueInvoices = openInvoices.filter(i => i.dueDate < today);
-    const ageing = [
-        { label: "Current", amount: openInvoices.filter(i => i.dueDate >= today).reduce((s, i) => s + i.amountDue, 0) },
-        { label: "1–30 days", amount: openInvoices.filter(i => i.dueDate < today && i.dueDate >= addDays(today, -30)).reduce((s, i) => s + i.amountDue, 0) },
-        { label: "31–60 days", amount: openInvoices.filter(i => i.dueDate < addDays(today, -30) && i.dueDate >= addDays(today, -60)).reduce((s, i) => s + i.amountDue, 0) },
-        { label: "60+ days", amount: openInvoices.filter(i => i.dueDate < addDays(today, -60)).reduce((s, i) => s + i.amountDue, 0) },
-    ].map(x => ({ ...x, amount: money(x.amount), percentage: receivables ? Math.round(x.amount / receivables * 100) : 0 }));
+    const ageing = balanceAgeing(openInvoices, receivables, today);
     const openBills = bills.filter(
         b =>
             (b.status !== "VOID" || !!b.voidedAt && businessDateKey(b.voidedAt) > today) &&
@@ -52,6 +55,8 @@ export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBil
     const payables = money(openBills.reduce((s, b) => s + b.totals.amountDue, 0));
     const dueThisWeek = money(openBills.filter(b => b.dueDate >= today && b.dueDate <= addDays(today, 7)).reduce((s, b) => s + b.totals.amountDue, 0));
     const overduePayables = money(openBills.filter(b => b.dueDate < today).reduce((s, b) => s + b.totals.amountDue, 0));
+    const payableAgeing = balanceAgeing(openBills.map(bill => ({ dueDate: bill.dueDate, amountDue: bill.totals.amountDue })), payables, today);
+    const overdueBillCount = openBills.filter(bill => bill.dueDate < today).length;
     const bankStatus = banks.filter(b => b.active && b.openingBalanceDate <= today).map(bank => {
         const register = calculateBankRegister(bank, journals, today);
         let reviewReasons: string[];
@@ -69,5 +74,5 @@ export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBil
         const outstanding = register.transactions.filter(t => !t.correctionOnly && !cleared.has(t.id)).length;
         return { id: bank.id, name: bank.name, balance: register.closingBalance, lastReconciled: last?.statementDate, outstanding, requiresReview, reviewReasons };
     });
-    return { bankReviewCount: bankStatus.filter(b=>b.requiresReview).length, receivables, overdueInvoiceCount: overdueInvoices.length, overdueReceivables: money(overdueInvoices.reduce((s, i) => s + i.amountDue, 0)), ageing, payables, dueThisWeek, overduePayables, bankStatus, unreconciledCount: bankStatus.reduce((s, b) => s + b.outstanding, 0) };
+    return { bankReviewCount: bankStatus.filter(b=>b.requiresReview).length, receivables, overdueInvoiceCount: overdueInvoices.length, overdueReceivables: money(overdueInvoices.reduce((s, i) => s + i.amountDue, 0)), ageing, payables, payableAgeing, overdueBillCount, dueThisWeek, overduePayables, bankStatus, unreconciledCount: bankStatus.reduce((s, b) => s + b.outstanding, 0) };
 }
