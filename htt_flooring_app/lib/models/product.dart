@@ -4,6 +4,9 @@ class Product {
   final String name;
   final String category;
   final String colour;
+  final String? brand;
+  final String? installationStyle;
+  final String? dimensions;
 
   final double standardPrice;
 
@@ -25,6 +28,9 @@ class Product {
     required this.name,
     required this.category,
     required this.colour,
+    this.brand,
+    this.installationStyle,
+    this.dimensions,
     required this.standardPrice,
     required this.salesFloorPrice,
     required this.discount,

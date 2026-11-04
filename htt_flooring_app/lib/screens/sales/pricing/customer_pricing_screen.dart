@@ -9,8 +9,6 @@ import '../../../services/pricing_service.dart';
 import '../../../theme/app_theme.dart';
 import 'edit_price_screen.dart';
 
-enum _PricingFilter { all, special, tiers }
-
 class CustomerPricingScreen extends StatefulWidget {
   const CustomerPricingScreen({super.key, required this.customer});
 
@@ -24,7 +22,44 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   String _query = '';
-  _PricingFilter _filter = _PricingFilter.all;
+  static const _categories = [
+    'All',
+    'Engineered Timber',
+    'Hybrid',
+    'Laminate',
+    'Accessories',
+  ];
+  static const _stylesByCategory = {
+    'Engineered Timber': ['All', 'Plank', 'Herringbone', 'Chevron'],
+    'Hybrid': ['All', 'Plank', 'Herringbone'],
+    'Laminate': ['All', 'Plank', 'Herringbone'],
+  };
+
+  static final _scotiaDemoPrices = {
+    for (final (sku, colour, standardPrice, customerPrice) in const [
+      ('DEMO-SCO-01', 'Natural Oak', 12.00, 9.50),
+      ('DEMO-SCO-02', 'White', 10.00, 8.00),
+      ('DEMO-SCO-03', 'Charcoal', 11.50, 9.00),
+    ])
+      Product(
+        id: sku,
+        sku: sku,
+        name: 'Scotia $colour',
+        category: 'Accessories',
+        brand: 'Scotia',
+        colour: colour,
+        standardPrice: standardPrice,
+        salesFloorPrice: 0,
+        discount: 0,
+        stockBoxes: 0,
+        stockSqm: 0,
+        sqmPerBox: 0,
+        status: 'Demo',
+      ): customerPrice,
+  };
+
+  String _category = 'All';
+  String _installationStyle = 'All';
 
   @override
   void dispose() {
@@ -37,36 +72,30 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
     final pricing = context.watch<PricingService>();
     final customer = widget.customer;
 
-    final filteredProducts = products.where((product) {
-      if (_query.isNotEmpty) {
-        final query = _query.toLowerCase();
-
-        final matchesSearch =
-            product.name.toLowerCase().contains(query) ||
-            product.sku.toLowerCase().contains(query) ||
-            product.category.toLowerCase().contains(query);
-
-        if (!matchesSearch) {
-          return false;
-        }
+    final query = _query.toLowerCase();
+    final styles = _stylesByCategory[_category];
+    final groups = <(String, String?, String), List<Product>>{};
+    for (final product in [...products, ..._scotiaDemoPrices.keys]) {
+      if (_category != 'All' && product.category != _category) continue;
+      if (_installationStyle != 'All' &&
+          product.installationStyle != _installationStyle) {
+        continue;
       }
 
-      final customerPrice = pricing.getCustomerPrice(
-        customerId: customer.id,
-        product: product,
-      );
+      final brand = product.brand ?? product.name;
+      final matchesSearch = [
+        product.name,
+        product.colour,
+        product.sku,
+        product.category,
+        brand,
+        product.installationStyle ?? '',
+      ].any((value) => value.toLowerCase().contains(query));
+      if (!matchesSearch) continue;
 
-      switch (_filter) {
-        case _PricingFilter.all:
-          return true;
-
-        case _PricingFilter.special:
-          return customerPrice < product.standardPrice;
-
-        case _PricingFilter.tiers:
-          return customerPrice < product.standardPrice;
-      }
-    }).toList();
+      final key = (product.category, product.installationStyle, brand);
+      (groups[key] ??= []).add(product);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -75,19 +104,73 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
         children: [
           _customerHeader(customer),
           _search(),
-          _filters(),
+          _filterRow(_categories, _category, (value) {
+            setState(() {
+              _category = value;
+              _installationStyle = 'All';
+            });
+          }),
+          if (styles != null)
+            _filterRow(styles, _installationStyle, (value) {
+              setState(() => _installationStyle = value);
+            }),
           Expanded(
-            child: filteredProducts.isEmpty
+            child: groups.isEmpty
                 ? const _EmptyProductState()
-                : ListView.separated(
+                : ListView(
                     padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
-                    itemCount: filteredProducts.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final product = filteredProducts[index];
-
-                      return _productCard(context, pricing, product);
-                    },
+                    children: [
+                      for (final group in groups.entries)
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: ExpansionTile(
+                            key: PageStorageKey(group.key),
+                            title: Text.rich(
+                              TextSpan(
+                                text: group.key.$3,
+                                children: [
+                                  for (final dimensions
+                                      in group.value
+                                          .map((product) => product.dimensions)
+                                          .whereType<String>()
+                                          .toSet())
+                                    TextSpan(
+                                      text: ' · $dimensions',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            subtitle: Text(
+                              [
+                                group.key.$1,
+                                ?group.key.$2,
+                                if (_scotiaDemoPrices.containsKey(
+                                  group.value.first,
+                                ))
+                                  'Demo prices',
+                              ].join(' · '),
+                            ),
+                            childrenPadding: const EdgeInsets.fromLTRB(
+                              8,
+                              0,
+                              8,
+                              8,
+                            ),
+                            children: [
+                              for (final product in group.value)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: _productCard(
+                                    context,
+                                    pricing,
+                                    product,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
           ),
         ],
@@ -179,7 +262,7 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
           });
         },
         decoration: InputDecoration(
-          hintText: 'Search product or SKU...',
+          hintText: 'Search brand, colour or SKU...',
           prefixIcon: const Icon(Icons.search),
           suffixIcon: _query.isEmpty
               ? null
@@ -208,43 +291,34 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
     );
   }
 
-  Widget _filters() {
-    return SizedBox(
-      height: 50,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
-        children: [
-          _filterChip('All', _PricingFilter.all),
-          _filterChip('Special Prices', _PricingFilter.special),
-          _filterChip('Price Tiers', _PricingFilter.tiers),
-        ],
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, _PricingFilter value) {
-    final selected = _filter == value;
-
+  Widget _filterRow(
+    List<String> options,
+    String selected,
+    ValueChanged<String> onSelected,
+  ) {
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        showCheckmark: false,
-        selectedColor: AppColors.copperLight,
-        backgroundColor: AppColors.card,
-        side: BorderSide(color: selected ? AppColors.copper : AppColors.border),
-        labelStyle: TextStyle(
-          color: selected ? AppColors.copper : AppColors.text,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            for (final option in options)
+              ChoiceChip(
+                label: Text(option),
+                selected: selected == option,
+                showCheckmark: false,
+                selectedColor: AppColors.green,
+                backgroundColor: AppColors.card,
+                labelStyle: TextStyle(
+                  color: selected == option ? Colors.white : AppColors.text,
+                  fontSize: 12,
+                ),
+                onSelected: (_) => onSelected(option),
+              ),
+          ],
         ),
-        onSelected: (_) {
-          setState(() {
-            _filter = value;
-          });
-        },
       ),
     );
   }
@@ -254,10 +328,14 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
     PricingService pricing,
     Product product,
   ) {
-    final customerPrice = pricing.getCustomerPrice(
-      customerId: widget.customer.id,
-      product: product,
-    );
+    final demoPrice = _scotiaDemoPrices[product];
+    final unit = demoPrice == null ? 'm²' : 'piece';
+    final customerPrice =
+        demoPrice ??
+        pricing.getCustomerPrice(
+          customerId: widget.customer.id,
+          product: product,
+        );
 
     final discount = product.standardPrice <= 0
         ? 0.0
@@ -270,19 +348,23 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  EditPriceScreen(customer: widget.customer, product: product),
-            ),
-          );
+        onTap: demoPrice == null
+            ? () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EditPriceScreen(
+                      customer: widget.customer,
+                      product: product,
+                    ),
+                  ),
+                );
 
-          if (mounted) {
-            setState(() {});
-          }
-        },
+                if (mounted) {
+                  setState(() {});
+                }
+              }
+            : null,
         child: Container(
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
@@ -310,7 +392,9 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            product.name,
+                            product.colour.isEmpty
+                                ? product.name
+                                : product.colour,
                             style: const TextStyle(
                               color: AppColors.text,
                               fontSize: 14,
@@ -318,11 +402,12 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
                             ),
                           ),
                         ),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.muted,
-                          size: 20,
-                        ),
+                        if (demoPrice == null)
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.muted,
+                            size: 20,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 3),
@@ -346,7 +431,7 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
                           ),
                         ),
                         Text(
-                          '\$${customerPrice.toStringAsFixed(2)} / m²',
+                          '\$${customerPrice.toStringAsFixed(2)} / $unit',
                           style: const TextStyle(
                             color: AppColors.copper,
                             fontSize: 15,
@@ -368,7 +453,7 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
                           ),
                         ),
                         Text(
-                          '\$${product.standardPrice.toStringAsFixed(2)} / m²',
+                          '\$${product.standardPrice.toStringAsFixed(2)} / $unit',
                           style: const TextStyle(
                             color: AppColors.muted,
                             fontSize: 11,

@@ -127,7 +127,7 @@ class _EditPriceScreenState extends State<EditPriceScreen> {
                 ),
                 const Divider(height: 24, color: AppColors.border),
                 _priceRow(
-                  'Sales Floor Price',
+                  'Floor Price',
                   product.salesFloorPrice,
                   valueColor: AppColors.danger,
                 ),

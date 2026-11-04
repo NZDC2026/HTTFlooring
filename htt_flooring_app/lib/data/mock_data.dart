@@ -114,6 +114,9 @@ final products = [
     id: 'bonita',
     sku: 'BON-001',
     name: 'Bonita Natural Oak',
+    brand: 'Bonita',
+    dimensions: '1900 × 190 × 14/2 mm',
+    installationStyle: 'Plank',
     category: 'Engineered Timber',
     colour: 'Natural Oak',
 
@@ -131,6 +134,8 @@ final products = [
     id: 'guardian',
     sku: 'GUA-016',
     name: 'Guardian D3016',
+    brand: 'Guardian',
+    installationStyle: 'Plank',
     category: 'Hybrid',
     colour: 'D3016',
 
@@ -148,6 +153,8 @@ final products = [
     id: 'aquaglow',
     sku: 'AQU-002',
     name: 'AquaGlow Silver',
+    brand: 'AquaGlow',
+    installationStyle: 'Plank',
     category: 'Laminate',
     colour: 'Silver',
 
