@@ -5,16 +5,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/customer.dart';
 import '../../../models/customer_contact.dart';
-import '../../../models/customer_location.dart';
 import '../../../models/customer_note.dart';
 import '../../../models/sales_user.dart';
-import '../../../services/customer_location_service.dart';
 import '../../../services/customer_note_service.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/sales_document_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/customer_product_sales_card.dart';
 import '../pricing/customer_pricing_screen.dart';
+import 'customer_displays_screen.dart';
 import 'customer_invoices_screen.dart';
 import 'customer_map_screen.dart';
 import 'customer_notes_screen.dart';
@@ -335,8 +334,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           ),
           Expanded(
             child: _detailTab(
-              'Locations',
-              onTap: () => _showCustomerLocations(customer),
+              'Displays',
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => CustomerDisplaysScreen(customer: customer),
+                ),
+              ),
             ),
           ),
         ],
@@ -1004,269 +1007,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         return _AddContactDialog(customerId: customerId);
       },
     );
-  }
-
-  void _showCustomerLocations(Customer customer) {
-    final locations = context.read<CustomerLocationService>().getForCustomer(
-      customer.id,
-    );
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            _CustomerLocationsScreen(customer: customer, locations: locations),
-      ),
-    );
-  }
-}
-
-class _CustomerLocationsScreen extends StatelessWidget {
-  const _CustomerLocationsScreen({
-    required this.customer,
-    required this.locations,
-  });
-
-  final Customer customer;
-  final List<CustomerLocation> locations;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Locations'),
-        actions: [
-          IconButton(
-            tooltip: 'Map',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CustomerMapScreen(customerId: customer.id),
-                ),
-              );
-            },
-            icon: const Icon(Icons.map_outlined),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          Text(
-            customer.businessName,
-            style: const TextStyle(
-              color: AppColors.text,
-              fontFamily: 'serif',
-              fontSize: 25,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-
-          const SizedBox(height: 5),
-
-          Text(
-            '${locations.length} location${locations.length == 1 ? '' : 's'}',
-            style: const TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-
-          const SizedBox(height: 20),
-
-          if (locations.isEmpty)
-            _emptyLocations()
-          else
-            ...locations.map((location) => _locationCard(context, location)),
-        ],
-      ),
-    );
-  }
-
-  Widget _locationCard(BuildContext context, CustomerLocation location) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.copperLight,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(
-                  _locationIcon(location.type),
-                  color: AppColors.copper,
-                ),
-              ),
-
-              const SizedBox(width: 12),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            location.name,
-                            style: const TextStyle(
-                              color: AppColors.text,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-
-                        if (location.isPrimary) ...[
-                          const SizedBox(width: 7),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.successLight,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Text(
-                              'Primary',
-                              style: TextStyle(
-                                color: AppColors.success,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    Text(
-                      location.typeLabel,
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Text(
-                '${location.distanceKm.toStringAsFixed(1)} km',
-                style: const TextStyle(
-                  color: AppColors.green,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 17,
-                color: AppColors.muted,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  location.address,
-                  style: const TextStyle(
-                    color: AppColors.text,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 15),
-
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CustomerMapScreen(customerId: customer.id),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.map_outlined, size: 18),
-              label: const Text('View on Map'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _emptyLocations() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 42),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.location_off_outlined, size: 42, color: AppColors.muted),
-          SizedBox(height: 12),
-          Text(
-            'No locations added',
-            style: TextStyle(
-              color: AppColors.text,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: 5),
-          Text(
-            'Customer locations will appear here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _locationIcon(CustomerLocationType type) {
-    switch (type) {
-      case CustomerLocationType.store:
-        return Icons.store_outlined;
-
-      case CustomerLocationType.showroom:
-        return Icons.storefront_outlined;
-
-      case CustomerLocationType.warehouse:
-        return Icons.warehouse_outlined;
-
-      case CustomerLocationType.site:
-        return Icons.location_city_outlined;
-    }
   }
 }
 
