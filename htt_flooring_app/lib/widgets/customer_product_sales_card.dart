@@ -8,6 +8,8 @@ import '../models/sales_document.dart';
 import '../services/sales_document_service.dart';
 import '../theme/app_theme.dart';
 
+enum _SalesMetric { value, volume, boxes }
+
 class CustomerProductSalesCard extends StatefulWidget {
   const CustomerProductSalesCard({
     super.key,
@@ -23,6 +25,7 @@ class CustomerProductSalesCard extends StatefulWidget {
 
 class _CustomerProductSalesCardState extends State<CustomerProductSalesCard> {
   int _days = 30;
+  _SalesMetric _metric = _SalesMetric.value;
   bool _expanded = true;
   bool? _demoOverride;
   @override
@@ -43,7 +46,14 @@ class _CustomerProductSalesCardState extends State<CustomerProductSalesCard> {
       customerId: widget.customerId,
       now: now,
       days: _days,
+      annual: _days == 365,
     );
+    final total = ProductSalesGroup('Total');
+    for (final group in report.groups) {
+      total.add(group.trend);
+    }
+    final groups = [...report.groups]
+      ..sort((a, b) => _amount(b.trend).compareTo(_amount(a.trend)));
     final date = DateFormat('d MMM yyyy');
     String period(DateTime start, DateTime end) =>
         '${date.format(start)} – ${date.format(DateTime(end.year, end.month, end.day - 1))}';
@@ -85,13 +95,24 @@ class _CustomerProductSalesCardState extends State<CustomerProductSalesCard> {
                 ),
               ),
               const SizedBox(height: 12),
-              SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment(value: 30, label: Text('Last 30 days')),
-                  ButtonSegment(value: 90, label: Text('Last 90 days')),
-                ],
-                selected: {_days},
-                onSelectionChanged: (v) => setState(() => _days = v.first),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    padding: WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 4),
+                    ),
+                    textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
+                  ),
+                  segments: const [
+                    ButtonSegment(value: 30, label: Text('Last 30 days')),
+                    ButtonSegment(value: 90, label: Text('Last 90 days')),
+                    ButtonSegment(value: 365, label: Text('Last 12 months')),
+                  ],
+                  selected: {_days},
+                  onSelectionChanged: (v) => setState(() => _days = v.first),
+                ),
               ),
               const SizedBox(height: 12),
               Text(
@@ -105,20 +126,106 @@ class _CustomerProductSalesCardState extends State<CustomerProductSalesCard> {
                 'vs ${period(report.previousStart, report.start)}',
                 style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Invoiced volume · trend by m² · returns not deducted',
-                style: TextStyle(color: AppColors.muted, fontSize: 11),
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _summary(
+                    'Total Sales',
+                    _money(total.trend.currentSales),
+                    total.trend.currentSales,
+                    total.trend.previousSales,
+                  ),
+                  const SizedBox(width: 6),
+                  _summary(
+                    'Total Volume',
+                    '${total.trend.currentSqm.toStringAsFixed(2)} m²',
+                    total.trend.currentSqm,
+                    total.trend.previousSqm,
+                  ),
+                  const SizedBox(width: 6),
+                  _summary(
+                    'Total Boxes',
+                    '${total.trend.currentBoxes}',
+                    total.trend.currentBoxes,
+                    total.trend.previousBoxes,
+                  ),
+                ],
               ),
-              if (report.products.isEmpty) ...[
-                const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              const Text(
+                'Sales by Product',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Wrap(
+                spacing: 6,
+                children: [
+                  for (final metric in _SalesMetric.values)
+                    FilterChip(
+                      label: Text(
+                        'By ${metric.name[0].toUpperCase()}${metric.name.substring(1)}',
+                      ),
+                      selected: _metric == metric,
+                      showCheckmark: false,
+                      onSelected: (_) => setState(() => _metric = metric),
+                    ),
+                ],
+              ),
+              if (report.products.isEmpty)
                 const Text(
                   'No product sales in these periods.',
                   style: TextStyle(color: AppColors.muted),
                 ),
-              ],
-              for (final group in report.groups)
-                _groupRow(group, group.trend.name),
+              for (final group in groups)
+                _groupRow(
+                  group,
+                  group.trend.name,
+                  total: _amount(total.trend).toDouble(),
+                ),
+              const SizedBox(height: 14),
+              _panel(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Total Sales Trend (AUD)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    _change(
+                      total.trend.currentSales,
+                      total.trend.previousSales,
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 96,
+                      child: CustomPaint(
+                        painter: _SalesLine(report.salesBuckets),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(DateFormat.MMMd().format(report.start)),
+                        Text(
+                          DateFormat.MMMd().format(
+                            DateTime(
+                              report.end.year,
+                              report.end.month,
+                              report.end.day - 1,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Sales excl. GST · category trends by m² · returns not deducted',
+                style: TextStyle(color: AppColors.muted, fontSize: 11),
+              ),
             ],
           ],
         ),
@@ -126,16 +233,30 @@ class _CustomerProductSalesCardState extends State<CustomerProductSalesCard> {
     );
   }
 
-  Widget _groupRow(ProductSalesGroup group, String path) {
+  Widget _groupRow(ProductSalesGroup group, String path, {double? total}) {
     return ExpansionTile(
       key: PageStorageKey(path),
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(left: 12),
+      leading: total == null
+          ? null
+          : CircleAvatar(
+              backgroundColor: AppColors.copperLight,
+              foregroundColor: AppColors.copper,
+              child: Icon(
+                group.trend.name == 'Accessories'
+                    ? Icons.inventory_2_outlined
+                    : Icons.layers_outlined,
+                size: 18,
+              ),
+            ),
       title: Text(
         group.trend.name,
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
-      subtitle: _trend(group.trend),
+      subtitle: total == null
+          ? _trend(group.trend)
+          : _categorySummary(group.trend, total),
       children: [
         for (final series in group.series.values)
           _groupRow(series, '$path/${series.trend.name}'),
@@ -150,6 +271,96 @@ class _CustomerProductSalesCardState extends State<CustomerProductSalesCard> {
           ),
         if (group.series.isEmpty && group.colours.isEmpty)
           const ListTile(title: Text('No sales in these periods.')),
+      ],
+    );
+  }
+
+  String _money(double value) =>
+      NumberFormat.simpleCurrency(name: 'AUD', decimalDigits: 2).format(value);
+
+  num _amount(ProductSalesTrend trend) => switch (_metric) {
+    _SalesMetric.value => trend.currentSales,
+    _SalesMetric.volume => trend.currentSqm,
+    _SalesMetric.boxes => trend.currentBoxes,
+  };
+
+  Widget _panel(Widget child) => Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      color: AppColors.ivory,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: child,
+  );
+
+  Widget _summary(String title, String value, num current, num previous) =>
+      Expanded(
+        child: _panel(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 10, color: AppColors.muted),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              _change(current, previous),
+            ],
+          ),
+        ),
+      );
+
+  Widget _change(num current, num previous, {bool category = false}) {
+    final difference = current - previous;
+    final unchanged = difference.abs() < 0.000001;
+    final label = unchanged
+        ? (category ? 'No change' : '0.0%')
+        : previous == 0
+        ? 'New'
+        : category
+        ? '${difference > 0 ? 'Up' : 'Down'} ${(difference.abs() / previous.abs() * 100).toStringAsFixed(1)}%'
+        : '${difference > 0 ? '+' : ''}${(difference / previous.abs() * 100).toStringAsFixed(1)}%';
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: unchanged
+            ? AppColors.muted
+            : difference > 0
+            ? AppColors.success
+            : AppColors.danger,
+      ),
+    );
+  }
+
+  Widget _categorySummary(ProductSalesTrend trend, double total) {
+    final share = total <= 0 ? 0.0 : (_amount(trend) / total).clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${_money(trend.currentSales)} · ${trend.currentSqm.toStringAsFixed(2)} m² · ${trend.currentBoxes} boxes',
+          style: const TextStyle(fontSize: 11),
+        ),
+        const SizedBox(height: 5),
+        LinearProgressIndicator(
+          value: share,
+          color: AppColors.green,
+          backgroundColor: AppColors.border,
+        ),
+        Text(
+          '${(share * 100).toStringAsFixed(1)}% of total',
+          style: const TextStyle(fontSize: 10, color: AppColors.muted),
+        ),
+        _change(trend.currentSqm, trend.previousSqm, category: true),
       ],
     );
   }
@@ -207,4 +418,45 @@ class _CustomerProductSalesCardState extends State<CustomerProductSalesCard> {
       ],
     );
   }
+}
+
+class _SalesLine extends CustomPainter {
+  _SalesLine(this.values);
+
+  final List<double> values;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final maximum = values.fold(0.0, (max, value) => value > max ? value : max);
+    final minimum = values.fold(0.0, (min, value) => value < min ? value : min);
+    final range = maximum - minimum;
+    final points = [
+      for (var i = 0; i < values.length; i++)
+        Offset(
+          4 + i * (size.width - 8) / (values.length - 1),
+          range == 0
+              ? size.height - 4
+              : 4 + (maximum - values[i]) / range * (size.height - 8),
+        ),
+    ];
+    final line = Path()..addPolygon(points, false);
+    final area = Path.from(line)
+      ..lineTo(points.last.dx, size.height)
+      ..lineTo(points.first.dx, size.height)
+      ..close();
+    canvas.drawPath(area, Paint()..color = AppColors.successLight);
+    canvas.drawPath(
+      line,
+      Paint()
+        ..color = AppColors.success
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    for (final point in points) {
+      canvas.drawCircle(point, 2.5, Paint()..color = AppColors.success);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SalesLine oldDelegate) => oldDelegate.values != values;
 }

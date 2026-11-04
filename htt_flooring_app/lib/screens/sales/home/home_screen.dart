@@ -10,6 +10,8 @@ import '../customers/customer_map_screen.dart';
 import '../customers/sales_visit_screen.dart';
 import '../pricing/pricing_lookup_screen.dart';
 
+import 'reminder_calendar_screen.dart';
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, required this.onNavigateToTab});
 
@@ -108,12 +110,32 @@ class HomeScreen extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const SalesVisitScreen()),
-            ),
-            icon: const Icon(Icons.location_on_outlined),
-            label: const Text('Check In'),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SalesVisitScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.location_on_outlined),
+                  label: const Text('Check In'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ReminderCalendarScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  label: const Text('Calendar'),
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 32),

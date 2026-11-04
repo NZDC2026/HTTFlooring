@@ -1,5 +1,15 @@
 import 'sales_user.dart';
 
+enum CustomerPotential {
+  low('Low Potential'),
+  medium('Medium Potential'),
+  high('High Potential');
+
+  const CustomerPotential(this.label);
+
+  final String label;
+}
+
 class Customer {
   const Customer({
     required this.id,
@@ -16,6 +26,8 @@ class Customer {
     required this.overdue,
     required this.oldestOverdueDays,
     required this.favourite,
+    this.potential,
+    this.companyPhone = '',
     this.archived = false,
     this.archivedAt,
   });
@@ -28,6 +40,8 @@ class Customer {
   final SalesRegion region;
   final String address;
   final String abn;
+  final String companyPhone;
+  final CustomerPotential? potential;
 
   // Sales
   final DateTime? lastOrderDate;
@@ -52,6 +66,8 @@ class Customer {
       'region': region.name,
       'address': address,
       'abn': abn,
+      'potential': potential?.name,
+      'companyPhone': companyPhone,
       'lastOrderDate': lastOrderDate?.toIso8601String(),
       'thisMonthOrders': thisMonthOrders,
       'lastMonthOrders': lastMonthOrders,
@@ -75,6 +91,10 @@ class Customer {
       ),
       address: json['address'] as String? ?? '',
       abn: json['abn'] as String? ?? '',
+      potential: CustomerPotential.values
+          .where((level) => level.name == json['potential'])
+          .firstOrNull,
+      companyPhone: json['companyPhone'] as String? ?? '',
       lastOrderDate: json['lastOrderDate'] == null
           ? null
           : DateTime.parse(json['lastOrderDate'] as String),

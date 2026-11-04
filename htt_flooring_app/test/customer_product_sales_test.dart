@@ -170,6 +170,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Down 50.0%'), findsOneWidget);
       expect(find.text('New'), findsOneWidget);
+      await tester.ensureVisible(find.text('Last 90 days'));
       await tester.tap(find.text('Last 90 days'));
       await tester.pumpAndSettle();
       expect(find.text('12.00 m² · 6 boxes'), findsNothing);

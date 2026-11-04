@@ -13,6 +13,8 @@ class ProductSalesTrend {
   final String sku;
   final String category;
   final String colour;
+  double currentSales = 0;
+  double previousSales = 0;
   double currentSqm = 0;
   double previousSqm = 0;
   int currentBoxes = 0;
@@ -35,6 +37,8 @@ class ProductSalesGroup {
   final colours = <ProductSalesTrend>[];
 
   void add(ProductSalesTrend product) {
+    trend.currentSales += product.currentSales;
+    trend.previousSales += product.previousSales;
     trend.currentSqm += product.currentSqm;
     trend.previousSqm += product.previousSqm;
     trend.currentBoxes += product.currentBoxes;
@@ -50,12 +54,19 @@ class CustomerProductSales {
     required String customerId,
     required DateTime now,
     this.days = 30,
+    bool annual = false,
   }) {
     if (days <= 0) throw ArgumentError.value(days, 'days');
     final today = DateTime(now.year, now.month, now.day);
     end = DateTime(today.year, today.month, today.day + 1);
-    start = DateTime(end.year, end.month, end.day - days);
-    previousStart = DateTime(start.year, start.month, start.day - days);
+    start = annual
+        ? _yearEarlier(end)
+        : DateTime(end.year, end.month, end.day - days);
+    previousStart = annual
+        ? _yearEarlier(start)
+        : DateTime(start.year, start.month, start.day - days);
+    final dayCount = _calendarDays(start, end);
+    salesBuckets = List.filled(8, 0);
     final grouped = <String, ProductSalesTrend>{};
     // Newest snapshot provides the current product display name.
     final invoices =
@@ -75,6 +86,11 @@ class CustomerProductSales {
         continue;
       }
       final current = !date.isBefore(start);
+      if (current) {
+        final bucket =
+            _calendarDays(start, date) * salesBuckets.length ~/ dayCount;
+        salesBuckets[bucket] += invoice.subtotal;
+      }
       for (final item in invoice.items) {
         final trend = grouped.putIfAbsent(
           item.product.id,
@@ -87,9 +103,11 @@ class CustomerProductSales {
           ),
         );
         if (current) {
+          trend.currentSales += item.subtotal;
           trend.currentSqm += item.sqm;
           trend.currentBoxes += item.boxes;
         } else {
+          trend.previousSales += item.subtotal;
           trend.previousSqm += item.sqm;
           trend.previousBoxes += item.boxes;
         }
@@ -139,9 +157,22 @@ class CustomerProductSales {
     }
     groups = categories.values.toList(growable: false);
   }
+  static int _calendarDays(DateTime start, DateTime end) => DateTime.utc(
+    end.year,
+    end.month,
+    end.day,
+  ).difference(DateTime.utc(start.year, start.month, start.day)).inDays;
+
+  static DateTime _yearEarlier(DateTime date) {
+    final year = date.year - 1;
+    final lastDay = DateTime(year, date.month + 1, 0).day;
+    return DateTime(year, date.month, date.day.clamp(1, lastDay));
+  }
+
   static DateTime _date(SalesDocument d) =>
       d.invoiceDate ?? d.convertedToInvoiceAt ?? d.createdAt;
   final int days;
+  late final List<double> salesBuckets;
   late final DateTime start;
   late final DateTime end;
   late final DateTime previousStart;

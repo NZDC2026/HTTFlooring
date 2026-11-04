@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/customer.dart';
 import '../../../models/customer_contact.dart';
 import '../../../models/sales_user.dart';
+import '../../../services/app_session.dart';
+import '../../../services/customer_location_service.dart';
+import '../../../services/customer_note_service.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/sales_document_service.dart';
 import '../../../theme/app_theme.dart';
@@ -65,7 +69,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     final overdue = documentService.getCustomerOverdue(customer.id);
 
     final primaryContact = _primaryContact(contacts);
-    final emailContact = _emailContact(contacts);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -74,17 +77,23 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         padding: const EdgeInsets.only(bottom: 32),
         children: [
           _buildHeader(customer),
-          _buildPrimaryActions(
-            customer: customer,
-            primaryContact: primaryContact,
-            emailContact: emailContact,
-          ),
+          _buildPrimaryActions(customer: customer, contacts: contacts),
           _buildTabs(customer),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildCustomerSnapshot(customer, documentService),
+                const SizedBox(height: 24),
+                _sectionHeader(
+                  'COMPANY',
+                  actionLabel: 'Edit',
+                  onAction: () => _showEditCompanyDialog(customer),
+                ),
+                const SizedBox(height: 10),
+                _buildCompanyCard(customer),
+                const SizedBox(height: 24),
                 _sectionHeader(
                   'CONTACT PERSON',
                   actionLabel: 'Add',
@@ -105,14 +114,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
-                _sectionHeader(
-                  'COMPANY',
-                  actionLabel: 'Edit',
-                  onAction: () => _showEditCompanyDialog(customer),
-                ),
-                const SizedBox(height: 10),
-                _buildCompanyCard(customer),
                 const SizedBox(height: 24),
                 CustomerProductSalesCard(customerId: customer.id),
                 const SizedBox(height: 24),
@@ -192,18 +193,65 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   '${customer.type} · ${customer.region.label}',
                   style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
-                if (customer.archived) ...[
-                  const SizedBox(height: 7),
-                  const Text(
-                    'ARCHIVED',
-                    style: TextStyle(
-                      color: AppColors.danger,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Chip(
+                      label: Text(customer.archived ? 'Archived' : 'Active'),
+                      labelStyle: TextStyle(
+                        fontSize: 11,
+                        color: customer.archived
+                            ? AppColors.danger
+                            : AppColors.green,
+                      ),
+                      backgroundColor: customer.archived
+                          ? AppColors.dangerLight
+                          : AppColors.successLight,
+                      side: BorderSide.none,
+                      visualDensity: VisualDensity.compact,
                     ),
-                  ),
-                ],
+                    PopupMenuButton<CustomerPotential>(
+                      tooltip: 'Change customer potential',
+                      initialValue: customer.potential,
+                      onSelected: (potential) {
+                        final service = context.read<CustomerService>();
+                        final current = service.findById(customer.id);
+                        if (current == null) return;
+                        service.updateCustomer(
+                          customerId: current.id,
+                          businessName: current.businessName,
+                          address: current.address,
+                          abn: current.abn,
+                          potential: potential,
+                        );
+                      },
+                      itemBuilder: (_) => [
+                        for (final level in CustomerPotential.values)
+                          CheckedPopupMenuItem(
+                            value: level,
+                            checked: level == customer.potential,
+                            child: Text(level.label),
+                          ),
+                      ],
+                      child: Chip(
+                        label: Text(
+                          customer.potential?.label ?? 'Set Potential',
+                        ),
+                        labelStyle: const TextStyle(fontSize: 11),
+                        backgroundColor: switch (customer.potential) {
+                          CustomerPotential.low => AppColors.border,
+                          CustomerPotential.medium => AppColors.warningLight,
+                          CustomerPotential.high => AppColors.successLight,
+                          null => AppColors.ivory,
+                        },
+                        side: BorderSide.none,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -212,11 +260,251 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 
+  Widget _buildCustomerSnapshot(
+    Customer customer,
+    SalesDocumentService documents,
+  ) {
+    final customerId = customer.id;
+    final activities = context.watch<CustomerNoteService>();
+    final locations = context.watch<CustomerLocationService>();
+    final signedIn =
+        context.watch<AppSession>().employeeAccessToken?.isNotEmpty == true;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final dates = DateFormat('d MMM yyyy');
+
+    final lastVisit = activities
+        .getCustomerNotes(customerId)
+        .where((note) => !note.isFollowUp && note.noteType == 'Customer Visit')
+        .firstOrNull;
+    final openFollowUps = activities.pendingFollowUps
+        .where((task) => task.customerId == customerId)
+        .toList();
+    final nextVisit = openFollowUps.where((task) {
+      final date = task.followUpDate;
+      return task.followUpType == 'Customer Visit' &&
+          date != null &&
+          !date.isBefore(today);
+    }).firstOrNull;
+    final nextDate = nextVisit?.followUpDate;
+    final assignees = nextVisit?.assignees.map((user) => user.name).join(', ');
+    final demoDays = signedIn ? null : locations.demoDaysSinceVisit(customerId);
+    final lastLabel = lastVisit != null
+        ? dates.format(lastVisit.createdAt.toLocal())
+        : demoDays != null
+        ? '${dates.format(DateTime(today.year, today.month, today.day - demoDays))} · Demo'
+        : 'No visit recorded';
+
+    final orders = documents.getCustomerOrders(customerId)
+      ..sort(
+        (a, b) => (b.convertedToOrderAt ?? b.createdAt).compareTo(
+          a.convertedToOrderAt ?? a.createdAt,
+        ),
+      );
+    final latestOrder = orders.firstOrNull;
+    final orderDate =
+        latestOrder?.convertedToOrderAt ??
+        latestOrder?.createdAt ??
+        customer.lastOrderDate;
+    final nextFollowUp = openFollowUps
+        .where(
+          (task) =>
+              task.followUpDate != null &&
+              !task.followUpDate!.toLocal().isBefore(today),
+        )
+        .firstOrNull;
+    final dueSoon = openFollowUps.where((task) {
+      final date = task.followUpDate?.toLocal();
+      return date != null &&
+          !date.isBefore(today) &&
+          date.isBefore(DateTime(today.year, today.month, today.day + 8));
+    }).length;
+    final coverage = CustomerDisplaysScreen.demoCoverage;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _snapshotCard(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Customer Snapshot',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  Icon(Icons.bar_chart, size: 18, color: AppColors.muted),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _snapshotPair(
+                _summaryItem(
+                  'Last Visit',
+                  lastLabel,
+                  person:
+                      lastVisit?.authorName ??
+                      (demoDays != null && lastVisit == null
+                          ? AppSession.jamesWilson.name
+                          : null),
+                ),
+                _summaryItem(
+                  'Last Order',
+                  orderDate == null
+                      ? 'No orders'
+                      : dates.format(orderDate.toLocal()),
+                  person: latestOrder == null
+                      ? null
+                      : NumberFormat.simpleCurrency(name: 'AUD')
+                            .format(latestOrder.total),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _snapshotPair(
+                _summaryItem('Account Owner', 'Unavailable'),
+                _summaryItem(
+                  'Next Follow-up',
+                  nextFollowUp == null
+                      ? 'Not scheduled'
+                      : dates.format(nextFollowUp.followUpDate!.toLocal()),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _summaryItem(
+                'Next Visit',
+                nextDate == null
+                    ? 'Not scheduled'
+                    : dates.format(nextDate.toLocal()),
+                person: nextVisit == null
+                    ? null
+                    : assignees == null || assignees.isEmpty
+                    ? 'Unassigned'
+                    : assignees,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _snapshotCard(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _summaryItem(
+                        'Display Coverage',
+                        signedIn
+                            ? 'Unavailable'
+                            : '${coverage.displayed} / ${coverage.total}',
+                      ),
+                      if (!signedIn) ...[
+                        const SizedBox(height: 6),
+                        LinearProgressIndicator(
+                          value: coverage.displayed / coverage.total,
+                          color: AppColors.green,
+                          backgroundColor: AppColors.border,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${coverage.total - coverage.displayed} missing · Demo',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _snapshotCard(
+                  _summaryItem(
+                    'Open Follow-ups',
+                    openFollowUps.length.toString(),
+                    person: dueSoon == 0 ? null : '$dueSoon due soon',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _snapshotPair(Widget left, Widget right) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: left),
+        const SizedBox(width: 10),
+        Expanded(child: right),
+      ],
+    );
+  }
+
+  Widget _snapshotCard(Widget child) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _summaryItem(String title, String value, {String? person}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(color: AppColors.muted, fontSize: 11),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: AppColors.green,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (person != null)
+          Text(
+            person,
+            style: const TextStyle(color: AppColors.muted, fontSize: 11),
+          ),
+      ],
+    );
+  }
+
   Widget _buildPrimaryActions({
     required Customer customer,
-    required CustomerContact? primaryContact,
-    required CustomerContact? emailContact,
+    required List<CustomerContact> contacts,
   }) {
+    final callOptions = [
+      if (customer.companyPhone.trim().isNotEmpty)
+        (label: 'Company office', value: customer.companyPhone.trim()),
+      for (final contact in contacts)
+        if (contact.phone.trim().isNotEmpty)
+          (label: contact.name, value: contact.phone.trim()),
+    ];
+    final emailOptions = [
+      for (final contact in contacts)
+        if (contact.email.trim().isNotEmpty)
+          (label: contact.name, value: contact.email.trim()),
+    ];
+    final uniqueEmails = {
+      for (final option in emailOptions)
+        option.value.toLowerCase(): option.value,
+    };
     return Container(
       color: AppColors.card,
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
@@ -226,9 +514,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             child: _topAction(
               Icons.phone_outlined,
               'Call',
-              primaryContact?.phone.trim().isNotEmpty == true
-                  ? () => _callPhone(primaryContact!.phone)
-                  : null,
+              callOptions.isEmpty
+                  ? null
+                  : () => _chooseContactAction(
+                      title: 'Call',
+                      icon: Icons.phone_outlined,
+                      options: callOptions,
+                      onSelect: _callPhone,
+                    ),
             ),
           ),
           const SizedBox(width: 8),
@@ -236,9 +529,21 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             child: _topAction(
               Icons.email_outlined,
               'Email',
-              emailContact?.email.trim().isNotEmpty == true
-                  ? () => _sendEmail(emailContact!.email)
-                  : null,
+              emailOptions.isEmpty
+                  ? null
+                  : () => _chooseContactAction(
+                      title: 'Email',
+                      icon: Icons.email_outlined,
+                      options: [
+                        if (uniqueEmails.length > 1)
+                          (
+                            label: 'Email all contacts',
+                            value: uniqueEmails.values.join(','),
+                          ),
+                        ...emailOptions,
+                      ],
+                      onSelect: _sendEmail,
+                    ),
             ),
           ),
           const SizedBox(width: 8),
@@ -567,6 +872,31 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               ],
             ),
           ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(
+                Icons.phone_outlined,
+                size: 18,
+                color: AppColors.muted,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: customer.companyPhone.isEmpty
+                    ? const Text(
+                        'Company phone not set',
+                        style: TextStyle(fontSize: 12, color: AppColors.muted),
+                      )
+                    : Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: TextButton(
+                          onPressed: () => _callPhone(customer.companyPhone),
+                          child: Text(customer.companyPhone),
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -626,19 +956,41 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     return contacts.first;
   }
 
-  CustomerContact? _emailContact(List<CustomerContact> contacts) {
-    for (final contact in contacts) {
-      if (contact.isAccountsContact && contact.email.trim().isNotEmpty) {
-        return contact;
-      }
-    }
-    for (final contact in contacts) {
-      if (contact.isPrimary && contact.email.trim().isNotEmpty) return contact;
-    }
-    for (final contact in contacts) {
-      if (contact.email.trim().isNotEmpty) return contact;
-    }
-    return null;
+  Future<void> _chooseContactAction({
+    required String title,
+    required IconData icon,
+    required List<({String label, String value})> options,
+    required Future<void> Function(String) onSelect,
+  }) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                title,
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+            ),
+            for (final option in options)
+              ListTile(
+                leading: Icon(icon),
+                title: Text(option.label),
+                subtitle: Text(option.value),
+                onTap: () => Navigator.pop(sheetContext, option.value),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) await onSelect(selected);
   }
 
   String _companyInitials(String name) {
@@ -1152,6 +1504,7 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
   late final TextEditingController _businessNameController;
   late final TextEditingController _abnController;
   late final TextEditingController _addressController;
+  late final TextEditingController _companyPhoneController;
 
   @override
   void initState() {
@@ -1164,6 +1517,9 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
     _abnController = TextEditingController(text: widget.customer.abn);
 
     _addressController = TextEditingController(text: widget.customer.address);
+    _companyPhoneController = TextEditingController(
+      text: widget.customer.companyPhone,
+    );
   }
 
   @override
@@ -1171,6 +1527,7 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
     _businessNameController.dispose();
     _abnController.dispose();
     _addressController.dispose();
+    _companyPhoneController.dispose();
 
     super.dispose();
   }
@@ -1191,6 +1548,7 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
       businessName: businessName,
       abn: _abnController.text.trim(),
       address: _addressController.text.trim(),
+      companyPhone: _companyPhoneController.text,
     );
 
     Navigator.of(context).pop();
@@ -1221,6 +1579,12 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
               textCapitalization: TextCapitalization.words,
               maxLines: 2,
               decoration: const InputDecoration(labelText: 'Address'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _companyPhoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Company Phone'),
             ),
           ],
         ),

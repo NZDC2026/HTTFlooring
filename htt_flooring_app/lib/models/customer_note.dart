@@ -43,6 +43,7 @@ class CustomerNote {
 
   final FollowUpStatus? followUpStatus;
 
+  final String? authorName;
   final String? noteType;
   final String? followUpType;
   final List<AppUser> assignees;
@@ -58,6 +59,7 @@ class CustomerNote {
     required this.createdAt,
     this.followUpDate,
     this.followUpStatus,
+    this.authorName,
     this.noteType,
     this.followUpType,
     this.assignees = const [],
@@ -94,6 +96,7 @@ class CustomerNote {
       createdAt: createdAt,
       followUpDate: followUpDate ?? this.followUpDate,
       followUpStatus: followUpStatus ?? this.followUpStatus,
+      authorName: authorName,
       noteType: noteType,
       followUpType: followUpType,
       assignees: assignees,

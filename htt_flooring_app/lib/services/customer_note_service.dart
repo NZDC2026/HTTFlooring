@@ -50,6 +50,7 @@ class CustomerNoteService extends ChangeNotifier {
     required String content,
     List<ActivityAttachment>? attachments,
     String? noteType,
+    AppUser? author,
   }) {
     final text = content.trim();
 
@@ -71,6 +72,8 @@ class CustomerNoteService extends ChangeNotifier {
       customerId: customerId,
       type: CustomerNoteType.note,
       noteType: noteType,
+      creatorId: existing == null ? author?.id : existing.creatorId,
+      authorName: existing == null ? author?.name : existing.authorName,
       content: text,
       attachments: List.unmodifiable(
         attachments ?? existing?.attachments ?? const [],

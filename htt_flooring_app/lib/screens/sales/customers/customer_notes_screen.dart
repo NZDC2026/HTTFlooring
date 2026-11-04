@@ -475,6 +475,7 @@ class _AddNoteScreenState extends State<_AddNoteScreen> {
       attachments: _attachments,
       content: _controller.text,
       noteType: _noteType,
+      author: context.read<AppSession>().currentUser,
     );
     Navigator.pop(context);
   }
@@ -523,6 +524,7 @@ class _AddNoteScreenState extends State<_AddNoteScreen> {
             ),
             ActivityAttachments(
               attachments: _attachments,
+              allowFilePicker: widget.existing != null,
               onChanged: (files) => setState(() => _attachments = files),
             ),
             if (widget.existing != null) ...[
@@ -898,6 +900,7 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
               label: 'Follow-up Type',
               icon: Icons.event_available_outlined,
               options: const [
+                'Customer Visit',
                 'Sample Delivery',
                 'Quotation / Order Follow-up',
                 'Payment Follow-up',

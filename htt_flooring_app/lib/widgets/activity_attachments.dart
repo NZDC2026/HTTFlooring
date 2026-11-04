@@ -14,9 +14,11 @@ class ActivityAttachments extends StatefulWidget {
     super.key,
     required this.attachments,
     this.onChanged,
+    this.allowFilePicker = true,
   });
 
   final List<ActivityAttachment> attachments;
+  final bool allowFilePicker;
   final ValueChanged<List<ActivityAttachment>>? onChanged;
 
   @override
@@ -154,11 +156,12 @@ class _ActivityAttachmentsState extends State<ActivityAttachments> {
             spacing: 6,
             runSpacing: 6,
             children: [
-              OutlinedButton(
-                style: _attachmentButtonStyle,
-                onPressed: _picking ? null : () => _add(),
-                child: const Text('Add File'),
-              ),
+              if (widget.allowFilePicker)
+                OutlinedButton(
+                  style: _attachmentButtonStyle,
+                  onPressed: _picking ? null : () => _add(),
+                  child: const Text('Add File'),
+                ),
               OutlinedButton(
                 style: _attachmentButtonStyle,
                 onPressed: _picking

@@ -4,6 +4,21 @@ import '../../../models/customer.dart';
 import '../../../theme/app_theme.dart';
 
 class CustomerDisplaysScreen extends StatefulWidget {
+  static ({int displayed, int total}) get demoCoverage {
+    final catalogue = _CustomerDisplaysScreenState._sampleCatalogue;
+    final displayed = _CustomerDisplaysScreenState._sampleDisplayed;
+    return (
+      displayed: displayed.values.fold(
+        0,
+        (sum, colours) => sum + colours.length,
+      ),
+      total: catalogue.values
+          .expand((patterns) => patterns.values)
+          .expand((series) => series.values)
+          .fold(0, (sum, colours) => sum + colours.length),
+    );
+  }
+
   const CustomerDisplaysScreen({super.key, required this.customer});
 
   final Customer customer;
