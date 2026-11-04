@@ -1,14 +1,28 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
+import 'package:google_navigation_flutter/google_navigation_flutter.dart'
+    show GoogleMapsNavigator;
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/customer_location.dart';
+import '../../../services/app_session.dart';
+import '../../../models/sales_user.dart';
+import '../../../services/google_maps_loader.dart'
+    if (dart.library.js_interop) '../../../services/google_maps_loader_web.dart';
 import '../../../services/customer_location_service.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/sales_session.dart';
+import '../../../services/sales_document_service.dart';
 import '../../../theme/app_theme.dart';
 
 import 'customer_detail_screen.dart';
+import 'customer_google_map.dart';
+import 'customer_navigation_screen.dart';
+import 'sales_visit_screen.dart';
+import 'visit_check_in_screen.dart';
 
 class CustomerMapScreen extends StatefulWidget {
   const CustomerMapScreen({
@@ -26,8 +40,12 @@ class CustomerMapScreen extends StatefulWidget {
 
 class _CustomerMapScreenState extends State<CustomerMapScreen> {
   late double _distanceKm;
+  static const _useGoogleMap = false;
+  final _mapTransform = TransformationController();
+  late final Future<bool> _mapReady = loadGoogleMaps();
 
   bool _showMap = true;
+  bool _openingNavigation = false;
 
   CustomerLocation? _selectedLocation;
 
@@ -36,6 +54,12 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
     super.initState();
 
     _distanceKm = widget.initialDistanceKm;
+  }
+
+  @override
+  void dispose() {
+    _mapTransform.dispose();
+    super.dispose();
   }
 
   @override
@@ -63,12 +87,17 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
           _topControls(),
 
           Expanded(
-            child: _showMap ? _mapView(locations) : _listView(locations),
+            child: _showMap
+                ? _mapView(locations, session.region)
+                : _listView(locations),
           ),
 
           _distanceFilters(),
 
-          if (_selectedLocation != null) _customerPreview(_selectedLocation!),
+          if (_selectedLocation case final location?)
+            Flexible(
+              child: SingleChildScrollView(child: _customerPreview(location)),
+            ),
         ],
       ),
     );
@@ -155,7 +184,66 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
     );
   }
 
-  Widget _mapView(List<CustomerLocation> locations) {
+  Widget _mapView(List<CustomerLocation> locations, SalesRegion region) {
+    if (!_useGoogleMap) return _schematicMap(locations);
+
+    final focus = locations.firstOrNull;
+    final center = focus == null
+        ? switch (region) {
+            SalesRegion.sydney => const LatLng(-33.8688, 151.2093),
+            SalesRegion.melbourne => const LatLng(-37.8136, 144.9631),
+          }
+        : LatLng(focus.latitude, focus.longitude);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: FutureBuilder<bool>(
+          future: _mapReady,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.data != true) {
+              return Center(
+                child: OutlinedButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.https('www.google.com', '/maps/search/', {
+                      'api': '1',
+                      'query': '${center.latitude},${center.longitude}',
+                    }),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.map_outlined),
+                  label: const Text('Open in Google Maps'),
+                ),
+              );
+            }
+
+            return CustomerGoogleMap(
+              key: ValueKey((
+                center,
+                _distanceKm,
+                locations.map((location) => location.id).join(','),
+              )),
+              center: center,
+              zoom: _distanceKm <= 5
+                  ? 13
+                  : _distanceKm <= 20
+                  ? 11
+                  : 10,
+              locations: locations,
+              onSelect: (location) =>
+                  setState(() => _selectedLocation = location),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _schematicMap(List<CustomerLocation> locations) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18),
       child: ClipRRect(
@@ -165,20 +253,22 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
           color: const Color(0xFFE8E5DD),
           child: Stack(
             children: [
-              const Positioned.fill(
-                child: CustomPaint(painter: _MapBackgroundPainter()),
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (context, constraints) => InteractiveViewer(
+                    transformationController: _mapTransform,
+                    maxScale: 4,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const CustomPaint(painter: _MapBackgroundPainter()),
+                        const Center(child: _CurrentLocationMarker()),
+                        ..._buildMarkers(locations, constraints.biggest),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-
-              const Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                bottom: 0,
-                child: Center(child: _CurrentLocationMarker()),
-              ),
-
-              ..._buildMarkers(locations),
-
               Positioned(
                 right: 14,
                 bottom: 14,
@@ -187,6 +277,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
                   backgroundColor: AppColors.card,
                   foregroundColor: AppColors.green,
                   onPressed: () {
+                    _mapTransform.value = Matrix4.identity();
                     setState(() {
                       _selectedLocation = null;
                     });
@@ -201,7 +292,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
     );
   }
 
-  List<Widget> _buildMarkers(List<CustomerLocation> locations) {
+  List<Widget> _buildMarkers(List<CustomerLocation> locations, Size mapSize) {
     final positions = <Offset>[
       const Offset(0.22, 0.25),
       const Offset(0.70, 0.29),
@@ -216,8 +307,8 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
       final position = positions[index % positions.length];
 
       return Positioned(
-        left: MediaQuery.sizeOf(context).width * position.dx - 45,
-        top: MediaQuery.sizeOf(context).height * 0.40 * position.dy,
+        left: mapSize.width * position.dx - 45,
+        top: mapSize.height * position.dy,
         child: _CustomerMarker(
           location: location,
           selected: _selectedLocation?.id == location.id,
@@ -365,6 +456,15 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
   }
 
   Widget _customerPreview(CustomerLocation location) {
+    final customers = context.watch<CustomerService>();
+    final customer = customers.findById(location.customerId);
+    final contact = customers.getPrimaryContact(location.customerId);
+    final documents = context.watch<SalesDocumentService>();
+    final currency = NumberFormat.simpleCurrency(locale: 'en_AU', name: 'AUD');
+    final overdue = customer == null
+        ? null
+        : documents.getCustomerOverdue(customer.id);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
@@ -421,8 +521,59 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
             ],
           ),
 
+          const SizedBox(height: 12),
+          _previewDetail('Primary contact', contact?.name ?? 'Unavailable'),
+          if (contact != null) ...[
+            if (contact.jobTitle.isNotEmpty)
+              _previewDetail('Role', contact.jobTitle),
+            if (contact.phone.isNotEmpty)
+              _previewDetail('Phone', contact.phone),
+            if (contact.email.isNotEmpty)
+              _previewDetail('Email', contact.email),
+          ],
+          _previewDetail(
+            'Purchases this month',
+            customer == null
+                ? 'Unavailable'
+                : currency.format(customer.thisMonthOrders),
+          ),
+          _previewDetail(
+            'Purchases last month',
+            customer == null
+                ? 'Unavailable'
+                : currency.format(customer.lastMonthOrders),
+          ),
+          _previewDetail(
+            'Overdue',
+            overdue == null ? 'Unavailable' : currency.format(overdue),
+            color: AppColors.danger,
+          ),
+          _previewDetail('Last visit', 'Visit history unavailable'),
           const SizedBox(height: 16),
 
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {
+                final hasSession =
+                    context
+                        .read<AppSession>()
+                        .employeeAccessToken
+                        ?.isNotEmpty ==
+                    true;
+                Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => hasSession
+                        ? SalesVisitScreen(initialSearch: location.name)
+                        : VisitCheckInScreen.demo(location),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.location_on_outlined),
+              label: const Text('Check In'),
+            ),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -446,6 +597,30 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _previewDetail(String label, String value, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: color ?? AppColors.muted),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(fontSize: 12, color: color),
+            ),
           ),
         ],
       ),
@@ -492,6 +667,24 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
   }
 
   Future<void> _openDirections(CustomerLocation location) async {
+    if (_openingNavigation) return;
+    if (!kIsWeb && await _mapReady) {
+      if (!mounted || _openingNavigation) return;
+      _openingNavigation = true;
+      try {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => CustomerNavigationScreen(location: location),
+          ),
+        );
+        if (await GoogleMapsNavigator.isInitialized()) {
+          await GoogleMapsNavigator.cleanup();
+        }
+      } finally {
+        _openingNavigation = false;
+      }
+      return;
+    }
     final uri = Uri.https('www.google.com', '/maps/dir/', {
       'api': '1',
       'destination': '${location.latitude},${location.longitude}',

@@ -1,22 +1,24 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../services/app_session.dart';
+import '../../../services/customer_location_service.dart';
 
 import '../../../services/visit_backend.dart';
 import 'visit_check_in_screen.dart';
 
 class SalesVisitScreen extends StatefulWidget {
-  const SalesVisitScreen({super.key});
+  const SalesVisitScreen({super.key, this.initialSearch = ''});
+
+  final String initialSearch;
 
   @override
   State<SalesVisitScreen> createState() => _SalesVisitScreenState();
 }
 
 class _SalesVisitScreenState extends State<SalesVisitScreen> {
-  final _origin = TextEditingController(
-    text: const String.fromEnvironment('HTT_API_ORIGIN'),
-  );
-  final _token = TextEditingController();
-  final _search = TextEditingController();
+  late final _search = TextEditingController(text: widget.initialSearch);
   final _branches = <JsonObject>[];
   List<JsonObject> _companies = [];
   VisitBackend? _connection;
@@ -29,9 +31,15 @@ class _SalesVisitScreenState extends State<SalesVisitScreen> {
   String _query = '';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _run(_loadSession);
+    });
+  }
+
+  @override
   void dispose() {
-    _origin.dispose();
-    _token.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -57,9 +65,12 @@ class _SalesVisitScreenState extends State<SalesVisitScreen> {
     }
   }
 
-  Future<void> _connect() async {
-    final origin = Uri.tryParse(_origin.text.trim());
-    final token = _token.text.trim();
+  Future<void> _loadSession() async {
+    final token = context.read<AppSession>().employeeAccessToken;
+    if (token == null || token.isEmpty) {
+      return;
+    }
+    final origin = Uri.tryParse(const String.fromEnvironment('HTT_API_ORIGIN'));
     if (origin == null ||
         origin.scheme != 'https' ||
         origin.host.isEmpty ||
@@ -67,17 +78,11 @@ class _SalesVisitScreenState extends State<SalesVisitScreen> {
         origin.hasQuery ||
         origin.hasFragment ||
         (origin.path.isNotEmpty && origin.path != '/')) {
-      throw const FormatException(
-        'Enter the HTTPS backend origin, without an API path.',
-      );
-    }
-    if (token.isEmpty) {
-      throw const FormatException('Enter an employee access token.');
+      throw const FormatException('The check-in backend is not configured.');
     }
     final connection = VisitBackend(origin, token);
     final me = await connection.request('GET', '/me');
     if (!mounted) return;
-    _token.clear();
     final companies = (me['companies'] as List).cast<JsonObject>();
     if (companies.isEmpty) {
       throw const FormatException('No company access was returned.');
@@ -118,19 +123,6 @@ class _SalesVisitScreenState extends State<SalesVisitScreen> {
     _total = response['total'] as int;
   }
 
-  void _disconnect() {
-    setState(() {
-      _connection = null;
-      _backend = null;
-      _companies = [];
-      _pending = null;
-      _branches.clear();
-      _page = 0;
-      _total = 0;
-      _message = null;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final supported =
@@ -138,16 +130,7 @@ class _SalesVisitScreenState extends State<SalesVisitScreen> {
         defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sales Visit Check-in'),
-        actions: [
-          if (_connection != null)
-            TextButton(
-              onPressed: _busy ? null : _disconnect,
-              child: const Text('Disconnect'),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Sales Visit Check-in')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -155,29 +138,32 @@ class _SalesVisitScreenState extends State<SalesVisitScreen> {
             const Text(
               'Use the Android or iOS app, or a browser with camera access.',
             )
-          else if (_connection == null) ...[
-            TextField(
-              controller: _origin,
-              enabled: !_busy,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'Backend HTTPS origin',
+          else if (context
+                  .watch<AppSession>()
+                  .employeeAccessToken
+                  ?.isNotEmpty !=
+              true) ...[
+            const Text('Demo check-in · Photos are previewed on this device.'),
+            for (final location
+                in context.watch<CustomerLocationService>().getForRegion(
+                  context.watch<AppSession>().region,
+                ))
+              ListTile(
+                title: Text(location.name),
+                subtitle: Text(location.address),
+                onTap: () => Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => VisitCheckInScreen.demo(location),
+                  ),
+                ),
               ),
-            ),
-            TextField(
-              controller: _token,
-              enabled: !_busy,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              decoration: const InputDecoration(
-                labelText: 'Employee access token',
+          ] else if (_connection == null) ...[
+            if (!_busy &&
+                context.read<AppSession>().employeeAccessToken != null)
+              TextButton(
+                onPressed: () => _run(_loadSession),
+                child: const Text('Retry'),
               ),
-            ),
-            FilledButton(
-              onPressed: _busy ? null : () => _run(_connect),
-              child: const Text('Connect'),
-            ),
           ] else if (_backend == null) ...[
             for (final company in _companies)
               ListTile(

@@ -36,13 +36,21 @@ class PricingService extends ChangeNotifier {
     required String customerId,
     required Product product,
   }) {
+    return getCustomerPriceOverride(customerId: customerId, product: product) ??
+        product.standardPrice;
+  }
+
+  double? getCustomerPriceOverride({
+    required String customerId,
+    required Product product,
+  }) {
     for (final item in _prices) {
       if (item.customerId == customerId && item.productId == product.id) {
         return item.price;
       }
     }
 
-    return product.standardPrice;
+    return null;
   }
 
   bool canSalesSetPrice({required Product product, required double price}) {

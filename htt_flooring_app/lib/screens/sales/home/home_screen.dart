@@ -7,6 +7,7 @@ import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
 
 import '../customers/customer_map_screen.dart';
+import '../customers/sales_visit_screen.dart';
 import '../pricing/pricing_lookup_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -84,7 +85,7 @@ class HomeScreen extends StatelessWidget {
           _summaryCard(
             context,
             icon: Icons.location_searching,
-            title: 'YOUR CUSTOMERS TODAY',
+            title: 'NEARBY CUSTOMERS',
             value: '${nearbyLocations.length} nearby',
             subtitle: 'within 20 km',
             onTap: () {
@@ -103,6 +104,16 @@ class HomeScreen extends StatelessWidget {
             onTap: () {
               onNavigateToTab(1);
             },
+          ),
+
+          const SizedBox(height: 12),
+
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SalesVisitScreen()),
+            ),
+            icon: const Icon(Icons.location_on_outlined),
+            label: const Text('Check In'),
           ),
 
           const SizedBox(height: 32),

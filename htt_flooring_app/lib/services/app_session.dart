@@ -21,6 +21,14 @@ class AppSession extends ChangeNotifier {
   );
 
   AppUser _currentUser = jamesWilson;
+  String? _employeeAccessToken;
+
+  String? get employeeAccessToken => _employeeAccessToken;
+
+  void setEmployeeAccessToken(String? token) {
+    _employeeAccessToken = token;
+    notifyListeners();
+  }
 
   AppUser get currentUser => _currentUser;
 
@@ -43,6 +51,7 @@ class AppSession extends ChangeNotifier {
       return;
     }
 
+    _employeeAccessToken = null;
     _currentUser = user;
     notifyListeners();
   }

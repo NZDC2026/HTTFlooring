@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../data/mock_data.dart';
+import '../../../models/customer.dart';
 import '../../../models/product.dart';
 import '../../../models/sales_user.dart';
 import '../../../models/warehouse_inventory.dart';
+import '../../../services/customer_service.dart';
 import '../../../services/inventory_service.dart';
+import '../../../services/pricing_service.dart';
+import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
+import '../quote/select_customer_screen.dart';
 import 'product_detail_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -21,6 +27,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
   final InventoryService _inventoryService = const InventoryService();
 
   String _selectedFilter = 'All';
+
+  String? _customerId;
+
+  Customer? get _customer {
+    final id = _customerId;
+    if (id == null) return null;
+    final customer = context.watch<CustomerService>().findById(id);
+    final session = context.watch<SalesSession>();
+    if (customer == null ||
+        customer.archived ||
+        !session.canAccessRegion(customer.region)) {
+      return null;
+    }
+    return customer;
+  }
+
+  Future<void> _selectCustomer() async {
+    final customer = await Navigator.of(context).push<Customer>(
+      MaterialPageRoute(builder: (_) => const SelectCustomerScreen()),
+    );
+    if (mounted && customer != null) {
+      setState(() => _customerId = customer.id);
+    }
+  }
 
   List<Product> get filteredProducts {
     final query = _searchController.text.trim().toLowerCase();
@@ -98,6 +128,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildSearch() {
+    final customer = _customer;
     return Container(
       color: AppColors.green,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
@@ -118,33 +149,49 @@ class _InventoryScreenState extends State<InventoryScreen> {
             style: TextStyle(color: Colors.white70, fontSize: 11),
           ),
           const SizedBox(height: 14),
-          TextField(
-            controller: _searchController,
-            onChanged: (_) {
-              setState(() {});
-            },
-            decoration: InputDecoration(
-              hintText: 'Search product, colour or SKU...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      onPressed: () {
-                        _searchController.clear();
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (_) {
+                    setState(() {});
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search product, colour or SKU...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _searchController.clear();
 
-                        setState(() {});
-                      },
-                      icon: const Icon(Icons.close),
+                              setState(() {});
+                            },
+                            icon: const Icon(Icons.close),
+                          ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 13),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
                     ),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(vertical: 13),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _selectCustomer,
+                child: const Text('Select Customer'),
+              ),
+            ],
           ),
+          if (customer != null)
+            InputChip(
+              label: Text(customer.businessName),
+              onDeleted: () => setState(() => _customerId = null),
+            ),
         ],
       ),
     );
@@ -193,6 +240,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildProductCard(Product product) {
+    final customer = _customer;
+    final pricing = context.watch<PricingService>();
+    final customerPrice = customer == null
+        ? null
+        : pricing.getCustomerPriceOverride(
+            customerId: customer.id,
+            product: product,
+          );
     final sydney = _inventoryService.getForProductAndRegion(
       product.id,
       SalesRegion.sydney,
@@ -264,13 +319,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         ),
                         const SizedBox(height: 7),
                         Text(
-                          '\$${product.standardPrice.toStringAsFixed(2)} / m²',
+                          customerPrice == null
+                              ? 'Standard Price · \$${product.standardPrice.toStringAsFixed(2)} / m²'
+                              : 'Customer Price · \$${customerPrice.toStringAsFixed(2)} / m²',
                           style: const TextStyle(
                             color: AppColors.copper,
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
+                        if (customerPrice != null)
+                          Text(
+                            'Standard Price · \$${product.standardPrice.toStringAsFixed(2)} / m²',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                            ),
+                          ),
                       ],
                     ),
                   ),

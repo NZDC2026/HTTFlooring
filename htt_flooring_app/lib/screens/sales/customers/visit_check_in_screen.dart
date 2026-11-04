@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../models/customer_location.dart';
 import '../../../services/visit_backend.dart';
 import '../../../services/visit_platform/camera_native.dart'
     if (dart.library.js_interop) '../../../services/visit_platform/camera_web.dart';
@@ -15,7 +16,18 @@ class VisitCheckInScreen extends StatefulWidget {
     required this.branch,
   });
 
-  final VisitBackend backend;
+  factory VisitCheckInScreen.demo(CustomerLocation location) =>
+      VisitCheckInScreen(
+        backend: null,
+        branch: {
+          'name': location.name,
+          'addressLine1': location.address,
+          'latitude': location.latitude,
+          'longitude': location.longitude,
+        },
+      );
+
+  final VisitBackend? backend;
   final JsonObject branch;
 
   @override
@@ -101,7 +113,15 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
       if (bytes == null || !mounted) return;
       final position = await _verifyLocation();
       if (!mounted) return;
-      await widget.backend.stage(widget.branch, {
+      final backend = widget.backend;
+      if (backend == null) {
+        setState(() {
+          _photo = bytes;
+          _message = 'Location verified. Demo photo captured for preview.';
+        });
+        return;
+      }
+      await backend.stage(widget.branch, {
         'latitude': double.parse(position.latitude.toStringAsFixed(7)),
         'longitude': double.parse(position.longitude.toStringAsFixed(7)),
         'accuracyMetres': position.accuracy,
@@ -136,7 +156,7 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
       _message = null;
     });
     try {
-      await widget.backend.submitPending();
+      await widget.backend!.submitPending();
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
       if (mounted) {
