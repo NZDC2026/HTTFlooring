@@ -9,6 +9,7 @@ import '../../../models/sales_user.dart';
 import '../../../services/customer_note_service.dart';
 import '../../../services/app_session.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/activity_attachments.dart';
 
 enum _ActivityFilter { all, notes, followUps, completed }
 
@@ -68,6 +69,7 @@ class _CustomerNotesScreenState extends State<CustomerNotesScreen> {
           author: 'James Wilson',
           action: 'Created',
           message: 'Created this follow-up.',
+          attachments: const [],
           at: created,
         ),
         (
@@ -76,6 +78,7 @@ class _CustomerNotesScreenState extends State<CustomerNotesScreen> {
           message: completed
               ? 'Assigned to Li Wei.'
               : 'Assigned to James Wilson.',
+          attachments: const [],
           at: created.add(const Duration(minutes: 15)),
         ),
       ],
@@ -84,18 +87,21 @@ class _CustomerNotesScreenState extends State<CustomerNotesScreen> {
           author: 'Li Wei',
           action: 'Reply',
           message: 'The customer confirmed payment for tomorrow.',
+          attachments: const [],
           at: created.add(const Duration(hours: 1)),
         ),
         (
           author: 'James Wilson',
           action: 'Reply',
           message: 'Thanks. Please confirm once payment is received.',
+          attachments: const [],
           at: created.add(const Duration(hours: 2)),
         ),
         (
           author: 'Li Wei',
           action: 'Completed',
           message: 'Payment received and verified. INV-10548 settled.',
+          attachments: const [],
           at: date,
         ),
       ],
@@ -428,6 +434,9 @@ class _AddNoteScreenState extends State<_AddNoteScreen> {
     'General Note',
   ];
 
+  late List<ActivityAttachment> _attachments =
+      widget.existing?.attachments ?? const [];
+
   final _formKey = GlobalKey<FormState>();
   late final _controller = TextEditingController(
     text: widget.existing?.content,
@@ -443,7 +452,10 @@ class _AddNoteScreenState extends State<_AddNoteScreen> {
       context.read<CustomerNoteService>(),
       _AddFollowUpScreen(
         customer: widget.customer,
-        existing: widget.existing!.copyWith(content: _controller.text),
+        existing: widget.existing!.copyWith(
+          content: _controller.text,
+          attachments: _attachments,
+        ),
       ),
     );
     if (saved == true && mounted) Navigator.pop(context);
@@ -460,6 +472,7 @@ class _AddNoteScreenState extends State<_AddNoteScreen> {
     context.read<CustomerNoteService>().addNote(
       existingId: widget.existing?.id,
       customerId: widget.customer.id,
+      attachments: _attachments,
       content: _controller.text,
       noteType: _noteType,
     );
@@ -507,6 +520,10 @@ class _AddNoteScreenState extends State<_AddNoteScreen> {
               ),
               validator: (value) =>
                   value == null || value.trim().isEmpty ? 'Enter a note' : null,
+            ),
+            ActivityAttachments(
+              attachments: _attachments,
+              onChanged: (files) => setState(() => _attachments = files),
             ),
             if (widget.existing != null) ...[
               const SizedBox(height: 16),
@@ -602,6 +619,9 @@ class _AddFollowUpScreen extends StatefulWidget {
 }
 
 class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
+  late List<ActivityAttachment> _attachments =
+      widget.existing?.attachments ?? const [];
+
   final _formKey = GlobalKey<FormState>();
   late final _description = TextEditingController(
     text: widget.existing?.content,
@@ -665,6 +685,7 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
       existingId: widget.existing?.id,
       actor: context.read<AppSession>().currentUser,
       customerId: widget.customer.id,
+      attachments: _attachments,
       content: _description.text,
       followUpDate: _dueDate,
       followUpType: _type,
@@ -684,37 +705,52 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
     bool completing = false,
   }) async {
     var message = '';
+    var attachments = const <ActivityAttachment>[];
     final replyForm = GlobalKey<FormState>();
     final reply = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(completing ? 'Completion Note' : 'Reply to Follow-up'),
-        content: Form(
-          key: replyForm,
-          child: TextFormField(
-            autofocus: true,
-            minLines: 2,
-            maxLines: 5,
-            onChanged: (value) => message = value,
-            validator: (value) => (value ?? '').trim().isEmpty
-                ? (completing ? 'Enter the outcome' : 'Enter a reply')
-                : null,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          scrollable: true,
+          title: Text(completing ? 'Completion Note' : 'Reply to Follow-up'),
+          content: Form(
+            key: replyForm,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  autofocus: true,
+                  minLines: 2,
+                  maxLines: 5,
+                  onChanged: (value) => message = value,
+                  validator: (value) =>
+                      (value ?? '').trim().isEmpty && attachments.isEmpty
+                      ? (completing ? 'Enter the outcome' : 'Enter a reply')
+                      : null,
+                ),
+                if (!completing)
+                  ActivityAttachments(
+                    attachments: attachments,
+                    onChanged: (files) => update(() => attachments = files),
+                  ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (replyForm.currentState!.validate()) {
+                  Navigator.pop(dialogContext, message);
+                }
+              },
+              child: Text(completing ? 'Mark Completed' : 'Send Reply'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (replyForm.currentState!.validate()) {
-                Navigator.pop(dialogContext, message);
-              }
-            },
-            child: Text(completing ? 'Mark Completed' : 'Send Reply'),
-          ),
-        ],
       ),
     );
     if (!mounted || reply == null) return;
@@ -727,7 +763,7 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
         result: reply,
       );
     } else {
-      service.replyToFollowUp(task.id, author, reply);
+      service.replyToFollowUp(task.id, author, reply, attachments: attachments);
     }
   }
 
@@ -990,6 +1026,10 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
                 ),
               ),
             ],
+            ActivityAttachments(
+              attachments: _attachments,
+              onChanged: (files) => setState(() => _attachments = files),
+            ),
             if (task != null) ...[
               const SizedBox(height: 20),
               Text('Task Activity', style: theme.textTheme.titleMedium),
@@ -997,11 +1037,17 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text('${event.action} (${event.author})'),
-                  subtitle: Text(
-                    [
-                      ?event.message,
-                      DateFormat('d MMM yyyy · h:mm a').format(event.at),
-                    ].join('\n'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        [
+                          ?event.message,
+                          DateFormat('d MMM yyyy · h:mm a').format(event.at),
+                        ].join('\n'),
+                      ),
+                      ActivityAttachments(attachments: event.attachments),
+                    ],
                   ),
                 ),
               if (canReply)
@@ -1135,6 +1181,7 @@ class _FollowUpDetail extends StatefulWidget {
 
 class _FollowUpDetailState extends State<_FollowUpDetail> {
   final _comment = TextEditingController();
+  List<ActivityAttachment> _commentAttachments = const [];
 
   @override
   void dispose() {
@@ -1260,6 +1307,7 @@ class _FollowUpDetailState extends State<_FollowUpDetail> {
               child: _taskInfo('Description', task.content),
             ),
           ),
+          ActivityAttachments(attachments: task.attachments),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -1278,12 +1326,11 @@ class _FollowUpDetailState extends State<_FollowUpDetail> {
           for (final event in task.events)
             Card(
               margin: const EdgeInsets.only(bottom: 8),
-              color: switch (event.action) {
-                'Created' ||
-                'Converted from note' ||
-                'Completed' => AppColors.successLight,
-                _ => AppColors.card,
-              },
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -1310,40 +1357,72 @@ class _FollowUpDetailState extends State<_FollowUpDetail> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      event.action == 'Reply'
-                          ? event.message ?? ''
-                          : [event.author, ?event.message].join(' · '),
-                    ),
+                    if (event.message?.isNotEmpty == true ||
+                        event.action != 'Reply')
+                      Text(
+                        event.action == 'Reply'
+                            ? event.message ?? ''
+                            : [event.author, ?event.message].join(' · '),
+                      ),
+                    ActivityAttachments(attachments: event.attachments),
                   ],
                 ),
               ),
             ),
           if (task.canReply(user)) ...[
             const SizedBox(height: 8),
-            Text('Add a comment as ${user.name}'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _comment,
-              minLines: 3,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'Enter task update or customer response…',
+            Card(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.border),
               ),
-            ),
-            const SizedBox(height: 8),
-            ValueListenableBuilder(
-              valueListenable: _comment,
-              builder: (context, value, _) => FilledButton.icon(
-                onPressed: value.text.trim().isEmpty
-                    ? null
-                    : () {
-                        service.replyToFollowUp(task.id, user, value.text);
-                        _comment.clear();
-                        FocusScope.of(context).unfocus();
-                      },
-                icon: const Icon(Icons.send_outlined),
-                label: const Text('Send Comment'),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Add a comment as ${user.name}'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _comment,
+                      minLines: 2,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        hintText: 'Enter task update or customer response…',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ActivityAttachments(
+                      attachments: _commentAttachments,
+                      onChanged: (files) =>
+                          setState(() => _commentAttachments = files),
+                    ),
+                    const SizedBox(height: 8),
+                    ValueListenableBuilder(
+                      valueListenable: _comment,
+                      builder: (context, value, _) => FilledButton.icon(
+                        onPressed:
+                            value.text.trim().isEmpty &&
+                                _commentAttachments.isEmpty
+                            ? null
+                            : () {
+                                service.replyToFollowUp(
+                                  task.id,
+                                  user,
+                                  value.text,
+                                  attachments: _commentAttachments,
+                                );
+                                setState(() => _commentAttachments = const []);
+                                _comment.clear();
+                                FocusScope.of(context).unfocus();
+                              },
+                        icon: const Icon(Icons.send_outlined),
+                        label: const Text('Send Comment'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1576,18 +1655,28 @@ class _NoteCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.chat_bubble_outline,
-                      size: 13,
-                      color: AppColors.muted,
-                    ),
-                    const SizedBox(width: 5),
                     Expanded(
-                      child: Text(
-                        comments == 1 ? '1 comment' : '$comments comments',
+                      child: DefaultTextStyle(
                         style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.muted,
+                        ),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 3,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              comments == 1
+                                  ? '1 comment'
+                                  : '$comments comments',
+                            ),
+                            Text(
+                              note.assignees.isEmpty
+                                  ? 'Unassigned'
+                                  : 'Assigned to ${note.assignees.map((user) => user.name).join(', ')}',
+                            ),
+                          ],
                         ),
                       ),
                     ),

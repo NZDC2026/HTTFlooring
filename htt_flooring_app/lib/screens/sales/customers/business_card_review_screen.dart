@@ -8,6 +8,7 @@ import '../../../services/customer_service.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
 import 'customer_detail_screen.dart';
+import 'business_card_photo_input.dart';
 
 class BusinessCardReviewScreen extends StatefulWidget {
   final BusinessCardScanResult result;
@@ -33,6 +34,22 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _addressController;
   late final TextEditingController _abnController;
+
+  void _applyCard(BusinessCardScanResult result) {
+    final fields = {
+      _businessController: result.businessName,
+      _abnController: result.abn,
+      _addressController: result.address,
+      _contactController: result.contactName,
+      _jobTitleController: result.jobTitle,
+      _phoneController: result.phone,
+      _emailController: result.email,
+    };
+    for (final entry in fields.entries) {
+      if (entry.key.text.trim().isEmpty) entry.key.text = entry.value;
+    }
+    _checkMatch();
+  }
 
   Customer? _matchedCustomer;
   CustomerContact? _matchedContact;
@@ -165,6 +182,11 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
                   : 'Check the company and employee details before saving.',
               style: const TextStyle(color: AppColors.muted, height: 1.4),
             ),
+
+            if (widget.manualEntry) ...[
+              const SizedBox(height: 12),
+              BusinessCardPhotoInput(onScanned: _applyCard),
+            ],
 
             const SizedBox(height: 24),
 

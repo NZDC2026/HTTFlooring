@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
 import 'package:htt_flooring_app/models/sales_user.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/customer.dart';
 import '../../../models/customer_location.dart';
+import '../../../services/app_session.dart';
 import '../../../services/customer_location_service.dart';
 import '../../../services/customer_service.dart';
+import '../../../services/sales_document_service.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
 
+import 'customer_visit_age.dart';
 import 'sales_visit_screen.dart';
 import 'business_card_review_screen.dart';
 import 'business_card_scanner_screen.dart';
@@ -43,6 +47,28 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final session = context.watch<SalesSession>();
     final customerService = context.watch<CustomerService>();
     final locationService = context.watch<CustomerLocationService>();
+
+    final invoices = context.watch<SalesDocumentService>().invoices;
+    final signedIn =
+        context.watch<AppSession>().employeeAccessToken?.isNotEmpty == true;
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final nextMonth = DateTime(now.year, now.month + 1);
+    final monthlyTotals = <String, double>{};
+    final currency = NumberFormat.currency(locale: 'en_AU', symbol: r'$');
+    for (final invoice in invoices) {
+      final date =
+          invoice.invoiceDate ??
+          invoice.convertedToInvoiceAt ??
+          invoice.createdAt;
+      if (!date.isBefore(monthStart) && date.isBefore(nextMonth)) {
+        monthlyTotals.update(
+          invoice.customer.id,
+          (total) => total + invoice.total,
+          ifAbsent: () => invoice.total,
+        );
+      }
+    }
 
     final customers = customerService.customers
         .where(
@@ -139,7 +165,22 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
                       final primaryLocation = _primaryLocation(locations);
 
-                      return _buildCustomerCard(customer, primaryLocation);
+                      final days = locationService.demoDaysSinceVisit(
+                        customer.id,
+                      );
+                      final lastVisit = customerVisitAge(
+                        days,
+                        signedIn: signedIn,
+                      );
+                      final total = monthlyTotals[customer.id];
+                      return _buildCustomerCard(
+                        customer,
+                        primaryLocation,
+                        lastVisit: lastVisit,
+                        monthAmount: signedIn && total == null
+                            ? '—'
+                            : currency.format(total ?? 0),
+                      );
                     },
                   ),
           ),
@@ -267,17 +308,19 @@ class _CustomersScreenState extends State<CustomersScreen> {
   }
 
   Widget _buildFilters() {
-    return SizedBox(
-      height: 46,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18),
-        children: [
-          _filterChip('All', _CustomerFilter.all),
-          _filterChip('Nearby', _CustomerFilter.nearby),
-          _filterChip('Recent', _CustomerFilter.recent),
-          _filterChip('A-Z', _CustomerFilter.alphabetical),
-        ],
+        child: Wrap(
+          spacing: 8,
+          children: [
+            _filterChip('All', _CustomerFilter.all),
+            _filterChip('Nearby', _CustomerFilter.nearby),
+            _filterChip('Recent', _CustomerFilter.recent),
+            _filterChip('A-Z', _CustomerFilter.alphabetical),
+          ],
+        ),
       ),
     );
   }
@@ -285,25 +328,22 @@ class _CustomersScreenState extends State<CustomersScreen> {
   Widget _filterChip(String label, _CustomerFilter value) {
     final selected = _filter == value;
 
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        showCheckmark: false,
-        selectedColor: AppColors.copperLight,
-        backgroundColor: AppColors.card,
-        side: BorderSide(color: selected ? AppColors.copper : AppColors.border),
-        labelStyle: TextStyle(
-          color: selected ? AppColors.copper : AppColors.text,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+    return Semantics(
+      selected: selected,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: selected ? AppColors.copper : AppColors.text,
+          backgroundColor: selected ? AppColors.copperLight : AppColors.card,
+          side: BorderSide(
+            color: selected ? AppColors.copper : AppColors.border,
+          ),
+          minimumSize: const Size(44, 34),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
-        onSelected: (_) {
-          setState(() {
-            _filter = value;
-          });
-        },
+        onPressed: () => setState(() => _filter = value),
+        child: Text(label),
       ),
     );
   }
@@ -389,7 +429,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
     return locations.first;
   }
 
-  Widget _buildCustomerCard(Customer customer, CustomerLocation? location) {
+  Widget _buildCustomerCard(
+    Customer customer,
+    CustomerLocation? location, {
+    required ({String label, Color color}) lastVisit,
+    required String monthAmount,
+  }) {
     return Material(
       color: AppColors.card,
       borderRadius: BorderRadius.circular(14),
@@ -488,7 +533,35 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
               const SizedBox(width: 8),
 
-              const Icon(Icons.chevron_right, color: AppColors.muted),
+              SizedBox(
+                width: 106,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.muted,
+                      size: 18,
+                    ),
+                    VisitAge(visit: lastVisit, fontSize: 11),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Invoiced this month',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: AppColors.muted, fontSize: 10),
+                    ),
+                    Text(
+                      monthAmount,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                        color: AppColors.green,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

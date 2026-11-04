@@ -48,6 +48,7 @@ class CustomerNoteService extends ChangeNotifier {
     required String customerId,
     String? existingId,
     required String content,
+    List<ActivityAttachment>? attachments,
     String? noteType,
   }) {
     final text = content.trim();
@@ -71,6 +72,9 @@ class CustomerNoteService extends ChangeNotifier {
       type: CustomerNoteType.note,
       noteType: noteType,
       content: text,
+      attachments: List.unmodifiable(
+        attachments ?? existing?.attachments ?? const [],
+      ),
       createdAt: existing?.createdAt ?? DateTime.now(),
     );
     if (index < 0) {
@@ -87,6 +91,7 @@ class CustomerNoteService extends ChangeNotifier {
     String? existingId,
     AppUser? actor,
     required String content,
+    List<ActivityAttachment>? attachments,
     required DateTime? followUpDate,
     String? followUpType,
     List<AppUser> assignees = const [],
@@ -121,6 +126,9 @@ class CustomerNoteService extends ChangeNotifier {
           existing?.creatorId ??
           (existing?.isFollowUp == true ? null : actor?.id),
       content: text,
+      attachments: List.unmodifiable(
+        attachments ?? existing?.attachments ?? const [],
+      ),
       createdAt: existing?.createdAt ?? DateTime.now(),
       followUpDate: followUpDate,
       followUpStatus: existing?.followUpStatus ?? FollowUpStatus.pending,
@@ -131,6 +139,7 @@ class CustomerNoteService extends ChangeNotifier {
             author: actor.name,
             action: existing == null ? 'Created' : 'Converted from note',
             message: null,
+            attachments: const <ActivityAttachment>[],
             at: DateTime.now(),
           ),
         if (actor != null && assignmentChanged)
@@ -138,6 +147,7 @@ class CustomerNoteService extends ChangeNotifier {
             author: actor.name,
             action: existing?.isFollowUp == true ? 'Reassigned' : 'Assigned',
             message: assignees.map((user) => user.name).join(', '),
+            attachments: const <ActivityAttachment>[],
             at: DateTime.now(),
           ),
       ]),
@@ -185,6 +195,7 @@ class CustomerNoteService extends ChangeNotifier {
           author: actor.name,
           action: action,
           message: message,
+          attachments: const <ActivityAttachment>[],
           at: DateTime.now(),
         ),
       ]),
@@ -192,14 +203,22 @@ class CustomerNoteService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void replyToFollowUp(String id, AppUser author, String message) {
+  void replyToFollowUp(
+    String id,
+    AppUser author,
+    String message, {
+    List<ActivityAttachment> attachments = const [],
+  }) {
     final index = _notes.indexWhere((note) => note.id == id);
     if (index < 0) throw StateError('Activity no longer exists.');
     final note = _notes[index];
     final text = message.trim();
-    if (!note.canReply(author) || text.isEmpty) {
+    if (text.isEmpty && attachments.isEmpty) {
+      throw ArgumentError('Enter a reply or add an attachment.');
+    }
+    if (!note.canReply(author)) {
       throw StateError(
-        'Only the creator and assignees can reply to a follow-up.',
+        'Only the creator and assignees can reply to an open follow-up.',
       );
     }
     _notes[index] = note.copyWith(
@@ -209,6 +228,7 @@ class CustomerNoteService extends ChangeNotifier {
           author: author.name,
           action: 'Reply',
           message: text,
+          attachments: List<ActivityAttachment>.unmodifiable(attachments),
           at: DateTime.now(),
         ),
       ]),

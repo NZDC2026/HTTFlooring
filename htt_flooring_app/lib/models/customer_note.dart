@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'app_user.dart';
 
 enum CustomerNoteType { note, followUp }
@@ -9,9 +11,23 @@ typedef TaskEvent = ({
   String action,
   String? message,
   DateTime at,
+  List<ActivityAttachment> attachments,
 });
 
+class ActivityAttachment {
+  const ActivityAttachment({
+    required this.name,
+    required this.bytes,
+    required this.isPhoto,
+  });
+
+  final String name;
+  final Uint8List bytes;
+  final bool isPhoto;
+}
+
 class CustomerNote {
+  final List<ActivityAttachment> attachments;
   final List<TaskEvent> events;
   final String? creatorId;
   final String id;
@@ -50,12 +66,14 @@ class CustomerNote {
     this.reminderDate,
     this.events = const [],
     this.creatorId,
+    this.attachments = const [],
   });
 
   bool get isFollowUp => type == CustomerNoteType.followUp;
 
   bool canReply(AppUser user) =>
       isFollowUp &&
+      !isCompleted &&
       (creatorId == user.id ||
           assignees.any((assignee) => assignee.id == user.id));
 
@@ -66,6 +84,7 @@ class CustomerNote {
     DateTime? followUpDate,
     FollowUpStatus? followUpStatus,
     List<TaskEvent>? events,
+    List<ActivityAttachment>? attachments,
   }) {
     return CustomerNote(
       id: id,
@@ -83,6 +102,7 @@ class CustomerNote {
       reminderDate: reminderDate,
       events: events ?? this.events,
       creatorId: creatorId,
+      attachments: attachments ?? this.attachments,
     );
   }
 }

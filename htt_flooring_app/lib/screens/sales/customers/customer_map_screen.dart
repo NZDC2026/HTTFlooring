@@ -21,6 +21,7 @@ import '../../../theme/app_theme.dart';
 import 'customer_detail_screen.dart';
 import 'customer_google_map.dart';
 import 'customer_navigation_screen.dart';
+import 'customer_visit_age.dart';
 import 'sales_visit_screen.dart';
 import 'visit_check_in_screen.dart';
 
@@ -293,27 +294,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
   }
 
   ({String label, Color color}) _lastVisit(CustomerLocation location) {
-    const gray = Color(0xFF98A2B3);
-    if (context.watch<AppSession>().employeeAccessToken?.isNotEmpty == true) {
-      return (label: 'History unavailable', color: gray);
-    }
-    final days = context.watch<CustomerLocationService>().demoDaysSinceVisit(
-      location.customerId,
+    return customerVisitAge(
+      context.watch<CustomerLocationService>().demoDaysSinceVisit(
+        location.customerId,
+      ),
+      signedIn:
+          context.watch<AppSession>().employeeAccessToken?.isNotEmpty == true,
     );
-    final label = switch (days) {
-      null => 'No demo visit',
-      0 => 'Today · Demo',
-      1 => '1 day ago · Demo',
-      _ => '$days days ago · Demo',
-    };
-    final color = switch (days) {
-      null => gray,
-      <= 7 => const Color(0xFF00C853),
-      <= 30 => const Color(0xFFF0AB00),
-      <= 60 => const Color(0xFFFF6900),
-      _ => const Color(0xFFE60012),
-    };
-    return (label: label, color: color);
   }
 
   List<Widget> _buildMarkers(List<CustomerLocation> locations, Size mapSize) {
@@ -576,7 +563,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
           _previewDetail(
             'Last visit',
             '',
-            trailing: _VisitAge(visit: _lastVisit(location), fontSize: 12),
+            trailing: VisitAge(visit: _lastVisit(location), fontSize: 12),
           ),
           const SizedBox(height: 16),
 
@@ -740,31 +727,6 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
   }
 }
 
-class _VisitAge extends StatelessWidget {
-  const _VisitAge({required this.visit, required this.fontSize});
-
-  final ({String label, Color color}) visit;
-  final double fontSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.circle, size: 9, color: visit.color),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            visit.label,
-            style: TextStyle(fontSize: fontSize, color: visit.color),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _CustomerMarker extends StatelessWidget {
   const _CustomerMarker({
     required this.location,
@@ -814,7 +776,7 @@ class _CustomerMarker extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                _VisitAge(visit: lastVisit, fontSize: 9),
+                VisitAge(visit: lastVisit, fontSize: 9),
               ],
             ),
           ),

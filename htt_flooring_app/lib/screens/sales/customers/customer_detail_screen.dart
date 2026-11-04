@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/customer.dart';
 import '../../../models/customer_contact.dart';
-import '../../../models/customer_note.dart';
 import '../../../models/sales_user.dart';
-import '../../../services/customer_note_service.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/sales_document_service.dart';
 import '../../../theme/app_theme.dart';
@@ -18,6 +15,7 @@ import 'customer_invoices_screen.dart';
 import 'customer_map_screen.dart';
 import 'customer_notes_screen.dart';
 import 'customer_orders_screen.dart';
+import 'business_card_photo_input.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final Customer customer;
@@ -62,15 +60,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     final customer =
         customerService.findById(widget.customer.id) ?? widget.customer;
     final documentService = context.watch<SalesDocumentService>();
-    final noteService = context.watch<CustomerNoteService>();
     final contacts = customerService.getContactsForCustomer(customer.id);
-    final notes = noteService.getCustomerNotes(customer.id);
     final outstanding = documentService.getCustomerOutstanding(customer.id);
     final overdue = documentService.getCustomerOverdue(customer.id);
 
     final primaryContact = _primaryContact(contacts);
     final emailContact = _emailContact(contacts);
-    final recentNote = notes.isEmpty ? null : notes.first;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -93,7 +88,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 _sectionHeader(
                   'CONTACT PERSON',
                   actionLabel: 'Add',
-                  onAction: () => _showAddContactDialog(customer.id),
+                  onAction: () => _openAddContact(customer.id),
                 ),
                 const SizedBox(height: 10),
                 if (primaryContact == null)
@@ -143,14 +138,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _sectionHeader(
-                  'RECENT NOTE',
-                  actionLabel: 'View All',
-                  onAction: () => _openNotes(customer),
-                ),
-                const SizedBox(height: 10),
-                _buildRecentNote(recentNote),
-                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
@@ -614,55 +601,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 
-  Widget _buildRecentNote(CustomerNote? note) {
-    if (note == null) return _emptyCard('No notes added yet.');
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                note.isFollowUp
-                    ? Icons.event_note_outlined
-                    : Icons.notes_outlined,
-                size: 18,
-                color: AppColors.copper,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                note.isFollowUp ? 'Follow-up' : 'Note',
-                style: const TextStyle(
-                  color: AppColors.copper,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _relativeDate(note.createdAt),
-                style: const TextStyle(color: AppColors.muted, fontSize: 10),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            note.content,
-            style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 13,
-              height: 1.45,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _emptyCard(String message) {
     return Container(
       width: double.infinity,
@@ -877,16 +815,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 
-  String _relativeDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    if (difference.inMinutes < 1) return 'Just now';
-    if (difference.inHours < 1) return '${difference.inMinutes}m ago';
-    if (difference.inDays < 1) return '${difference.inHours}h ago';
-    if (difference.inDays < 7) return '${difference.inDays}d ago';
-    return DateFormat('dd MMM yyyy').format(date);
-  }
-
   Future<void> _confirmArchiveCustomer(Customer customer) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1000,26 +928,25 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 
-  Future<void> _showAddContactDialog(String customerId) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return _AddContactDialog(customerId: customerId);
-      },
+  Future<void> _openAddContact(String customerId) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _AddContactScreen(customerId: customerId),
+      ),
     );
   }
 }
 
-class _AddContactDialog extends StatefulWidget {
-  const _AddContactDialog({required this.customerId});
+class _AddContactScreen extends StatefulWidget {
+  const _AddContactScreen({required this.customerId});
 
   final String customerId;
 
   @override
-  State<_AddContactDialog> createState() => _AddContactDialogState();
+  State<_AddContactScreen> createState() => _AddContactScreenState();
 }
 
-class _AddContactDialogState extends State<_AddContactDialog> {
+class _AddContactScreenState extends State<_AddContactScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _jobTitleController;
   late final TextEditingController _phoneController;
@@ -1099,12 +1026,34 @@ class _AddContactDialogState extends State<_AddContactDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Contact'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Add Contact')),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(18),
           children: [
+            Text(
+              'Contact details',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 12),
+            BusinessCardPhotoInput(
+              onScanned: (result) {
+                final fields = {
+                  _nameController: result.contactName,
+                  _jobTitleController: result.jobTitle,
+                  _phoneController: result.phone,
+                  _emailController: result.email,
+                };
+                for (final entry in fields.entries) {
+                  if (entry.key.text.trim().isEmpty) {
+                    entry.key.text = entry.value;
+                  }
+                }
+              },
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
@@ -1164,15 +1113,28 @@ class _AddContactDialogState extends State<_AddContactDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: const Text('Cancel'),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _save,
+                  child: const Text('Add Contact'),
+                ),
+              ),
+            ],
+          ),
         ),
-        FilledButton(onPressed: _save, child: const Text('Add')),
-      ],
+      ),
     );
   }
 }
