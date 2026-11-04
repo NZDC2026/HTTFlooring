@@ -362,11 +362,29 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               const SizedBox(height: 12),
               _snapshotPair(
                 _summaryItem('Account Owner', 'Unavailable'),
-                _summaryItem(
-                  'Next Follow-up',
-                  nextFollowUp == null
-                      ? 'Not scheduled'
-                      : dates.format(nextFollowUp.followUpDate!.toLocal()),
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    if (nextFollowUp == null) {
+                      _openNotes(customer, showOpenFollowUps: true);
+                      return;
+                    }
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) => FollowUpDetail(
+                          customer: customer,
+                          taskId: nextFollowUp.id,
+                        ),
+                      ),
+                    );
+                  },
+                  child: _summaryItem(
+                    'Next Follow-up',
+                    nextFollowUp == null
+                        ? 'Not scheduled'
+                        : dates.format(nextFollowUp.followUpDate!.toLocal()),
+                    linked: true,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -391,6 +409,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             children: [
               Expanded(
                 child: _snapshotCard(
+                  onTap: () => _openDisplays(customer),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -399,6 +418,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         signedIn
                             ? 'Unavailable'
                             : '${coverage.displayed} / ${coverage.total}',
+                        linked: true,
                       ),
                       if (!signedIn) ...[
                         const SizedBox(height: 6),
@@ -423,8 +443,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: _snapshotCard(
+                  onTap: () => _openNotes(customer, showOpenFollowUps: true),
                   _summaryItem(
                     'Open Follow-ups',
+                    linked: true,
                     openFollowUps.length.toString(),
                     person: dueSoon == 0 ? null : '$dueSoon due soon',
                   ),
@@ -448,25 +470,42 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 
-  Widget _snapshotCard(Widget child) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
+  Widget _snapshotCard(Widget child, {VoidCallback? onTap}) {
+    return Material(
+      color: AppColors.card,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        side: const BorderSide(color: AppColors.border),
       ),
-      child: child,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(padding: const EdgeInsets.all(12), child: child),
+      ),
     );
   }
 
-  Widget _summaryItem(String title, String value, {String? person}) {
+  Widget _summaryItem(
+    String title,
+    String value, {
+    String? person,
+    bool linked = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(color: AppColors.muted, fontSize: 11),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                title,
+                style: const TextStyle(color: AppColors.muted, fontSize: 11),
+              ),
+            ),
+            if (linked)
+              const Icon(Icons.chevron_right, size: 14, color: AppColors.muted),
+          ],
         ),
         Text(
           value,
@@ -625,14 +664,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             child: _detailTab('Activities', onTap: () => _openNotes(customer)),
           ),
           Expanded(
-            child: _detailTab(
-              'Displays',
-              onTap: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (_) => CustomerDisplaysScreen(customer: customer),
-                ),
-              ),
-            ),
+            child: _detailTab('Displays', onTap: () => _openDisplays(customer)),
           ),
         ],
       ),
@@ -1040,11 +1072,22 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 
-  void _openNotes(Customer customer) {
+  void _openDisplays(Customer customer) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => CustomerDisplaysScreen(customer: customer),
+      ),
+    );
+  }
+
+  void _openNotes(Customer customer, {bool showOpenFollowUps = false}) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CustomerNotesScreen(customer: customer),
+        builder: (_) => CustomerNotesScreen(
+          customer: customer,
+          showOpenFollowUps: showOpenFollowUps,
+        ),
       ),
     );
   }

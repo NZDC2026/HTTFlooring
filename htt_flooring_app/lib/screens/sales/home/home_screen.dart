@@ -131,7 +131,11 @@ class HomeScreen extends StatelessWidget {
                       builder: (_) => const ReminderCalendarScreen(),
                     ),
                   ),
-                  icon: const Icon(Icons.calendar_month_outlined),
+                  icon: const Icon(
+                    Icons.calendar_today_outlined,
+                    color: AppColors.green,
+                    size: 18,
+                  ),
                   label: const Text('Calendar'),
                 ),
               ),

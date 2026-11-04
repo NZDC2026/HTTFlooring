@@ -16,14 +16,22 @@ enum _ActivityFilter { all, notes, followUps, completed }
 class CustomerNotesScreen extends StatefulWidget {
   final Customer customer;
 
-  const CustomerNotesScreen({super.key, required this.customer});
+  const CustomerNotesScreen({
+    super.key,
+    required this.customer,
+    this.showOpenFollowUps = false,
+  });
+
+  final bool showOpenFollowUps;
 
   @override
   State<CustomerNotesScreen> createState() => _CustomerNotesScreenState();
 }
 
 class _CustomerNotesScreenState extends State<CustomerNotesScreen> {
-  _ActivityFilter _filter = _ActivityFilter.all;
+  late _ActivityFilter _filter = widget.showOpenFollowUps
+      ? _ActivityFilter.followUps
+      : _ActivityFilter.all;
   bool _showSearch = false;
   bool _showDemo = false;
   late final _demoService = CustomerNoteService(
@@ -1172,17 +1180,21 @@ Future<List<AppUser>?> _pickAssignees(
   );
 }
 
-class _FollowUpDetail extends StatefulWidget {
-  const _FollowUpDetail({required this.customer, required this.taskId});
+class FollowUpDetail extends StatefulWidget {
+  const FollowUpDetail({
+    super.key,
+    required this.customer,
+    required this.taskId,
+  });
 
   final Customer customer;
   final String taskId;
 
   @override
-  State<_FollowUpDetail> createState() => _FollowUpDetailState();
+  State<FollowUpDetail> createState() => _FollowUpDetailState();
 }
 
-class _FollowUpDetailState extends State<_FollowUpDetail> {
+class _FollowUpDetailState extends State<FollowUpDetail> {
   final _comment = TextEditingController();
   List<ActivityAttachment> _commentAttachments = const [];
 
@@ -1484,7 +1496,7 @@ class _NoteCard extends StatelessWidget {
         context,
         service,
         note.isFollowUp
-            ? _FollowUpDetail(customer: customer, taskId: note.id)
+            ? FollowUpDetail(customer: customer, taskId: note.id)
             : _AddNoteScreen(customer: customer, existing: note),
       ),
       child: note.isFollowUp ? _buildFollowUp(context) : _buildNote(context),
