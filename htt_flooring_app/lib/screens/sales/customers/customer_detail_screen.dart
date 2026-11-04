@@ -330,7 +330,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             ),
           ),
           Expanded(
-            child: _detailTab('Notes', onTap: () => _openNotes(customer)),
+            child: _detailTab('Activities', onTap: () => _openNotes(customer)),
           ),
           Expanded(
             child: _detailTab(

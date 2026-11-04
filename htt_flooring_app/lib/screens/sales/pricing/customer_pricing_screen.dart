@@ -125,22 +125,7 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
                           margin: const EdgeInsets.only(bottom: 10),
                           child: ExpansionTile(
                             key: PageStorageKey(group.key),
-                            title: Text.rich(
-                              TextSpan(
-                                text: group.key.$3,
-                                children: [
-                                  for (final dimensions
-                                      in group.value
-                                          .map((product) => product.dimensions)
-                                          .whereType<String>()
-                                          .toSet())
-                                    TextSpan(
-                                      text: ' · $dimensions',
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                ],
-                              ),
-                            ),
+                            title: _seriesTitle(group.key.$3, group.value),
                             subtitle: Text(
                               [
                                 group.key.$1,
@@ -172,6 +157,26 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
                         ),
                     ],
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _seriesTitle(String name, List<Product> products) {
+    final dimensions = products
+        .map((product) => product.dimensions)
+        .whereType<String>()
+        .toSet()
+        .join(' · ');
+
+    return Text.rich(
+      TextSpan(
+        text: name,
+        children: [
+          TextSpan(
+            text: dimensions.isEmpty ? ' · Size unavailable' : ' · $dimensions',
+            style: const TextStyle(fontSize: 12),
           ),
         ],
       ),

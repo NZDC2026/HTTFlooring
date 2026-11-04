@@ -11,8 +11,14 @@ import 'customer_detail_screen.dart';
 
 class BusinessCardReviewScreen extends StatefulWidget {
   final BusinessCardScanResult result;
+  final bool manualEntry;
 
-  const BusinessCardReviewScreen({super.key, required this.result});
+  const BusinessCardReviewScreen({super.key, required this.result})
+    : manualEntry = false;
+
+  const BusinessCardReviewScreen.manual({super.key})
+    : result = const BusinessCardScanResult(),
+      manualEntry = true;
 
   @override
   State<BusinessCardReviewScreen> createState() =>
@@ -133,14 +139,18 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Review Contact')),
+      appBar: AppBar(
+        title: Text(widget.manualEntry ? 'Add Customer' : 'Review Contact'),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(18),
           children: [
-            const Text(
-              'Review scanned details',
-              style: TextStyle(
+            Text(
+              widget.manualEntry
+                  ? 'Customer details'
+                  : 'Review scanned details',
+              style: const TextStyle(
                 fontFamily: 'serif',
                 fontSize: 26,
                 fontWeight: FontWeight.w700,
@@ -149,9 +159,11 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
 
             const SizedBox(height: 5),
 
-            const Text(
-              'Check the company and employee details before saving.',
-              style: TextStyle(color: AppColors.muted, height: 1.4),
+            Text(
+              widget.manualEntry
+                  ? 'Enter the business name and any contact details you have.'
+                  : 'Check the company and employee details before saving.',
+              style: const TextStyle(color: AppColors.muted, height: 1.4),
             ),
 
             const SizedBox(height: 24),
@@ -670,7 +682,11 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
       return FilledButton.icon(
         onPressed: _createCompanyAndContact,
         icon: const Icon(Icons.add_business_outlined),
-        label: const Text('Create Company & Add Contact'),
+        label: Text(
+          widget.manualEntry
+              ? 'Create Customer'
+              : 'Create Company & Add Contact',
+        ),
       );
     }
 
@@ -834,12 +850,15 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => CustomerDetailScreen(customer: customer),
-      ),
-      (route) => route.isFirst,
+    final navigator = Navigator.of(context);
+    final detailRoute = MaterialPageRoute<void>(
+      builder: (_) => CustomerDetailScreen(customer: customer),
     );
+    if (widget.manualEntry) {
+      navigator.pushReplacement(detailRoute);
+    } else {
+      navigator.pushAndRemoveUntil(detailRoute, (route) => route.isFirst);
+    }
   }
 
   void _showMessage(String message) {

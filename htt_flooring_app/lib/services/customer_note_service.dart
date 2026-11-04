@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/customer_note.dart';
+import '../models/app_user.dart';
 
 class CustomerNoteService extends ChangeNotifier {
-  final List<CustomerNote> _notes = [];
+  CustomerNoteService({Iterable<CustomerNote> initialNotes = const []})
+    : _notes = List.of(initialNotes);
+
+  final List<CustomerNote> _notes;
 
   List<CustomerNote> get notes => List.unmodifiable(_notes);
 
@@ -40,30 +44,55 @@ class CustomerNoteService extends ChangeNotifier {
     return results;
   }
 
-  void addNote({required String customerId, required String content}) {
+  void addNote({
+    required String customerId,
+    String? existingId,
+    required String content,
+    String? noteType,
+  }) {
     final text = content.trim();
 
     if (text.isEmpty) {
       throw ArgumentError('Note cannot be empty.');
     }
 
-    _notes.add(
-      CustomerNote(
-        id: _generateId(),
-        customerId: customerId,
-        type: CustomerNoteType.note,
-        content: text,
-        createdAt: DateTime.now(),
-      ),
+    final index = existingId == null
+        ? -1
+        : _notes.indexWhere(
+            (note) => note.id == existingId && note.customerId == customerId,
+          );
+    if (existingId != null && index < 0) {
+      throw StateError('Activity no longer exists.');
+    }
+    final existing = index < 0 ? null : _notes[index];
+    final activity = CustomerNote(
+      id: existing?.id ?? _generateId(),
+      customerId: customerId,
+      type: CustomerNoteType.note,
+      noteType: noteType,
+      content: text,
+      createdAt: existing?.createdAt ?? DateTime.now(),
     );
+    if (index < 0) {
+      _notes.add(activity);
+    } else {
+      _notes[index] = activity;
+    }
 
     notifyListeners();
   }
 
   void addFollowUp({
     required String customerId,
+    String? existingId,
+    AppUser? actor,
     required String content,
     required DateTime followUpDate,
+    String? followUpType,
+    List<AppUser> assignees = const [],
+    String? priority,
+    String? reminder,
+    DateTime? reminderDate,
   }) {
     final text = content.trim();
 
@@ -71,54 +100,119 @@ class CustomerNoteService extends ChangeNotifier {
       throw ArgumentError('Follow-up cannot be empty.');
     }
 
-    _notes.add(
-      CustomerNote(
-        id: _generateId(),
-        customerId: customerId,
-        type: CustomerNoteType.followUp,
-        content: text,
-        createdAt: DateTime.now(),
-        followUpDate: followUpDate,
-        followUpStatus: FollowUpStatus.pending,
-      ),
+    final index = existingId == null
+        ? -1
+        : _notes.indexWhere(
+            (note) => note.id == existingId && note.customerId == customerId,
+          );
+    if (existingId != null && index < 0) {
+      throw StateError('Activity no longer exists.');
+    }
+    final existing = index < 0 ? null : _notes[index];
+    final previousAssignees =
+        existing?.assignees.map((user) => user.id).toSet() ?? <String>{};
+    final nextAssignees = assignees.map((user) => user.id).toSet();
+    final assignmentChanged = !setEquals(previousAssignees, nextAssignees);
+    final activity = CustomerNote(
+      id: existing?.id ?? _generateId(),
+      customerId: customerId,
+      type: CustomerNoteType.followUp,
+      creatorId:
+          existing?.creatorId ??
+          (existing?.isFollowUp == true ? null : actor?.id),
+      content: text,
+      createdAt: existing?.createdAt ?? DateTime.now(),
+      followUpDate: followUpDate,
+      followUpStatus: existing?.followUpStatus ?? FollowUpStatus.pending,
+      events: List.unmodifiable([
+        ...?existing?.events,
+        if (actor != null && existing?.isFollowUp != true)
+          (
+            author: actor.name,
+            action: existing == null ? 'Created' : 'Converted from note',
+            message: null,
+            at: DateTime.now(),
+          ),
+        if (actor != null && assignmentChanged)
+          (
+            author: actor.name,
+            action: existing?.isFollowUp == true ? 'Reassigned' : 'Assigned',
+            message: assignees.map((user) => user.name).join(', '),
+            at: DateTime.now(),
+          ),
+      ]),
+      noteType: existing?.noteType,
+      followUpType: followUpType,
+      assignees: List.unmodifiable(assignees),
+      priority: priority,
+      reminder: reminder,
+      reminderDate: reminderDate,
     );
+    if (index < 0) {
+      _notes.add(activity);
+    } else {
+      _notes[index] = activity;
+    }
 
     notifyListeners();
   }
 
-  void completeFollowUp(String id) {
-    final index = _notes.indexWhere((note) => note.id == id);
-
-    if (index == -1) {
-      throw StateError('Customer note not found.');
-    }
-
+  void setFollowUpStatus(
+    String id,
+    FollowUpStatus status, {
+    required AppUser actor,
+    String? result,
+  }) {
+    final index = _notes.indexWhere((note) => note.id == id && note.isFollowUp);
+    if (index < 0) throw StateError('Follow-up no longer exists.');
     final note = _notes[index];
-
-    if (!note.isFollowUp) {
-      throw StateError('Only follow-ups can be completed.');
+    if (note.followUpStatus == status) return;
+    final message = result?.trim();
+    if (status == FollowUpStatus.completed &&
+        (message == null || message.isEmpty)) {
+      throw ArgumentError('Enter a completion note.');
     }
-
-    _notes[index] = note.copyWith(followUpStatus: FollowUpStatus.completed);
-
+    final action = switch (status) {
+      FollowUpStatus.pending => note.isCompleted ? 'Reopened' : 'Pending',
+      FollowUpStatus.inProgress => 'In Progress',
+      FollowUpStatus.completed => 'Completed',
+    };
+    _notes[index] = note.copyWith(
+      followUpStatus: status,
+      events: List.unmodifiable([
+        ...note.events,
+        (
+          author: actor.name,
+          action: action,
+          message: message,
+          at: DateTime.now(),
+        ),
+      ]),
+    );
     notifyListeners();
   }
 
-  void reopenFollowUp(String id) {
+  void replyToFollowUp(String id, AppUser author, String message) {
     final index = _notes.indexWhere((note) => note.id == id);
-
-    if (index == -1) {
-      throw StateError('Customer note not found.');
-    }
-
+    if (index < 0) throw StateError('Activity no longer exists.');
     final note = _notes[index];
-
-    if (!note.isFollowUp) {
-      throw StateError('Only follow-ups can be reopened.');
+    final text = message.trim();
+    if (!note.canReply(author) || text.isEmpty) {
+      throw StateError(
+        'Only the creator and assignees can reply to a follow-up.',
+      );
     }
-
-    _notes[index] = note.copyWith(followUpStatus: FollowUpStatus.pending);
-
+    _notes[index] = note.copyWith(
+      events: List.unmodifiable([
+        ...note.events,
+        (
+          author: author.name,
+          action: 'Reply',
+          message: text,
+          at: DateTime.now(),
+        ),
+      ]),
+    );
     notifyListeners();
   }
 

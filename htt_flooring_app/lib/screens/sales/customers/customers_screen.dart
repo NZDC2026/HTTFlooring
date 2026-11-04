@@ -11,6 +11,7 @@ import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
 
 import 'sales_visit_screen.dart';
+import 'business_card_review_screen.dart';
 import 'business_card_scanner_screen.dart';
 import 'customer_detail_screen.dart';
 import 'customer_map_screen.dart';
@@ -102,6 +103,21 @@ class _CustomersScreenState extends State<CustomersScreen> {
       body: Column(
         children: [
           _buildSearch(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const BusinessCardReviewScreen.manual(),
+                  ),
+                ),
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                label: const Text('Add Customer'),
+              ),
+            ),
+          ),
 
           _buildViewSwitcher(),
 
