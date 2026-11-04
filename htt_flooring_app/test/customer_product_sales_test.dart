@@ -164,6 +164,10 @@ void main() {
         invoice(DateTime(2026, 10, 1), 2, product: 'new'),
       ]);
       await tester.pump();
+      expect(find.text('Down 16.7%'), findsOneWidget);
+      await tester.ensureVisible(find.text('Unclassified'));
+      await tester.tap(find.text('Unclassified'));
+      await tester.pumpAndSettle();
       expect(find.text('Down 50.0%'), findsOneWidget);
       expect(find.text('New'), findsOneWidget);
       await tester.tap(find.text('Last 90 days'));

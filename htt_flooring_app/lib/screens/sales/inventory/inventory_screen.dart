@@ -149,49 +149,69 @@ class _InventoryScreenState extends State<InventoryScreen> {
             style: TextStyle(color: Colors.white70, fontSize: 11),
           ),
           const SizedBox(height: 14),
+          TextField(
+            controller: _searchController,
+            onChanged: (_) {
+              setState(() {});
+            },
+            decoration: InputDecoration(
+              hintText: 'Search product, colour or SKU...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _searchController.clear();
+
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 13),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (_) {
-                    setState(() {});
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Search product, colour or SKU...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isEmpty
-                        ? null
-                        : IconButton(
-                            onPressed: () {
-                              _searchController.clear();
-
-                              setState(() {});
-                            },
-                            icon: const Icon(Icons.close),
-                          ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 13),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
+                child: OutlinedButton(
+                  onPressed: _selectCustomer,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                    minimumSize: const Size(0, 44),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_outline, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          customer?.businessName ?? 'Select Customer',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(Icons.expand_more, size: 18),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _selectCustomer,
-                child: const Text('Select Customer'),
-              ),
+              if (customer != null)
+                IconButton(
+                  tooltip: 'Clear customer',
+                  color: Colors.white,
+                  onPressed: () => setState(() => _customerId = null),
+                  icon: const Icon(Icons.close),
+                ),
             ],
           ),
-          if (customer != null)
-            InputChip(
-              label: Text(customer.businessName),
-              onDeleted: () => setState(() => _customerId = null),
-            ),
         ],
       ),
     );

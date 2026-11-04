@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
+
+import '../../../services/customer_location_service.dart';
 
 import '../../../models/customer_location.dart';
 import '../../../services/visit_backend.dart';
@@ -20,6 +23,7 @@ class VisitCheckInScreen extends StatefulWidget {
       VisitCheckInScreen(
         backend: null,
         branch: {
+          'customerId': location.customerId,
           'name': location.name,
           'addressLine1': location.address,
           'latitude': location.latitude,
@@ -115,6 +119,11 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
       if (!mounted) return;
       final backend = widget.backend;
       if (backend == null) {
+        await context.read<CustomerLocationService>().recordDemoVisit(
+          widget.branch['customerId'] as String,
+          position.timestamp,
+        );
+        if (!mounted) return;
         setState(() {
           _photo = bytes;
           _message = 'Location verified. Demo photo captured for preview.';

@@ -292,6 +292,30 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
     );
   }
 
+  ({String label, Color color}) _lastVisit(CustomerLocation location) {
+    const gray = Color(0xFF98A2B3);
+    if (context.watch<AppSession>().employeeAccessToken?.isNotEmpty == true) {
+      return (label: 'History unavailable', color: gray);
+    }
+    final days = context.watch<CustomerLocationService>().demoDaysSinceVisit(
+      location.customerId,
+    );
+    final label = switch (days) {
+      null => 'No demo visit',
+      0 => 'Today · Demo',
+      1 => '1 day ago · Demo',
+      _ => '$days days ago · Demo',
+    };
+    final color = switch (days) {
+      null => gray,
+      <= 7 => const Color(0xFF00C853),
+      <= 30 => const Color(0xFFF0AB00),
+      <= 60 => const Color(0xFFFF6900),
+      _ => const Color(0xFFE60012),
+    };
+    return (label: label, color: color);
+  }
+
   List<Widget> _buildMarkers(List<CustomerLocation> locations, Size mapSize) {
     final positions = <Offset>[
       const Offset(0.22, 0.25),
@@ -311,6 +335,7 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
         top: mapSize.height * position.dy,
         child: _CustomerMarker(
           location: location,
+          lastVisit: _lastVisit(location),
           selected: _selectedLocation?.id == location.id,
           onTap: () {
             setState(() {
@@ -548,7 +573,11 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
             overdue == null ? 'Unavailable' : currency.format(overdue),
             color: AppColors.danger,
           ),
-          _previewDetail('Last visit', 'Visit history unavailable'),
+          _previewDetail(
+            'Last visit',
+            '',
+            trailing: _VisitAge(visit: _lastVisit(location), fontSize: 12),
+          ),
           const SizedBox(height: 16),
 
           SizedBox(
@@ -603,7 +632,12 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
     );
   }
 
-  Widget _previewDetail(String label, String value, {Color? color}) {
+  Widget _previewDetail(
+    String label,
+    String value, {
+    Color? color,
+    Widget? trailing,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Row(
@@ -616,11 +650,13 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: TextStyle(fontSize: 12, color: color),
-            ),
+            child:
+                trailing ??
+                Text(
+                  value,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(fontSize: 12, color: color),
+                ),
           ),
         ],
       ),
@@ -704,15 +740,42 @@ class _CustomerMapScreenState extends State<CustomerMapScreen> {
   }
 }
 
+class _VisitAge extends StatelessWidget {
+  const _VisitAge({required this.visit, required this.fontSize});
+
+  final ({String label, Color color}) visit;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.circle, size: 9, color: visit.color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            visit.label,
+            style: TextStyle(fontSize: fontSize, color: visit.color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CustomerMarker extends StatelessWidget {
   const _CustomerMarker({
     required this.location,
     required this.selected,
+    required this.lastVisit,
     required this.onTap,
   });
 
   final CustomerLocation location;
   final bool selected;
+  final ({String label, Color color}) lastVisit;
   final VoidCallback onTap;
 
   @override
@@ -738,15 +801,21 @@ class _CustomerMarker extends StatelessWidget {
                 ),
               ],
             ),
-            child: Text(
-              location.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: selected ? Colors.white : AppColors.text,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  location.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? Colors.white : AppColors.text,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                _VisitAge(visit: lastVisit, fontSize: 9),
+              ],
             ),
           ),
           Icon(

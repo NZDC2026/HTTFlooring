@@ -5,10 +5,14 @@ class ProductSalesTrend {
     required this.productId,
     required this.name,
     required this.sku,
+    this.category = '',
+    this.colour = '',
   });
   final String productId;
   final String name;
   final String sku;
+  final String category;
+  final String colour;
   double currentSqm = 0;
   double previousSqm = 0;
   int currentBoxes = 0;
@@ -20,6 +24,22 @@ class ProductSalesTrend {
       : currentSqm > previousSqm
       ? 1
       : -1;
+}
+
+class ProductSalesGroup {
+  ProductSalesGroup(String name)
+    : trend = ProductSalesTrend(productId: name, name: name, sku: '');
+
+  final ProductSalesTrend trend;
+  final series = <String, ProductSalesGroup>{};
+  final colours = <ProductSalesTrend>[];
+
+  void add(ProductSalesTrend product) {
+    trend.currentSqm += product.currentSqm;
+    trend.previousSqm += product.previousSqm;
+    trend.currentBoxes += product.currentBoxes;
+    trend.previousBoxes += product.previousBoxes;
+  }
 }
 
 /// Equal calendar-day windows, including today and excluding future invoices.
@@ -62,6 +82,8 @@ class CustomerProductSales {
             productId: item.product.id,
             name: item.product.name,
             sku: item.product.sku,
+            category: item.product.category,
+            colour: item.product.colour,
           ),
         );
         if (current) {
@@ -80,6 +102,42 @@ class CustomerProductSales {
         final byPrevious = b.previousSqm.compareTo(a.previousSqm);
         return byPrevious != 0 ? byPrevious : a.name.compareTo(b.name);
       });
+
+    final categories = {
+      for (final name in ['Engineered', 'Laminate', 'Hybrid', 'Accessories'])
+        name: ProductSalesGroup(name),
+    };
+    for (final product in products) {
+      final categoryName = switch (product.category.trim().toLowerCase()) {
+        'engineered' || 'engineered timber' => 'Engineered',
+        'laminate' => 'Laminate',
+        'hybrid' => 'Hybrid',
+        'accessories' || 'accessory' => 'Accessories',
+        _ => 'Unclassified',
+      };
+      final category = categories.putIfAbsent(
+        categoryName,
+        () => ProductSalesGroup(categoryName),
+      );
+      final separator = product.sku.indexOf('-');
+      final seriesCode = separator > 0
+          ? product.sku.substring(0, separator).toUpperCase()
+          : product.sku.toUpperCase();
+      final seriesName = switch (seriesCode) {
+        'BON' => 'Bonita',
+        'GUA' => 'Guardian',
+        'AQU' => 'AquaGlow',
+        _ => seriesCode.isEmpty ? product.name : seriesCode,
+      };
+      final series = category.series.putIfAbsent(
+        seriesName,
+        () => ProductSalesGroup(seriesName),
+      );
+      category.add(product);
+      series.add(product);
+      series.colours.add(product);
+    }
+    groups = categories.values.toList(growable: false);
   }
   static DateTime _date(SalesDocument d) =>
       d.invoiceDate ?? d.convertedToInvoiceAt ?? d.createdAt;
@@ -88,4 +146,5 @@ class CustomerProductSales {
   late final DateTime end;
   late final DateTime previousStart;
   late final List<ProductSalesTrend> products;
+  late final List<ProductSalesGroup> groups;
 }

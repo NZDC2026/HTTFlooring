@@ -45,11 +45,18 @@ void main() {
         ),
       );
       expect(find.text('Sample sales for preview only'), findsOneWidget);
-      expect(find.text('Up 50.0%'), findsOneWidget);
+      expect(find.text('Up 90.0%'), findsOneWidget);
       expect(find.text('Down 50.0%'), findsOneWidget);
+      expect(find.text('No change'), findsNWidgets(2));
+      await tester.tap(find.text('Engineered'));
+      await tester.pumpAndSettle();
+      expect(find.text('Bonita'), findsOneWidget);
       expect(find.text('New'), findsOneWidget);
-      expect(find.text('No change'), findsOneWidget);
+      await tester.tap(find.text('Bonita'));
+      await tester.pumpAndSettle();
+      expect(find.text('Natural Oak'), findsOneWidget);
       expect(service.documents, isEmpty);
+      await tester.ensureVisible(find.byType(Switch));
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
       expect(find.text('Showing actual invoices'), findsOneWidget);
