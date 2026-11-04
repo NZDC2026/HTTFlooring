@@ -87,7 +87,7 @@ class CustomerNoteService extends ChangeNotifier {
     String? existingId,
     AppUser? actor,
     required String content,
-    required DateTime followUpDate,
+    required DateTime? followUpDate,
     String? followUpType,
     List<AppUser> assignees = const [],
     String? priority,

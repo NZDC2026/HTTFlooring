@@ -31,7 +31,7 @@ class _CustomerNotesScreenState extends State<CustomerNotesScreen> {
         'samples',
         'Deliver Heritage sample board',
         days: 2,
-        status: FollowUpStatus.pending,
+        status: FollowUpStatus.inProgress,
       ),
       _demoActivity(
         'colours',
@@ -657,51 +657,6 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
     }
   }
 
-  Future<List<AppUser>?> _pickAssignees(List<AppUser> current) {
-    final employees = [AppSession.jamesWilson, AppSession.liWei];
-    final selectedIds = current.map((user) => user.id).toSet();
-    return showDialog<List<AppUser>>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Assign To'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final employee in employees)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(employee.name),
-                  subtitle: Text(employee.roleLabel),
-                  value: selectedIds.contains(employee.id),
-                  onChanged: (checked) => setDialogState(() {
-                    if (checked == true) {
-                      selectedIds.add(employee.id);
-                    } else {
-                      selectedIds.remove(employee.id);
-                    }
-                  }),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, [
-                for (final employee in employees)
-                  if (selectedIds.contains(employee.id)) employee,
-              ]),
-              child: const Text('Done'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   final _assigneesKey = GlobalKey<FormFieldState<List<AppUser>>>();
 
   void _save() {
@@ -952,7 +907,7 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
                     return InkWell(
                       borderRadius: BorderRadius.circular(10),
                       onTap: () async {
-                        final result = await _pickAssignees(selected);
+                        final result = await _pickAssignees(context, selected);
                         if (result != null && field.mounted) {
                           field.didChange(result);
                         }
@@ -1114,6 +1069,60 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
   }
 }
 
+Future<List<AppUser>?> _pickAssignees(
+  BuildContext context,
+  List<AppUser> current,
+) {
+  final employees = {
+    AppSession.jamesWilson.id: AppSession.jamesWilson,
+    AppSession.liWei.id: AppSession.liWei,
+    for (final user in current) user.id: user,
+  }.values;
+  final selectedIds = current.map((user) => user.id).toSet();
+  return showDialog<List<AppUser>>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Assign To'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final employee in employees)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(employee.name),
+                subtitle: Text(employee.roleLabel),
+                value: selectedIds.contains(employee.id),
+                onChanged: (checked) => setDialogState(() {
+                  if (checked == true) {
+                    selectedIds.add(employee.id);
+                  } else {
+                    selectedIds.remove(employee.id);
+                  }
+                }),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: selectedIds.isEmpty
+                ? null
+                : () => Navigator.pop(dialogContext, [
+                    for (final employee in employees)
+                      if (selectedIds.contains(employee.id)) employee,
+                  ]),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _FollowUpDetail extends StatefulWidget {
   const _FollowUpDetail({required this.customer, required this.taskId});
 
@@ -1161,243 +1170,212 @@ class _FollowUpDetailState extends State<_FollowUpDetail> {
         ? 'No date'
         : DateFormat('dd MMM yyyy').format(date);
     final assignees = task.assignees.map((user) => user.name).join(', ');
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: AppColors.card,
-        appBar: AppBar(
-          title: const Text('Follow-up Detail'),
-          actions: [
-            IconButton(
-              tooltip: 'Edit Follow-up',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => _openActivity<bool>(
-                context,
-                service,
-                _AddFollowUpScreen(customer: widget.customer, existing: task),
-              ),
+    final statusBackground = task.isCompleted
+        ? AppColors.successLight
+        : AppColors.warningLight;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Follow-up Detail'),
+        actions: [
+          IconButton(
+            tooltip: 'Edit Follow-up',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => _openActivity<bool>(
+              context,
+              service,
+              _AddFollowUpScreen(customer: widget.customer, existing: task),
             ),
-            _DeleteButton(note: task, service: service),
-          ],
-        ),
-        body: Column(
-          children: [
-            if (MediaQuery.viewInsetsOf(context).bottom == 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          ),
+          _DeleteButton(note: task, service: service),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(14),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  task.followUpType ?? 'Follow-up',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Chip(label: Text(status), backgroundColor: statusBackground),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _taskInfo('Due Date', due)),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.event_available_outlined,
-                          color: AppColors.copper,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            task.followUpType ?? 'Follow-up',
-                            style: theme.textTheme.titleMedium,
+                    const Text('Assigned To'),
+                    const SizedBox(height: 4),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final selected = await _pickAssignees(
+                          context,
+                          task.assignees,
+                        );
+                        if (!context.mounted || selected == null) return;
+                        service.addFollowUp(
+                          customerId: task.customerId,
+                          existingId: task.id,
+                          actor: user,
+                          content: task.content,
+                          followUpDate: task.followUpDate,
+                          followUpType: task.followUpType,
+                          assignees: selected,
+                          priority: task.priority,
+                          reminder: task.reminder,
+                          reminderDate: task.reminderDate,
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              assignees.isEmpty ? 'Unassigned' : assignees,
+                            ),
                           ),
-                        ),
-                        Chip(
-                          label: Text(status),
-                          backgroundColor: task.isCompleted
-                              ? AppColors.successLight
-                              : AppColors.warningLight,
-                        ),
-                      ],
-                    ),
-                    const Divider(),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _taskInfo('Due Date', due)),
-                        Expanded(
-                          child: _taskInfo(
-                            'Assigned to',
-                            assignees.isEmpty ? 'Unassigned' : assignees,
-                          ),
-                        ),
-                        Expanded(
-                          child: _taskInfo(
-                            'Priority',
-                            task.priority ?? 'Normal',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(),
-                    Text('Description', style: theme.textTheme.titleSmall),
-                    Text(
-                      task.content,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                          const Icon(Icons.expand_more, size: 18),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-            TabBar(
-              tabs: [
-                Tab(text: 'Activity & Comments ($commentCount)'),
-                const Tab(text: 'Task Info'),
-              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: _taskInfo('Description', task.content),
             ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  ListView(
-                    padding: const EdgeInsets.all(12),
-                    children: [
-                      if (task.events.isEmpty)
-                        const ListTile(title: Text('No activity yet')),
-                      for (final event in task.events)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(
-                                width: 49,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: Text(
-                                    DateFormat('dd MMM\nh:mm a')
-                                        .format(event.at),
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.labelSmall,
-                                  ),
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(2, 17, 6, 0),
-                                child: Icon(
-                                  Icons.circle,
-                                  size: 6,
-                                  color: AppColors.green,
-                                ),
-                              ),
-                              Expanded(
-                                child: Card(
-                                  color: event.action == 'Completed'
-                                      ? AppColors.successLight
-                                      : AppColors.copperLight.withValues(
-                                          alpha: 0.2,
-                                        ),
-                                  child: ListTile(
-                                    dense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                    ),
-                                    leading: Icon(
-                                      switch (event.action) {
-                                        'Reply' => Icons.chat_bubble_outline,
-                                        'Completed' =>
-                                          Icons.check_circle_outline,
-                                        'Assigned' || 'Reassigned' =>
-                                          Icons.person_add_outlined,
-                                        _ => Icons.event_note_outlined,
-                                      },
-                                      size: 18,
-                                      color: AppColors.green,
-                                    ),
-                                    title: Text(
-                                      '${event.action} (${event.author})',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    subtitle: event.message == null
-                                        ? null
-                                        : Text(event.message!),
-                                  ),
-                                ),
-                              ),
-                            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Activity & Comments',
+                  style: theme.textTheme.titleSmall,
+                ),
+              ),
+              Text(commentCount == 1 ? '1 reply' : '$commentCount replies'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (task.events.isEmpty)
+            const ListTile(title: Text('No activity yet')),
+          for (final event in task.events)
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              color: switch (event.action) {
+                'Created' ||
+                'Converted from note' ||
+                'Completed' => AppColors.successLight,
+                _ => AppColors.card,
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            event.action == 'Reply'
+                                ? event.author
+                                : 'Task ${event.action}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ),
-                    ],
-                  ),
-                  ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      _taskInfo('Customer', widget.customer.businessName),
-                      _taskInfo('Status', status),
-                      _taskInfo(
-                        'Reminder',
-                        task.reminderDate != null
-                            ? DateFormat('dd MMM yyyy')
-                                  .format(task.reminderDate!)
-                            : task.reminder ?? 'None',
-                      ),
-                      _taskInfo('Description', task.content),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 8),
+                        Text(
+                          DateFormat('dd MMM · h:mm a').format(event.at),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      event.action == 'Reply'
+                          ? event.message ?? ''
+                          : [event.author, ?event.message].join(' · '),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (task.canReply(user)) ...[
+            const SizedBox(height: 8),
+            Text('Add a comment as ${user.name}'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _comment,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                hintText: 'Enter task update or customer response…',
+              ),
+            ),
+            const SizedBox(height: 8),
+            ValueListenableBuilder(
+              valueListenable: _comment,
+              builder: (context, value, _) => FilledButton.icon(
+                onPressed: value.text.trim().isEmpty
+                    ? null
+                    : () {
+                        service.replyToFollowUp(task.id, user, value.text);
+                        _comment.clear();
+                        FocusScope.of(context).unfocus();
+                      },
+                icon: const Icon(Icons.send_outlined),
+                label: const Text('Send Comment'),
               ),
             ),
           ],
-        ),
-        bottomNavigationBar: task.canReply(user)
-            ? SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    12,
-                    8,
-                    12,
-                    8 + MediaQuery.viewInsetsOf(context).bottom,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _comment,
-                          maxLines: 3,
-                          minLines: 1,
-                          decoration: const InputDecoration(
-                            hintText: 'Add a comment…',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ValueListenableBuilder(
-                        valueListenable: _comment,
-                        builder: (context, value, _) => IconButton.filled(
-                          tooltip: 'Send comment',
-                          onPressed: value.text.trim().isEmpty
-                              ? null
-                              : () {
-                                  service.replyToFollowUp(
-                                    task.id,
-                                    user,
-                                    value.text,
-                                  );
-                                  _comment.clear();
-                                  FocusScope.of(context).unfocus();
-                                },
-                          icon: const Icon(Icons.send_outlined),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : null,
+          const SizedBox(height: 8),
+          ExpansionTile(
+            title: const Text('Task Info'),
+            childrenPadding: const EdgeInsets.all(12),
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _taskInfo('Customer', widget.customer.businessName),
+              _taskInfo('Priority', task.priority ?? 'Normal'),
+              _taskInfo(
+                'Reminder',
+                task.reminderDate == null
+                    ? task.reminder ?? 'None'
+                    : DateFormat('dd MMM yyyy').format(task.reminderDate!),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _taskInfo(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6, bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 4),
+        Text(value),
+      ],
     );
   }
 }

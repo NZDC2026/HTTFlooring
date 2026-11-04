@@ -55,11 +55,19 @@ void main() {
     expect(find.text('Edit Follow-up'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(EditableText), 'Sample delivered.');
+    final comment = find.byType(EditableText);
+    await tester.scrollUntilVisible(
+      comment,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(comment, 'Sample delivered.');
     await tester.pump();
-    await tester.tap(find.byTooltip('Send comment'));
+    await tester.ensureVisible(find.text('Send Comment'));
     await tester.pumpAndSettle();
-    expect(find.text('Reply (James Wilson)'), findsOneWidget);
+    await tester.tap(find.text('Send Comment'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sample delivered.'), findsOneWidget);
     expect(realService.notes, isEmpty);
   });
 }
