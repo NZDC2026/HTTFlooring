@@ -180,7 +180,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             other = '00000000-0000-0000-0000-000000000021'
             assert {entry['companyId'] for entry in actual[1]['companies']} == {other, expected['companies'][0]['companyId']}
             actual[1]['companies'][:] = [entry for entry in actual[1]['companies'] if entry['companyId'] != other]
-            expected['companies'][0]['permissions'] += ['crm.collaboration.read','crm.visits.write','documents.attachments.write','documents.files.read','crm.notes.write','crm.boards.write','catalog.read','foundation.read','accounting.read','audit.read','customers.write','catalog.write','pricing.read','sales.quotes.read','sales.quotes.write','sales.quotes.approve','sales.orders.read','sales.credit.read','warehouses.all','sales.orders.create','inventory.read','sales.orders.cancel','sales.invoices.read','sales.invoices.write','accounting.receipts.read','accounting.receipts.write','accounting.banks.use','accounting.receivables.read','inventory.picks.read','inventory.picks.write','inventory.dispatch','inventory.opening.write','purchase.orders.read','purchase.orders.write','purchase.cost.read','purchase.orders.confirm','purchase.orders.close','purchase.receipts.read','purchase.receipts.write','purchase.grni.read','purchase.bills.read','purchase.bills.post','purchase.payments.read','purchase.payments.post','purchase.ap.read','purchase.advances.apply','purchase.advances.unapply','purchase.payments.reverse','purchase.bills.variance.post','purchase.payments.reapply','purchase.input_gst.read']
+            expected['companies'][0]['permissions'] += ['crm.collaboration.read','crm.visits.write','documents.attachments.write','documents.files.read','crm.notes.write','crm.boards.write','catalog.read','foundation.read','accounting.read','audit.read','customers.write','catalog.write','pricing.read','sales.quotes.read','sales.quotes.write','sales.quotes.approve','sales.orders.read','sales.credit.read','warehouses.all','sales.orders.create','inventory.read','sales.orders.cancel','sales.invoices.read','sales.invoices.write','accounting.receipts.read','accounting.receipts.write','accounting.banks.use','accounting.receivables.read','inventory.picks.read','inventory.picks.write','inventory.dispatch','inventory.opening.write','purchase.orders.read','purchase.orders.write','purchase.cost.read','purchase.orders.confirm','purchase.orders.close','purchase.receipts.read','purchase.receipts.write','purchase.grni.read','purchase.bills.read','purchase.bills.post','purchase.payments.read','purchase.payments.post','purchase.ap.read','purchase.advances.apply','purchase.advances.unapply','purchase.payments.reverse','purchase.bills.variance.post','purchase.payments.reapply','purchase.input_gst.read','accounting.advances.apply']
             expected['companies'][0]['permissions'].sort()
             actual[1]['companies'][0]['permissions'].sort()
             assert actual == (200,expected), actual
@@ -449,6 +449,48 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert float(entry['paid']) == 20 and float(entry['outstanding']) == 30, entry
                 after = request(service_path+'/invoiceable',employee,company)
                 assert float(after[1]['lines'][0]['availableQuantity']) == 1, after
+            for first, second in ((legacy_url,url),(url,legacy_url)):
+                service = request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+                    'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
+                    'warehouseId':'00000000-0000-0000-0000-000000000014',
+                    'lines':[{'productUnitId':'00000000-0000-0000-0000-000000000032','quantity':2}],
+                    'reason':'Synthetic customer advance application'},key='advance-order-'+uuid.uuid4().hex)
+                assert service[0] == 201, service
+                order_path = '/api/v1/sales-orders/'+service[1]['orderId']
+                detail = request(order_path,employee,company)
+                receipt_args = dict(payload={'amount':20,'method':'BANK_TRANSFER','reference':'Customer deposit '+uuid.uuid4().hex,
+                    'advances':[{'orderLineId':detail[1]['lines'][0]['id'],'amount':20}]},key='customer-deposit-'+uuid.uuid4().hex)
+                receipt_path = '/api/v1/customers/00000000-0000-0000-0000-000000000011/receipts'
+                deposited = request(receipt_path,employee,company,base=first,**receipt_args)
+                assert deposited[0] == 201, deposited
+                assert request(receipt_path,employee,company,base=second,**receipt_args) == deposited
+                invoice_args = dict(payload={'lines':[{'orderLineId':detail[1]['lines'][0]['id'],'quantity':1}],'fulfilmentReference':'Synthetic service delivery'},
+                    key='advance-invoice-'+uuid.uuid4().hex,version=detail[1]['version'])
+                invoiced = request(order_path+'/invoices',employee,company,base=legacy_url,**invoice_args)
+                assert invoiced[0] == 201, invoiced
+                application_path = '/api/v1/customer-advances/'+deposited[1]['advances'][0]['id']+'/apply'
+                apply_args = dict(payload={'reference':' Customer café & advance '+uuid.uuid4().hex,
+                    'allocations':[{'invoiceLineId':invoiced[1]['lines'][0]['id'],'amount':20}]},
+                    key='customer-apply-'+uuid.uuid4().hex)
+                assert request(application_path,token('test-purchase-reader'),company,base=first,**apply_args)[0] == 403
+                bad = dict(payload={**apply_args['payload'],'allocations':[{'invoiceLineId':invoiced[1]['lines'][0]['id'],'amount':21}]},
+                    key='customer-over-apply-'+uuid.uuid4().hex)
+                rejected = [request(application_path,employee,company,base=target,**bad) for target in (first,second)]
+                assert rejected[0][0] == rejected[1][0] and 400 <= rejected[0][0] < 500, rejected
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts = list(pool.map(lambda n: request(application_path,employee,company,
+                        base=first if n%2 else second,**apply_args),range(6)))
+                applied = attempts[0]
+                assert applied[0] == 201 and all(result==applied for result in attempts), attempts
+                assert applied[1]['applicationStatus']=='APPLIED' and float(applied[1]['amount'])==20, applied
+                read_path = '/api/v1/advance-applications/'+applied[1]['id']
+                assert request(read_path,employee,company)==(200,applied[1])
+                assert request(read_path,employee,company,base=legacy_url)==(200,applied[1])
+                ar = request('/api/v1/customers/00000000-0000-0000-0000-000000000011/receivables?pageSize=100',employee,company)
+                entry = next(item for item in ar[1]['items'] if item['invoiceId']==invoiced[1]['id'])
+                assert float(entry['paid'])==20 and float(entry['outstanding'])==30, entry
+            print('PASS: customer advance application, cross-backend concurrent replay and over-allocation rollback')
+
             print('PASS: matching GST and receivable balances after partial settlement')
             print('PASS: bidirectional default/explicit-bank receipt replay')
             print('PASS: bidirectional posted service invoice, receivable/journal links, and remaining billable quantity')
@@ -742,6 +784,79 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert any(item['billId']==bill[1]['bill']['id'] and float(item['gstAmount'])==-0.5
                     for item in tax_entries[1]['items']), tax_entries
             print('PASS: purchase GST partial payment and reversal under '+('CASH' if cash else 'NON_CASH'))
+            def tax_state(attributed, pending):
+                path = '/api/v1/accounting/purchase-gst?supplierId='+supplier
+                result = request(path,employee,company)
+                assert result == request(path,employee,company,base=legacy_url), result
+                assert float(result[1]['attributedTax']) == (attributed if cash else 1.5), result
+                assert float(result[1]['pendingPaymentTax']) == (pending if cash else 0), result
+                return result
+
+            advance_args = dict(payload={'amount':5.5,'advanceAmount':5.5,'method':'BANK_TRANSFER',
+                'reference':'Tax prepayment '+uuid.uuid4().hex,'notes':'Synthetic taxable supplier deposit'},key='tax-advance-'+uuid.uuid4().hex)
+            prepaid = request('/api/v1/suppliers/'+supplier+'/payments',employee,company,base=legacy_url,**advance_args)
+            assert prepaid[0] == 201 and float(prepaid[1]['advances'][0]['available']) == 5.5, prepaid
+            assert request('/api/v1/suppliers/'+supplier+'/payments',employee,company,**advance_args) == prepaid
+            tax_state(0,1.5)
+            apply_path = '/api/v1/supplier-advances/'+prepaid[1]['advances'][0]['id']+'/apply'
+            allocations = [{'billLineId':bill[1]['lines'][0]['id'],'amount':5.5}]
+            apply_args = dict(payload={'reference':'Tax application '+uuid.uuid4().hex,'allocations':allocations},
+                key='tax-apply-'+uuid.uuid4().hex)
+            bad_args = dict(payload={**apply_args['payload'],'allocations':[{'billLineId':bill[1]['lines'][0]['id'],'amount':6}]},
+                key='tax-over-apply-'+uuid.uuid4().hex)
+            for target in (url,legacy_url):
+                assert request(apply_path,employee,company,base=target,**bad_args)[0] >= 400
+            tax_state(0,1.5)
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                attempts = list(pool.map(lambda n: request(apply_path,employee,company,
+                    base=url if n%2 else legacy_url,**apply_args),range(6)))
+            applied = attempts[0]
+            assert applied[0] == 201 and all(result==applied for result in attempts), attempts
+            tax_state(.5,1)
+            entries_path = '/api/v1/accounting/purchase-gst-attributions?supplierId='+supplier
+            entries = request(entries_path,employee,company)
+            assert entries == request(entries_path,employee,company,base=legacy_url)
+            if cash:
+                assert any(item['sourceDocumentId']==applied[1]['application']['id']
+                    and item['kind']=='PREPAYMENT_APPLICATION' and float(item['gstAmount'])==.5
+                    for item in entries[1]['items']), entries
+            undo_path = '/api/v1/supplier-advance-applications/'+applied[1]['application']['id']+'/unapply'
+            undo_args = dict(payload={'reference':'Tax unapplication '+uuid.uuid4().hex,'reason':'Synthetic undo taxable advance'},
+                key='tax-unapply-'+uuid.uuid4().hex)
+            undone = request(undo_path,employee,company,**undo_args)
+            assert undone[0] == 201, undone
+            assert request(undo_path,employee,company,base=legacy_url,**undo_args) == undone
+            tax_state(0,1.5)
+            advance_view = request('/api/v1/supplier-payments/'+prepaid[1]['payment']['id'],employee,company)
+            assert float(advance_view[1]['advances'][0]['available']) == 5.5, advance_view
+
+            reapply_path = '/api/v1/supplier-payment-reversals/'+reversed_payment[1]['reversal']['id']+'/reapply'
+            reapply_args = dict(payload={'reference':'Tax reapplication '+uuid.uuid4().hex,
+                'reason':'Synthetic taxable correction','allocations':allocations},key='tax-reapply-'+uuid.uuid4().hex)
+            reapplied = request(reapply_path,employee,company,**reapply_args)
+            assert reapplied[0] == 201, reapplied
+            assert request(reapply_path,employee,company,base=legacy_url,**reapply_args) == reapplied
+            tax_state(.5,1)
+            reallocate_path = '/api/v1/supplier-payments/'+reapplied[1]['payment']['id']+'/reallocate'
+            reallocate_args = dict(payload={'reversalReference':'Tax reallocation reversal '+uuid.uuid4().hex,
+                'reference':'Tax reallocation '+uuid.uuid4().hex,'reason':'Synthetic taxable reallocation to advance',
+                'advanceAmount':5.5,'allocations':[]},key='tax-reallocate-'+uuid.uuid4().hex)
+            failing = dict(payload={**reallocate_args['payload'],'advanceAmount':6},key='tax-over-reallocate-'+uuid.uuid4().hex)
+            before = tax_state(.5,1)
+            for target in (legacy_url,url):
+                assert request(reallocate_path,employee,company,base=target,**failing)[0] >= 400
+                assert tax_state(.5,1) == before
+                active = request('/api/v1/supplier-payments/'+reapplied[1]['payment']['id'],employee,company)
+                assert active[1]['payment']['settlementStatus']=='ACTIVE', active
+            reallocated = request(reallocate_path,employee,company,base=legacy_url,**reallocate_args)
+            assert reallocated[0] == 201, reallocated
+            assert request(reallocate_path,employee,company,**reallocate_args) == reallocated
+            assert float(reallocated[1]['advances'][0]['available']) == 5.5, reallocated
+            tax_state(0,1.5)
+            entries = request(entries_path,employee,company)
+            assert entries == request(entries_path,employee,company,base=legacy_url)
+            print('PASS: taxable supplier advance/application/unapplication/reapply/reallocate and atomic failure GST matrix')
+
             unmatched = request(unmatched_path,employee,company)
             assert not any(item['receiptLineId'] == received[1]['lines'][0]['id'] for item in unmatched[1]['items']), unmatched
             print('PASS: populated purchase GST, attribution filters and unmatched GRNI removal')

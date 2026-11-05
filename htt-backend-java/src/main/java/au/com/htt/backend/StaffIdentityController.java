@@ -150,6 +150,25 @@ class StaffIdentityController {
         return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
     }
 
+    @PostMapping("/api/v1/customer-advances/{id}/apply")
+    ResponseEntity<String> applyCustomerAdvance(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            @RequestBody ReceiptOperations.ApplicationInput input, HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "accounting.advances.apply");
+        String requestId = (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID);
+        var result = staff.inCompany(scope, requestId,
+                () -> receipts.apply(scope,id,input,request.getHeader("Idempotency-Key"),requestId));
+        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    }
+
+    @GetMapping("/api/v1/advance-applications/{id}")
+    ResponseEntity<String> customerAdvanceApplication(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "accounting.receipts.read");
+        String body = staff.inCompany(scope,(String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
+                () -> receipts.applicationView(scope,id));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+    }
+
     @GetMapping("/api/v1/customer-receipts/{id}")
     ResponseEntity<String> receipt(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
             HttpServletRequest request) {

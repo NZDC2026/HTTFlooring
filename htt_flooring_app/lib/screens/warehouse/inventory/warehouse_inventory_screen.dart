@@ -10,6 +10,7 @@ import '../../../services/stock_adjustment_service.dart';
 import '../../../services/inventory_service.dart';
 import '../../sales/catalog_filters.dart';
 import 'stock_level_check_screen.dart';
+import 'stock_adjustment_history_screen.dart';
 
 class WarehouseInventoryScreen extends StatefulWidget {
   const WarehouseInventoryScreen({super.key});
@@ -96,12 +97,19 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
         backgroundColor: const Color(0xFF0E342B),
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Inventory Lookup'),
+        title: const Text(
+          'Inventory Lookup',
+          style: TextStyle(
+            fontFamily: 'sans-serif',
+            fontSize: 23,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         actions: [
           IconButton(
-            tooltip: 'Stock Level Check',
+            tooltip: 'Stock Adjustment History',
             onPressed: () => _openStockLevelCheck(context),
-            icon: const Icon(Icons.fact_check_outlined),
+            icon: const Icon(Icons.history),
           ),
         ],
       ),
@@ -153,44 +161,103 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
                         for (final group in groups.entries)
                           Card(
                             margin: const EdgeInsets.only(bottom: 10),
-                            child: ListTile(
-                              title: catalogSeriesTitle(group.key.$3, [
-                                for (final row in group.value) row.product,
-                              ]),
-                              subtitle: Text(
-                                [group.key.$1, ?group.key.$2].join(' · '),
-                              ),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => StockLevelCheckScreen(
-                                    brand: group.key.$3,
-                                    products: [
-                                      for (final product in products.where(
-                                        (p) =>
-                                            p.category == group.key.$1 &&
-                                            p.installationStyle ==
-                                                group.key.$2 &&
-                                            (p.brand ?? p.name) == group.key.$3,
-                                      ))
-                                        StockCheckProduct(
-                                          id: product.id,
-                                          name: product.colour,
-                                          sku: product.sku,
-                                          dimensions: product.dimensions,
-                                          systemBoxes:
-                                              const InventoryService()
-                                                  .getForProductAndRegion(
-                                                    product.id,
-                                                    region,
-                                                  )
-                                                  ?.stockBoxes ??
-                                              0,
-                                        ),
-                                    ],
-                                  ),
+                            child: Theme(
+                              data: Theme.of(context)
+                                  .copyWith(dividerColor: Colors.transparent),
+                              child: ExpansionTile(
+                                initiallyExpanded:
+                                    group.key == groups.keys.first,
+                                tilePadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
                                 ),
+                                childrenPadding: const EdgeInsets.fromLTRB(
+                                  8,
+                                  0,
+                                  8,
+                                  8,
+                                ),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: catalogSeriesTitle(group.key.$3, [
+                                        for (final row in group.value)
+                                          row.product,
+                                      ]),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(
+                                          0xFF166337,
+                                        ),
+                                        side: const BorderSide(
+                                          color: Color(0xFF3C9A5D),
+                                        ),
+                                        minimumSize: const Size(0, 30),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => StockLevelCheckScreen(
+                                            brand: group.key.$3,
+                                            products: [
+                                              for (final p in products.where(
+                                                (p) =>
+                                                    p.category ==
+                                                        group.key.$1 &&
+                                                    p.installationStyle ==
+                                                        group.key.$2 &&
+                                                    (p.brand ?? p.name) ==
+                                                        group.key.$3,
+                                              ))
+                                                StockCheckProduct(
+                                                  id: p.id,
+                                                  name: p.colour,
+                                                  sku: p.sku,
+                                                  dimensions: p.dimensions,
+                                                  systemBoxes:
+                                                      _inventoryService
+                                                          .getForProductAndRegion(
+                                                            p.id,
+                                                            region,
+                                                          )
+                                                          ?.stockBoxes ??
+                                                      0,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        size: 14,
+                                      ),
+                                      label: const Text(
+                                        'Adjust Stock',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                subtitle: Text(
+                                  [group.key.$1, ?group.key.$2].join(' · '),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                children: [
+                                  for (final row in group.value)
+                                    _colourCard(context, row, region),
+                                ],
                               ),
                             ),
                           ),
@@ -208,8 +275,8 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
           height: 52,
           child: FilledButton.icon(
             onPressed: () => _openStockLevelCheck(context),
-            icon: const Icon(Icons.fact_check_outlined),
-            label: const Text('Stock Level Check'),
+            icon: const Icon(Icons.history),
+            label: const Text('Stock Adjustment History'),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF0E342B),
               foregroundColor: Colors.white,
@@ -223,9 +290,162 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
     );
   }
 
+  Widget _colourCard(
+    BuildContext context,
+    _WarehouseProductRow row,
+    SalesRegion region,
+  ) {
+    final p = row.product;
+    final stock = row.inventory;
+    final values = _inventoryService.stockMetrics(p.id, region);
+    final onHand = values['onHand'] ?? stock?.stockBoxes ?? 0;
+    Widget metric(String label, String value, Color background, Color colour) =>
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    color: colour,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: const Color(0xFFE9E5DE)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 46,
+                  height: 44,
+                  child: CustomPaint(painter: _WoodSwatch()),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.colour,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      p.sku,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF777B78),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              metric(
+                'On Hand',
+                '$onHand',
+                const Color(0xFFEDF5E7),
+                const Color(0xFF1F3527),
+              ),
+              metric(
+                'Reserved',
+                values['reserved']?.toString() ?? '—',
+                const Color(0xFFFFF0D9),
+                const Color(0xFFAD6D29),
+              ),
+              metric(
+                'Damaged',
+                values['damage']?.toString() ?? '—',
+                const Color(0xFFFFE7E3),
+                const Color(0xFFD3342C),
+              ),
+              metric(
+                'Available',
+                values['available']?.toString() ?? '—',
+                const Color(0xFFE6F4D9),
+                const Color(0xFF234B27),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_outlined,
+                size: 15,
+                color: Color(0xFF777B78),
+              ),
+              const SizedBox(width: 4),
+              const Expanded(
+                child: Text('Bin Location  —', style: TextStyle(fontSize: 10)),
+              ),
+              const Icon(Icons.square_foot_outlined, size: 15),
+              const SizedBox(width: 4),
+              Text(
+                values['area'] == null
+                    ? 'Area  —'
+                    : 'Area  ${values['area']!.toStringAsFixed(2)} m²',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _openStockLevelCheck(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const StockLevelCheckScreen()),
+      MaterialPageRoute<void>(
+        builder: (_) => const StockAdjustmentHistoryScreen(),
+      ),
     );
   }
 }
@@ -369,3 +589,32 @@ class _WarehouseProductRow {
 }
 
 enum _WarehouseStockStatus { inStock, lowStock, outOfStock }
+
+class _WoodSwatch extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFFC18B4A), Color(0xFFF2CA8A), Color(0xFFAF773F)],
+        ).createShader(Offset.zero & size),
+    );
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    for (var i = -12; i < 20; i++) {
+      final x = i * 5.0;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height, size.height),
+        Paint()
+          ..color = const Color(0x6686532B)
+          ..strokeWidth = (i % 4 == 0 ? 1.5 : 0.5),
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_WoodSwatch old) => false;
+}

@@ -88,6 +88,64 @@ class ReceiptOperations {
         });
     }
 
+    record ApplicationInput(String reference, List<Allocation> allocations) {}
+
+    IdempotentWrite.StoredResponse apply(StaffScope.CompanyAccess scope, UUID advance,
+            ApplicationInput input, String key, String requestId) {
+        requireAdvance(scope, advance);
+        var allocations = input.allocations();
+        require(allocations != null && !allocations.isEmpty() && allocations.size() <= 50
+                && allocations.stream().allMatch(a -> a != null && validId(a.invoiceLineId()))
+                && allocations.stream().map(Allocation::invoiceLineId).distinct().count() == allocations.size(),
+                "allocations", "Supply up to 50 distinct invoice lines.");
+        for (var allocation : allocations) {
+            amount(allocation.amount(), "Allocation must be positive.");
+        }
+        String reference = input.reference() == null ? "" : input.reference().strip();
+        require(!reference.isEmpty() && reference.length() <= 200, "reference", "reference must contain 1..200 characters.");
+        String lines = allocations.stream().sorted(Comparator.comparing(a -> a.invoiceLineId().toString()))
+                .map(a -> splitLine("invoiceLineId", a.invoiceLineId(), a.amount()))
+                .collect(Collectors.joining(",", "[", "]"));
+        String canonical = "{\"reference\":" + CollaborationCreate.legacyString(reference)
+                + ",\"allocations\":" + lines + "}";
+        return writes.execute(scope, "POST /customer-advances/" + advance + "/apply", key, canonical, () -> {
+            UUID id = jdbc.sql("SELECT accounting.apply_advance(:advance,:reference,CAST(:lines AS jsonb))")
+                    .param("advance",advance).param("reference",reference).param("lines",lines).query(UUID.class).single();
+            audit.record(scope,"accounting.advance_applied","advance_application",id,requestId,
+                    Map.of("advanceId",advance,"reference",reference));
+            return new IdempotentWrite.StoredResponse(201,applicationView(scope,id));
+        });
+    }
+
+    private void requireAdvance(StaffScope.CompanyAccess scope, UUID id) {
+        UUID customer = jdbc.sql("""
+                SELECT r.customer_id FROM accounting.customer_advances a
+                JOIN accounting.customer_receipts r ON r.company_id=a.company_id AND r.id=a.receipt_id
+                WHERE a.company_id=:company AND a.id=:id
+                """).param("company",scope.companyId()).param("id",id).query(UUID.class)
+                .optional().orElseThrow(ReceiptOperations::unavailable);
+        requireCustomer(scope,customer);
+    }
+
+    String applicationView(StaffScope.CompanyAccess scope, UUID id) {
+        UUID advance = jdbc.sql("SELECT advance_id FROM accounting.advance_applications WHERE company_id=:company AND id=:id")
+                .param("company",scope.companyId()).param("id",id).query(UUID.class)
+                .optional().orElseThrow(ReceiptOperations::unavailable);
+        requireAdvance(scope,advance);
+        return jdbc.sql("""
+                SELECT jsonb_build_object('id',a.id,'number',d.number,'state',d.state,'version',d.version,
+                    'applicationStatus',CASE WHEN u.id IS NULL THEN 'APPLIED' ELSE 'UNAPPLIED' END,
+                    'unapplicationId',u.id,'advanceId',a.advance_id,'amount',a.amount::text,'reference',a.reference,
+                    'allocations',COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                        'invoiceLineId',p.invoice_line_id,'amount',p.amount::text,'gstAmount',p.gst_amount::text,
+                        'receiptId',p.receipt_id,'advanceId',p.advance_id) ORDER BY p.invoice_line_id)
+                        FROM accounting.payment_allocations p WHERE p.company_id=a.company_id AND p.source_document_id=a.id),'[]'::jsonb))::text
+                FROM accounting.advance_applications a JOIN platform.documents d ON d.company_id=a.company_id AND d.id=a.id
+                LEFT JOIN accounting.advance_unapplications u ON u.company_id=a.company_id AND u.application_id=a.id
+                WHERE a.company_id=:company AND a.id=:id
+                """).param("company",scope.companyId()).param("id",id).query(String.class).single();
+    }
+
     private static String splitLine(String field, UUID id, BigDecimal amount) {
         return "{\"" + field + "\":\"" + id + "\",\"amount\":\"" + amount.toPlainString() + "\"}";
     }

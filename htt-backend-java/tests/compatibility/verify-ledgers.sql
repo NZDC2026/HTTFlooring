@@ -9,4 +9,12 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM platform.audit_events WHERE action='sales.quote_returned')<>2 THEN
   RAISE EXCEPTION 'Quote return audit must appear exactly once per operation';
  END IF;
+ IF (SELECT coalesce(sum(debit-credit),0) FROM accounting.journal_lines WHERE account_id='00000000-0000-0000-0000-000000000054') <>
+    (SELECT CASE WHEN gst_basis='CASH' THEN 0 ELSE 1.50 END FROM core.companies WHERE id='00000000-0000-0000-0000-000000000001') THEN
+  RAISE EXCEPTION 'Synthetic input GST balance does not match final attribution';
+ END IF;
+ IF (SELECT coalesce(sum(debit-credit),0) FROM accounting.journal_lines WHERE account_id='00000000-0000-0000-0000-000000000055') <>
+    (SELECT CASE WHEN gst_basis='CASH' THEN 1.50 ELSE 0 END FROM core.companies WHERE id='00000000-0000-0000-0000-000000000001') THEN
+  RAISE EXCEPTION 'Synthetic deferred GST balance does not match pending tax';
+ END IF;
 END $$;

@@ -81,7 +81,7 @@ with (run/'run.log').open('w') as log:
             '--product','00000000-0000-0000-0000-000000000017','--value','10000','--reference','Synthetic valuation',
             '--issuer','https://localhost:15443','--subject','test-employee'],stdout=log,stderr=log)
         flutter = run/'flutter-visit-baseline'
-        shutil.copytree(args.flutter,flutter,ignore=shutil.ignore_patterns('.git','.dart_tool','build','.flutter-plugins-dependencies'))
+        shutil.copytree(args.flutter,flutter,ignore=shutil.ignore_patterns('.git','.dart_tool','build','.flutter-plugins-dependencies','Pods','.symlinks','.gradle','ephemeral'))
         shutil.copy2(source/'visit_real_backend_test.dart',flutter/'test/visit_real_backend_test.dart')
         command([env['HTT_COMPAT_FLUTTER'],'pub','get'],cwd=flutter,stdout=log,stderr=log)
         command(['mvn','-B','package'],cwd=project,stdout=log,stderr=log)
