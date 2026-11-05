@@ -1,0 +1,93 @@
+"""Run synthetic Java/.NET compatibility checks against a disposable PostgreSQL."""
+import argparse, os, pathlib, shutil, subprocess, time, uuid
+
+source = pathlib.Path(__file__).resolve().parent
+project = source.parent.parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--legacy', type=pathlib.Path, default=project.parent/'htt-backend')
+parser.add_argument('--flutter', type=pathlib.Path, default=project.parent/'htt_flooring_app')
+parser.add_argument('--stalled-uploads', action='store_true', help='Also run slow incomplete upload probes (known timing/status difference)')
+args = parser.parse_args()
+if not args.legacy.exists():
+    args.legacy = project.parent/'htt-backend-c#'
+for directory in (args.legacy, args.flutter):
+    if not directory.is_dir():
+        raise SystemExit(f'Missing source directory: {directory}')
+env = dict(os.environ)
+if args.stalled_uploads:
+    env['HTT_STALL_TEST'] = '1'
+for key, executable in [('HTT_COMPAT_DOTNET','dotnet'),('HTT_COMPAT_FLUTTER','flutter')]:
+    env[key] = env.get(key) or shutil.which(executable) or ''
+    if not env[key]:
+        raise SystemExit(f'Set {key} to the installed executable')
+if not env.get('JAVA_HOME'):
+    raise SystemExit('Set JAVA_HOME to JDK 21')
+run = project/'target'/'compatibility'/uuid.uuid4().hex
+run.mkdir(parents=True)
+env.update(DOTNET_CLI_HOME=str(run/'dotnet-home'), NUGET_PACKAGES=str(run/'nuget'))
+container = 'htt-java-compat-'+uuid.uuid4().hex[:12]
+
+def command(argv, **kwargs):
+    print('Running', ' '.join(map(str,argv)), flush=True)
+    return subprocess.run(list(map(str,argv)),check=True,env=env,**kwargs)
+
+def sql(path):
+    with path.open('rb') as stream:
+        command(['docker','exec','-i',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-1'],stdin=stream)
+
+with (run/'run.log').open('w') as log:
+    try:
+        command(['docker','run','-d','--name',container,'-p','127.0.0.1::5432',
+            '-e','POSTGRES_USER=htt_owner','-e','POSTGRES_DB=htt_java_test','-e','POSTGRES_PASSWORD=local-owner-test',
+            '-e','HTT_APP_PASSWORD=local-app-test','-e','HTT_WORKER_PASSWORD=local-worker-test','-e','HTT_PORTAL_PASSWORD=local-portal-test',
+            '-v',f'{args.legacy.resolve()}/infra/init-db.sh:/docker-entrypoint-initdb.d/10-htt.sh:ro','postgres:17-alpine'],stdout=log,stderr=log)
+        for _ in range(90):
+            ready = subprocess.run(['docker','exec',container,'pg_isready','-h','127.0.0.1','-U','htt_owner','-d','htt_java_test'],capture_output=True)
+            if ready.returncode == 0:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('PostgreSQL did not become ready')
+        port = subprocess.check_output(['docker','port',container,'5432'],text=True).strip()
+        (run/'htt-java-me-db-port.txt').write_text(port)
+        for migration in sorted((args.legacy/'src/Htt.Infrastructure/Database/Migrations').glob('*.sql')):
+            sql(migration)
+        fixtures = ['base','branches','product-and-second-company','pricing','order-stock','invoice-fixture',
+            'receipt-fixture','dispatch-fixture','purchase-fixture','supplier-settlement-fixture','supplier-corrections-fixture','extra-fixture']
+        for fixture in fixtures:
+            sql(source/(fixture+'.sql'))
+        legacy = run/'dotnet-baseline'
+        shutil.copytree(args.legacy,legacy,ignore=shutil.ignore_patterns('.git','bin','obj','node_modules'))
+        for file in (legacy/'src/Htt.Host.Api').rglob('*.cs'):
+            text = file.read_text()
+            marker = 'options.MapInboundClaims'
+            if marker in text:
+                pin = '''if (Environment.GetEnvironmentVariable("HTT_FIXTURE_TLS_PIN") is string pin)
+        options.BackchannelHttpHandler = new HttpClientHandler {
+            ServerCertificateCustomValidationCallback = (request, certificate, _, _) =>
+                request.RequestUri?.Host == "localhost" && certificate?.GetCertHashString() == pin };
+    '''
+                file.write_text(text.replace(marker,pin+marker))
+        for host in ['Api','Worker','Migrations']:
+            command([env['HTT_COMPAT_DOTNET'],'build',legacy/f'src/Htt.Host.{host}',
+                '--disable-build-servers','-m:1','-p:UseSharedCompilation=false'],stdout=log,stderr=log)
+        env['HTT_MIGRATION_CONNECTION'] = f'Host=127.0.0.1;Port={port.rsplit(":",1)[1]};Database=htt_java_test;Username=htt_owner;Password=local-owner-test'
+        command([env['HTT_COMPAT_DOTNET'],legacy/'src/Htt.Host.Migrations/bin/Debug/net10.0/Htt.Host.Migrations.dll',
+            'stock-valuation','--company','00000000-0000-0000-0000-000000000001','--warehouse','00000000-0000-0000-0000-000000000014',
+            '--product','00000000-0000-0000-0000-000000000017','--value','10000','--reference','Synthetic valuation',
+            '--issuer','https://localhost:15443','--subject','test-employee'],stdout=log,stderr=log)
+        flutter = run/'flutter-visit-baseline'
+        shutil.copytree(args.flutter,flutter,ignore=shutil.ignore_patterns('.git','.dart_tool','build','.flutter-plugins-dependencies'))
+        shutil.copy2(source/'visit_real_backend_test.dart',flutter/'test/visit_real_backend_test.dart')
+        command([env['HTT_COMPAT_FLUTTER'],'pub','get'],cwd=flutter,stdout=log,stderr=log)
+        command(['mvn','-B','package'],cwd=project,stdout=log,stderr=log)
+        env['HTT_COMPAT_JAR'] = str(project/'target/htt-backend-java-0.1.0-SNAPSHOT.jar')
+        check = run/'htt-me-http'
+        check.mkdir()
+        shutil.copy2(source/'check.py',check/'check.py')
+        with (check/'parity.log').open('w') as parity:
+            command(['python3',check/'check.py'],stdout=parity,stderr=parity)
+        (run/'PASSED').write_text('Synthetic compatibility suite passed. This does not constitute phases 0–4 acceptance.\n')
+    finally:
+        subprocess.run(['docker','rm','-f',container],stdout=log,stderr=log)
+print(f'Evidence: {run}')

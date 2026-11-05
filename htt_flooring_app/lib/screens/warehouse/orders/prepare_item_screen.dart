@@ -1,13 +1,14 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../../models/warehouse_order_item.dart';
 import '../../../services/warehouse_order_service.dart';
 import '../../../theme/app_theme.dart';
 
-class PrepareItemScreen extends StatelessWidget {
+class PrepareItemScreen extends StatefulWidget {
   const PrepareItemScreen({
     super.key,
     required this.orderId,
@@ -17,177 +18,226 @@ class PrepareItemScreen extends StatelessWidget {
   final String itemId;
 
   @override
+  State<PrepareItemScreen> createState() => _PrepareItemScreenState();
+}
+
+class _PrepareItemScreenState extends State<PrepareItemScreen> {
+  bool _confirmed = false;
+  bool _reportIssue = false;
+  String get orderId => widget.orderId;
+  String get itemId => widget.itemId;
+
+  @override
   Widget build(BuildContext context) {
     final service = context.watch<WarehouseOrderService>();
-    final item = service.findItem(orderId, itemId);
-    if (item == null) {
-      return const Scaffold(body: Center(child: Text('Item not found')));
+    final order = service.findOrder(orderId);
+    if (order == null) {
+      return const Scaffold(body: Center(child: Text('Order not found')));
     }
-    final canComplete =
-        item.preparedBoxes > 0 && item.preparationPhotos.length >= 2;
-
+    final checked = order.items.where((i) => i.checksComplete).length;
+    final complete =
+        _confirmed &&
+        !_reportIssue &&
+        order.preparationPhotos.length >= 2 &&
+        order.items.isNotEmpty &&
+        order.items.every((i) => i.checksComplete && i.preparedBoxes > 0);
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Prepare Item')),
+      appBar: AppBar(title: const Text('Verification Checklist')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          Text(
-            item.productName,
-            style: const TextStyle(
-              fontFamily: 'serif',
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: AppColors.text,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(item.sku, style: const TextStyle(color: AppColors.muted)),
-          const SizedBox(height: 26),
-          _card(
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Required Quantity',
-                    style: TextStyle(color: AppColors.muted),
-                  ),
-                ),
-                Text(
-                  '${item.requiredBoxes} boxes',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.text,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Prepared Quantity',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: AppColors.text,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _card(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton.filledTonal(
-                  onPressed: item.preparedBoxes <= 0
-                      ? null
-                      : () => service.setPreparedBoxes(
-                          orderId,
-                          itemId,
-                          item.preparedBoxes - 1,
-                        ),
-                  icon: const Icon(Icons.remove),
-                ),
-                const SizedBox(width: 22),
-                Text(
-                  '${item.preparedBoxes}',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                const Text('boxes', style: TextStyle(color: AppColors.muted)),
-                const SizedBox(width: 22),
-                IconButton.filledTonal(
-                  onPressed: item.preparedBoxes >= item.requiredBoxes
-                      ? null
-                      : () => service.setPreparedBoxes(
-                          orderId,
-                          itemId,
-                          item.preparedBoxes + 1,
-                        ),
-                  icon: const Icon(Icons.add),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 26),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Preparation Photos',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.text,
+                  order.customerName,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
               Text(
-                '${item.preparationPhotos.length}/2 minimum',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: item.preparationPhotos.length >= 2
-                      ? AppColors.success
-                      : AppColors.copper,
-                ),
+                order.statusLabel,
+                style: const TextStyle(color: AppColors.copper),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              ...List.generate(
-                item.preparationPhotos.length,
-                (index) => _photoTile(
-                  context,
-                  service,
-                  item.preparationPhotos[index],
-                  index,
-                ),
-              ),
-              _addPhotoTile(context, service),
-            ],
+          const SizedBox(height: 5),
+          Text(
+            '${order.number} · Customer ${order.fulfilmentLabel}',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12),
           ),
           const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: item.preparationPhotos.length >= 2
-                  ? AppColors.successLight
-                  : AppColors.warningLight,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+          _card(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  item.preparationPhotos.length >= 2
-                      ? Icons.check_circle_outline
-                      : Icons.info_outline,
-                  size: 19,
-                  color: item.preparationPhotos.length >= 2
-                      ? AppColors.success
-                      : AppColors.warning,
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Verification Checklist',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Text(
+                      '$checked / ${order.items.length} Products',
+                      style: const TextStyle(color: AppColors.green),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    item.preparationPhotos.length >= 2
-                        ? 'Photo requirement complete.'
-                        : 'At least 2 preparation photos are required.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: item.preparationPhotos.length >= 2
-                          ? AppColors.success
-                          : AppColors.warning,
+                const SizedBox(height: 12),
+                LinearProgressIndicator(
+                  value: order.items.isEmpty ? 0 : checked / order.items.length,
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Check each item before confirming.',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+          for (var index = 0; index < order.items.length; index++) ...[
+            const SizedBox(height: 14),
+            _item(context, service, order.items[index], index),
+          ],
+          const SizedBox(height: 14),
+          _card(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Final Confirmation',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text(
+                    'All items match the order and are ready for release.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  value: _confirmed,
+                  onChanged: (value) => setState(() {
+                    _confirmed = value ?? false;
+                    if (_confirmed) _reportIssue = false;
+                  }),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text(
+                    'Report an issue / discrepancy',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  value: _reportIssue,
+                  onChanged: (value) => setState(() {
+                    _reportIssue = value ?? false;
+                    if (_reportIssue) _confirmed = false;
+                  }),
+                ),
+                if (_reportIssue)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Verification is on hold. Resolve the issue before confirming release.',
+                      style: TextStyle(fontSize: 12, color: AppColors.danger),
                     ),
                   ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _card(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Divider(),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Overall Preparation Photos',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Text(
+                      '${order.preparationPhotos.length}/2 minimum',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.copper,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (var i = 0; i < order.preparationPhotos.length; i++)
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: FutureBuilder<Uint8List>(
+                              future: XFile(order.preparationPhotos[i])
+                                  .readAsBytes(),
+                              builder: (context, snapshot) => snapshot.hasData
+                                  ? Image.memory(
+                                      snapshot.data!,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : const SizedBox(
+                                      width: 80,
+                                      height: 80,
+                                      child: Icon(Icons.image_outlined),
+                                    ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: IconButton.filledTonal(
+                              visualDensity: VisualDensity.compact,
+                              iconSize: 16,
+                              onPressed: () => service
+                                  .removeOrderPreparationPhoto(orderId, i),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ),
+                        ],
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _photo(context, service, ImageSource.camera),
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: const Text('Take Photo'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _photo(context, service, ImageSource.gallery),
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Upload Photo'),
+                    ),
+                  ],
+                ),
+                if (order.preparationPhotos.length < 2)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Take at least 2 photos showing all prepared goods together.',
+                      style: TextStyle(fontSize: 11, color: AppColors.copper),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -197,129 +247,161 @@ class PrepareItemScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.green,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            onPressed: !canComplete
+            onPressed: !complete
                 ? null
                 : () {
-                    final ok = service.markItemPrepared(orderId, itemId);
-                    if (ok) Navigator.pop(context);
+                    for (final item in order.items) {
+                      if (!service.markItemPrepared(orderId, item.id)) return;
+                    }
+                    Navigator.pop(context);
                   },
             icon: const Icon(Icons.check),
-            label: const Text('Mark as Prepared'),
+            label: const Text('Complete Verification'),
           ),
         ),
       ),
     );
   }
 
-  Widget _card({required Widget child}) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: AppColors.card,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: child,
-  );
-
-  Widget _addPhotoTile(BuildContext context, WarehouseOrderService service) =>
-      InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _pickPhoto(context, service),
-        child: Container(
-          width: 105,
-          height: 105,
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.add_a_photo_outlined, color: AppColors.copper),
-              SizedBox(height: 6),
-              Text(
-                'Add Photo',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppColors.copper,
+  Widget _item(
+    BuildContext context,
+    WarehouseOrderService service,
+    WarehouseOrderItem item,
+    int index,
+  ) => _card(
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Item ${index + 1} · ${item.productName}',
+                style: const TextStyle(
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-            ],
-          ),
-        ),
-      );
-
-  Widget _photoTile(
-    BuildContext context,
-    WarehouseOrderService service,
-    String path,
-    int index,
-  ) {
-    final file = File(path);
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: file.existsSync()
-              ? Image.file(file, width: 105, height: 105, fit: BoxFit.cover)
-              : Container(
-                  width: 105,
-                  height: 105,
-                  color: AppColors.successLight,
-                  child: const Icon(
-                    Icons.image_outlined,
-                    color: AppColors.success,
-                  ),
-                ),
-        ),
-        Positioned(
-          right: 3,
-          top: 3,
-          child: InkWell(
-            onTap: () => service.removePreparationPhoto(orderId, itemId, index),
-            child: const CircleAvatar(
-              radius: 11,
-              backgroundColor: Colors.black54,
-              child: Icon(Icons.close, size: 13, color: Colors.white),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickPhoto(
-    BuildContext context,
-    WarehouseOrderService service,
-  ) async {
-    final picker = ImagePicker();
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Take Photo'),
-              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from Library'),
-              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+            Icon(
+              item.checksComplete ? Icons.check_circle : Icons.circle,
+              size: 18,
+              color: item.checksComplete
+                  ? AppColors.success
+                  : const Color(0xFFA1AAA4),
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _field('SKU', item.sku)),
+            Expanded(child: _field('Quantity', '${item.requiredBoxes} Boxes')),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _field('Batch', 'Not recorded'),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 10),
+          child: Divider(),
+        ),
+        for (var check = 0; check < 3; check++)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(
+              [
+                'Correct Product / Colour',
+                'Quantity Checked',
+                'No Visible Damage',
+              ][check],
+              style: const TextStyle(fontSize: 14),
+            ),
+            value: [
+              item.productChecked,
+              item.quantityChecked,
+              item.damageChecked,
+            ][check],
+            onChanged: (value) => service.setPreparationCheck(
+              orderId,
+              item.id,
+              check,
+              value ?? false,
+            ),
+          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Prepared Quantity', style: TextStyle(fontSize: 12)),
+            ),
+            IconButton(
+              onPressed: item.preparedBoxes == 0
+                  ? null
+                  : () => service.setPreparedBoxes(
+                      orderId,
+                      item.id,
+                      item.preparedBoxes - 1,
+                    ),
+              icon: const Icon(Icons.remove_circle_outline),
+            ),
+            Text('${item.preparedBoxes} boxes'),
+            IconButton(
+              onPressed: item.preparedBoxes >= item.requiredBoxes
+                  ? null
+                  : () => service.setPreparedBoxes(
+                      orderId,
+                      item.id,
+                      item.preparedBoxes + 1,
+                    ),
+              icon: const Icon(Icons.add_circle_outline),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _field(String label, String value) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+      const SizedBox(height: 3),
+      Text(
+        value,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
-    );
-    if (source == null) return;
-    final image = await picker.pickImage(source: source, imageQuality: 80);
-    if (image != null) service.addPreparationPhoto(orderId, itemId, image.path);
+    ],
+  );
+  Widget _card(Widget child) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: child,
+  );
+  Future<void> _photo(
+    BuildContext context,
+    WarehouseOrderService service,
+    ImageSource source,
+  ) async {
+    try {
+      final image = await ImagePicker().pickImage(
+        source: source,
+        imageQuality: 80,
+      );
+      if (image != null) service.addOrderPreparationPhoto(orderId, image.path);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to add photo. Please try again.'),
+          ),
+        );
+      }
+    }
   }
 }

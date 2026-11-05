@@ -166,6 +166,40 @@ class WarehouseOrderService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setPreparationCheck(
+    String orderId,
+    String itemId,
+    int check,
+    bool value,
+  ) {
+    final item = findItem(orderId, itemId);
+    if (item == null) return;
+    switch (check) {
+      case 0:
+        item.productChecked = value;
+      case 1:
+        item.quantityChecked = value;
+      case 2:
+        item.damageChecked = value;
+    }
+    notifyListeners();
+  }
+
+  void addOrderPreparationPhoto(String orderId, String path) {
+    final order = findOrder(orderId);
+    if (order == null) return;
+    order.preparationPhotos.add(path);
+    notifyListeners();
+  }
+
+  void removeOrderPreparationPhoto(String orderId, int index) {
+    final order = findOrder(orderId);
+    if (order == null || index < 0 || index >= order.preparationPhotos.length)
+      return;
+    order.preparationPhotos.removeAt(index);
+    notifyListeners();
+  }
+
   void addPreparationPhoto(String orderId, String itemId, String path) {
     final item = findItem(orderId, itemId);
     if (item == null) {
@@ -190,7 +224,10 @@ class WarehouseOrderService extends ChangeNotifier {
     if (order == null || item == null) {
       return false;
     }
-    if (item.preparedBoxes <= 0 || item.preparationPhotos.length < 2) {
+    if (!item.checksComplete ||
+        item.preparedBoxes <= 0 ||
+        (order.preparationPhotos.length < 2 &&
+            item.preparationPhotos.length < 2)) {
       return false;
     }
     if (order.status == WarehouseOrderStatus.toPick) {

@@ -7,9 +7,15 @@ class WarehouseOrderItem {
     'requiredBoxes': requiredBoxes,
     'preparedBoxes': preparedBoxes,
     'preparationPhotos': preparationPhotos,
+    'productChecked': productChecked,
+    'quantityChecked': quantityChecked,
+    'damageChecked': damageChecked,
   };
   factory WarehouseOrderItem.fromJson(Map<String, dynamic> j) =>
       WarehouseOrderItem(
+        productChecked: j['productChecked'] as bool? ?? false,
+        quantityChecked: j['quantityChecked'] as bool? ?? false,
+        damageChecked: j['damageChecked'] as bool? ?? false,
         id: j['id'] as String,
         productId: j['productId'] as String,
         productName: j['productName'] as String,
@@ -26,8 +32,16 @@ class WarehouseOrderItem {
     required this.sku,
     required this.requiredBoxes,
     this.preparedBoxes = 0,
+    this.productChecked = false,
+    this.quantityChecked = false,
+    this.damageChecked = false,
     List<String>? preparationPhotos,
   }) : preparationPhotos = preparationPhotos ?? [];
+
+  bool productChecked;
+  bool quantityChecked;
+  bool damageChecked;
+  bool get checksComplete => productChecked && quantityChecked && damageChecked;
 
   final String id;
   final String productId;
@@ -37,5 +51,6 @@ class WarehouseOrderItem {
   int preparedBoxes;
   final List<String> preparationPhotos;
 
-  bool get isPrepared => preparedBoxes > 0 && preparationPhotos.length >= 2;
+  bool get isPrepared =>
+      preparedBoxes > 0 && (checksComplete || preparationPhotos.length >= 2);
 }

@@ -24,11 +24,15 @@ class WarehouseOrder {
     'collectedBy': collectedBy,
     'pickupConfirmedAt': pickupConfirmedAt?.toIso8601String(),
     'dispatchPhotos': dispatchPhotos,
+    'preparationPhotos': preparationPhotos,
     'dispatchNotes': dispatchNotes,
     'completedAt': completedAt?.toIso8601String(),
     'handoverProof': handoverProof?.toJson(),
   };
   factory WarehouseOrder.fromJson(Map<String, dynamic> j) => WarehouseOrder(
+    preparationPhotos: List<String>.from(
+      j['preparationPhotos'] as List? ?? const [],
+    ),
     id: j['id'] as String,
     number: j['number'] as String,
     customerName: j['customerName'] as String,
@@ -71,9 +75,11 @@ class WarehouseOrder {
     this.collectedBy = '',
     this.pickupConfirmedAt,
     List<String>? dispatchPhotos,
+    List<String>? preparationPhotos,
     this.dispatchNotes = '',
     this.completedAt,
-  }) : dispatchPhotos = dispatchPhotos ?? [];
+  }) : dispatchPhotos = dispatchPhotos ?? [],
+       preparationPhotos = preparationPhotos ?? [];
 
   final String id;
   final String number;
@@ -87,6 +93,7 @@ class WarehouseOrder {
   String collectedBy;
   DateTime? pickupConfirmedAt;
   final List<String> dispatchPhotos;
+  final List<String> preparationPhotos;
   String dispatchNotes;
   DateTime? completedAt;
 
