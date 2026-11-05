@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: htt-management-api
+  autoconfigure:
+    # No generated user/password. Only explicitly configured Bearer identity providers are accepted.
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    clean-disabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    validate-migration-naming: true
+    default-schema: platform
+    create-schemas: false
+    placeholders:
+      runtime_role: ${HTT_DB_USERNAME:htt_management_app}
+  rabbitmq:
+    dynamic: false
+    listener:
+      simple:
+        auto-startup: false
+      direct:
+        auto-startup: false
+
+server:
+  address: 127.0.0.1
+  port: 8080
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+
+logging:
+  pattern:
+    level: "%5p [requestId=%X{requestId:-}]"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+  health:
+    # No messaging workflow is active in stage 1; avoid opening a broker connection.
+    rabbit:
+      enabled: false
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+htt:
+  auth:
+    enabled: ${HTT_AUTH_ENABLED:false}
+    staff:
+      issuer: ${HTT_STAFF_ISSUER:}
+      audience: ${HTT_STAFF_AUDIENCE:}
+      jwk-set-uri: ${HTT_STAFF_JWKS_URI:}
+      mode: ${HTT_STAFF_AUTH_MODE:OIDC}
+    portal:
+      issuer: ${HTT_PORTAL_ISSUER:}
+      audience: ${HTT_PORTAL_AUDIENCE:}
+      jwk-set-uri: ${HTT_PORTAL_JWKS_URI:}
+      mode: ${HTT_PORTAL_AUTH_MODE:OIDC}

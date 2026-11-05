@@ -1,4 +1,4 @@
-package com.htt.htt_management_api;
+package com.htt.management;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
