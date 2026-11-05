@@ -7,14 +7,21 @@ import '../../../theme/app_theme.dart';
 import 'prepare_order_screen.dart';
 
 class WarehouseOrdersScreen extends StatefulWidget {
-  const WarehouseOrdersScreen({super.key});
+  const WarehouseOrdersScreen({
+    super.key,
+    this.initialFilter,
+    this.initialQuery = '',
+  });
+
+  final WarehouseOrderStatus? initialFilter;
+  final String initialQuery;
   @override
   State<WarehouseOrdersScreen> createState() => _WarehouseOrdersScreenState();
 }
 
 class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
-  WarehouseOrderStatus? _filter;
-  String _query = '';
+  late WarehouseOrderStatus? _filter = widget.initialFilter;
+  late String _query = widget.initialQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +39,15 @@ class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         title: const Text('Orders'),
       ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: TextField(
+            child: TextFormField(
+              initialValue: _query,
               onChanged: (v) => setState(() => _query = v),
               decoration: InputDecoration(
                 hintText: 'Search order or customer...',

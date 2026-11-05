@@ -37,7 +37,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to verify that you are within 50 metres of the customer address when checking in.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>HTT Flooring uses the camera to scan customer business cards.</string>
+	<string>HTT Flooring uses the camera to scan product barcodes, customer business cards and take work photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>HTT Flooring uses photos to scan customer business cards.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -7,9 +7,8 @@ import '../../../models/sales_user.dart';
 import '../../../models/warehouse_inventory.dart';
 import '../../../services/app_session.dart';
 import '../../../services/inventory_service.dart';
+import '../../sales/catalog_filters.dart';
 import 'stock_level_check_screen.dart';
-
-enum _InventoryFilter { all, inStock, lowStock, outOfStock }
 
 class WarehouseInventoryScreen extends StatefulWidget {
   const WarehouseInventoryScreen({super.key});
@@ -23,7 +22,8 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
   final InventoryService _inventoryService = const InventoryService();
   final TextEditingController _searchController = TextEditingController();
 
-  _InventoryFilter _filter = _InventoryFilter.all;
+  String _category = 'All';
+  String _style = 'All';
   String _query = '';
 
   @override
@@ -58,31 +58,36 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
               row.product.name.toLowerCase().contains(query) ||
               row.product.sku.toLowerCase().contains(query) ||
               row.product.category.toLowerCase().contains(query) ||
-              row.product.colour.toLowerCase().contains(query);
+              row.product.colour.toLowerCase().contains(query) ||
+              (row.product.brand ?? '').toLowerCase().contains(query) ||
+              (row.product.installationStyle ?? '').toLowerCase().contains(
+                query,
+              );
 
-          if (!matchesSearch) {
-            return false;
-          }
-
-          switch (_filter) {
-            case _InventoryFilter.all:
-              return true;
-            case _InventoryFilter.inStock:
-              return row.status == _WarehouseStockStatus.inStock;
-            case _InventoryFilter.lowStock:
-              return row.status == _WarehouseStockStatus.lowStock;
-            case _InventoryFilter.outOfStock:
-              return row.status == _WarehouseStockStatus.outOfStock;
-          }
+          return matchesSearch &&
+              (_category == 'All' || row.product.category == _category) &&
+              (_style == 'All' || row.product.installationStyle == _style);
         })
         .toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    context.watch<ValueNotifier<int>?>();
     final session = context.watch<AppSession>();
     final region = _regionFromSession(session);
     final rows = _rowsFor(region);
+    final groups = <(String, String?, String), List<_WarehouseProductRow>>{};
+    for (final row in rows) {
+      final product = row.product;
+      final key = (
+        product.category,
+        product.installationStyle,
+        product.brand ?? product.name,
+      );
+      (groups[key] ??= []).add(row);
+    }
+    final styles = catalogStylesByCategory[_category];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F0E9),
@@ -118,14 +123,16 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
                 });
               },
             ),
-            _FilterBar(
-              selected: _filter,
-              onSelected: (filter) {
-                setState(() {
-                  _filter = filter;
-                });
-              },
-            ),
+            catalogFilterRow(catalogCategories, _category, (category) {
+              setState(() {
+                _category = category;
+                _style = 'All';
+              });
+            }),
+            if (styles != null)
+              catalogFilterRow(styles, _style, (style) {
+                setState(() => _style = style);
+              }),
             Expanded(
               child: rows.isEmpty
                   ? _EmptyState(
@@ -134,17 +141,42 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
                         _searchController.clear();
                         setState(() {
                           _query = '';
-                          _filter = _InventoryFilter.all;
+                          _category = 'All';
+                          _style = 'All';
                         });
                       },
                     )
-                  : ListView.separated(
+                  : ListView(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
-                      itemCount: rows.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        return _ProductCard(row: rows[index]);
-                      },
+                      children: [
+                        for (final group in groups.entries)
+                          Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: ExpansionTile(
+                              key: PageStorageKey(group.key),
+                              initiallyExpanded: _query.trim().isNotEmpty,
+                              title: catalogSeriesTitle(group.key.$3, [
+                                for (final row in group.value) row.product,
+                              ]),
+                              subtitle: Text(
+                                [group.key.$1, ?group.key.$2].join(' · '),
+                              ),
+                              childrenPadding: const EdgeInsets.fromLTRB(
+                                8,
+                                0,
+                                8,
+                                8,
+                              ),
+                              children: [
+                                for (final row in group.value)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: _ProductCard(row: row),
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
             ),
           ],
@@ -220,7 +252,7 @@ class _Header extends StatelessWidget {
             onChanged: onChanged,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              hintText: 'Search by name, colour or SKU...',
+              hintText: 'Search brand, colour or SKU...',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: controller.text.isEmpty
                   ? null
@@ -249,78 +281,6 @@ class _Header extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({required this.selected, required this.onSelected});
-
-  final _InventoryFilter selected;
-  final ValueChanged<_InventoryFilter> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 50,
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        children: [
-          _FilterChip(
-            label: 'All',
-            selected: selected == _InventoryFilter.all,
-            onTap: () => onSelected(_InventoryFilter.all),
-          ),
-          _FilterChip(
-            label: 'In Stock',
-            selected: selected == _InventoryFilter.inStock,
-            onTap: () => onSelected(_InventoryFilter.inStock),
-          ),
-          _FilterChip(
-            label: 'Low Stock',
-            selected: selected == _InventoryFilter.lowStock,
-            onTap: () => onSelected(_InventoryFilter.lowStock),
-          ),
-          _FilterChip(
-            label: 'Out of Stock',
-            selected: selected == _InventoryFilter.outOfStock,
-            onTap: () => onSelected(_InventoryFilter.outOfStock),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
-        selectedColor: const Color(0xFF0E342B),
-        backgroundColor: const Color(0xFFFFFDF9),
-        side: const BorderSide(color: Color(0xFFE3DED5)),
-        labelStyle: TextStyle(
-          color: selected ? Colors.white : const Color(0xFF17221F),
-          fontWeight: FontWeight.w600,
-        ),
-        showCheckmark: false,
       ),
     );
   }
@@ -363,7 +323,9 @@ class _ProductCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  row.product.name,
+                  row.product.colour.isEmpty
+                      ? row.product.name
+                      : row.product.colour,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,

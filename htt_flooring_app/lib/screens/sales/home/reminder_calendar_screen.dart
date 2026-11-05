@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/customer.dart';
 import '../../../models/customer_note.dart';
 import '../../../services/customer_note_service.dart';
 import '../../../services/app_session.dart';
@@ -10,7 +9,6 @@ import '../../../services/customer_service.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
 import '../customers/customer_notes_screen.dart';
-import '../quote/select_customer_screen.dart';
 
 class ReminderCalendarScreen extends StatefulWidget {
   const ReminderCalendarScreen({super.key});
@@ -44,13 +42,8 @@ class _ReminderCalendarScreenState extends State<ReminderCalendarScreen> {
   }
 
   Future<void> _addNote() async {
-    final customer = await Navigator.of(context).push<Customer>(
-      MaterialPageRoute(builder: (_) => const SelectCustomerScreen()),
-    );
-    if (!mounted || customer == null) return;
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => AddNoteScreen(customer: customer)),
-    );
+    await Navigator.of(context)
+        .push<void>(MaterialPageRoute(builder: (_) => const AddNoteScreen()));
   }
 
   Future<void> _addReminder() async {
@@ -100,8 +93,18 @@ class _ReminderCalendarScreenState extends State<ReminderCalendarScreen> {
     final customers = context.watch<CustomerService>();
     final session = context.watch<SalesSession>();
     final userId = context.watch<AppSession>().currentUser.id;
+    final notes = context.watch<CustomerNoteService>();
     final reminders = <DateTime, List<CustomerNote>>{};
-    for (final task in context.watch<CustomerNoteService>().pendingFollowUps) {
+    for (final note in notes.notes.where(
+      (note) =>
+          !note.isFollowUp &&
+          note.customerId.isEmpty &&
+          note.creatorId == userId,
+    )) {
+      final day = DateUtils.dateOnly(note.createdAt.toLocal());
+      (reminders[day] ??= []).add(note);
+    }
+    for (final task in notes.pendingFollowUps) {
       final customer = customers.findById(task.customerId);
       final day = _reminderDay(task);
       if (day != null &&
@@ -340,10 +343,12 @@ class _ReminderCalendarScreenState extends State<ReminderCalendarScreen> {
                     'No customer',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<bool>(
-                    builder: (_) => AddFollowUpScreen(
-                      existing: task,
-                      customer: customers.findById(task.customerId),
-                    ),
+                    builder: (_) => task.isFollowUp
+                        ? AddFollowUpScreen(
+                            existing: task,
+                            customer: customers.findById(task.customerId),
+                          )
+                        : AddNoteScreen(existing: task),
                   ),
                 ),
               ),

@@ -4,7 +4,7 @@ import '../screens/warehouse/home/warehouse_home_screen.dart';
 import '../screens/warehouse/inventory/warehouse_inventory_screen.dart';
 import '../screens/warehouse/more/warehouse_more_screen.dart';
 import '../screens/warehouse/orders/warehouse_orders_screen.dart';
-import '../screens/warehouse/returns/customer_returns_screen.dart';
+import '../screens/sales/home/reminder_calendar_screen.dart';
 import '../theme/app_theme.dart';
 
 class WarehouseNavigation extends StatefulWidget {
@@ -23,7 +23,7 @@ class _WarehouseNavigationState extends State<WarehouseNavigation> {
       WarehouseHomeScreen(),
       WarehouseOrdersScreen(),
       WarehouseInventoryScreen(),
-      CustomerReturnsScreen(),
+      ReminderCalendarScreen(),
       WarehouseMoreScreen(),
     ];
 
@@ -37,7 +37,7 @@ class _WarehouseNavigationState extends State<WarehouseNavigation> {
           });
         },
         backgroundColor: AppColors.card,
-        indicatorColor: AppColors.copperLight,
+        indicatorColor: AppColors.successLight,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -55,9 +55,9 @@ class _WarehouseNavigationState extends State<WarehouseNavigation> {
             label: 'Inventory',
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_return_outlined),
-            selectedIcon: Icon(Icons.assignment_return),
-            label: 'Returns',
+            icon: Icon(Icons.calendar_today_outlined),
+            selectedIcon: Icon(Icons.calendar_today),
+            label: 'Calendar',
           ),
           NavigationDestination(icon: Icon(Icons.menu), label: 'More'),
         ],

@@ -7,8 +7,6 @@ import '../../../models/customer.dart';
 import '../../../models/customer_note.dart';
 import '../../../models/sales_user.dart';
 import '../../../services/customer_note_service.dart';
-import '../../../services/customer_service.dart';
-import '../../../services/sales_session.dart';
 import '../../../services/app_session.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/activity_attachments.dart';
@@ -424,11 +422,11 @@ Future<T?> _openActivity<T>(
 }
 
 class AddNoteScreen extends StatefulWidget {
-  const AddNoteScreen({super.key, required this.customer, this.existing});
+  const AddNoteScreen({super.key, this.customer, this.existing});
 
   final CustomerNote? existing;
 
-  final Customer customer;
+  final Customer? customer;
 
   @override
   State<AddNoteScreen> createState() => _AddNoteScreenState();
@@ -481,7 +479,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     if (!_formKey.currentState!.validate()) return;
     context.read<CustomerNoteService>().addNote(
       existingId: widget.existing?.id,
-      customerId: widget.customer.id,
+      customerId: widget.customer?.id ?? widget.existing?.customerId ?? '',
       attachments: _attachments,
       content: _controller.text,
       noteType: _noteType,
@@ -502,10 +500,12 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
         child: ListView(
           padding: const EdgeInsets.all(18),
           children: [
-            _ActivityCustomerHeader(customer: widget.customer),
-            const SizedBox(height: 12),
-            const Divider(color: AppColors.border),
-            const SizedBox(height: 12),
+            if (widget.customer case final customer?) ...[
+              _ActivityCustomerHeader(customer: customer),
+              const SizedBox(height: 12),
+              const Divider(color: AppColors.border),
+              const SizedBox(height: 12),
+            ],
             const Text('Note Type *'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
@@ -701,7 +701,6 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
     }
   }
 
-  final _customerKey = GlobalKey<FormFieldState<String>>();
   final _assigneesKey = GlobalKey<FormFieldState<List<AppUser>>>();
 
   void _save() {
@@ -709,7 +708,7 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
     context.read<CustomerNoteService>().addFollowUp(
       existingId: widget.existing?.id,
       actor: context.read<AppSession>().currentUser,
-      customerId: widget.customer?.id ?? _customerKey.currentState!.value ?? '',
+      customerId: widget.customer?.id ?? widget.existing?.customerId ?? '',
       attachments: _attachments,
       content: _description.text,
       followUpDate: _dueDate,
@@ -874,21 +873,6 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
     final canReply = task?.canReply(currentUser) ?? false;
     final theme = Theme.of(context);
     final fixedCustomer = widget.customer;
-    final sales = context.watch<SalesSession>();
-    final customers =
-        context
-            .watch<CustomerService>()
-            .customers
-            .where(
-              (customer) =>
-                  !customer.archived && sales.canAccessRegion(customer.region),
-            )
-            .toList()
-          ..sort(
-            (a, b) => a.businessName.toLowerCase().compareTo(
-              b.businessName.toLowerCase(),
-            ),
-          );
     return Scaffold(
       backgroundColor: AppColors.card,
       appBar: AppBar(
@@ -937,49 +921,6 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            _field(
-              'Customer',
-              DropdownButtonFormField<String>(
-                key: _customerKey,
-                initialValue: fixedCustomer?.id ?? '',
-                isExpanded: true,
-                menuMaxHeight: 320,
-                decoration: _decoration(
-                  fixedCustomer == null
-                      ? Icons.person_outline
-                      : Icons.lock_outline,
-                ),
-                hint: const Text('Select customer'),
-                items: [
-                  if (fixedCustomer == null)
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text('No customer'),
-                    ),
-
-                  for (final customer
-                      in fixedCustomer == null ? customers : [fixedCustomer])
-                    DropdownMenuItem(
-                      value: customer.id,
-                      child: Text(
-                        customer.businessName,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: fixedCustomer == null && widget.existing == null
-                    ? (_) {}
-                    : null,
-                validator: (value) =>
-                    fixedCustomer == null &&
-                        value != null &&
-                        value.isNotEmpty &&
-                        !customers.any((customer) => customer.id == value)
-                    ? 'Select an available customer'
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 12),
             _select(
               label: 'Follow-up Type',
               icon: Icons.event_available_outlined,

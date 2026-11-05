@@ -1,6 +1,7 @@
 class Product {
   final String id;
   final String sku;
+  final String? barcode;
   final String name;
   final String category;
   final String colour;
@@ -25,6 +26,7 @@ class Product {
   const Product({
     required this.id,
     required this.sku,
+    this.barcode,
     required this.name,
     required this.category,
     required this.colour,

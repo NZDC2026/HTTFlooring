@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'navigation/role_router.dart';
 
 import 'services/app_session.dart';
+import 'services/inventory_service.dart';
 import 'services/customer_return_service.dart';
 import 'services/customer_location_service.dart';
 import 'services/customer_note_service.dart';
@@ -21,10 +22,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final warehouseOrders = WarehouseOrderService();
   await warehouseOrders.load();
+  await InventoryService.loadReceipts();
   await CustomerReturnService.instance.load();
   runApp(
     MultiProvider(
       providers: [
+        ListenableProvider.value(value: InventoryService.receiptChanges),
         ChangeNotifierProvider(create: (_) => AppSession()),
 
         ChangeNotifierProvider(create: (_) => CustomerService()),

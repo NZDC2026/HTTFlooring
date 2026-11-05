@@ -131,6 +131,98 @@ class PurchaseOrders {
         return json(result.body());
     }
 
+    @PostMapping("/api/v1/purchase-orders/{id}/receipts")
+    ResponseEntity<String> receive(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @PathVariable UUID id, @RequestBody Receipt input) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "purchase.receipts.write");
+        var result = staff.inCompany(scope, requestId(request), () -> {
+            requireVisible(id);
+            long expected = OrderWrites.version(request.getHeader("If-Match"));
+            String reference = input.reference() == null ? "" : input.reference().strip();
+            require(!reference.isEmpty() && reference.length() <= 200, "reference", "reference must contain 1..200 characters.");
+            String notes = input.notes() == null ? "" : input.notes().strip();
+            require(notes.length() <= 2000, "notes", "notes exceeds 2000 characters.");
+            var lines = input.lines();
+            require(lines != null && !lines.isEmpty() && lines.size() <= 50
+                    && lines.stream().allMatch(line -> line != null && present(line.orderLineId()))
+                    && lines.stream().map(ReceiptLine::orderLineId).distinct().count() == lines.size(),
+                    "lines", "Supply 1..50 distinct purchase order lines.");
+            for (var line : lines) {
+                var quantity = line.quantity() == null ? BigDecimal.ZERO : line.quantity();
+                amount(quantity, "quantity", 6, "99999999999999.999999");
+                require(quantity.signum() > 0, "quantity", "Positive quantity required.");
+            }
+            String lineJson = lines.stream().sorted(Comparator.comparing(line -> line.orderLineId().toString()))
+                    .map(line -> "{\"orderLineId\":" + nullable(line.orderLineId())
+                            + ",\"quantity\":" + nullable(line.quantity().toPlainString()) + "}")
+                    .collect(Collectors.joining(",", "[", "]"));
+            String canonical = "{\"expected\":" + expected + ",\"reference\":" + nullable(reference)
+                    + ",\"notes\":" + nullable(notes) + ",\"lines\":" + lineJson + "}";
+            return writes.execute(scope, "POST /purchase-orders/" + id + "/receipts",
+                    request.getHeader("Idempotency-Key"), canonical, () -> {
+                UUID receipt = jdbc.sql("SELECT purchase.receive_order(:id,:expected,:reference,:notes,CAST(:lines AS jsonb))")
+                        .param("id", id).param("expected", expected).param("reference", reference)
+                        .param("notes", notes).param("lines", lineJson).query(UUID.class).single();
+                audit.record(scope, "purchase.goods_received", "purchase_receipt", receipt, requestId(request),
+                        Map.of("orderId", id, "reference", reference));
+                return new IdempotentWrite.StoredResponse(201, receiptView(scope, receipt, false));
+            });
+        });
+        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    }
+
+    @GetMapping("/api/v1/purchase-receipts/{id}")
+    ResponseEntity<String> receipt(@AuthenticationPrincipal Jwt token, HttpServletRequest request, @PathVariable UUID id) {
+        return receipt(token, request, id, false);
+    }
+
+    @GetMapping("/api/v1/accounting/grni/receipts/{id}")
+    ResponseEntity<String> grniReceipt(@AuthenticationPrincipal Jwt token, HttpServletRequest request, @PathVariable UUID id) {
+        return receipt(token, request, id, true);
+    }
+
+    private ResponseEntity<String> receipt(Jwt token, HttpServletRequest request, UUID id, boolean financial) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"),
+                financial ? "purchase.grni.read" : "purchase.receipts.read");
+        return json(staff.inCompany(scope, requestId(request), () -> receiptView(scope, id, financial)));
+    }
+
+    private String receiptView(StaffScope.CompanyAccess scope, UUID id, boolean financial) {
+        UUID warehouse = jdbc.sql("""
+                SELECT r.warehouse_id FROM purchase.receipts r JOIN platform.documents d
+                    ON platform.document_visible(d.id) AND d.company_id=r.company_id AND d.id=r.id
+                WHERE r.company_id=:company AND r.id=:id
+                """).param("company", scope.companyId()).param("id", id).query(UUID.class).optional()
+                .orElseThrow(() -> new StaffScope.Failure(404, "not_found", "Resource is unavailable in this scope."));
+        if (!financial) {
+            jdbc.sql("SELECT inventory.require_access('purchase.receipts.read',:id)")
+                    .param("id", warehouse).query((row, index) -> true).single();
+        }
+        return jdbc.sql("""
+                SELECT jsonb_build_object('receipt',CASE WHEN :cost THEN h.body ELSE
+                    h.body-ARRAY['net','tax','valuationAmount'] END,
+                    'lines',COALESCE((SELECT jsonb_agg(CASE WHEN :cost THEN x.body ELSE
+                        x.body-ARRAY['net','tax','valuationAmount','valueAfter'] END ORDER BY x.id)
+                        FROM (SELECT l.id,jsonb_build_object(
+                            'id',l.id,'orderLineId',l.order_line_id,'quantity',l.quantity::text,'baseQuantity',l.base_quantity::text,
+                            'net',l.net::text,'tax',l.tax::text,'valuationAmount',l.valuation_amount::text,
+                            'stockBalanceId',l.stock_balance_id,'onHandAfter',l.on_hand_after::text,'valueAfter',l.value_after::text) body
+                            FROM purchase.receipt_lines l WHERE l.company_id=r.company_id AND l.receipt_id=r.id) x),'[]'::jsonb))::text
+                FROM purchase.receipts r JOIN platform.documents d ON platform.document_visible(d.id)
+                    AND d.company_id=r.company_id AND d.id=r.id
+                CROSS JOIN LATERAL (SELECT jsonb_build_object(
+                    'id',r.id,'companyId',r.company_id,'orderId',r.order_id,'supplierId',r.supplier_id,'warehouseId',r.warehouse_id,
+                    'reference',r.reference,'notes',r.notes,'net',r.net::text,'tax',r.tax::text,'valuationAmount',r.valuation_amount::text,
+                    'createdAt',(to_json(r.created_at AT TIME ZONE 'UTC') #>> '{}')||'Z','createdBy',r.created_by,
+                    'number',d.number,'state',d.state,'version',d.version,'businessDate',d.business_date) body) h
+                WHERE r.company_id=:company AND r.id=:id
+                """).param("cost", financial || showCost(scope)).param("company", scope.companyId())
+                .param("id", id).query(String.class).single();
+    }
+
+    record Receipt(String reference, List<ReceiptLine> lines, String notes) {}
+    record ReceiptLine(UUID orderLineId, BigDecimal quantity) {}
+
     private void requireVisible(UUID id) {
         if (!jdbc.sql("SELECT platform.document_visible(:id)").param("id", id).query(Boolean.class).single()) {
             throw new StaffScope.Failure(404, "not_found", "Document is unavailable in this scope.");
