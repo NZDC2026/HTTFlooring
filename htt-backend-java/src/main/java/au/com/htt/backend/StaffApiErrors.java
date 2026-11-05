@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = {StaffIdentityController.class, WarehouseOrders.class, PurchaseOrders.class})
+@RestControllerAdvice(assignableTypes = {StaffIdentityController.class, WarehouseOrders.class, PurchaseOrders.class, SupplierBills.class, SupplierPayments.class})
 class StaffApiErrors {
     @ExceptionHandler(StaffScope.Failure.class)
     ResponseEntity<ApiError> accessDenied(StaffScope.Failure failure, HttpServletRequest request) {

@@ -474,7 +474,7 @@ class WarehouseHomeScreen extends StatelessWidget {
             ),
             _grid(
               context,
-              columns: 6,
+              columns: 3,
               children: [
                 _tile(
                   title: 'Scan Product',
@@ -659,12 +659,8 @@ class WarehouseHomeScreen extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.all(operation ? 8 : 4),
             child: Column(
-              mainAxisAlignment: operation
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              crossAxisAlignment: operation
-                  ? CrossAxisAlignment.start
-                  : CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
                   padding: EdgeInsets.all(operation ? 4 : 0),
@@ -687,22 +683,15 @@ class WarehouseHomeScreen extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                const SizedBox(height: 3),
-                Expanded(
-                  child: Align(
-                    alignment: operation ? Alignment.topLeft : Alignment.center,
-                    child: Text(
-                      title,
-                      textAlign: operation ? TextAlign.start : TextAlign.center,
-                      maxLines: 2,
-                      style: TextStyle(
-                        fontSize: operation ? 11 : 9,
-                        height: 1.1,
-                        fontWeight: operation
-                            ? FontWeight.w400
-                            : FontWeight.w600,
-                      ),
-                    ),
+                SizedBox(height: operation ? 3 : 7),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  style: TextStyle(
+                    fontSize: operation ? 11 : 12,
+                    height: 1.15,
+                    fontWeight: operation ? FontWeight.w400 : FontWeight.w600,
                   ),
                 ),
               ],
