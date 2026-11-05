@@ -18,8 +18,28 @@ class InventoryService {
 
   Map<String, num> stockMetrics(String id, SalesRegion region) {
     final raw = _receipts?.getString('stock_metrics_${region.code}_$id');
-    if (raw == null) return {};
-    return Map<String, num>.from(jsonDecode(raw) as Map);
+    final values = raw == null
+        ? <String, num>{}
+        : Map<String, num>.from(jsonDecode(raw) as Map);
+    final baseline = _inventory
+        .where((item) => item.productId == id && item.region == region)
+        .firstOrNull;
+    final transfers = jsonDecode(
+      _receipts?.getString('warehouse_transfers_v1') ?? '{}',
+    ) as Map;
+    final received =
+        (transfers[_receiptKey(id, region)] as int? ?? 0) +
+        (_receipts?.getInt(_receiptKey(id, region)) ?? 0);
+    final onHand = values['onHand'] ?? (baseline?.stockBoxes ?? 0) + received;
+    final reserved = values['reserved'] ?? 0;
+    final damaged = values['damage'] ?? 0;
+    return {
+      ...values,
+      'onHand': onHand,
+      'reserved': reserved,
+      'damage': damaged,
+      'available': onHand - reserved - damaged,
+    };
   }
 
   Future<void> saveStockMetrics(

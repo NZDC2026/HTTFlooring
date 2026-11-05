@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from collections import deque
 import datetime, uuid, socketserver, struct, socket
 import base64, http.server, json, os, pathlib, ssl, subprocess, threading, time, urllib.error, urllib.request
 
@@ -65,7 +66,26 @@ def token(subject, audience='staff'):
     signature = subprocess.check_output(['openssl','dgst','-sha256','-sign','sign.key'], input=content.encode())
     return f'{content}.{b64(signature)}'
 
+legacy_requests = deque()
+legacy_rate_lock = threading.Lock()
+
+def pace_legacy():
+    # Keep the expanded fixture below the unchanged legacy 300/minute policy.
+    # Reserve capacity for Flutter/proxy/worker requests outside this helper.
+    while True:
+        with legacy_rate_lock:
+            now = time.monotonic()
+            while legacy_requests and now - legacy_requests[0] >= 61:
+                legacy_requests.popleft()
+            if len(legacy_requests) < 240:
+                legacy_requests.append(now)
+                return
+            delay = max(.01,61-(now-legacy_requests[0]))
+        time.sleep(min(delay,30))
+
 def request(path, jwt=None, company=None, grant=None, base=url, payload=None, key=None, version=None, content_type=None, method=None):
+    if base.endswith(':15082'):
+        pace_legacy()
     headers = {} if jwt is None else {'Authorization':'Bearer '+jwt}
     if company is not None:
         headers['X-Company-Id'] = company
@@ -180,7 +200,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             other = '00000000-0000-0000-0000-000000000021'
             assert {entry['companyId'] for entry in actual[1]['companies']} == {other, expected['companies'][0]['companyId']}
             actual[1]['companies'][:] = [entry for entry in actual[1]['companies'] if entry['companyId'] != other]
-            expected['companies'][0]['permissions'] += ['crm.collaboration.read','crm.visits.write','documents.attachments.write','documents.files.read','crm.notes.write','crm.boards.write','catalog.read','foundation.read','accounting.read','audit.read','customers.write','catalog.write','pricing.read','sales.quotes.read','sales.quotes.write','sales.quotes.approve','sales.orders.read','sales.credit.read','warehouses.all','sales.orders.create','inventory.read','sales.orders.cancel','sales.invoices.read','sales.invoices.write','accounting.receipts.read','accounting.receipts.write','accounting.banks.use','accounting.receivables.read','inventory.picks.read','inventory.picks.write','inventory.dispatch','inventory.opening.write','purchase.orders.read','purchase.orders.write','purchase.cost.read','purchase.orders.confirm','purchase.orders.close','purchase.receipts.read','purchase.receipts.write','purchase.grni.read','purchase.bills.read','purchase.bills.post','purchase.payments.read','purchase.payments.post','purchase.ap.read','purchase.advances.apply','purchase.advances.unapply','purchase.payments.reverse','purchase.bills.variance.post','purchase.payments.reapply','purchase.input_gst.read','accounting.advances.apply']
+            expected['companies'][0]['permissions'] += ['crm.collaboration.read','crm.visits.write','documents.attachments.write','documents.files.read','crm.notes.write','crm.boards.write','catalog.read','foundation.read','accounting.read','audit.read','customers.write','catalog.write','pricing.read','sales.quotes.read','sales.quotes.write','sales.quotes.approve','sales.orders.read','sales.credit.read','warehouses.all','sales.orders.create','inventory.read','sales.orders.cancel','sales.invoices.read','sales.invoices.write','accounting.receipts.read','accounting.receipts.write','accounting.banks.use','accounting.receivables.read','inventory.picks.read','inventory.picks.write','inventory.dispatch','inventory.opening.write','purchase.orders.read','purchase.orders.write','purchase.cost.read','purchase.orders.confirm','purchase.orders.close','purchase.receipts.read','purchase.receipts.write','purchase.grni.read','purchase.bills.read','purchase.bills.post','purchase.payments.read','purchase.payments.post','purchase.ap.read','purchase.advances.apply','purchase.advances.unapply','purchase.payments.reverse','purchase.bills.variance.post','purchase.payments.reapply','purchase.input_gst.read','accounting.advances.apply','accounting.advances.unapply','accounting.receipts.reverse']
             expected['companies'][0]['permissions'].sort()
             actual[1]['companies'][0]['permissions'].sort()
             assert actual == (200,expected), actual
@@ -449,6 +469,19 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert float(entry['paid']) == 20 and float(entry['outstanding']) == 30, entry
                 after = request(service_path+'/invoiceable',employee,company)
                 assert float(after[1]['lines'][0]['availableQuantity']) == 1, after
+                reverse_args = dict(payload={'reference':'Direct receipt reversal '+uuid.uuid4().hex,
+                    'reason':'Synthetic reversal of partially settled invoice'},key='direct-reverse-'+uuid.uuid4().hex)
+                reverse_path = '/api/v1/customer-receipts/'+receipt[1]['id']+'/reverse'
+                reversed_direct = request(reverse_path,employee,company,base=first,**reverse_args)
+                assert reversed_direct[0]==201, reversed_direct
+                assert request(reverse_path,employee,company,base=second,**reverse_args)==reversed_direct
+                ar = request(ar_path,employee,company)
+                assert ar==request(ar_path,employee,company,base=legacy_url)
+                entry=next(item for item in ar[1]['items'] if item['invoiceId']==posted[1]['id'])
+                assert float(entry['paid'])==0 and float(entry['outstanding'])==50, entry
+                reversal_view='/api/v1/receipt-reversals/'+reversed_direct[1]['reversal']['id']
+                assert request(reversal_view,employee,company)==request(reversal_view,employee,company,base=legacy_url)==(200,reversed_direct[1])
+
             for first, second in ((legacy_url,url),(url,legacy_url)):
                 service = request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
                     'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
@@ -489,7 +522,42 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 ar = request('/api/v1/customers/00000000-0000-0000-0000-000000000011/receivables?pageSize=100',employee,company)
                 entry = next(item for item in ar[1]['items'] if item['invoiceId']==invoiced[1]['id'])
                 assert float(entry['paid'])==20 and float(entry['outstanding'])==30, entry
-            print('PASS: customer advance application, cross-backend concurrent replay and over-allocation rollback')
+                reverse_path = '/api/v1/customer-receipts/'+deposited[1]['id']+'/reverse'
+                reverse_args = dict(payload={'reference':' Customer café reversal '+uuid.uuid4().hex,
+                    'reason':' Synthetic correction after unapplication '},key='customer-reverse-'+uuid.uuid4().hex)
+                rejected = [request(reverse_path,employee,company,base=target,**reverse_args) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0]==409, rejected
+                undo_path = '/api/v1/advance-applications/'+applied[1]['id']+'/unapply'
+                undo_args = dict(payload={'reference':' Undo café application '+uuid.uuid4().hex,
+                    'reason':' Synthetic office correction '},key='customer-unapply-'+uuid.uuid4().hex)
+                assert request(undo_path,token('test-purchase-reader'),company,base=first,**undo_args)[0]==403
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts = list(pool.map(lambda n: request(undo_path,employee,company,
+                        base=first if n%2 else second,**undo_args),range(6)))
+                undone = attempts[0]
+                assert undone[0]==201 and all(result==undone for result in attempts), attempts
+                assert request('/api/v1/advance-unapplications/'+undone[1]['unapplication']['id'],employee,company)==(200,undone[1])
+                assert request('/api/v1/advance-unapplications/'+undone[1]['unapplication']['id'],employee,company,base=legacy_url)==(200,undone[1])
+                applied_view = request(read_path,employee,company)
+                assert applied_view==request(read_path,employee,company,base=legacy_url)
+                assert applied_view[1]['applicationStatus']=='UNAPPLIED', applied_view
+                ar = request('/api/v1/customers/00000000-0000-0000-0000-000000000011/receivables?pageSize=100',employee,company)
+                entry = next(item for item in ar[1]['items'] if item['invoiceId']==invoiced[1]['id'])
+                assert float(entry['paid'])==0 and float(entry['outstanding'])==50, entry
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts = list(pool.map(lambda n: request(reverse_path,employee,company,
+                        base=first if n%2 else second,**reverse_args),range(6)))
+                reversed_receipt = attempts[0]
+                assert reversed_receipt[0]==201 and all(result==reversed_receipt for result in attempts), attempts
+                reversal_view = '/api/v1/receipt-reversals/'+reversed_receipt[1]['reversal']['id']
+                assert request(reversal_view,employee,company)==request(reversal_view,employee,company,base=legacy_url)==(200,reversed_receipt[1])
+                original = request('/api/v1/customer-receipts/'+deposited[1]['id'],employee,company)
+                assert original==request('/api/v1/customer-receipts/'+deposited[1]['id'],employee,company,base=legacy_url)
+                assert original[1]['settlementStatus']=='REVERSED', original
+                changed = dict(payload={**reverse_args['payload'],'reason':'Different reason'},key=reverse_args['key'])
+                assert request(reverse_path,employee,company,base=second,**changed)[0]==409
+
+            print('PASS: customer application/unapplication and receipt reversal, cross-backend concurrent replay and guards')
 
             print('PASS: matching GST and receivable balances after partial settlement')
             print('PASS: bidirectional default/explicit-bank receipt replay')
