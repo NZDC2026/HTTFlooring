@@ -134,6 +134,233 @@ class SupplierPayments {
         return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
     }
 
+    @PostMapping("/api/v1/supplier-advances/{id}/apply")
+    ResponseEntity<String> apply(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @PathVariable UUID id, @RequestBody Application input) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "purchase.advances.apply");
+        var result = staff.inCompany(scope, requestId(request), () -> {
+            String reference = SupplierBills.text(input.reference(), "reference", 200, true);
+            String lines = applicationLines(input.allocations(), true);
+            String canonical = "{\"id\":" + SupplierBills.value(id) + ",\"reference\":" + SupplierBills.value(reference)
+                    + ",\"allocations\":" + lines + "}";
+            return writes.execute(scope, "POST /supplier-advances/" + id + "/apply",
+                    request.getHeader("Idempotency-Key"), canonical, () -> {
+                UUID application = jdbc.sql("SELECT purchase.apply_supplier_advance(:id,:reference,CAST(:lines AS jsonb))")
+                        .param("id", id).param("reference", reference).param("lines", lines).query(UUID.class).single();
+                audit.record(scope, "purchase.supplier_advance_applied", "supplier_advance_application", application,
+                        requestId(request), Map.of("advanceId", id, "reference", reference));
+                return new IdempotentWrite.StoredResponse(201, json.writeValueAsString(applicationView(scope, application)));
+            });
+        });
+        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    }
+
+    @GetMapping("/api/v1/supplier-advance-applications/{id}")
+    Map<String, Object> application(@AuthenticationPrincipal Jwt token, HttpServletRequest request, @PathVariable UUID id) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "purchase.payments.read");
+        return staff.inCompany(scope, requestId(request), () -> applicationView(scope, id));
+    }
+
+    @PostMapping("/api/v1/supplier-payments/{id}/reverse")
+    ResponseEntity<String> reverse(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @PathVariable UUID id, @RequestBody Correction input) {
+        return correct(token, request, id, input, false);
+    }
+
+    @PostMapping("/api/v1/supplier-advance-applications/{id}/unapply")
+    ResponseEntity<String> unapply(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @PathVariable UUID id, @RequestBody Correction input) {
+        return correct(token, request, id, input, true);
+    }
+
+    private ResponseEntity<String> correct(Jwt token, HttpServletRequest request, UUID id, Correction input, boolean undo) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"),
+                undo ? "purchase.advances.unapply" : "purchase.payments.reverse");
+        if (!List.of(scope.permissions()).contains("purchase.payments.read")
+                || !List.of(scope.permissions()).contains("purchase.bills.read")) {
+            throw new StaffScope.Failure(403, "permission_denied",
+                    "Supplier correction requires payment and bill access, with reapplication authority when applicable.");
+        }
+        var result = staff.inCompany(scope, requestId(request), () -> {
+            String table = undo ? "accounting.supplier_advance_applications" : "accounting.supplier_payments";
+            jdbc.sql("SELECT id FROM " + table + " WHERE company_id=:company AND id=:id")
+                    .param("company", scope.companyId()).param("id", id).query(UUID.class).optional()
+                    .orElseThrow(SupplierPayments::unavailable);
+            String reference = SupplierBills.text(input.reference(), "reference", 200, true);
+            String reason = SupplierBills.text(input.reason(), "reason", 2000, true);
+            String route = undo ? "POST /supplier-advance-applications/" + id + "/unapply"
+                    : "POST /supplier-payments/" + id + "/reverse";
+            String canonical = "{\"id\":" + SupplierBills.value(id) + ",\"reference\":" + SupplierBills.value(reference)
+                    + ",\"reason\":" + SupplierBills.value(reason) + "}";
+            return writes.execute(scope, route, request.getHeader("Idempotency-Key"), canonical, () -> {
+                String function = undo ? "purchase.unapply_supplier_advance" : "purchase.reverse_supplier_payment";
+                UUID reversal = jdbc.sql("SELECT " + function + "(:id,:reference,:reason)")
+                        .param("id", id).param("reference", reference).param("reason", reason).query(UUID.class).single();
+                audit.record(scope, undo ? "purchase.supplier_advance_unapplied" : "purchase.supplier_payment_reversed",
+                        undo ? "supplier_advance_unapplication" : "supplier_payment_reversal",
+                        reversal, requestId(request), Map.of("sourceId", id, "reference", reference));
+                return new IdempotentWrite.StoredResponse(201, json.writeValueAsString(correctionView(scope, reversal, undo)));
+            });
+        });
+        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    }
+
+    @PostMapping("/api/v1/supplier-payment-reversals/{id}/reapply")
+    ResponseEntity<String> reapply(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @PathVariable UUID id, @RequestBody Reapplication input) {
+        return reapply(token, request, id, input, null);
+    }
+
+    @PostMapping("/api/v1/supplier-payments/{id}/reallocate")
+    ResponseEntity<String> reallocate(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @PathVariable UUID id, @RequestBody Reallocation input) {
+        return reapply(token, request, id,
+                new Reapplication(input.reference(), input.reason(), input.advanceAmount(), input.allocations()),
+                input.reversalReference());
+    }
+
+    private ResponseEntity<String> reapply(Jwt token, HttpServletRequest request, UUID id,
+            Reapplication input, String reversalReference) {
+        boolean atomic = reversalReference != null;
+        var scope = staff.require(token, request.getHeader("X-Company-Id"),
+                atomic ? "purchase.payments.reverse" : "purchase.payments.reapply");
+        var permissions = List.of(scope.permissions());
+        if (!permissions.containsAll(List.of("purchase.payments.read", "purchase.bills.read",
+                "purchase.payments.reapply", "purchase.payments.post"))) {
+            throw new StaffScope.Failure(403, "permission_denied",
+                    "Supplier correction requires payment and bill access, with reapplication authority when applicable.");
+        }
+        var result = staff.inCompany(scope, requestId(request), () -> {
+            String table = atomic ? "accounting.supplier_payments" : "accounting.supplier_payment_reversals";
+            jdbc.sql("SELECT id FROM " + table + " WHERE company_id=:company AND id=:id")
+                    .param("company", scope.companyId()).param("id", id).query(UUID.class)
+                    .optional().orElseThrow(SupplierPayments::unavailable);
+            String reference = SupplierBills.text(input.reference(), "reference", 200, true);
+            String reason = SupplierBills.text(input.reason(), "reason", 2000, true);
+            String reversal = atomic ? SupplierBills.text(reversalReference, "reversalReference", 200, true) : null;
+            String lines = applicationLines(input.allocations(), false);
+            BigDecimal advance = input.advanceAmount() == null ? BigDecimal.ZERO : input.advanceAmount();
+            SupplierBills.amount(advance, "advanceAmount", 2, "999999999999999999.99");
+            String canonical = "{\"id\":" + SupplierBills.value(id) + ",\"reference\":" + SupplierBills.value(reference)
+                    + ",\"reason\":" + SupplierBills.value(reason) + ",\"reversalReference\":" + SupplierBills.value(reversal)
+                    + ",\"advanceAmount\":" + SupplierBills.value(advance.toPlainString()) + ",\"allocations\":" + lines + "}";
+            String route = atomic ? "POST /supplier-payments/" + id + "/reallocate"
+                    : "POST /supplier-payment-reversals/" + id + "/reapply";
+            return writes.execute(scope, route, request.getHeader("Idempotency-Key"), canonical, () -> {
+                String args = ":id," + (atomic ? ":reversal," : "") + ":reference,:reason,:advance,CAST(:lines AS jsonb)";
+                var command = jdbc.sql("SELECT " + (atomic ? "purchase.reallocate_supplier_payment" :
+                        "purchase.reapply_supplier_payment") + "(" + args + ")")
+                        .param("id", id).param("reference", reference).param("reason", reason)
+                        .param("advance", advance).param("lines", lines);
+                if (atomic) {
+                    command.param("reversal", reversal);
+                }
+                UUID payment = command.query(UUID.class).single();
+                UUID reversed = jdbc.sql("""
+                        SELECT reversal_id FROM accounting.supplier_payment_reapplications WHERE company_id=:company AND id=:id
+                        """).param("company", scope.companyId()).param("id", payment).query(UUID.class).single();
+                if (atomic) {
+                    audit.record(scope, "purchase.supplier_payment_reversed", "supplier_payment_reversal", reversed,
+                            requestId(request), Map.of("paymentId", id, "reference", reversal));
+                }
+                audit.record(scope, "purchase.supplier_payment_reapplied", "supplier_payment", payment,
+                        requestId(request), Map.of("reversalId", reversed, "reference", reference));
+                var body = new java.util.LinkedHashMap<>(view(scope, payment));
+                body.put("reversalId", reversed);
+                return new IdempotentWrite.StoredResponse(201, json.writeValueAsString(body));
+            });
+        });
+        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    }
+
+    record Reapplication(String reference, String reason, BigDecimal advanceAmount, List<Allocation> allocations) {}
+    record Reallocation(String reversalReference, String reference, String reason,
+            BigDecimal advanceAmount, List<Allocation> allocations) {}
+
+    @GetMapping("/api/v1/supplier-payment-reversals/{id}")
+    Map<String, Object> reversal(@AuthenticationPrincipal Jwt token, HttpServletRequest request, @PathVariable UUID id) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "purchase.payments.read");
+        return staff.inCompany(scope, requestId(request), () -> correctionView(scope, id, false));
+    }
+
+    @GetMapping("/api/v1/supplier-advance-unapplications/{id}")
+    Map<String, Object> unapplication(@AuthenticationPrincipal Jwt token, HttpServletRequest request, @PathVariable UUID id) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "purchase.payments.read");
+        return staff.inCompany(scope, requestId(request), () -> correctionView(scope, id, true));
+    }
+
+    private Map<String, Object> applicationView(StaffScope.CompanyAccess scope, UUID id) {
+        var header = jdbc.sql("""
+                SELECT a.*,d.number,d.state,d.version,d.business_date::text,u.id AS unapplication_id,
+                  CASE WHEN u.id IS NULL THEN 'APPLIED' ELSE 'UNAPPLIED' END AS application_status
+                FROM accounting.supplier_advance_applications a JOIN platform.documents d
+                  ON d.company_id=a.company_id AND d.id=a.id
+                LEFT JOIN accounting.supplier_advance_unapplications u ON u.company_id=a.company_id AND u.application_id=a.id
+                WHERE a.company_id=:company AND a.id=:id
+                """).param("company", scope.companyId()).param("id", id).query(rows::row).optional()
+                .orElseThrow(SupplierPayments::unavailable);
+        return Map.of("application", header, "allocations", allocations(scope, id));
+    }
+
+    private Map<String, Object> correctionView(StaffScope.CompanyAccess scope, UUID id, boolean undo) {
+        String query = undo ? """
+                SELECT x.*,d.number,d.state,d.business_date::text FROM accounting.supplier_advance_unapplications x
+                JOIN platform.documents d ON d.company_id=x.company_id AND d.id=x.id
+                WHERE x.company_id=:company AND x.id=:id
+                """ : """
+                SELECT x.*,d.number,d.state,d.business_date::text,p.id AS replacement_payment_id
+                FROM accounting.supplier_payment_reversals x JOIN platform.documents d ON d.company_id=x.company_id AND d.id=x.id
+                LEFT JOIN accounting.supplier_payment_reapplications p ON p.company_id=x.company_id AND p.reversal_id=x.id
+                WHERE x.company_id=:company AND x.id=:id
+                """;
+        var header = jdbc.sql(query).param("company", scope.companyId()).param("id", id).query(rows::row)
+                .optional().orElseThrow(SupplierPayments::unavailable);
+        UUID source = (UUID) header.get(undo ? "applicationId" : "paymentId");
+        var lines = jdbc.sql("""
+                SELECT bill_line_id,amount,gst_amount,payment_id,advance_id
+                FROM accounting.supplier_payment_allocations
+                WHERE company_id=:company AND source_document_id=:id ORDER BY bill_line_id
+                """).param("company", scope.companyId()).param("id", source).query(rows::row).list();
+        var gst = jdbc.sql("""
+                SELECT bill_line_id,amount,gst_amount,gst_basis,adjustment_date::text,kind
+                FROM accounting.purchase_gst_adjustments
+                WHERE company_id=:company AND settlement_reversal_id=:id ORDER BY bill_line_id
+                """).param("company", scope.companyId()).param("id", id).query(rows::row).list();
+        return Map.of(undo ? "unapplication" : "reversal", header, "allocations", lines, "gstAdjustments", gst);
+    }
+
+    private List<Map<String, Object>> allocations(StaffScope.CompanyAccess scope, UUID id) {
+        return jdbc.sql("""
+                SELECT a.id,a.bill_line_id,bl.bill_id,a.amount,a.gst_amount,a.payment_id,a.advance_id
+                FROM accounting.supplier_payment_allocations a JOIN purchase.bill_lines bl
+                  ON bl.company_id=a.company_id AND bl.id=a.bill_line_id
+                WHERE a.company_id=:company AND a.source_document_id=:id ORDER BY a.bill_line_id
+                """).param("company", scope.companyId()).param("id", id).query(rows::row).list();
+    }
+
+    private static String applicationLines(List<Allocation> input, boolean required) {
+        var lines = input == null ? List.<Allocation>of() : input;
+        SupplierBills.require((!required || !lines.isEmpty()) && lines.size() <= 50 && lines.stream().allMatch(a -> a != null
+                && a.billLineId() != null && !a.billLineId().equals(new UUID(0, 0)))
+                && lines.stream().map(Allocation::billLineId).distinct().count() == lines.size(),
+                "allocations", "Supply up to 50 distinct bill lines.");
+        for (var line : lines) {
+            SupplierBills.amount(line.amount(), "amount", 2, "999999999999999999.99");
+            SupplierBills.require(line.amount() != null && line.amount().signum() > 0, "amount", "Allocation must be positive.");
+        }
+        return lines.stream().sorted(Comparator.comparing(a -> a.billLineId().toString()))
+                .map(a -> "{\"billLineId\":" + SupplierBills.value(a.billLineId())
+                    + ",\"amount\":" + SupplierBills.value(a.amount().toPlainString()) + "}")
+                .collect(Collectors.joining(",", "[", "]"));
+    }
+
+    private static StaffScope.Failure unavailable() {
+        return new StaffScope.Failure(404, "not_found", "Resource is unavailable in this scope.");
+    }
+
+    record Application(String reference, List<Allocation> allocations) {}
+    record Correction(String reference, String reason) {}
+
     private Map<String, Object> view(StaffScope.CompanyAccess scope, UUID id) {
         var header = jdbc.sql("""
                 SELECT p.*,p.paid_on::text,d.number,d.state,d.version,r.id AS reversal_id,x.original_payment_id,

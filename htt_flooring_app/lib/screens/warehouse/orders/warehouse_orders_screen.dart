@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 import '../../../models/warehouse_order.dart';
 import '../../../services/warehouse_order_service.dart';
@@ -11,10 +12,12 @@ class WarehouseOrdersScreen extends StatefulWidget {
     super.key,
     this.initialFilter,
     this.initialQuery = '',
+    this.pickupInvoices = false,
   });
 
   final WarehouseOrderStatus? initialFilter;
   final String initialQuery;
+  final bool pickupInvoices;
   @override
   State<WarehouseOrdersScreen> createState() => _WarehouseOrdersScreenState();
 }
@@ -33,14 +36,22 @@ class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
           q.isEmpty ||
           order.number.toLowerCase().contains(q) ||
           order.customerName.toLowerCase().contains(q);
-      return statusOk && searchOk;
+      final pickupOk =
+          !widget.pickupInvoices ||
+          (order.fulfilmentType == WarehouseFulfilmentType.pickup &&
+              order.status != WarehouseOrderStatus.completed &&
+              DateUtils.isSameDay(
+                order.fulfilmentDate.toLocal(),
+                DateTime.now(),
+              ));
+      return statusOk && searchOk && pickupOk;
     }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         automaticallyImplyLeading: true,
-        title: const Text('Orders'),
+        title: Text(widget.pickupInvoices ? 'Pickup Orders' : 'Orders'),
       ),
       body: Column(
         children: [
@@ -144,6 +155,16 @@ class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
                       ),
                     ),
                   ),
+                  if (order.isUrgentPickup) ...[
+                    const Text(
+                      'Urgent',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   _status(order.statusLabel),
                 ],
               ),
@@ -155,6 +176,11 @@ class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
                   fontWeight: FontWeight.w700,
                   color: AppColors.text,
                 ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Pickup date: ${DateFormat('d MMM yyyy · h:mm a').format(order.fulfilmentDate.toLocal())}',
+                style: const TextStyle(fontSize: 11, color: AppColors.muted),
               ),
               const SizedBox(height: 12),
               Row(

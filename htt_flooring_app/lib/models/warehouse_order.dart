@@ -101,6 +101,12 @@ class WarehouseOrder {
   bool get allItemsPrepared =>
       items.isNotEmpty && items.every((item) => item.isPrepared);
 
+  bool get isUrgentPickup =>
+      fulfilmentType == WarehouseFulfilmentType.pickup &&
+      status != WarehouseOrderStatus.completed &&
+      fulfilmentDate.isBefore(DateTime.now()) &&
+      !allItemsPrepared;
+
   bool get hasMinimumDispatchPhotos => dispatchPhotos.length >= 2;
 
   String get statusLabel {

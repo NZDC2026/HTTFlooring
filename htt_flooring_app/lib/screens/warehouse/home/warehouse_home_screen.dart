@@ -66,12 +66,7 @@ class WarehouseHomeScreen extends StatelessWidget {
             ),
           );
     final next = pickups.firstOrNull;
-    final urgent = pickups
-        .where(
-          (order) =>
-              order.fulfilmentDate.isBefore(now) && !order.allItemsPrepared,
-        )
-        .length;
+    final urgent = pickups.where((order) => order.isUrgentPickup).length;
     final shortages = const InventoryService().inventory
         .where(
           (item) =>
@@ -431,7 +426,7 @@ class WarehouseHomeScreen extends StatelessWidget {
                   icon: Icons.check_circle_outline,
                   color: AppColors.success,
                   background: AppColors.successLight,
-                  onTap: showPickups,
+                  onTap: () => open(const WarehouseOrdersScreen()),
                 ),
                 _tile(
                   title: 'Today’s Pickups',
@@ -439,7 +434,7 @@ class WarehouseHomeScreen extends StatelessWidget {
                   icon: Icons.local_shipping_outlined,
                   color: Colors.indigo.shade700,
                   background: Colors.indigo.shade50,
-                  onTap: showPickups,
+                  onTap: () => open(const WarehouseOrdersScreen()),
                 ),
                 _tile(
                   title: 'Dispatched',
@@ -457,7 +452,7 @@ class WarehouseHomeScreen extends StatelessWidget {
                   value: pendingCollection,
                   icon: Icons.schedule,
                   background: AppColors.copperLight,
-                  onTap: showPickups,
+                  onTap: () => open(const WarehouseOrdersScreen()),
                 ),
               ],
             ),
@@ -466,48 +461,8 @@ class WarehouseHomeScreen extends StatelessWidget {
               order: next,
               onTap: next == null
                   ? null
-                  : () => open(PrepareOrderScreen(orderId: next.id)),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: _Heading('Quick Actions'),
-            ),
-            _grid(
-              context,
-              columns: 3,
-              children: [
-                _tile(
-                  title: 'Scan Product',
-                  icon: Icons.qr_code_scanner,
-                  onTap: () => open(const WarehouseProductEntryScreen()),
-                ),
-                _tile(
-                  title: 'Picking List',
-                  icon: Icons.format_list_bulleted,
-                  onTap: () => open(const PickingListScreen()),
-                ),
-                _tile(
-                  title: 'Verify Order',
-                  icon: Icons.verified_user_outlined,
-                  onTap: () => open(const VerifyOrderScreen()),
-                ),
-                _tile(
-                  title: 'Goods Receiving',
-                  icon: Icons.add_box_outlined,
-                  onTap: () =>
-                      open(const WarehouseProductEntryScreen(receiving: true)),
-                ),
-                _tile(
-                  title: 'Inventory Lookup',
-                  icon: Icons.manage_search,
-                  onTap: () => open(const WarehouseInventoryScreen()),
-                ),
-                _tile(
-                  title: 'Return',
-                  icon: Icons.assignment_return_outlined,
-                  onTap: () => open(const CustomerReturnsScreen()),
-                ),
-              ],
+                  : () =>
+                        open(const WarehouseOrdersScreen(pickupInvoices: true)),
             ),
             const SizedBox(height: 14),
             Card(
@@ -586,6 +541,47 @@ class WarehouseHomeScreen extends StatelessWidget {
                     ),
                 ],
               ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: _Heading('Quick Actions'),
+            ),
+            _grid(
+              context,
+              columns: 3,
+              children: [
+                _tile(
+                  title: 'Scan Product',
+                  icon: Icons.qr_code_scanner,
+                  onTap: () => open(const WarehouseProductEntryScreen()),
+                ),
+                _tile(
+                  title: 'Picking List',
+                  icon: Icons.format_list_bulleted,
+                  onTap: () => open(const PickingListScreen()),
+                ),
+                _tile(
+                  title: 'Verify Order',
+                  icon: Icons.verified_user_outlined,
+                  onTap: () => open(const VerifyOrderScreen()),
+                ),
+                _tile(
+                  title: 'Goods Receiving',
+                  icon: Icons.add_box_outlined,
+                  onTap: () =>
+                      open(const WarehouseProductEntryScreen(receiving: true)),
+                ),
+                _tile(
+                  title: 'Inventory Lookup',
+                  icon: Icons.manage_search,
+                  onTap: () => open(const WarehouseInventoryScreen()),
+                ),
+                _tile(
+                  title: 'Return',
+                  icon: Icons.assignment_return_outlined,
+                  onTap: () => open(const CustomerReturnsScreen()),
+                ),
+              ],
             ),
           ],
         ),
@@ -739,17 +735,30 @@ class _NextPickup extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.local_shipping_outlined, color: Colors.white),
+                    const Icon(
+                      Icons.local_shipping_outlined,
+                      color: Colors.white,
+                    ),
                     SizedBox(width: 8),
-                    Text(
+                    const Text(
                       'Next Pickup',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    const Spacer(),
+                    if (pickup?.isUrgentPickup ?? false)
+                      const Text(
+                        'Urgent',
+                        style: TextStyle(
+                          color: Color(0xFFFF5252),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
