@@ -11,6 +11,7 @@ import '../../../services/inventory_service.dart';
 import '../../../services/warehouse_order_service.dart';
 import '../../../theme/app_theme.dart';
 import '../returns/customer_returns_screen.dart';
+import '../../sales/home/reminder_calendar_screen.dart';
 import 'warehouse_activities_screen.dart';
 import '../inventory/warehouse_product_entry_screen.dart';
 import '../orders/verify_order_screen.dart';
@@ -21,7 +22,8 @@ import '../orders/prepare_order_screen.dart';
 import '../orders/warehouse_orders_screen.dart';
 
 class WarehouseHomeScreen extends StatelessWidget {
-  const WarehouseHomeScreen({super.key});
+  const WarehouseHomeScreen({super.key, this.onOpenCalendar});
+  final VoidCallback? onOpenCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +85,7 @@ class WarehouseHomeScreen extends StatelessWidget {
         child: ListView(
           shrinkWrap: true,
           children: [
-            const ListTile(title: Text('Today’s Pickups')),
+            const ListTile(title: Text('Scheduled Pickups')),
             if (pickups.isEmpty)
               const ListTile(subtitle: Text('No pending pickups today')),
             for (final order in pickups)
@@ -255,6 +257,8 @@ class WarehouseHomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             TextField(
+              readOnly: true,
+              onTap: () => open(const WarehouseOrdersScreen()),
               textInputAction: TextInputAction.search,
               onSubmitted: (query) =>
                   open(WarehouseOrdersScreen(initialQuery: query.trim())),
@@ -309,7 +313,9 @@ class WarehouseHomeScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       minimumSize: const Size(0, 32),
                     ),
-                    onPressed: () => open(const WarehouseActivitiesScreen()),
+                    onPressed:
+                        onOpenCalendar ??
+                        () => open(const ReminderCalendarScreen()),
                     child: const Text(
                       'Activities',
                       style: TextStyle(fontSize: 11),
@@ -324,9 +330,13 @@ class WarehouseHomeScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       minimumSize: const Size(0, 32),
                     ),
-                    onPressed: showPickups,
+                    onPressed: () => open(
+                      const PickingListScreen(
+                        operation: WarehouseOperationList.todaysPickups,
+                      ),
+                    ),
                     child: const Text(
-                      'Today’s Pickups',
+                      'Scheduled Pickups',
                       maxLines: 1,
                       style: TextStyle(fontSize: 11),
                     ),
@@ -402,19 +412,19 @@ class WarehouseHomeScreen extends StatelessWidget {
                   onTap: () => open(const PickingListScreen()),
                 ),
                 _tile(
-                  title: 'Picking',
+                  title: 'Preparing',
                   value: orders.preparingCount,
                   icon: Icons.shopping_cart_outlined,
                   color: Colors.blue.shade800,
                   background: Colors.blue.shade50,
                   onTap: () => open(
-                    const WarehouseOrdersScreen(
-                      initialFilter: WarehouseOrderStatus.preparing,
+                    const PickingListScreen(
+                      operation: WarehouseOperationList.picking,
                     ),
                   ),
                 ),
                 _tile(
-                  title: 'Ready for Pickup',
+                  title: 'Ready',
                   value: pickups
                       .where(
                         (order) =>
@@ -426,15 +436,23 @@ class WarehouseHomeScreen extends StatelessWidget {
                   icon: Icons.check_circle_outline,
                   color: AppColors.success,
                   background: AppColors.successLight,
-                  onTap: () => open(const WarehouseOrdersScreen()),
+                  onTap: () => open(
+                    const PickingListScreen(
+                      operation: WarehouseOperationList.readyForPickup,
+                    ),
+                  ),
                 ),
                 _tile(
-                  title: 'Today’s Pickups',
+                  title: 'Scheduled Pickups',
                   value: pickups.length,
                   icon: Icons.local_shipping_outlined,
                   color: Colors.indigo.shade700,
                   background: Colors.indigo.shade50,
-                  onTap: () => open(const WarehouseOrdersScreen()),
+                  onTap: () => open(
+                    const PickingListScreen(
+                      operation: WarehouseOperationList.todaysPickups,
+                    ),
+                  ),
                 ),
                 _tile(
                   title: 'Dispatched',
@@ -442,8 +460,8 @@ class WarehouseHomeScreen extends StatelessWidget {
                   icon: Icons.local_shipping_outlined,
                   background: AppColors.successLight,
                   onTap: () => open(
-                    const WarehouseOrdersScreen(
-                      initialFilter: WarehouseOrderStatus.completed,
+                    const PickingListScreen(
+                      operation: WarehouseOperationList.dispatched,
                     ),
                   ),
                 ),
@@ -452,7 +470,11 @@ class WarehouseHomeScreen extends StatelessWidget {
                   value: pendingCollection,
                   icon: Icons.schedule,
                   background: AppColors.copperLight,
-                  onTap: () => open(const WarehouseOrdersScreen()),
+                  onTap: () => open(
+                    const PickingListScreen(
+                      operation: WarehouseOperationList.pendingCollection,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -461,8 +483,11 @@ class WarehouseHomeScreen extends StatelessWidget {
               order: next,
               onTap: next == null
                   ? null
-                  : () =>
-                        open(const WarehouseOrdersScreen(pickupInvoices: true)),
+                  : () => open(
+                      const PickingListScreen(
+                        operation: WarehouseOperationList.todaysPickups,
+                      ),
+                    ),
             ),
             const SizedBox(height: 14),
             Card(
@@ -556,7 +581,7 @@ class WarehouseHomeScreen extends StatelessWidget {
                   onTap: () => open(const WarehouseProductEntryScreen()),
                 ),
                 _tile(
-                  title: 'Picking List',
+                  title: 'Preparing List',
                   icon: Icons.format_list_bulleted,
                   onTap: () => open(const PickingListScreen()),
                 ),
@@ -816,7 +841,7 @@ class _NextPickup extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Picking Progress'),
+                      const Text('Preparing Progress'),
                       Text('${(progress * 100).round()}%'),
                     ],
                   ),

@@ -19,8 +19,10 @@ class _WarehouseNavigationState extends State<WarehouseNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    const screens = [
-      WarehouseHomeScreen(),
+    final screens = [
+      WarehouseHomeScreen(
+        onOpenCalendar: () => setState(() => _currentIndex = 3),
+      ),
       WarehouseOrdersScreen(),
       WarehouseInventoryScreen(),
       ReminderCalendarScreen(),

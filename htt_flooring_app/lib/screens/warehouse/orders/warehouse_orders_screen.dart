@@ -24,13 +24,20 @@ class WarehouseOrdersScreen extends StatefulWidget {
 
 class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
   late WarehouseOrderStatus? _filter = widget.initialFilter;
+  bool _scheduled = false;
   late String _query = widget.initialQuery;
 
   @override
   Widget build(BuildContext context) {
     final service = context.watch<WarehouseOrderService>();
     final orders = service.orders.where((order) {
-      final statusOk = _filter == null || order.status == _filter;
+      final statusOk = _scheduled
+          ? order.fulfilmentType == WarehouseFulfilmentType.pickup &&
+                order.status != WarehouseOrderStatus.completed
+          : _filter == null ||
+                order.status == _filter ||
+                (_filter == WarehouseOrderStatus.prepared &&
+                    order.status == WarehouseOrderStatus.readyForDispatch);
       final q = _query.trim().toLowerCase();
       final searchOk =
           q.isEmpty ||
@@ -81,7 +88,20 @@ class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
                 _chip('All', null),
                 _chip('To Pick', WarehouseOrderStatus.toPick),
                 _chip('Preparing', WarehouseOrderStatus.preparing),
-                _chip('Prepared', WarehouseOrderStatus.prepared),
+                _chip('Ready', WarehouseOrderStatus.prepared),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: const Text('Scheduled Pickups'),
+                    selected: _scheduled,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() {
+                      _scheduled = true;
+                      _filter = null;
+                    }),
+                  ),
+                ),
+                _chip('Dispatched', WarehouseOrderStatus.completed),
               ],
             ),
           ),
@@ -107,7 +127,7 @@ class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
   }
 
   Widget _chip(String label, WarehouseOrderStatus? status) {
-    final selected = _filter == status;
+    final selected = !_scheduled && _filter == status;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
@@ -117,7 +137,10 @@ class _WarehouseOrdersScreenState extends State<WarehouseOrdersScreen> {
         selectedColor: AppColors.copperLight,
         backgroundColor: AppColors.card,
         side: BorderSide(color: selected ? AppColors.copper : AppColors.border),
-        onSelected: (_) => setState(() => _filter = status),
+        onSelected: (_) => setState(() {
+          _scheduled = false;
+          _filter = status;
+        }),
       ),
     );
   }

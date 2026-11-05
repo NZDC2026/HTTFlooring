@@ -116,9 +116,9 @@ class WarehouseOrder {
       case WarehouseOrderStatus.preparing:
         return 'Preparing';
       case WarehouseOrderStatus.prepared:
-        return 'Prepared';
+        return 'Ready';
       case WarehouseOrderStatus.readyForDispatch:
-        return 'Ready for Dispatch';
+        return 'Ready';
       case WarehouseOrderStatus.completed:
         return 'Completed';
     }
