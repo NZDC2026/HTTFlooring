@@ -7,6 +7,8 @@ import '../../../services/app_session.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
 
+import '../orders/sales_documents_screen.dart';
+
 class SalesMoreScreen extends StatelessWidget {
   const SalesMoreScreen({super.key});
 
@@ -34,6 +36,17 @@ class SalesMoreScreen extends StatelessWidget {
 
           _menuGroup(
             children: [
+              _menuItem(
+                icon: Icons.receipt_long_outlined,
+                title: 'Orders',
+                subtitle: 'View sales documents',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(
+                    builder: (_) => const SalesDocumentsScreen(),
+                  ),
+                ),
+              ),
+              _divider(),
               _menuItem(
                 icon: Icons.cloud_off_outlined,
                 title: 'Offline Data',
@@ -67,6 +80,20 @@ class SalesMoreScreen extends StatelessWidget {
             ],
           ),
 
+          if (AppSession.demoLoginEnabled) ...[
+            const SizedBox(height: 16),
+            _menuGroup(
+              children: [
+                _menuItem(
+                  icon: Icons.logout,
+                  title: 'Sign out',
+                  subtitle: 'Return to the login screen',
+                  onTap: appSession.signOut,
+                ),
+              ],
+            ),
+          ],
+
           if (kDebugMode) ...[
             const SizedBox(height: 28),
 
@@ -83,15 +110,6 @@ class SalesMoreScreen extends StatelessWidget {
 
             _menuGroup(
               children: [
-                _menuItem(
-                  icon: Icons.warehouse_outlined,
-                  title: 'Switch to Warehouse User',
-                  subtitle: 'Li Wei · Warehouse Staff · Sydney',
-                  onTap: () {
-                    context.read<AppSession>().switchToWarehouse();
-                  },
-                ),
-                _divider(),
                 _menuItem(
                   icon: Icons.location_on_outlined,
                   title: 'Test Sales Region',

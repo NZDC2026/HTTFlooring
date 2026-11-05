@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -76,19 +75,8 @@ class WarehouseMoreScreen extends StatelessWidget {
             ),
           ),
 
-          if (kDebugMode) ...[
+          if (AppSession.demoLoginEnabled) ...[
             const SizedBox(height: 28),
-
-            const Text(
-              'Development',
-              style: TextStyle(
-                color: AppColors.text,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-
-            const SizedBox(height: 10),
 
             Container(
               decoration: BoxDecoration(
@@ -97,13 +85,10 @@ class WarehouseMoreScreen extends StatelessWidget {
                 border: Border.all(color: AppColors.border),
               ),
               child: ListTile(
-                leading: const Icon(Icons.swap_horiz, color: AppColors.copper),
-                title: const Text('Switch to Sales User'),
-                subtitle: const Text('James Wilson · Sales · Sydney'),
+                leading: const Icon(Icons.logout, color: AppColors.copper),
+                title: const Text('Sign out'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  context.read<AppSession>().switchToSales();
-                },
+                onTap: session.signOut,
               ),
             ),
           ],

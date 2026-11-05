@@ -42,8 +42,10 @@ class StaffIdentityController {
     private final ProductWrites productWrites;
     private final PriceRead prices;
     private final SalesRead sales;
+    private final OrderWrites orderWrites;
+    private final InvoiceOperations invoiceOperations;
 
-    StaffIdentityController(JdbcClient jdbc, StaffScope staff, JsonMapper json, IdempotentWrite writes, DocumentUpload uploads, CustomerWrites customers, StaffAudit audit, ProductWrites productWrites, PriceRead prices, SalesRead sales) {
+    StaffIdentityController(JdbcClient jdbc, StaffScope staff, JsonMapper json, IdempotentWrite writes, DocumentUpload uploads, CustomerWrites customers, StaffAudit audit, ProductWrites productWrites, PriceRead prices, SalesRead sales, OrderWrites orderWrites, InvoiceOperations invoiceOperations) {
         this.jdbc = jdbc;
         this.staff = staff;
         this.json = json;
@@ -54,6 +56,8 @@ class StaffIdentityController {
         this.productWrites = productWrites;
         this.prices = prices;
         this.sales = sales;
+        this.orderWrites = orderWrites;
+        this.invoiceOperations = invoiceOperations;
     }
 
     @GetMapping("/api/v1/me")
@@ -126,6 +130,44 @@ class StaffIdentityController {
         var rows = staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
                 () -> sales.list(scope, offset, size, quote));
         return new Page<>(rows, page, size);
+    }
+
+    @GetMapping("/api/v1/sales-orders/{id}/invoiceable")
+    ResponseEntity<String> invoiceable(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "sales.invoices.read");
+        String body = staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
+                () -> sales.invoiceable(scope, id));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+    }
+
+    @GetMapping("/api/v1/sales-invoices/{id}")
+    ResponseEntity<String> invoice(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "sales.invoices.read");
+        String body = staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
+                () -> invoiceOperations.read(scope, id));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+    }
+
+    @PostMapping("/api/v1/sales-orders/{id}/invoices")
+    ResponseEntity<String> issueInvoice(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            @RequestBody InvoiceOperations.Input input, HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "sales.invoices.write");
+        String requestId = (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID);
+        var result = staff.inCompany(scope, requestId, () -> invoiceOperations.issue(scope, id, input,
+                request.getHeader("If-Match"), request.getHeader("Idempotency-Key"), requestId));
+        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    }
+
+    @GetMapping("/api/v1/sales-invoices")
+    Page<Map<String, Object>> invoices(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @RequestParam(required = false) UUID customerId, @RequestParam(required = false) UUID orderId,
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "25") int pageSize) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "sales.invoices.read");
+        var rows = staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
+                () -> sales.invoices(scope, customerId, orderId, page, pageSize));
+        return new Page<>(rows, page, pageSize);
     }
 
     @GetMapping("/api/v1/inventory/availability")
@@ -339,6 +381,17 @@ class StaffIdentityController {
         return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
     }
 
+    @PostMapping("/api/v1/sales-orders/{id}/cancel")
+    ResponseEntity<String> cancelOrder(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            @RequestBody OrderWrites.Review input, HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "sales.orders.cancel");
+        String requestId = (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID);
+        var result = staff.inCompany(scope, requestId,
+                () -> orderWrites.cancel(scope, id, input, request.getHeader("If-Match"),
+                        request.getHeader("Idempotency-Key"), requestId));
+        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    }
+
     @PatchMapping("/api/v1/customers/{id}/status")
     ResponseEntity<String> changeCustomerStatus(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
             @RequestBody CustomerWrites.State state, HttpServletRequest request) {
@@ -373,6 +426,9 @@ class StaffIdentityController {
                 case "23503", "23514", "23P01", "22003" -> sqlError(422, "constraint_violation",
                         "A reference, effective interval, or business constraint is invalid.", requestId, false);
                 case "42501" -> sqlError(403, "scope_denied", "The database rejected this data scope.", requestId, false);
+                case "HT409" -> sqlError(409, "invoice_conflict",
+                        "Order changed, is not confirmed, or quantity exceeds the delivered uninvoiced remainder.", requestId, false);
+                case "HT422" -> sqlError(422, "invoice_validation", sqlMessage(sql), requestId, false);
                 case "HT404" -> sqlError(404, "not_found", "Resource is unavailable in this scope.", requestId, false);
                 case "HD409" -> sqlError(409, "document_conflict", sqlMessage(sql), requestId, false);
                 case "HD422" -> sqlError(422, "document_validation", sqlMessage(sql), requestId, false);

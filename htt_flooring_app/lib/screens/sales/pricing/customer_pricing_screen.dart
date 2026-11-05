@@ -7,6 +7,7 @@ import '../../../models/customer.dart';
 import '../../../models/product.dart';
 import '../../../services/pricing_service.dart';
 import '../../../theme/app_theme.dart';
+import '../catalog_filters.dart';
 import 'edit_price_screen.dart';
 
 class CustomerPricingScreen extends StatefulWidget {
@@ -22,19 +23,6 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   String _query = '';
-  static const _categories = [
-    'All',
-    'Engineered Timber',
-    'Hybrid',
-    'Laminate',
-    'Accessories',
-  ];
-  static const _stylesByCategory = {
-    'Engineered Timber': ['All', 'Plank', 'Herringbone', 'Chevron'],
-    'Hybrid': ['All', 'Plank', 'Herringbone'],
-    'Laminate': ['All', 'Plank', 'Herringbone'],
-  };
-
   static final _scotiaDemoPrices = {
     for (final (sku, colour, standardPrice, customerPrice) in const [
       ('DEMO-SCO-01', 'Natural Oak', 12.00, 9.50),
@@ -73,7 +61,7 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
     final customer = widget.customer;
 
     final query = _query.toLowerCase();
-    final styles = _stylesByCategory[_category];
+    final styles = catalogStylesByCategory[_category];
     final groups = <(String, String?, String), List<Product>>{};
     for (final product in [...products, ..._scotiaDemoPrices.keys]) {
       if (_category != 'All' && product.category != _category) continue;
@@ -104,14 +92,14 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
         children: [
           _customerHeader(customer),
           _search(),
-          _filterRow(_categories, _category, (value) {
+          catalogFilterRow(catalogCategories, _category, (value) {
             setState(() {
               _category = value;
               _installationStyle = 'All';
             });
           }),
           if (styles != null)
-            _filterRow(styles, _installationStyle, (value) {
+            catalogFilterRow(styles, _installationStyle, (value) {
               setState(() => _installationStyle = value);
             }),
           Expanded(
@@ -125,7 +113,10 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
                           margin: const EdgeInsets.only(bottom: 10),
                           child: ExpansionTile(
                             key: PageStorageKey(group.key),
-                            title: _seriesTitle(group.key.$3, group.value),
+                            title: catalogSeriesTitle(
+                              group.key.$3,
+                              group.value,
+                            ),
                             subtitle: Text(
                               [
                                 group.key.$1,
@@ -157,26 +148,6 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
                         ),
                     ],
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _seriesTitle(String name, List<Product> products) {
-    final dimensions = products
-        .map((product) => product.dimensions)
-        .whereType<String>()
-        .toSet()
-        .join(' · ');
-
-    return Text.rich(
-      TextSpan(
-        text: name,
-        children: [
-          TextSpan(
-            text: dimensions.isEmpty ? ' · Size unavailable' : ' · $dimensions',
-            style: const TextStyle(fontSize: 12),
           ),
         ],
       ),
@@ -291,38 +262,6 @@ class _CustomerPricingScreenState extends State<CustomerPricingScreen> {
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: AppColors.green),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _filterRow(
-    List<String> options,
-    String selected,
-    ValueChanged<String> onSelected,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-      child: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            for (final option in options)
-              ChoiceChip(
-                label: Text(option),
-                selected: selected == option,
-                showCheckmark: false,
-                selectedColor: AppColors.green,
-                backgroundColor: AppColors.card,
-                labelStyle: TextStyle(
-                  color: selected == option ? Colors.white : AppColors.text,
-                  fontSize: 12,
-                ),
-                onSelected: (_) => onSelected(option),
-              ),
-          ],
         ),
       ),
     );

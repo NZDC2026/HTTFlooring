@@ -27,6 +27,26 @@ class AppSession extends ChangeNotifier {
 
   void setEmployeeAccessToken(String? token) {
     _employeeAccessToken = token;
+    if (token?.isNotEmpty == true) _signedIn = true;
+    notifyListeners();
+  }
+
+  static const demoLoginEnabled =
+      kDebugMode || bool.fromEnvironment('DEMO_WORKSPACE');
+
+  bool _signedIn = !demoLoginEnabled;
+  bool get isSignedIn => _signedIn;
+
+  void signInDemo({required bool warehouse}) {
+    if (!demoLoginEnabled || _signedIn || _employeeAccessToken != null) return;
+    _currentUser = warehouse ? liWei : jamesWilson;
+    _signedIn = true;
+    notifyListeners();
+  }
+
+  void signOut() {
+    _employeeAccessToken = null;
+    _signedIn = false;
     notifyListeners();
   }
 
@@ -45,22 +65,4 @@ class AppSession extends ChangeNotifier {
   bool get isWarehouse => _currentUser.isWarehouse;
   bool get isManager => _currentUser.isManager;
   bool get isAdmin => _currentUser.isAdmin;
-
-  void switchDevelopmentUser(AppUser user) {
-    if (_currentUser.id == user.id) {
-      return;
-    }
-
-    _employeeAccessToken = null;
-    _currentUser = user;
-    notifyListeners();
-  }
-
-  void switchToSales() {
-    switchDevelopmentUser(jamesWilson);
-  }
-
-  void switchToWarehouse() {
-    switchDevelopmentUser(liWei);
-  }
 }

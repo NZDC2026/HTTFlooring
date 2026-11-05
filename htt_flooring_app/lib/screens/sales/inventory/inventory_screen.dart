@@ -5,12 +5,12 @@ import '../../../data/mock_data.dart';
 import '../../../models/customer.dart';
 import '../../../models/product.dart';
 import '../../../models/sales_user.dart';
-import '../../../models/warehouse_inventory.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/inventory_service.dart';
 import '../../../services/pricing_service.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
+import '../catalog_filters.dart';
 import '../quote/select_customer_screen.dart';
 import 'product_detail_screen.dart';
 
@@ -26,7 +26,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   final InventoryService _inventoryService = const InventoryService();
 
-  String _selectedFilter = 'All';
+  String _category = 'All';
+  String _style = 'All';
 
   String? _customerId;
 
@@ -61,32 +62,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
           product.name.toLowerCase().contains(query) ||
           product.sku.toLowerCase().contains(query) ||
           product.colour.toLowerCase().contains(query) ||
-          product.category.toLowerCase().contains(query);
+          product.category.toLowerCase().contains(query) ||
+          (product.brand ?? '').toLowerCase().contains(query) ||
+          (product.installationStyle ?? '').toLowerCase().contains(query);
 
-      bool matchesFilter;
-
-      switch (_selectedFilter) {
-        case 'In Stock':
-          matchesFilter = _inventoryService.isInStock(product.id);
-          break;
-
-        case 'Hybrid':
-          matchesFilter = product.category.toLowerCase() == 'hybrid';
-          break;
-
-        case 'Laminate':
-          matchesFilter = product.category.toLowerCase() == 'laminate';
-          break;
-
-        case 'Timber':
-          matchesFilter = product.category.toLowerCase().contains('timber');
-          break;
-
-        default:
-          matchesFilter = true;
-      }
-
-      return matchesSearch && matchesFilter;
+      return matchesSearch &&
+          (_category == 'All' || product.category == _category) &&
+          (_style == 'All' || product.installationStyle == _style);
     }).toList();
   }
 
@@ -98,7 +80,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleProducts = filteredProducts;
+    final groups = <(String, String?, String), List<Product>>{};
+    for (final product in filteredProducts) {
+      final key = (
+        product.category,
+        product.installationStyle,
+        product.brand ?? product.name,
+      );
+      (groups[key] ??= []).add(product);
+    }
+    final styles = catalogStylesByCategory[_category];
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -109,17 +100,53 @@ class _InventoryScreenState extends State<InventoryScreen> {
       body: Column(
         children: [
           _buildSearch(),
-          _buildFilters(),
+          catalogFilterRow(catalogCategories, _category, (value) {
+            setState(() {
+              _category = value;
+              _style = 'All';
+            });
+          }),
+          if (styles != null)
+            catalogFilterRow(styles, _style, (value) {
+              setState(() => _style = value);
+            }),
           Expanded(
-            child: visibleProducts.isEmpty
+            child: groups.isEmpty
                 ? _buildEmptyState()
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-                    itemCount: visibleProducts.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      return _buildProductCard(visibleProducts[index]);
-                    },
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                    children: [
+                      for (final group in groups.entries)
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: ExpansionTile(
+                            key: PageStorageKey(group.key),
+                            initiallyExpanded: _searchController.text
+                                .trim()
+                                .isNotEmpty,
+                            title: catalogSeriesTitle(
+                              group.key.$3,
+                              group.value,
+                            ),
+                            subtitle: Text(
+                              [group.key.$1, ?group.key.$2].join(' · '),
+                            ),
+                            childrenPadding: const EdgeInsets.fromLTRB(
+                              8,
+                              0,
+                              8,
+                              8,
+                            ),
+                            children: [
+                              for (final product in group.value)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: _buildProductCard(product),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
           ),
         ],
@@ -136,7 +163,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Check stock across warehouses',
+            'Check stock in your warehouse',
             style: TextStyle(
               color: Colors.white,
               fontSize: 17,
@@ -144,8 +171,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Sydney and Melbourne inventory',
+          Text(
+            '${context.watch<SalesSession>().regionName} inventory',
             style: TextStyle(color: Colors.white70, fontSize: 11),
           ),
           const SizedBox(height: 14),
@@ -155,7 +182,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               setState(() {});
             },
             decoration: InputDecoration(
-              hintText: 'Search product, colour or SKU...',
+              hintText: 'Search brand, colour or SKU...',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: _searchController.text.isEmpty
                   ? null
@@ -217,48 +244,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _buildFilters() {
-    const filters = ['All', 'In Stock', 'Timber', 'Hybrid', 'Laminate'];
-
-    return Container(
-      width: double.infinity,
-      color: AppColors.card,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: filters.map((filter) {
-            final selected = _selectedFilter == filter;
-
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(filter),
-                selected: selected,
-                showCheckmark: false,
-                selectedColor: AppColors.copperLight,
-                backgroundColor: AppColors.background,
-                side: BorderSide(
-                  color: selected ? AppColors.copper : AppColors.border,
-                ),
-                labelStyle: TextStyle(
-                  color: selected ? AppColors.copper : AppColors.text,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-                onSelected: (_) {
-                  setState(() {
-                    _selectedFilter = filter;
-                  });
-                },
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
   Widget _buildProductCard(Product product) {
     final customer = _customer;
     final pricing = context.watch<PricingService>();
@@ -268,15 +253,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
             customerId: customer.id,
             product: product,
           );
-    final sydney = _inventoryService.getForProductAndRegion(
+    final region = context.watch<SalesSession>().region;
+    final inventory = _inventoryService.getForProductAndRegion(
       product.id,
-      SalesRegion.sydney,
+      region,
     );
-
-    final melbourne = _inventoryService.getForProductAndRegion(
-      product.id,
-      SalesRegion.melbourne,
-    );
+    final pieces = inventory?.stockPieces;
+    final stock = inventory == null
+        ? 'Unavailable'
+        : pieces != null
+        ? '$pieces pcs'
+        : '${inventory.stockBoxes} boxes';
+    final available =
+        inventory != null && product.category != 'Accessories' && pieces == null
+        ? '${inventory.stockSqm.toStringAsFixed(2)} m²'
+        : stock;
 
     return Material(
       color: AppColors.card,
@@ -321,7 +312,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          product.name,
+                          product.colour.isEmpty
+                              ? product.name
+                              : product.colour,
                           style: const TextStyle(
                             color: AppColors.text,
                             fontSize: 15,
@@ -367,9 +360,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
               const SizedBox(height: 13),
               Row(
                 children: [
-                  Expanded(child: _warehouseSummary('Sydney', sydney)),
-                  Container(width: 1, height: 52, color: AppColors.border),
-                  Expanded(child: _warehouseSummary('Melbourne', melbourne)),
+                  Expanded(child: _stockSummary(region.label, stock)),
+                  Container(width: 1, height: 36, color: AppColors.border),
+                  Expanded(child: _stockSummary('Available', available)),
                 ],
               ),
             ],
@@ -379,17 +372,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  Widget _warehouseSummary(String warehouse, WarehouseInventory? inventory) {
-    final boxes = inventory?.stockBoxes ?? 0;
-    final inStock = boxes > 0;
-
+  Widget _stockSummary(String label, String quantity) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            warehouse,
+            label,
             style: const TextStyle(
               color: AppColors.muted,
               fontSize: 10,
@@ -398,34 +388,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
           const SizedBox(height: 5),
           Text(
-            '$boxes boxes',
+            quantity,
             style: const TextStyle(
               color: AppColors.text,
               fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
-          ),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: inStock ? AppColors.success : AppColors.danger,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                inStock ? 'In Stock' : 'Out of Stock',
-                style: TextStyle(
-                  color: inStock ? AppColors.success : AppColors.danger,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
           ),
         ],
       ),

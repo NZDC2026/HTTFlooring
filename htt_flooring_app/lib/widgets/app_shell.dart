@@ -47,9 +47,9 @@ class AppShell extends StatelessWidget {
           ),
 
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Orders',
+            icon: Icon(Icons.calendar_today_outlined),
+            selectedIcon: Icon(Icons.calendar_today),
+            label: 'Calendar',
           ),
 
           NavigationDestination(icon: Icon(Icons.menu), label: 'More'),

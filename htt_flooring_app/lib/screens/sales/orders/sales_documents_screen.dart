@@ -46,10 +46,7 @@ class _SalesDocumentsScreenState extends State<SalesDocumentsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Sales Documents'),
-        automaticallyImplyLeading: false,
-      ),
+      appBar: AppBar(title: const Text('Sales Documents')),
       body: Column(
         children: [
           _SummaryHeader(

@@ -206,7 +206,7 @@ class _CustomerNotesScreenState extends State<CustomerNotesScreen> {
                   onPressed: () => _openActivity<void>(
                     context,
                     service,
-                    _AddNoteScreen(customer: customer),
+                    AddNoteScreen(customer: customer),
                   ),
                   child: const Text('Add Note'),
                 ),
@@ -217,7 +217,7 @@ class _CustomerNotesScreenState extends State<CustomerNotesScreen> {
                   onPressed: () => _openActivity<bool>(
                     context,
                     service,
-                    _AddFollowUpScreen(customer: customer),
+                    AddFollowUpScreen(customer: customer),
                   ),
                   child: const Text('Add Follow-up'),
                 ),
@@ -421,18 +421,18 @@ Future<T?> _openActivity<T>(
   );
 }
 
-class _AddNoteScreen extends StatefulWidget {
-  const _AddNoteScreen({required this.customer, this.existing});
+class AddNoteScreen extends StatefulWidget {
+  const AddNoteScreen({super.key, required this.customer, this.existing});
 
   final CustomerNote? existing;
 
   final Customer customer;
 
   @override
-  State<_AddNoteScreen> createState() => _AddNoteScreenState();
+  State<AddNoteScreen> createState() => _AddNoteScreenState();
 }
 
-class _AddNoteScreenState extends State<_AddNoteScreen> {
+class _AddNoteScreenState extends State<AddNoteScreen> {
   static const _noteTypes = [
     'Customer Visit',
     'Sales Discussion',
@@ -458,7 +458,7 @@ class _AddNoteScreenState extends State<_AddNoteScreen> {
     final saved = await _openActivity<bool>(
       context,
       context.read<CustomerNoteService>(),
-      _AddFollowUpScreen(
+      AddFollowUpScreen(
         customer: widget.customer,
         existing: widget.existing!.copyWith(
           content: _controller.text,
@@ -617,18 +617,25 @@ class _ActivityCustomerHeader extends StatelessWidget {
   }
 }
 
-class _AddFollowUpScreen extends StatefulWidget {
-  const _AddFollowUpScreen({required this.customer, this.existing});
+class AddFollowUpScreen extends StatefulWidget {
+  const AddFollowUpScreen({
+    super.key,
+    required this.customer,
+    this.existing,
+    this.initialDueDate,
+  });
+
+  final DateTime? initialDueDate;
 
   final CustomerNote? existing;
 
   final Customer customer;
 
   @override
-  State<_AddFollowUpScreen> createState() => _AddFollowUpScreenState();
+  State<AddFollowUpScreen> createState() => _AddFollowUpScreenState();
 }
 
-class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
+class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
   late List<ActivityAttachment> _attachments =
       widget.existing?.attachments ?? const [];
 
@@ -639,10 +646,13 @@ class _AddFollowUpScreenState extends State<_AddFollowUpScreen> {
   late String? _type = widget.existing?.followUpType;
   late String _priority = widget.existing?.priority ?? 'Normal';
   static const _customReminder = 'Custom date';
-  late String _reminder = widget.existing?.reminder ?? '1 day before';
+  late String _reminder =
+      widget.existing?.reminder ??
+      (widget.initialDueDate == null ? '1 day before' : 'On due date');
   late DateTime? _reminderDate = widget.existing?.reminderDate;
   late DateTime _dueDate =
       widget.existing?.followUpDate ??
+      widget.initialDueDate ??
       DateUtils.dateOnly(DateTime.now().add(const Duration(days: 1)));
 
   @override
@@ -1245,7 +1255,7 @@ class _FollowUpDetailState extends State<FollowUpDetail> {
             onPressed: () => _openActivity<bool>(
               context,
               service,
-              _AddFollowUpScreen(customer: widget.customer, existing: task),
+              AddFollowUpScreen(customer: widget.customer, existing: task),
             ),
           ),
           _DeleteButton(note: task, service: service),
@@ -1497,7 +1507,7 @@ class _NoteCard extends StatelessWidget {
         service,
         note.isFollowUp
             ? FollowUpDetail(customer: customer, taskId: note.id)
-            : _AddNoteScreen(customer: customer, existing: note),
+            : AddNoteScreen(customer: customer, existing: note),
       ),
       child: note.isFollowUp ? _buildFollowUp(context) : _buildNote(context),
     );

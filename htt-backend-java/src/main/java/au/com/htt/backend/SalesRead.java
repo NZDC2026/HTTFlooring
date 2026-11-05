@@ -96,6 +96,70 @@ class SalesRead {
         return rows.getFirst();
     }
 
+    String invoiceable(StaffScope.CompanyAccess scope, UUID order) {
+        if (!jdbc.sql("SELECT platform.document_visible(:id)").param("id", order).query(Boolean.class).single()) {
+            throw new StaffScope.Failure(404, "not_found", "Document is unavailable in this scope.");
+        }
+        return customerScope("""
+                SELECT jsonb_build_object('orderId',o.id,'number',d.number,'version',d.version,'state',d.state,
+                  'lines',COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                    'id',l.id,'itemType',l.item_type,'quantity',l.quantity::text,'baseQuantity',l.base_quantity::text,
+                    'invoicedQuantity',q.invoiced::text,
+                    'availableQuantity',(CASE WHEN d.state='CONFIRMED' THEN q.eligible-q.invoiced ELSE 0 END)::text,
+                    'requiresFulfilmentReference',l.item_type<>'STOCK','snapshot',l.snapshot,
+                    'net',l.net::text,'tax',l.tax::text,'gross',l.gross::text) ORDER BY l.id)
+                    FROM sales.order_lines l CROSS JOIN LATERAL (
+                      SELECT COALESCE((SELECT sum(il.quantity) FROM sales.invoice_lines il
+                        WHERE il.company_id=l.company_id AND il.order_line_id=l.id),0) AS invoiced,
+                        CASE WHEN l.item_type='STOCK' THEN COALESCE((SELECT sum(pl.quantity)
+                          FROM inventory.pick_lines pl JOIN inventory.picks p ON p.company_id=pl.company_id AND p.id=pl.pick_id
+                          WHERE pl.company_id=l.company_id AND pl.order_line_id=l.id AND p.state='DISPATCHED'),0)
+                        ELSE l.quantity END-COALESCE((SELECT sum(r.quantity) FROM inventory.sales_return_lines r
+                          WHERE r.company_id=l.company_id AND r.order_line_id=l.id AND r.invoice_line_id IS NULL),0) AS eligible
+                    ) q WHERE l.company_id=o.company_id AND l.order_id=o.id),'[]'::jsonb))::text
+                FROM sales.orders o JOIN platform.documents d ON d.company_id=o.company_id AND d.id=o.id
+                WHERE o.company_id=:company AND o.id=:id AND (:allCustomers OR EXISTS(
+                    SELECT 1 FROM identity.customer_assignments a WHERE a.company_id=o.company_id
+                      AND a.customer_id=o.customer_id AND a.membership_id=:membership))
+                """, scope).param("id", order).query(String.class).optional().orElseThrow(SalesRead::unavailable);
+    }
+
+    List<Map<String, Object>> invoices(StaffScope.CompanyAccess scope, UUID customer, UUID order, int page, int size) {
+        if (customer != null) {
+            customerScope("""
+                    SELECT c.id FROM crm.customers c WHERE c.company_id=:company AND c.id=:id
+                    AND (:allCustomers OR EXISTS(SELECT 1 FROM identity.customer_assignments a
+                        WHERE a.company_id=c.company_id AND a.customer_id=c.id AND a.membership_id=:membership))
+                    """, scope).param("id", customer).query(UUID.class).optional().orElseThrow(SalesRead::unavailable);
+        }
+        if (order != null) {
+            customerScope("""
+                    SELECT o.id FROM sales.orders o JOIN platform.documents d ON d.company_id=o.company_id AND d.id=o.id
+                    WHERE o.company_id=:company AND o.id=:id AND (:allCustomers OR EXISTS(
+                        SELECT 1 FROM identity.customer_assignments a WHERE a.company_id=o.company_id
+                            AND a.customer_id=o.customer_id AND a.membership_id=:membership))
+                    """, scope).param("id", order).query(UUID.class).optional().orElseThrow(SalesRead::unavailable);
+        }
+        return customerScope("""
+                SELECT i.id,d.number,d.version,d.state,i.order_id AS "orderId",i.customer_id AS "customerId",
+                    i.invoice_date::text AS "invoiceDate",i.due_on::text AS "dueOn",
+                    i.net::text AS net,i.tax::text AS tax,i.gross::text AS gross
+                FROM sales.invoices i JOIN platform.documents d ON platform.document_visible(d.id)
+                    AND d.company_id=i.company_id AND d.id=i.id
+                WHERE i.company_id=:company
+                  AND (CAST(:customer AS uuid) IS NULL OR i.customer_id=CAST(:customer AS uuid))
+                  AND (CAST(:order AS uuid) IS NULL OR i.order_id=CAST(:order AS uuid))
+                  AND (:allCustomers OR EXISTS(SELECT 1 FROM identity.customer_assignments a
+                        WHERE a.company_id=i.company_id AND a.customer_id=i.customer_id AND a.membership_id=:membership))
+                ORDER BY i.created_at DESC,i.id LIMIT :size OFFSET :offset
+                """, scope).param("customer", customer).param("order", order).param("size", size)
+                .param("offset", offset(page, size)).query().listOfRows();
+    }
+
+    private static StaffScope.Failure unavailable() {
+        return new StaffScope.Failure(404, "not_found", "Resource is unavailable in this scope.");
+    }
+
     Availability availability(StaffScope.CompanyAccess scope, UUID warehouse, UUID product,
             int page, int size, int offset) {
         var storage = jdbc.sql("""

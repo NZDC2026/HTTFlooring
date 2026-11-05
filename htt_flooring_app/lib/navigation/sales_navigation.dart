@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../screens/sales/customers/customers_screen.dart';
 import '../screens/sales/home/home_screen.dart';
+import '../screens/sales/home/reminder_calendar_screen.dart';
 import '../screens/sales/inventory/inventory_screen.dart';
 import '../screens/sales/more/sales_more_screen.dart';
-import '../screens/sales/orders/sales_documents_screen.dart';
 import '../widgets/app_shell.dart';
 
 class SalesNavigation extends StatefulWidget {
@@ -29,7 +29,7 @@ class _SalesNavigationState extends State<SalesNavigation> {
       HomeScreen(onNavigateToTab: _onDestinationSelected),
       const CustomersScreen(),
       const InventoryScreen(),
-      const SalesDocumentsScreen(),
+      const ReminderCalendarScreen(),
       const SalesMoreScreen(),
     ];
 
