@@ -8,19 +8,28 @@ class StockCheckProduct {
     required this.name,
     required this.sku,
     required this.systemBoxes,
+    this.dimensions,
+    this.reservedBoxes,
+    this.availableSqm,
   });
 
   final String id;
   final String name;
   final String sku;
   final int systemBoxes;
+  final String? dimensions;
+  final int? reservedBoxes;
+  final double? availableSqm;
 }
 
 class StockAdjustmentService extends ChangeNotifier {
+  StockAdjustmentService({List<StockCheckProduct>? products}) {
+    if (products != null) _products = products;
+  }
   final List<StockAdjustment> _requests = [];
 
   // Prototype data. Later replace this with the warehouse inventory repository/API.
-  final List<StockCheckProduct> _products = const [
+  List<StockCheckProduct> _products = const [
     StockCheckProduct(
       id: 'bonita',
       name: 'Bonita Oak',

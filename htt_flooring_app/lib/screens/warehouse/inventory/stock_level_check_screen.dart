@@ -1,367 +1,286 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
-import '../../../models/stock_adjustment.dart';
+import '../../../data/mock_data.dart' as catalog;
 import '../../../services/app_session.dart';
+import '../../../services/inventory_service.dart';
 import '../../../services/stock_adjustment_service.dart';
 import '../../../theme/app_theme.dart';
 
-class StockLevelCheckScreen extends StatelessWidget {
-  const StockLevelCheckScreen({super.key});
-
+class StockLevelCheckScreen extends StatefulWidget {
+  const StockLevelCheckScreen({
+    super.key,
+    this.product,
+    this.products,
+    this.brand,
+  });
+  final StockCheckProduct? product;
+  final List<StockCheckProduct>? products;
+  final String? brand;
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => StockAdjustmentService(),
-      child: const _StockLevelCheckView(),
-    );
-  }
+  State<StockLevelCheckScreen> createState() => _StockLevelCheckScreenState();
 }
 
-class _StockLevelCheckView extends StatefulWidget {
-  const _StockLevelCheckView();
-
-  @override
-  State<_StockLevelCheckView> createState() => _StockLevelCheckViewState();
-}
-
-class _StockLevelCheckViewState extends State<_StockLevelCheckView> {
-  final Map<String, TextEditingController> _controllers = {};
-  final Set<String> _selected = {};
-
+class _StockLevelCheckScreenState extends State<StockLevelCheckScreen> {
+  final _form = GlobalKey<FormState>();
+  final _fields = <String, Map<String, TextEditingController>>{};
+  List<StockCheckProduct> _products = [];
+  final _original = <String, int>{};
+  bool _saving = false;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final products = context.read<StockAdjustmentService>().products;
-    for (final product in products) {
-      _controllers.putIfAbsent(
-        product.id,
-        () => TextEditingController(text: product.systemBoxes.toString()),
-      );
+    if (_fields.isNotEmpty) return;
+    final region = context.read<AppSession>().region;
+    const inventory = InventoryService();
+    _products =
+        widget.products ??
+        (widget.product == null
+            ? [
+                for (final p in catalog.products)
+                  StockCheckProduct(
+                    id: p.id,
+                    name: p.colour,
+                    sku: p.sku,
+                    dimensions: p.dimensions,
+                    systemBoxes:
+                        inventory
+                            .getForProductAndRegion(p.id, region)
+                            ?.stockBoxes ??
+                        0,
+                  ),
+              ]
+            : [widget.product!]);
+    for (final p in _products) {
+      final values = inventory.stockMetrics(p.id, region);
+      _fields[p.id] = {
+        for (final key in ['onHand', 'damage', 'reserved', 'available', 'area'])
+          key: TextEditingController(
+            text: '${values[key] ?? (key == 'onHand' ? p.systemBoxes : 0)}',
+          ),
+      };
+      _original[p.id] = int.parse(_fields[p.id]!['onHand']!.text);
     }
   }
 
   @override
   void dispose() {
-    for (final controller in _controllers.values) {
-      controller.dispose();
+    for (final map in _fields.values) {
+      for (final c in map.values) {
+        c.dispose();
+      }
     }
     super.dispose();
   }
 
-  int _actualBoxes(StockCheckProduct product) {
-    return int.tryParse(_controllers[product.id]?.text ?? '') ??
-        product.systemBoxes;
-  }
-
-  int _difference(StockCheckProduct product) {
-    return _actualBoxes(product) - product.systemBoxes;
-  }
-
-  void _refreshSelection(StockCheckProduct product) {
-    setState(() {
-      if (_difference(product) == 0) {
-        _selected.remove(product.id);
-      }
-    });
-  }
-
-  void _submit() {
-    final service = context.read<StockAdjustmentService>();
-    final lines = service.products
-        .where((product) => _selected.contains(product.id))
-        .where((product) => _difference(product) != 0)
-        .map(
-          (product) => StockAdjustmentLine(
-            productId: product.id,
-            productName: product.name,
-            sku: product.sku,
-            systemBoxes: product.systemBoxes,
-            actualBoxes: _actualBoxes(product),
-          ),
-        )
-        .toList();
-
+  Future<void> _submit() async {
+    if (!_form.currentState!.validate()) return;
+    final lines = [
+      for (final p in _products)
+        if (int.parse(_fields[p.id]!['onHand']!.text) != _original[p.id])
+          {
+            'productId': p.id,
+            'productName': p.name,
+            'sku': p.sku,
+            'systemBoxes': _original[p.id],
+            'actualBoxes': int.parse(_fields[p.id]!['onHand']!.text),
+          },
+    ];
     if (lines.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one stock difference.')),
+        const SnackBar(content: Text('Change On Hand before submitting.')),
       );
       return;
     }
-
-    final session = context.read<AppSession>();
-    final request = service.submit(region: session.regionName, lines: lines);
-
-    setState(() {
-      _selected.clear();
-      for (final product in service.products) {
-        _controllers[product.id]?.text = product.systemBoxes.toString();
-      }
-    });
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Submitted for Approval'),
-        content: Text(
-          '${request.id} has been sent to Front Desk / Manager. '
-          'Official stock has not been changed.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Done'),
+    final region = context.read<AppSession>().regionCode;
+    setState(() => _saving = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'stock_adjustment_requests_${region}_v1';
+      final rows = jsonDecode(prefs.getString(key) ?? '[]') as List;
+      rows.insert(0, {
+        'id': 'SA-${DateTime.now().millisecondsSinceEpoch}',
+        'status': 'Pending Approval',
+        'createdAt': DateTime.now().toIso8601String(),
+        'region': region,
+        'lines': lines,
+      });
+      if (!await prefs.setString(key, jsonEncode(rows)))
+        throw StateError('Save failed');
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Submitted for Approval'),
+          content: const Text(
+            'Your stock changes have been saved as a pending approval in this demo. Current inventory has not been changed.',
           ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final service = context.watch<StockAdjustmentService>();
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Stock Level Check'),
-        backgroundColor: AppColors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.warningLight,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Text(
-                      'Count the physical stock and enter Actual Stock. '
-                      'Differences are submitted for approval and do not '
-                      'change official inventory directly.',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Consumer<AppSession>(
-                    builder: (context, session, _) {
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.warehouse_outlined,
-                              color: AppColors.green,
-                            ),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Text(
-                                'Warehouse',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.text,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${session.regionName} Store',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.green,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                itemCount: service.products.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final product = service.products[index];
-                  final difference = _difference(product);
-                  final selected = _selected.contains(product.id);
-
-                  return Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: selected,
-                              onChanged: difference == 0
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        if (value ?? false) {
-                                          _selected.add(product.id);
-                                        } else {
-                                          _selected.remove(product.id);
-                                        }
-                                      });
-                                    },
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    product.name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.text,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    product.sku,
-                                    style: const TextStyle(
-                                      color: AppColors.muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _ValueBox(
-                                label: 'System Stock',
-                                value: '${product.systemBoxes} boxes',
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: _controllers[product.id],
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Actual Stock',
-                                  suffixText: 'boxes',
-                                  border: OutlineInputBorder(),
-                                ),
-                                onChanged: (_) => _refreshSelection(product),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            const Text(
-                              'Difference',
-                              style: TextStyle(color: AppColors.muted),
-                            ),
-                            const Spacer(),
-                            Text(
-                              difference > 0 ? '+$difference' : '$difference',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                color: difference == 0
-                                    ? AppColors.muted
-                                    : difference > 0
-                                    ? AppColors.success
-                                    : AppColors.danger,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Text('boxes'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('OK'),
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: FilledButton.icon(
-          onPressed: _selected.isEmpty ? null : _submit,
-          icon: const Icon(Icons.send_outlined),
-          label: Text(
-            _selected.isEmpty
-                ? 'Select Stock Differences'
-                : 'Submit ${_selected.length} for Approval',
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to save. Please retry.')),
+        );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _number(
+    StockCheckProduct p,
+    String key,
+    String label, {
+    bool decimal = false,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+      const SizedBox(height: 5),
+      TextFormField(
+        controller: _fields[p.id]![key],
+        readOnly: key != 'onHand' || _saving,
+        enableInteractiveSelection: key == 'onHand',
+        keyboardType: TextInputType.numberWithOptions(decimal: decimal),
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: key == 'damage'
+              ? AppColors.danger
+              : key == 'reserved'
+              ? AppColors.copper
+              : AppColors.green,
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: key == 'onHand',
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: key == 'onHand' ? 7 : 0,
+            vertical: 10,
           ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.green,
-            padding: const EdgeInsets.symmetric(vertical: 16),
+          border: key == 'onHand'
+              ? const OutlineInputBorder()
+              : InputBorder.none,
+          enabledBorder: key == 'onHand'
+              ? const OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.border),
+                )
+              : InputBorder.none,
+          focusedBorder: key == 'onHand'
+              ? const OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.green),
+                )
+              : InputBorder.none,
+        ),
+        validator: (v) {
+          final n = num.tryParse(v ?? '');
+          return n == null ||
+                  !n.isFinite ||
+                  n < 0 ||
+                  (!decimal && n != n.roundToDouble())
+              ? 'Invalid'
+              : null;
+        },
+      ),
+      if (!decimal)
+        const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: Text(
+            'boxes',
+            style: TextStyle(fontSize: 10, color: AppColors.muted),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ValueBox extends StatelessWidget {
-  const _ValueBox({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
+    ],
+  );
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.ivory,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.background,
+    appBar: AppBar(title: const Text('Stock Level Check')),
+    body: Form(
+      key: _form,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          Text(label, style: const TextStyle(color: AppColors.muted)),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: AppColors.text,
+          if (widget.brand != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                widget.brand!,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.green,
+                ),
+              ),
             ),
-          ),
+          for (final p in _products)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    p.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      p.sku,
+                      if (p.dimensions != null) p.dimensions!,
+                    ].join(' · '),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _number(p, 'onHand', 'On Hand')),
+                      const SizedBox(width: 8),
+                      Expanded(child: _number(p, 'damage', 'Damage')),
+                      const SizedBox(width: 8),
+                      Expanded(child: _number(p, 'reserved', 'Reserved')),
+                      const SizedBox(width: 8),
+                      Expanded(child: _number(p, 'available', 'Available')),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _number(p, 'area', 'Available Area (m²)', decimal: true),
+                ],
+              ),
+            ),
         ],
       ),
-    );
-  }
+    ),
+    bottomNavigationBar: SafeArea(
+      minimum: const EdgeInsets.all(16),
+      child: FilledButton.icon(
+        onPressed: _saving ? null : _submit,
+        icon: const Icon(Icons.send_outlined, size: 18),
+        label: Text(_saving ? 'Saving…' : 'Save & Submit for Approval'),
+      ),
+    ),
+  );
 }

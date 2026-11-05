@@ -14,7 +14,7 @@ import '../returns/customer_returns_screen.dart';
 import '../../sales/home/reminder_calendar_screen.dart';
 import 'warehouse_activities_screen.dart';
 import '../inventory/warehouse_product_entry_screen.dart';
-import '../orders/verify_order_screen.dart';
+import '../inventory/damage_stock_screen.dart';
 import '../inventory/warehouse_inventory_screen.dart';
 import '../more/warehouse_more_screen.dart';
 import '../orders/picking_list_screen.dart';
@@ -586,9 +586,9 @@ class WarehouseHomeScreen extends StatelessWidget {
                   onTap: () => open(const PickingListScreen()),
                 ),
                 _tile(
-                  title: 'Verify Order',
+                  title: 'Damage Stock',
                   icon: Icons.verified_user_outlined,
-                  onTap: () => open(const VerifyOrderScreen()),
+                  onTap: () => open(const DamageStockScreen()),
                 ),
                 _tile(
                   title: 'Goods Receiving',

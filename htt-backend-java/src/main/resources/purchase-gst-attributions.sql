@@ -1,0 +1,7 @@
+-- Preserved from the legacy purchasing endpoint.
+SELECT x.id,x.source_document_id,x.bill_line_id,bl.bill_id,b.supplier_id,x.kind,x.attribution_date::text,x.amount,x.gst_amount FROM (
+SELECT ge.id,ge.company_id,bl.bill_id AS source_document_id,ge.bill_line_id,'BILL_CREDIT'::text AS kind,ge.attribution_date,bl.net+bl.tax AS amount,ge.recoverable_tax AS gst_amount FROM accounting.purchase_gst_entries ge JOIN purchase.bill_line_balances bl ON bl.company_id=ge.company_id AND bl.id=ge.bill_line_id WHERE ge.gst_basis='NON_CASH' AND ge.attribution_date IS NOT NULL
+UNION ALL SELECT ga.id,ga.company_id,ga.source_document_id,ga.bill_line_id,CASE WHEN pa.advance_id IS NULL THEN 'CASH_PAYMENT' ELSE 'PREPAYMENT_APPLICATION' END,ga.attribution_date,ga.amount,ga.gst_amount FROM accounting.purchase_gst_attributions ga JOIN accounting.supplier_payment_allocations pa ON pa.company_id=ga.company_id AND pa.id=ga.allocation_id
+UNION ALL SELECT id,company_id,source_document_id,bill_line_id,kind,adjustment_date,amount,gst_amount FROM accounting.purchase_gst_adjustments)x
+JOIN purchase.bill_lines bl ON bl.company_id=x.company_id AND bl.id=x.bill_line_id JOIN purchase.bills b ON b.company_id=bl.company_id AND b.id=bl.bill_id
+WHERE x.company_id=:company AND (CAST(:supplier AS uuid) IS NULL OR b.supplier_id=CAST(:supplier AS uuid)) AND (CAST(:from AS date) IS NULL OR x.attribution_date>=CAST(:from AS date)) AND (CAST(:to AS date) IS NULL OR x.attribution_date<=CAST(:to AS date)) ORDER BY x.attribution_date,x.id LIMIT :size OFFSET :offset

@@ -7,6 +7,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--legacy', type=pathlib.Path, default=project.parent/'htt-backend')
 parser.add_argument('--flutter', type=pathlib.Path, default=project.parent/'htt_flooring_app')
 parser.add_argument('--stalled-uploads', action='store_true', help='Also run slow incomplete upload probes (known timing/status difference)')
+parser.add_argument('--gst-basis', choices=['NON_CASH','CASH'], default='NON_CASH', help='GST policy for the synthetic company')
 args = parser.parse_args()
 if not args.legacy.exists():
     args.legacy = project.parent/'htt-backend-c#'
@@ -14,6 +15,7 @@ for directory in (args.legacy, args.flutter):
     if not directory.is_dir():
         raise SystemExit(f'Missing source directory: {directory}')
 env = dict(os.environ)
+env['HTT_COMPAT_GST_BASIS'] = args.gst_basis
 if args.stalled_uploads:
     env['HTT_STALL_TEST'] = '1'
 for key, executable in [('HTT_COMPAT_DOTNET','dotnet'),('HTT_COMPAT_FLUTTER','flutter')]:
@@ -56,6 +58,8 @@ with (run/'run.log').open('w') as log:
             'receipt-fixture','dispatch-fixture','purchase-fixture','supplier-settlement-fixture','supplier-corrections-fixture','extra-fixture']
         for fixture in fixtures:
             sql(source/(fixture+'.sql'))
+        command(['docker','exec',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-c',
+            f"BEGIN; SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true); UPDATE core.companies SET gst_basis='{args.gst_basis}' WHERE id='00000000-0000-0000-0000-000000000001'; COMMIT"],stdout=log,stderr=log)
         legacy = run/'dotnet-baseline'
         shutil.copytree(args.legacy,legacy,ignore=shutil.ignore_patterns('.git','bin','obj','node_modules'))
         for file in (legacy/'src/Htt.Host.Api').rglob('*.cs'):
@@ -87,6 +91,7 @@ with (run/'run.log').open('w') as log:
         shutil.copy2(source/'check.py',check/'check.py')
         with (check/'parity.log').open('w') as parity:
             command(['python3',check/'check.py'],stdout=parity,stderr=parity)
+        sql(source/'verify-ledgers.sql')
         (run/'PASSED').write_text('Synthetic compatibility suite passed. This does not constitute phases 0–4 acceptance.\n')
     finally:
         subprocess.run(['docker','rm','-f',container],stdout=log,stderr=log)

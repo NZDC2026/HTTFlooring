@@ -6,6 +6,7 @@ import '../../../models/product.dart';
 import '../../../models/sales_user.dart';
 import '../../../models/warehouse_inventory.dart';
 import '../../../services/app_session.dart';
+import '../../../services/stock_adjustment_service.dart';
 import '../../../services/inventory_service.dart';
 import '../../sales/catalog_filters.dart';
 import 'stock_level_check_screen.dart';
@@ -152,28 +153,45 @@ class _WarehouseInventoryScreenState extends State<WarehouseInventoryScreen> {
                         for (final group in groups.entries)
                           Card(
                             margin: const EdgeInsets.only(bottom: 10),
-                            child: ExpansionTile(
-                              key: PageStorageKey(group.key),
-                              initiallyExpanded: _query.trim().isNotEmpty,
+                            child: ListTile(
                               title: catalogSeriesTitle(group.key.$3, [
                                 for (final row in group.value) row.product,
                               ]),
                               subtitle: Text(
                                 [group.key.$1, ?group.key.$2].join(' · '),
                               ),
-                              childrenPadding: const EdgeInsets.fromLTRB(
-                                8,
-                                0,
-                                8,
-                                8,
-                              ),
-                              children: [
-                                for (final row in group.value)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
-                                    child: _ProductCard(row: row),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => StockLevelCheckScreen(
+                                    brand: group.key.$3,
+                                    products: [
+                                      for (final product in products.where(
+                                        (p) =>
+                                            p.category == group.key.$1 &&
+                                            p.installationStyle ==
+                                                group.key.$2 &&
+                                            (p.brand ?? p.name) == group.key.$3,
+                                      ))
+                                        StockCheckProduct(
+                                          id: product.id,
+                                          name: product.colour,
+                                          sku: product.sku,
+                                          dimensions: product.dimensions,
+                                          systemBoxes:
+                                              const InventoryService()
+                                                  .getForProductAndRegion(
+                                                    product.id,
+                                                    region,
+                                                  )
+                                                  ?.stockBoxes ??
+                                              0,
+                                        ),
+                                    ],
                                   ),
-                              ],
+                                ),
+                              ),
                             ),
                           ),
                       ],
@@ -281,162 +299,6 @@ class _Header extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.row});
-
-  final _WarehouseProductRow row;
-
-  @override
-  Widget build(BuildContext context) {
-    final inventory = row.inventory;
-
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFDF9),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE3DED5)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8E5D6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.inventory_2_outlined,
-              color: Color(0xFFB96532),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  row.product.colour.isEmpty
-                      ? row.product.name
-                      : row.product.colour,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF17221F),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${row.product.sku} · ${row.product.category}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF777B78),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (inventory == null)
-                  const Text(
-                    'No warehouse inventory record',
-                    style: TextStyle(fontSize: 13, color: Color(0xFFD83B32)),
-                  )
-                else
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: [
-                      _StockValue(
-                        icon: Icons.inventory_2_outlined,
-                        text: '${inventory.stockBoxes} boxes',
-                      ),
-                      _StockValue(
-                        icon: Icons.square_foot_outlined,
-                        text: '${inventory.stockSqm.toStringAsFixed(2)} m²',
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          _StatusBadge(status: row.status),
-        ],
-      ),
-    );
-  }
-}
-
-class _StockValue extends StatelessWidget {
-  const _StockValue({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: const Color(0xFF777B78)),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF17221F),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-
-  final _WarehouseStockStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    late final String label;
-    late final Color foreground;
-    late final Color background;
-
-    switch (status) {
-      case _WarehouseStockStatus.inStock:
-        label = 'In Stock';
-        foreground = const Color(0xFF258453);
-        background = const Color(0xFFE2F2E7);
-      case _WarehouseStockStatus.lowStock:
-        label = 'Low Stock';
-        foreground = const Color(0xFFD9892D);
-        background = const Color(0xFFFFE9D3);
-      case _WarehouseStockStatus.outOfStock:
-        label = 'Out';
-        foreground = const Color(0xFFD83B32);
-        background = const Color(0xFFFFE3DF);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: foreground,
-        ),
       ),
     );
   }

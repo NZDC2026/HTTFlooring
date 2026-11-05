@@ -224,10 +224,7 @@ class WarehouseOrderService extends ChangeNotifier {
     if (order == null || item == null) {
       return false;
     }
-    if (!item.checksComplete ||
-        item.preparedBoxes <= 0 ||
-        (order.preparationPhotos.length < 2 &&
-            item.preparationPhotos.length < 2)) {
+    if (!item.checksComplete || item.preparedBoxes <= 0) {
       return false;
     }
     if (order.status == WarehouseOrderStatus.toPick) {

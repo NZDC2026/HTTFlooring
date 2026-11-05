@@ -180,7 +180,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             other = '00000000-0000-0000-0000-000000000021'
             assert {entry['companyId'] for entry in actual[1]['companies']} == {other, expected['companies'][0]['companyId']}
             actual[1]['companies'][:] = [entry for entry in actual[1]['companies'] if entry['companyId'] != other]
-            expected['companies'][0]['permissions'] += ['crm.collaboration.read','crm.visits.write','documents.attachments.write','documents.files.read','crm.notes.write','crm.boards.write','catalog.read','foundation.read','accounting.read','audit.read','customers.write','catalog.write','pricing.read','sales.quotes.read','sales.quotes.write','sales.orders.read','sales.credit.read','warehouses.all','sales.orders.create','inventory.read','sales.orders.cancel','sales.invoices.read','sales.invoices.write','accounting.receipts.read','accounting.receipts.write','accounting.banks.use','accounting.receivables.read','inventory.picks.read','inventory.picks.write','inventory.dispatch','inventory.opening.write','purchase.orders.read','purchase.orders.write','purchase.cost.read','purchase.orders.confirm','purchase.orders.close','purchase.receipts.read','purchase.receipts.write','purchase.grni.read','purchase.bills.read','purchase.bills.post','purchase.payments.read','purchase.payments.post','purchase.ap.read','purchase.advances.apply','purchase.advances.unapply','purchase.payments.reverse','purchase.bills.variance.post','purchase.payments.reapply']
+            expected['companies'][0]['permissions'] += ['crm.collaboration.read','crm.visits.write','documents.attachments.write','documents.files.read','crm.notes.write','crm.boards.write','catalog.read','foundation.read','accounting.read','audit.read','customers.write','catalog.write','pricing.read','sales.quotes.read','sales.quotes.write','sales.quotes.approve','sales.orders.read','sales.credit.read','warehouses.all','sales.orders.create','inventory.read','sales.orders.cancel','sales.invoices.read','sales.invoices.write','accounting.receipts.read','accounting.receipts.write','accounting.banks.use','accounting.receivables.read','inventory.picks.read','inventory.picks.write','inventory.dispatch','inventory.opening.write','purchase.orders.read','purchase.orders.write','purchase.cost.read','purchase.orders.confirm','purchase.orders.close','purchase.receipts.read','purchase.receipts.write','purchase.grni.read','purchase.bills.read','purchase.bills.post','purchase.payments.read','purchase.payments.post','purchase.ap.read','purchase.advances.apply','purchase.advances.unapply','purchase.payments.reverse','purchase.bills.variance.post','purchase.payments.reapply','purchase.input_gst.read']
             expected['companies'][0]['permissions'].sort()
             actual[1]['companies'][0]['permissions'].sort()
             assert actual == (200,expected), actual
@@ -243,6 +243,39 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 'lines':[{'productUnitId':unit_id,'quantity':2}]},key='legacy-quote-'+str(uuid.uuid4()))
             assert quote[0] == 201, quote
             assert quote[1]['id'] in [item['id'] for item in request('/api/v1/quotes',employee,company)[1]['items']]
+            for first, second in ((legacy_url,url),(url,legacy_url)):
+                draft = request('/api/v1/quotes',employee,company,base=legacy_url,payload={
+                    'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
+                    'warehouseId':'00000000-0000-0000-0000-000000000014',
+                    'lines':[{'productUnitId':unit_id,'quantity':2}]},key='review-quote-'+str(uuid.uuid4()))
+                assert draft[0] == 201, draft
+                path = '/api/v1/quotes/'+draft[1]['id']
+                submitted = request(path+'/submit',employee,company,base=legacy_url,
+                    payload={},key='submit-'+draft[1]['id'],version=1)
+                assert submitted[0] == 200 and submitted[1]['status'] == 'SUBMITTED', submitted
+                args = dict(payload={'reason':'  Synthetic café & office review  '},
+                    key='return-'+draft[1]['id'],version=submitted[1]['version'])
+                assert request(path+'/return-to-draft',token('test-purchase-reader'),company,base=first,**args)[0] == 403
+                assert request(path+'/return-to-draft',employee,company,base=first,
+                    payload=args['payload'],key=args['key'])[0] == 428
+                returned = request(path+'/return-to-draft',employee,company,base=first,**args)
+                assert returned[0] == 200 and returned[1]['status'] == 'DRAFT', returned
+                assert returned[1]['number'] == submitted[1]['number']
+                assert returned[1]['version'] == submitted[1]['version']+1
+                replayed = request(path+'/return-to-draft',employee,company,base=second,**args)
+                assert replayed == returned, (first, returned, replayed)
+                changed = dict(args,payload={'reason':'Different review'})
+                assert request(path+'/return-to-draft',employee,company,base=second,**changed)[0] == 409
+                assert request(path+'/return-to-draft',employee,company,base=second,
+                    payload=args['payload'],key='stale-'+args['key'],version=submitted[1]['version'])[0] == 409
+                invalid = request(path+'/return-to-draft',employee,company,base=second,
+                    payload=args['payload'],key='draft-'+args['key'],version=returned[1]['version'])
+                assert invalid[0] == 409, invalid
+                view = request(path,employee,company)
+                assert view == request(path,employee,company,base=legacy_url)
+                assert view[1]['status'] == 'DRAFT' and view[1]['version'] == returned[1]['version']
+            print('PASS: bidirectional quote return-to-draft replay, number retention, stale/permission/state gates')
+
             order = request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
                 'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
                 'warehouseId':'00000000-0000-0000-0000-000000000014',
@@ -636,6 +669,83 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             print('PASS: bidirectional supplier bill/payment replay with partially settled AP')
             print('PASS: bidirectional purchase receipt and exactly-once stock addition')
             print('PASS: bidirectional purchase order draft, update, confirmation and closure replay')
+            today = datetime.date.today().isoformat()
+            taxable = request('/api/v1/purchase-orders',employee,company,payload={
+                'supplierId':supplier,'warehouseId':'00000000-0000-0000-0000-000000000014',
+                'lines':[{'productUnitId':unit_id,'quantity':1,'unitCost':15,
+                    'taxCodeId':'00000000-0000-0000-0000-000000000053'}]},key='tax-po-'+uuid.uuid4().hex)
+            assert taxable[0] == 201, taxable
+            tax_po = '/api/v1/purchase-orders/'+taxable[1]['order']['id']
+            confirmed = request(tax_po+'/confirm',employee,company,payload={},
+                key='tax-confirm-'+uuid.uuid4().hex,version=taxable[1]['order']['version'])
+            assert confirmed[0] == 200, confirmed
+            received = request(tax_po+'/receipts',employee,company,payload={
+                'reference':'Tax receipt '+uuid.uuid4().hex,
+                'lines':[{'orderLineId':confirmed[1]['lines'][0]['id'],'quantity':1}]},
+                key='tax-receive-'+uuid.uuid4().hex,version=confirmed[1]['order']['version'])
+            assert received[0] == 201, received
+            unmatched_path = '/api/v1/accounting/grni/unmatched?supplierId='+supplier
+            unmatched = request(unmatched_path,employee,company)
+            assert unmatched == request(unmatched_path,employee,company,base=legacy_url)
+            assert any(item['receiptLineId'] == received[1]['lines'][0]['id'] for item in unmatched[1]['items']), unmatched
+            bill = request('/api/v1/supplier-bills',employee,company,payload={
+                'supplierId':supplier,'supplierInvoice':'Tax bill '+uuid.uuid4().hex,
+                'invoiceDate':today,'dueOn':today,'postingDate':today,
+                'taxInvoiceReference':'Synthetic tax invoice','taxInvoiceHeldOn':today,
+                'lines':[{'receiptLineId':received[1]['lines'][0]['id'],'quantity':1,'net':15,'tax':1.5}]},
+                key='tax-bill-'+uuid.uuid4().hex)
+            assert bill[0] == 201 and float(bill[1]['bill']['gross']) == 16.5, bill
+            for report in ('purchase-gst','purchase-gst-attributions'):
+                report_path = '/api/v1/accounting/'+report
+                for query in ('','?supplierId='+supplier,'?from='+today+'&to='+today,
+                        '?supplierId='+supplier+'&from='+today+'&to='+today+'&pageSize=1',
+                        '?supplierId='+str(uuid.uuid4())):
+                    actual = request(report_path+query,employee,company)
+                    assert actual == request(report_path+query,employee,company,base=legacy_url), (report_path,actual)
+                assert request(report_path,token('test-purchase-reader'),company)[0] == 403
+                for query in ('?from=2026-12-01&to=2026-11-01','?page=0','?pageSize=101'):
+                    assert request(report_path+query,employee,company)[0] == request(report_path+query,employee,company,base=legacy_url)[0] == 422
+            gst = request('/api/v1/accounting/purchase-gst?supplierId='+supplier,employee,company)
+            cash = os.environ.get('HTT_COMPAT_GST_BASIS') == 'CASH'
+            assert float(gst[1]['attributedTax']) == (0 if cash else 1.5), gst
+            assert float(gst[1]['pendingPaymentTax']) == (1.5 if cash else 0), gst
+            tax_entries = request('/api/v1/accounting/purchase-gst-attributions?supplierId='+supplier,employee,company)
+            assert any(item['billId']==bill[1]['bill']['id'] and float(item['gstAmount'])==1.5
+                and item['kind']=='BILL_CREDIT' for item in tax_entries[1]['items']) == (not cash), tax_entries
+            payment = dict(payload={'amount':5.5,'method':'BANK_TRANSFER','reference':'Tax partial payment '+uuid.uuid4().hex,
+                'allocations':[{'billLineId':bill[1]['lines'][0]['id'],'amount':5.5}]},key='tax-payment-'+uuid.uuid4().hex)
+            paid = request('/api/v1/suppliers/'+supplier+'/payments',employee,company,**payment)
+            assert paid[0] == 201, paid
+            assert request('/api/v1/suppliers/'+supplier+'/payments',employee,company,base=legacy_url,**payment) == paid
+            gst = request('/api/v1/accounting/purchase-gst?supplierId='+supplier,employee,company)
+            assert gst == request('/api/v1/accounting/purchase-gst?supplierId='+supplier,employee,company,base=legacy_url)
+            assert float(gst[1]['attributedTax']) == (0.5 if cash else 1.5), gst
+            assert float(gst[1]['pendingPaymentTax']) == (1 if cash else 0), gst
+            tax_entries = request('/api/v1/accounting/purchase-gst-attributions?supplierId='+supplier,employee,company)
+            assert tax_entries == request('/api/v1/accounting/purchase-gst-attributions?supplierId='+supplier,employee,company,base=legacy_url)
+            if cash:
+                assert any(item['billId']==bill[1]['bill']['id'] and float(item['gstAmount'])==0.5
+                    and item['kind']=='CASH_PAYMENT' for item in tax_entries[1]['items']), tax_entries
+            reversal = dict(payload={'reference':'Tax reversal '+uuid.uuid4().hex,'reason':'Synthetic partial payment reversal'},
+                key='tax-reversal-'+uuid.uuid4().hex)
+            reverse_path = '/api/v1/supplier-payments/'+paid[1]['payment']['id']+'/reverse'
+            reversed_payment = request(reverse_path,employee,company,base=legacy_url,**reversal)
+            assert reversed_payment[0] == 201, reversed_payment
+            assert request(reverse_path,employee,company,**reversal) == reversed_payment
+            gst = request('/api/v1/accounting/purchase-gst?supplierId='+supplier,employee,company)
+            assert gst == request('/api/v1/accounting/purchase-gst?supplierId='+supplier,employee,company,base=legacy_url)
+            assert float(gst[1]['attributedTax']) == (0 if cash else 1.5), gst
+            assert float(gst[1]['pendingPaymentTax']) == (1.5 if cash else 0), gst
+            tax_entries = request('/api/v1/accounting/purchase-gst-attributions?supplierId='+supplier,employee,company)
+            assert tax_entries == request('/api/v1/accounting/purchase-gst-attributions?supplierId='+supplier,employee,company,base=legacy_url)
+            if cash:
+                assert any(item['billId']==bill[1]['bill']['id'] and float(item['gstAmount'])==-0.5
+                    for item in tax_entries[1]['items']), tax_entries
+            print('PASS: purchase GST partial payment and reversal under '+('CASH' if cash else 'NON_CASH'))
+            unmatched = request(unmatched_path,employee,company)
+            assert not any(item['receiptLineId'] == received[1]['lines'][0]['id'] for item in unmatched[1]['items']), unmatched
+            print('PASS: populated purchase GST, attribution filters and unmatched GRNI removal')
+
             credit_path = '/api/v1/customers/00000000-0000-0000-0000-000000000011/credit'
             for first, second in ((legacy_url,url),(url,legacy_url)):
                 candidate = request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={

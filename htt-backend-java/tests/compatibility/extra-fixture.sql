@@ -8,3 +8,15 @@ INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES
  ('00000000-0000-0000-0000-000000000001','PURCHASE_RECEIPT','PR-') ON CONFLICT DO NOTHING;
 INSERT INTO accounting.accounts(id,company_id,code,name,kind,control_kind) VALUES ('00000000-0000-0000-0000-000000000047','00000000-0000-0000-0000-000000000001','TEST_GRNI','Synthetic GRNI','LIABILITY','GRNI');
 INSERT INTO accounting.account_mappings(company_id,purpose,account_id) VALUES ('00000000-0000-0000-0000-000000000001','GRNI','00000000-0000-0000-0000-000000000047');
+
+SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true);
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','sales.quotes.approve') ON CONFLICT DO NOTHING;
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES ('00000000-0000-0000-0000-000000000001','QUOTE','Q-') ON CONFLICT DO NOTHING;
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','purchase.input_gst.read') ON CONFLICT DO NOTHING;
+INSERT INTO accounting.tax_codes(id,company_id,code,name,category) VALUES ('00000000-0000-0000-0000-000000000053','00000000-0000-0000-0000-000000000001','TEST_GST10','Synthetic GST 10%','TAXABLE');
+INSERT INTO accounting.tax_rates(company_id,tax_code_id,rate,effective_from) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000053',0.1,'2026-01-01');
+INSERT INTO accounting.accounts(id,company_id,code,name,kind,control_kind) VALUES ('00000000-0000-0000-0000-000000000054','00000000-0000-0000-0000-000000000001','TEST_GST_INPUT','Synthetic GST Input','ASSET','GST');
+INSERT INTO accounting.tax_account_mappings(company_id,tax_code_id,input_account_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000053','00000000-0000-0000-0000-000000000054');
+UPDATE core.companies SET gst_registered=true,abn='10000000000' WHERE id='00000000-0000-0000-0000-000000000001';
+INSERT INTO accounting.accounts(id,company_id,code,name,kind,control_kind) VALUES ('00000000-0000-0000-0000-000000000055','00000000-0000-0000-0000-000000000001','TEST_GST_DEFERRED','Synthetic Deferred GST Input','ASSET','GST');
+INSERT INTO accounting.account_mappings(company_id,purpose,account_id) VALUES ('00000000-0000-0000-0000-000000000001','GST_INPUT_DEFERRED','00000000-0000-0000-0000-000000000055');

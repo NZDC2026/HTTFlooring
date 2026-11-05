@@ -38,7 +38,6 @@ class _PrepareItemScreenState extends State<PrepareItemScreen> {
     final complete =
         _confirmed &&
         !_reportIssue &&
-        order.preparationPhotos.length >= 2 &&
         order.items.isNotEmpty &&
         order.items.every((i) => i.checksComplete && i.preparedBoxes > 0);
     return Scaffold(
@@ -168,7 +167,7 @@ class _PrepareItemScreenState extends State<PrepareItemScreen> {
                       ),
                     ),
                     Text(
-                      '${order.preparationPhotos.length}/2 minimum',
+                      '${order.preparationPhotos.length} photos · Optional',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.copper,
@@ -230,14 +229,13 @@ class _PrepareItemScreenState extends State<PrepareItemScreen> {
                     ),
                   ],
                 ),
-                if (order.preparationPhotos.length < 2)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Take at least 2 photos showing all prepared goods together.',
-                      style: TextStyle(fontSize: 11, color: AppColors.copper),
-                    ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Optional: add photos showing all prepared goods together.',
+                    style: TextStyle(fontSize: 11, color: AppColors.copper),
                   ),
+                ),
               ],
             ),
           ),

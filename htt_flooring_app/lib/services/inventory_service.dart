@@ -16,6 +16,28 @@ class InventoryService {
     _receipts = await SharedPreferences.getInstance();
   }
 
+  Map<String, num> stockMetrics(String id, SalesRegion region) {
+    final raw = _receipts?.getString('stock_metrics_${region.code}_$id');
+    if (raw == null) return {};
+    return Map<String, num>.from(jsonDecode(raw) as Map);
+  }
+
+  Future<void> saveStockMetrics(
+    String id,
+    SalesRegion region,
+    Map<String, num> values,
+  ) async {
+    if (values.values.any((v) => !v.isFinite || v < 0))
+      throw ArgumentError('Invalid stock quantity');
+    final prefs = _receipts ??= await SharedPreferences.getInstance();
+    if (!await prefs.setString(
+      'stock_metrics_${region.code}_$id',
+      jsonEncode(values),
+    ))
+      throw StateError('Unable to save stock');
+    receiptChanges.value++;
+  }
+
   String _receiptKey(String id, SalesRegion region) =>
       'warehouse_received_${region.code}_$id';
 
@@ -71,15 +93,17 @@ class InventoryService {
     final received =
         (transfers[_receiptKey(item.productId, item.region)] as int? ?? 0) +
         (_receipts?.getInt(_receiptKey(item.productId, item.region)) ?? 0);
-    if (received == 0) return item;
+    final metrics = stockMetrics(item.productId, item.region);
+    if (received == 0 && metrics.isEmpty) return item;
     final sqmPerBox = item.stockBoxes == 0
         ? 0.0
         : item.stockSqm / item.stockBoxes;
     return WarehouseInventory(
       productId: item.productId,
       region: item.region,
-      stockBoxes: item.stockBoxes + received,
-      stockSqm: item.stockSqm + received * sqmPerBox,
+      stockBoxes: metrics['onHand']?.toInt() ?? item.stockBoxes + received,
+      stockSqm:
+          metrics['area']?.toDouble() ?? item.stockSqm + received * sqmPerBox,
       stockPieces: item.stockPieces,
     );
   }
