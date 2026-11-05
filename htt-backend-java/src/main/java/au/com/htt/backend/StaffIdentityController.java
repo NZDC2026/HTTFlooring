@@ -6,8 +6,6 @@ import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.Map;
-import java.sql.SQLException;
-import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import tools.jackson.databind.json.JsonMapper;
@@ -15,7 +13,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -44,8 +41,9 @@ class StaffIdentityController {
     private final SalesRead sales;
     private final OrderWrites orderWrites;
     private final InvoiceOperations invoiceOperations;
+    private final ReceiptOperations receipts;
 
-    StaffIdentityController(JdbcClient jdbc, StaffScope staff, JsonMapper json, IdempotentWrite writes, DocumentUpload uploads, CustomerWrites customers, StaffAudit audit, ProductWrites productWrites, PriceRead prices, SalesRead sales, OrderWrites orderWrites, InvoiceOperations invoiceOperations) {
+    StaffIdentityController(JdbcClient jdbc, StaffScope staff, JsonMapper json, IdempotentWrite writes, DocumentUpload uploads, CustomerWrites customers, StaffAudit audit, ProductWrites productWrites, PriceRead prices, SalesRead sales, OrderWrites orderWrites, InvoiceOperations invoiceOperations, ReceiptOperations receipts) {
         this.jdbc = jdbc;
         this.staff = staff;
         this.json = json;
@@ -58,6 +56,7 @@ class StaffIdentityController {
         this.sales = sales;
         this.orderWrites = orderWrites;
         this.invoiceOperations = invoiceOperations;
+        this.receipts = receipts;
     }
 
     @GetMapping("/api/v1/me")
@@ -138,6 +137,53 @@ class StaffIdentityController {
         var scope = staff.require(token, request.getHeader("X-Company-Id"), "sales.invoices.read");
         String body = staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
                 () -> sales.invoiceable(scope, id));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+    }
+
+    @PostMapping("/api/v1/customers/{id}/receipts")
+    ResponseEntity<String> receive(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            @RequestBody ReceiptOperations.Input input, HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "accounting.receipts.write");
+        String requestId = (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID);
+        var result = staff.inCompany(scope, requestId,
+                () -> receipts.post(scope, id, input, request.getHeader("Idempotency-Key"), requestId));
+        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    }
+
+    @GetMapping("/api/v1/customer-receipts/{id}")
+    ResponseEntity<String> receipt(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "accounting.receipts.read");
+        String body = staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
+                () -> receipts.view(scope, id));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+    }
+
+    @GetMapping("/api/v1/customers/{id}/receipts")
+    Page<Map<String, Object>> receipts(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            HttpServletRequest request, @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "25") int pageSize) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "accounting.receipts.read");
+        var rows = staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
+                () -> receipts.list(scope, id, page, pageSize));
+        return new Page<>(rows, page, pageSize);
+    }
+
+    @GetMapping("/api/v1/customers/{id}/receivables")
+    ReceiptOperations.Receivables receivables(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            HttpServletRequest request, @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "25") int pageSize) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "accounting.receivables.read");
+        return staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
+                () -> receipts.receivables(scope, id, page, pageSize));
+    }
+
+    @GetMapping("/api/v1/sales-invoices/{id}/gst")
+    ResponseEntity<String> invoiceGst(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
+            HttpServletRequest request) {
+        var scope = staff.require(token, request.getHeader("X-Company-Id"), "accounting.receivables.read");
+        String body = staff.inCompany(scope, (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
+                () -> invoiceOperations.gst(scope, id));
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
     }
 
@@ -402,67 +448,6 @@ class StaffIdentityController {
                         request.getHeader("Idempotency-Key"), requestId));
         return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
     }
-
-    @ExceptionHandler(StaffScope.Failure.class)
-    ResponseEntity<ApiError> accessDenied(StaffScope.Failure failure, HttpServletRequest request) {
-        return error(failure.status, failure.code, failure.getMessage(),
-                (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID), false);
-    }
-
-    @ExceptionHandler(BranchQuery.InvalidFilter.class)
-    ResponseEntity<ApiError> invalidFilter(BranchQuery.InvalidFilter invalid, HttpServletRequest request) {
-        String message = invalid.getMessage();
-        return ResponseEntity.unprocessableContent().body(new ApiError("invalid_master_data", message,
-                (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID), false,
-                Map.of(invalid.field, List.of(message))));
-    }
-
-    @ExceptionHandler(DataAccessException.class)
-    ResponseEntity<ApiError> databaseUnavailable(DataAccessException exception, HttpServletRequest request) {
-        String requestId = (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID);
-        if (exception.getMostSpecificCause() instanceof SQLException sql && sql.getSQLState() != null) {
-            return switch (sql.getSQLState()) {
-                case "23505" -> sqlError(409, "duplicate", "The resource or operation already exists.", requestId, false);
-                case "23503", "23514", "23P01", "22003" -> sqlError(422, "constraint_violation",
-                        "A reference, effective interval, or business constraint is invalid.", requestId, false);
-                case "42501" -> sqlError(403, "scope_denied", "The database rejected this data scope.", requestId, false);
-                case "HT409" -> sqlError(409, "invoice_conflict",
-                        "Order changed, is not confirmed, or quantity exceeds the delivered uninvoiced remainder.", requestId, false);
-                case "HT422" -> sqlError(422, "invoice_validation", sqlMessage(sql), requestId, false);
-                case "HT404" -> sqlError(404, "not_found", "Resource is unavailable in this scope.", requestId, false);
-                case "HD409" -> sqlError(409, "document_conflict", sqlMessage(sql), requestId, false);
-                case "HD422" -> sqlError(422, "document_validation", sqlMessage(sql), requestId, false);
-                case "HR409" -> sqlError(409, "settlement_conflict", sqlMessage(sql), requestId, false);
-                case "HR422" -> sqlError(422, "settlement_validation", sqlMessage(sql), requestId, false);
-                case "55P03", "40001", "40P01" -> sqlError(409, "concurrent_operation",
-                        "Another operation is in progress; retry with the same idempotency key.", requestId, true);
-                default -> databaseUnavailable(requestId);
-            };
-        }
-        return databaseUnavailable(requestId);
-    }
-
-    private static String sqlMessage(SQLException sql) {
-        return sql.getMessage().lines().findFirst().orElse("").replaceFirst("^ERROR: ", "");
-    }
-
-    private static ResponseEntity<ApiError> sqlError(
-            int status, String code, String message, String requestId, boolean retryable) {
-        return ResponseEntity.status(status).body(new ApiError(code, message, requestId, retryable, null));
-    }
-
-    private static ResponseEntity<ApiError> databaseUnavailable(String requestId) {
-        return error(503, "database_unavailable",
-                "The service is temporarily unavailable; check the operation result before retrying.",
-                requestId, true);
-    }
-
-    private static ResponseEntity<ApiError> error(
-            int status, String code, String message, String requestId, boolean retryable) {
-        return ResponseEntity.status(status).body(new ApiError(code, message, requestId, retryable, status == 503 ? null : Map.of()));
-    }
-
-    record ApiError(String code, String message, String requestId, boolean retryable, Object fieldErrors) {}
 
     record StaffIdentity(List<StaffScope.CompanyAccess> companies) {}
 }

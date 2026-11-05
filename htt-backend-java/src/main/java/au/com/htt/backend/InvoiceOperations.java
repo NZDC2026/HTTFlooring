@@ -29,6 +29,24 @@ class InvoiceOperations {
         return view(scope, id);
     }
 
+    String gst(StaffScope.CompanyAccess scope, UUID id) {
+        documentVisible(id);
+        return scoped("""
+                SELECT jsonb_build_object('invoiceId',i.id,'gstBasis',i.gst_basis,'invoiceDate',i.invoice_date,
+                    'entries',COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                        'invoiceLineId',g.invoice_line_id,'taxCodeId',g.tax_code_id,'taxRate',g.tax_rate::text,
+                        'net',g.net::text,'tax',g.tax::text,'outputAccountId',g.output_account_id) ORDER BY l.id)
+                        FROM accounting.sales_gst_entries g JOIN sales.invoice_lines l
+                            ON l.company_id=g.company_id AND l.id=g.invoice_line_id
+                        WHERE g.company_id=i.company_id AND l.invoice_id=i.id),'[]'::jsonb))::text
+                FROM sales.invoices i JOIN platform.documents d ON d.company_id=i.company_id AND d.id=i.id
+                JOIN accounting.receivable_items r ON r.company_id=i.company_id AND r.invoice_id=i.id
+                WHERE i.company_id=:company AND i.id=:id AND (:allCustomers OR EXISTS(
+                    SELECT 1 FROM identity.customer_assignments a WHERE a.company_id=i.company_id
+                      AND a.customer_id=i.customer_id AND a.membership_id=:membership))
+                """, scope).param("id", id).query(String.class).optional().orElseThrow(InvoiceOperations::unavailable);
+    }
+
     IdempotentWrite.StoredResponse issue(StaffScope.CompanyAccess scope, UUID order, Input input, String ifMatch,
             String key, String requestId) {
         documentVisible(order);

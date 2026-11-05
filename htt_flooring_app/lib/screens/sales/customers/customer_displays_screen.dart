@@ -71,7 +71,7 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
   );
 
   bool _showAvailable = true;
-  bool _showDisplayed = false;
+  bool _showNotAvailable = false;
 
   @override
   Widget build(BuildContext context) {
@@ -90,21 +90,28 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
             const Text('Sample display boards · Demo data'),
             const SizedBox(height: 12),
             Card(
-              child: ListTile(
-                leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('Available (In Stock)'),
-                subtitle: const Text(
-                  'Sample boards that can be placed at customer stores',
-                ),
-                trailing: Icon(
-                  _showAvailable ? Icons.expand_less : Icons.chevron_right,
-                ),
-                onTap: () => setState(() => _showAvailable = !_showAvailable),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.inventory_2_outlined),
+                    title: const Text('Available'),
+                    subtitle: const Text(
+                      'Sample boards currently displayed at this customer',
+                    ),
+                    trailing: Icon(
+                      _showAvailable ? Icons.expand_less : Icons.chevron_right,
+                    ),
+                    onTap: () =>
+                        setState(() => _showAvailable = !_showAvailable),
+                  ),
+                  _displayedPreview(),
+                ],
               ),
             ),
             if (_showAvailable) ...[
               const SizedBox(height: 12),
-              ..._categoryTiles(isDisplayed: false),
+              ..._categoryTiles(isDisplayed: true),
             ],
             const SizedBox(height: 10),
             const Divider(color: AppColors.border),
@@ -116,22 +123,26 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
                   ListTile(
                     tileColor: AppColors.copperLight.withValues(alpha: 0.35),
                     leading: const Icon(Icons.storefront_outlined),
-                    title: const Text('Displayed (At Customer)'),
+                    title: const Text(
+                      'Not Available',
+                      style: TextStyle(color: AppColors.danger),
+                    ),
                     subtitle: const Text(
-                      'Sample boards currently displayed at this customer',
+                      'Sample boards not currently displayed at this customer',
                     ),
                     trailing: Icon(
-                      _showDisplayed ? Icons.expand_less : Icons.chevron_right,
+                      _showNotAvailable
+                          ? Icons.expand_less
+                          : Icons.chevron_right,
                     ),
                     onTap: () =>
-                        setState(() => _showDisplayed = !_showDisplayed),
+                        setState(() => _showNotAvailable = !_showNotAvailable),
                   ),
-                  _displayedPreview(),
-                  if (_showDisplayed)
+                  if (_showNotAvailable)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
                       child: Column(
-                        children: _categoryTiles(isDisplayed: true),
+                        children: _categoryTiles(isDisplayed: false),
                       ),
                     ),
                 ],
@@ -158,21 +169,21 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
           ),
           child: ExpansionTile(
             key: PageStorageKey('$isDisplayed/${category.key}'),
-            initiallyExpanded: !isDisplayed && category.key == 'Engineered',
-            leading: isDisplayed ? null : const Icon(Icons.layers_outlined),
+            initiallyExpanded: isDisplayed && category.key == 'Engineered',
+            leading: !isDisplayed ? null : const Icon(Icons.layers_outlined),
             title: Text(
               category.key,
-              style: isDisplayed
+              style: !isDisplayed
                   ? null
                   : const TextStyle(fontWeight: FontWeight.w700),
             ),
             textColor: AppColors.green,
             collapsedTextColor: AppColors.green,
-            backgroundColor: isDisplayed
+            backgroundColor: !isDisplayed
                 ? AppColors.card
                 : AppColors.successLight.withValues(alpha: 0.3),
-            shape: isDisplayed ? _expandedDivider : const Border(),
-            childrenPadding: isDisplayed
+            shape: !isDisplayed ? _expandedDivider : const Border(),
+            childrenPadding: !isDisplayed
                 ? const EdgeInsetsDirectional.only(start: 8, end: 8)
                 : EdgeInsets.zero,
             children: [
@@ -270,7 +281,7 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
     final series = _seriesTiles(path, style.value, isDisplayed);
     return ExpansionTile(
       key: PageStorageKey(path),
-      leading: isDisplayed
+      leading: !isDisplayed
           ? null
           : Icon(switch (style.key) {
               'Herringbone' => Icons.waves,
@@ -318,7 +329,7 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
             colours.length == 1 ? '1 colour' : '${colours.length} colours',
           ),
           children: colours.map((colour) {
-            final targetStatus = isDisplayed ? 'Undisplayed' : 'Displayed';
+            final actionLabel = isDisplayed ? 'Undisplay' : 'Display';
             return ListTile(
               dense: true,
               contentPadding: const EdgeInsetsDirectional.only(
@@ -329,6 +340,12 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
               title: Text(colour),
               trailing: OutlinedButton(
                 style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(92, 30),
+                  visualDensity: VisualDensity.standard,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 7,
+                  ),
                   foregroundColor: isDisplayed
                       ? AppColors.danger
                       : AppColors.success,
@@ -337,9 +354,13 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (dialogContext) => AlertDialog(
-                      title: const Text('Confirm display status'),
+                      title: Text(
+                        isDisplayed ? 'Confirm Undisplay' : 'Confirm Display',
+                      ),
                       content: Text(
-                        'Mark ${series.key} · $colour as $targetStatus?',
+                        isDisplayed
+                            ? 'Undisplay ${series.key} · $colour from Available?'
+                            : 'Display ${series.key} $colour at this customer?',
                       ),
                       actions: [
                         TextButton(
@@ -363,7 +384,7 @@ class _CustomerDisplaysScreenState extends State<CustomerDisplaysScreen> {
                     }
                   });
                 },
-                child: Text(targetStatus),
+                child: Text(actionLabel),
               ),
             );
           }).toList(),

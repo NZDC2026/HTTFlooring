@@ -39,8 +39,11 @@ class HomeScreen extends StatelessWidget {
     final tasks = [
       for (final task in notes.pendingFollowUps)
         if (task.assignees.any((user) => user.id == userId))
-          if (customerService.findById(task.customerId) case final customer?)
-            if (!customer.archived && session.canAccessRegion(customer.region))
+          if (customerService.findById(task.customerId) case final customer)
+            if (task.customerId.isEmpty ||
+                (customer != null &&
+                    !customer.archived &&
+                    session.canAccessRegion(customer.region)))
               (task: task, customer: customer),
     ];
     final dueToday = tasks
@@ -56,7 +59,11 @@ class HomeScreen extends StatelessWidget {
         )
         .toList();
     final visits = dueToday
-        .where((entry) => entry.task.followUpType == 'Customer Visit')
+        .where(
+          (entry) =>
+              entry.customer != null &&
+              entry.task.followUpType == 'Customer Visit',
+        )
         .toList();
     final visitReminders = <({Customer customer, int days, bool demo})>[];
     final calendarToday = DateTime.utc(today.year, today.month, today.day);
@@ -393,8 +400,8 @@ class HomeScreen extends StatelessWidget {
               for (final visit in visits)
                 _visitTile(
                   context,
-                  visit.customer.businessName,
-                  visit.customer.address,
+                  visit.customer!.businessName,
+                  visit.customer!.address,
                   'Today',
                   customer: visit.customer,
                   onTap: () => _openTask(context, visit),
@@ -454,7 +461,7 @@ class HomeScreen extends StatelessWidget {
   void _openTaskList(
     BuildContext context,
     String title,
-    List<({CustomerNote task, Customer customer})> tasks,
+    List<({CustomerNote task, Customer? customer})> tasks,
   ) {
     Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -479,7 +486,7 @@ class HomeScreen extends StatelessWidget {
 
   Widget _taskTile(
     BuildContext context,
-    ({CustomerNote task, Customer customer}) entry,
+    ({CustomerNote task, Customer? customer}) entry,
     IconData icon,
   ) {
     final due = entry.task.followUpDate?.toLocal();
@@ -487,7 +494,7 @@ class HomeScreen extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: AppColors.copper, size: 20),
       title: Text(
-        entry.customer.businessName,
+        entry.customer?.businessName ?? 'No customer',
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
@@ -510,7 +517,7 @@ class HomeScreen extends StatelessWidget {
 
   void _openTask(
     BuildContext context,
-    ({CustomerNote task, Customer customer}) entry,
+    ({CustomerNote task, Customer? customer}) entry,
   ) {
     Navigator.of(context).push<void>(
       MaterialPageRoute(

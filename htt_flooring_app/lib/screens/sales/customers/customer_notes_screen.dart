@@ -7,6 +7,8 @@ import '../../../models/customer.dart';
 import '../../../models/customer_note.dart';
 import '../../../models/sales_user.dart';
 import '../../../services/customer_note_service.dart';
+import '../../../services/customer_service.dart';
+import '../../../services/sales_session.dart';
 import '../../../services/app_session.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/activity_attachments.dart';
@@ -620,16 +622,18 @@ class _ActivityCustomerHeader extends StatelessWidget {
 class AddFollowUpScreen extends StatefulWidget {
   const AddFollowUpScreen({
     super.key,
-    required this.customer,
+    this.customer,
     this.existing,
     this.initialDueDate,
+    this.initialDescription,
   });
 
   final DateTime? initialDueDate;
+  final String? initialDescription;
 
   final CustomerNote? existing;
 
-  final Customer customer;
+  final Customer? customer;
 
   @override
   State<AddFollowUpScreen> createState() => _AddFollowUpScreenState();
@@ -641,7 +645,7 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
 
   final _formKey = GlobalKey<FormState>();
   late final _description = TextEditingController(
-    text: widget.existing?.content,
+    text: widget.existing?.content ?? widget.initialDescription,
   );
   late String? _type = widget.existing?.followUpType;
   late String _priority = widget.existing?.priority ?? 'Normal';
@@ -697,6 +701,7 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
     }
   }
 
+  final _customerKey = GlobalKey<FormFieldState<String>>();
   final _assigneesKey = GlobalKey<FormFieldState<List<AppUser>>>();
 
   void _save() {
@@ -704,7 +709,7 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
     context.read<CustomerNoteService>().addFollowUp(
       existingId: widget.existing?.id,
       actor: context.read<AppSession>().currentUser,
-      customerId: widget.customer.id,
+      customerId: widget.customer?.id ?? _customerKey.currentState!.value ?? '',
       attachments: _attachments,
       content: _description.text,
       followUpDate: _dueDate,
@@ -868,6 +873,22 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
         .firstOrNull;
     final canReply = task?.canReply(currentUser) ?? false;
     final theme = Theme.of(context);
+    final fixedCustomer = widget.customer;
+    final sales = context.watch<SalesSession>();
+    final customers =
+        context
+            .watch<CustomerService>()
+            .customers
+            .where(
+              (customer) =>
+                  !customer.archived && sales.canAccessRegion(customer.region),
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.businessName.toLowerCase().compareTo(
+              b.businessName.toLowerCase(),
+            ),
+          );
     return Scaffold(
       backgroundColor: AppColors.card,
       appBar: AppBar(
@@ -878,8 +899,10 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
         child: ListView(
           padding: const EdgeInsets.all(18),
           children: [
-            _ActivityCustomerHeader(customer: widget.customer),
-            const SizedBox(height: 18),
+            if (fixedCustomer != null) ...[
+              _ActivityCustomerHeader(customer: fixedCustomer),
+              const SizedBox(height: 18),
+            ],
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -905,7 +928,7 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
                           style: theme.textTheme.titleMedium,
                         ),
                         const Text(
-                          'Create a task or action item for this customer, with a responsible person and due date.',
+                          'Create a task with a responsible person and due date. Add a customer if relevant.',
                         ),
                       ],
                     ),
@@ -914,6 +937,49 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            _field(
+              'Customer',
+              DropdownButtonFormField<String>(
+                key: _customerKey,
+                initialValue: fixedCustomer?.id ?? '',
+                isExpanded: true,
+                menuMaxHeight: 320,
+                decoration: _decoration(
+                  fixedCustomer == null
+                      ? Icons.person_outline
+                      : Icons.lock_outline,
+                ),
+                hint: const Text('Select customer'),
+                items: [
+                  if (fixedCustomer == null)
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('No customer'),
+                    ),
+
+                  for (final customer
+                      in fixedCustomer == null ? customers : [fixedCustomer])
+                    DropdownMenuItem(
+                      value: customer.id,
+                      child: Text(
+                        customer.businessName,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: fixedCustomer == null && widget.existing == null
+                    ? (_) {}
+                    : null,
+                validator: (value) =>
+                    fixedCustomer == null &&
+                        value != null &&
+                        value.isNotEmpty &&
+                        !customers.any((customer) => customer.id == value)
+                    ? 'Select an available customer'
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 12),
             _select(
               label: 'Follow-up Type',
               icon: Icons.event_available_outlined,
@@ -1197,7 +1263,7 @@ class FollowUpDetail extends StatefulWidget {
     required this.taskId,
   });
 
-  final Customer customer;
+  final Customer? customer;
   final String taskId;
 
   @override
@@ -1219,7 +1285,7 @@ class _FollowUpDetailState extends State<FollowUpDetail> {
     final service = context.watch<CustomerNoteService>();
     final user = context.watch<AppSession>().currentUser;
     final task = service
-        .getCustomerNotes(widget.customer.id)
+        .getCustomerNotes(widget.customer?.id ?? '')
         .where((note) => note.id == widget.taskId && note.isFollowUp)
         .firstOrNull;
     final theme = Theme.of(context);
@@ -1457,7 +1523,10 @@ class _FollowUpDetailState extends State<FollowUpDetail> {
             childrenPadding: const EdgeInsets.all(12),
             expandedCrossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _taskInfo('Customer', widget.customer.businessName),
+              _taskInfo(
+                'Customer',
+                widget.customer?.businessName ?? 'No customer',
+              ),
               _taskInfo('Priority', task.priority ?? 'Normal'),
               _taskInfo(
                 'Reminder',

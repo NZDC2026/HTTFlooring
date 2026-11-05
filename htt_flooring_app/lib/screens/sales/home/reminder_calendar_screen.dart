@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../models/customer.dart';
 import '../../../models/customer_note.dart';
 import '../../../services/customer_note_service.dart';
+import '../../../services/app_session.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
@@ -32,24 +33,50 @@ class _ReminderCalendarScreenState extends State<ReminderCalendarScreen> {
     });
   }
 
-  Future<void> _addReminder() async {
+  DateTime _allowedDueDate(DateTime day) {
     final today = DateUtils.dateOnly(DateTime.now());
     final lastDate = DateTime(today.year + 2, today.month, today.day);
-    final date = _selected.isBefore(today)
+    return day.isBefore(today)
         ? today
-        : _selected.isAfter(lastDate)
+        : day.isAfter(lastDate)
         ? lastDate
-        : _selected;
+        : day;
+  }
+
+  Future<void> _addNote() async {
     final customer = await Navigator.of(context).push<Customer>(
       MaterialPageRoute(builder: (_) => const SelectCustomerScreen()),
     );
     if (!mounted || customer == null) return;
     await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => AddNoteScreen(customer: customer)),
+    );
+  }
+
+  Future<void> _addReminder() async {
+    final date = _allowedDueDate(_selected);
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) =>
-            AddFollowUpScreen(customer: customer, initialDueDate: date),
+        builder: (_) => AddFollowUpScreen(initialDueDate: date),
       ),
     );
+  }
+
+  void _selectDay(DateTime day) {
+    setState(() {
+      _selected = day;
+      _month = DateTime(day.year, day.month);
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final heading = _reminderHeading.currentContext;
+      if (heading == null) return;
+      Scrollable.ensureVisible(
+        heading,
+        duration: const Duration(milliseconds: 200),
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    });
   }
 
   DateTime? _reminderDay(CustomerNote task) {
@@ -72,13 +99,16 @@ class _ReminderCalendarScreenState extends State<ReminderCalendarScreen> {
   Widget build(BuildContext context) {
     final customers = context.watch<CustomerService>();
     final session = context.watch<SalesSession>();
+    final userId = context.watch<AppSession>().currentUser.id;
     final reminders = <DateTime, List<CustomerNote>>{};
     for (final task in context.watch<CustomerNoteService>().pendingFollowUps) {
       final customer = customers.findById(task.customerId);
       final day = _reminderDay(task);
       if (day != null &&
-          customer != null &&
-          session.canAccessRegion(customer.region)) {
+          (task.customerId.isEmpty
+              ? task.creatorId == userId ||
+                    task.assignees.any((user) => user.id == userId)
+              : customer != null && session.canAccessRegion(customer.region))) {
         (reminders[day] ??= []).add(task);
       }
     }
@@ -234,7 +264,25 @@ class _ReminderCalendarScreenState extends State<ReminderCalendarScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _addNote,
+                    child: const Text('Add Note'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _addReminder,
+                    child: const Text('Add Follow-up'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             Row(
               key: _reminderHeading,
               children: [
@@ -271,16 +319,30 @@ class _ReminderCalendarScreenState extends State<ReminderCalendarScreen> {
             if (visible.isEmpty && demoForDay.isEmpty)
               const Text('No reminders for this date.'),
             for (final reminder in demoForDay)
-              _reminderCard(title: reminder, subtitle: 'Demo', demo: true),
+              _reminderCard(
+                title: reminder,
+                subtitle: 'Demo',
+                demo: true,
+                onTap: () => Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => AddFollowUpScreen(
+                      initialDueDate: _allowedDueDate(_selected),
+                      initialDescription: reminder,
+                    ),
+                  ),
+                ),
+              ),
             for (final task in visible)
               _reminderCard(
                 title: task.content,
-                subtitle: customers.findById(task.customerId)!.businessName,
+                subtitle:
+                    customers.findById(task.customerId)?.businessName ??
+                    'No customer',
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => FollowUpDetail(
-                      taskId: task.id,
-                      customer: customers.findById(task.customerId)!,
+                  MaterialPageRoute<bool>(
+                    builder: (_) => AddFollowUpScreen(
+                      existing: task,
+                      customer: customers.findById(task.customerId),
                     ),
                   ),
                 ),
@@ -385,21 +447,7 @@ class _ReminderCalendarScreenState extends State<ReminderCalendarScreen> {
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () {
-            setState(() {
-              _selected = day;
-              _month = DateTime(day.year, day.month);
-            });
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              final heading = _reminderHeading.currentContext;
-              if (heading == null) return;
-              Scrollable.ensureVisible(
-                heading,
-                duration: const Duration(milliseconds: 200),
-                alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-              );
-            });
-          },
+          onTap: () => _selectDay(day),
           child: ExcludeSemantics(
             child: Padding(
               padding: const EdgeInsets.all(3),

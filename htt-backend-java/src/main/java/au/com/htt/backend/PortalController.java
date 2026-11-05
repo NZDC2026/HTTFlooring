@@ -116,14 +116,14 @@ class PortalController {
     }
 
     @ExceptionHandler(PortalFailure.class)
-    ResponseEntity<StaffIdentityController.ApiError> requestError(PortalFailure error, HttpServletRequest request) {
-        return ResponseEntity.status(error.status).body(new StaffIdentityController.ApiError(
+    ResponseEntity<StaffApiErrors.ApiError> requestError(PortalFailure error, HttpServletRequest request) {
+        return ResponseEntity.status(error.status).body(new StaffApiErrors.ApiError(
                 error.code, error.getMessage(), (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID),
                 false, Map.of()));
     }
 
     @ExceptionHandler(DataAccessException.class)
-    ResponseEntity<StaffIdentityController.ApiError> databaseError(DataAccessException error,
+    ResponseEntity<StaffApiErrors.ApiError> databaseError(DataAccessException error,
             HttpServletRequest request) {
         var cause = error.getMostSpecificCause();
         String state = cause instanceof SQLException sql ? sql.getSQLState() : null;
@@ -140,9 +140,9 @@ class PortalController {
         };
     }
 
-    private static ResponseEntity<StaffIdentityController.ApiError> error(int status, String code, String message,
+    private static ResponseEntity<StaffApiErrors.ApiError> error(int status, String code, String message,
             HttpServletRequest request, boolean retryable) {
-        return ResponseEntity.status(status).body(new StaffIdentityController.ApiError(code, message,
+        return ResponseEntity.status(status).body(new StaffApiErrors.ApiError(code, message,
                 (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID), retryable, null));
     }
 
