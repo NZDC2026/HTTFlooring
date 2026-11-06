@@ -83,6 +83,11 @@ with (run/'run.log').open('w') as log:
             'stock-valuation','--company','00000000-0000-0000-0000-000000000001','--warehouse','00000000-0000-0000-0000-000000000014',
             '--product','00000000-0000-0000-0000-000000000017','--value','10000','--reference','Synthetic valuation',
             '--issuer','https://localhost:15443','--subject','test-employee'],stdout=log,stderr=log)
+        for product,value in [('00000000-0000-0000-0000-000000000270','1000'),('00000000-0000-0000-0000-000000000274','500')]:
+            command([env['HTT_COMPAT_DOTNET'],legacy/'src/Htt.Host.Migrations/bin/Debug/net10.0/Htt.Host.Migrations.dll',
+                'stock-valuation','--company','00000000-0000-0000-0000-000000000001','--warehouse','00000000-0000-0000-0000-000000000271',
+                '--product',product,'--value',value,'--reference','Synthetic control valuation '+product,
+                '--issuer','https://localhost:15443','--subject','test-employee'],stdout=log,stderr=log)
         flutter = run/'flutter-visit-baseline'
         shutil.copytree(args.flutter,flutter,ignore=shutil.ignore_patterns('.git','.dart_tool','build','.flutter-plugins-dependencies','Pods','.symlinks','.gradle','ephemeral'))
         shutil.copy2(source/'visit_real_backend_test.dart',flutter/'test/visit_real_backend_test.dart')

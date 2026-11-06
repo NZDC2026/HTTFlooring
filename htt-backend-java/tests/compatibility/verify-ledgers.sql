@@ -230,3 +230,17 @@ DO $$ BEGIN
  OR EXISTS(SELECT 1 FROM crm.contact_branch_links l JOIN crm.contacts c ON c.company_id=l.company_id AND c.id=l.contact_id WHERE c.name IN ('Shared supplier contact final') OR c.name LIKE 'Closed contact fixture suppliers %')
  OR (SELECT count(*) FROM crm.contacts WHERE name='Shared supplier contact final' AND NOT active AND version=3)<>1 THEN RAISE EXCEPTION 'CRM contact audit/state/link mismatch'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='inventory.transferred')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.written_off')<>2
+ OR (SELECT count(*) FROM inventory.operations WHERE reference LIKE 'Denied control transfer %' OR reference LIKE 'Insufficient control stock %')<>0
+ OR (SELECT count(*) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='TRANSFER')<>16
+ OR (SELECT coalesce(sum(l.value_delta),0) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='TRANSFER')<>0
+ OR (SELECT coalesce(sum(l.quantity_delta),0) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='TRANSFER')<>0
+ OR (SELECT sum(l.value_delta) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='WRITE_OFF')<>-20
+ OR (SELECT sum(l.quantity_delta) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='WRITE_OFF')<>-2
+ OR (SELECT count(*) FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.warehouse_id='00000000-0000-0000-0000-000000000271' AND ((b.product_id='00000000-0000-0000-0000-000000000270' AND b.on_hand=98 AND v.value=980) OR (b.product_id='00000000-0000-0000-0000-000000000274' AND b.on_hand=50 AND v.value=500)))<>2
+ OR EXISTS(SELECT 1 FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.warehouse_id='00000000-0000-0000-0000-000000000272' AND (b.on_hand<>0 OR v.value<>0))
+ OR (SELECT sum(l.debit-l.credit) FROM accounting.journal_lines l JOIN accounting.account_mappings m ON m.company_id=l.company_id AND m.account_id=l.account_id WHERE m.purpose='STOCK_WRITEOFF')<>20 THEN RAISE EXCEPTION 'Inventory control exactly-once quantity/valuation/journal mismatch'; END IF;
+END $$;

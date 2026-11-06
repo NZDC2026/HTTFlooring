@@ -55,7 +55,7 @@ class QuotePricing {
         return data.entrySet().stream().map(e->CollaborationCreate.legacyString(e.getKey())+":"+value(e.getValue())).collect(Collectors.joining(",","{","}"));
     }
     @SuppressWarnings("unchecked")
-    private static String value(Object value) {
+    static String value(Object value) {
         if (value instanceof Map<?,?> map) return canonical((Map<String,Object>)map);
         if (value instanceof java.util.List<?> list) return list.stream().map(QuotePricing::value).collect(Collectors.joining(",","[","]"));
         if (value instanceof java.time.OffsetDateTime time) {

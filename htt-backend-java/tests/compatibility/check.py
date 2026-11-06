@@ -2898,6 +2898,62 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             vendor_update=dict(payload={'name':'Shared supplier contact final','email':'a@b','branchIds':None,'active':False},key='contact-vendor-'+uuid.uuid4().hex,version=2,method='PUT')
             updated=request(shared_supplier_contacts+'/'+shared_id,crm_office,company,**vendor_update)
             assert updated[0]==200 and updated[1]['version']==3 and request(shared_supplier_contacts+'/'+shared_id,crm_office,company,base=legacy_url,**vendor_update)==updated,updated
+            inv_finance=token('test-inventory-finance');inv_operator=token('test-inventory-operator');inv_post_only=token('test-inventory-post-only');inv_one=token('test-inventory-one-warehouse')
+            inv_source='00000000-0000-0000-0000-000000000271';inv_destination='00000000-0000-0000-0000-000000000272'
+            inv_lines=[{'productId':'00000000-0000-0000-0000-000000000274','quantity':'1.000000'},{'productId':'00000000-0000-0000-0000-000000000270','quantity':'2.000000'}]
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                path='/api/v1/inventory/transfers';body={'sourceWarehouseId':inv_source,'destinationWarehouseId':inv_destination,'reference':' Control transfer '+uuid.uuid4().hex+' ','reason':' Synthetic café & handover ','lines':inv_lines}
+                args=dict(payload=body,key='inventory-transfer-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    for actor in (employee,inv_post_only,inv_one):
+                        denied=request(path,actor,company,base=target,payload={**body,'reference':'Denied control transfer '+uuid.uuid4().hex},key='inventory-denied-'+uuid.uuid4().hex)
+                        assert denied[0]==403,denied
+                    for change,status in (({'destinationWarehouseId':inv_source},422),({'sourceWarehouseId':None},400),({'lines':[]},422),({'lines':inv_lines*2},422),({'reference':' '},422),({'reason':'x'*2001},422),({'lines':[{'productId':inv_lines[0]['productId'],'quantity':0}]},422),({'lines':[{'productId':inv_lines[0]['productId'],'quantity':'0.0000001'}]},422)):
+                        bad=request(path,inv_operator,company,base=target,payload={**body,**change},key='inventory-bad-'+uuid.uuid4().hex)
+                        assert bad[0]==status,bad
+                    short=request(path,inv_operator,company,base=target,payload={**body,'reference':'Insufficient control stock '+uuid.uuid4().hex,'lines':[{'productId':inv_lines[0]['productId'],'quantity':1000}]},key='inventory-short-'+uuid.uuid4().hex)
+                    assert short[0]==409 and json.loads(short[1])['code']=='inventory_control_conflict',short
+                created=request(path,inv_operator,company,base=first,**args)
+                assert created[0]==201,created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,inv_operator,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==created for result in attempts),attempts
+                assert request(path,inv_operator,company,base=second,**{**args,'payload':{**body,'lines':list(reversed(inv_lines))}})==created
+                op=created[1];opid=op['operation']['id'];detail=path+'/'+opid
+                assert 'journalEntryId' not in op['operation'] and len(op['lines'])==4 and all(not any(field in line for field in ('valueDelta','valueBefore','valueAfter')) for line in op['lines']),op
+                assert request(detail,inv_operator,company)[1]==op and request(detail,inv_operator,company,base=legacy_url)[1]==op
+                for target in (first,second):
+                    assert request(detail,inv_one,company,base=target)[0]==403
+                    assert request('/api/v1/accounting/inventory-operations/'+opid,inv_operator,company,base=target)[0]==403
+                financial=request('/api/v1/accounting/inventory-operations/'+opid,inv_finance,company)
+                assert financial==request('/api/v1/accounting/inventory-operations/'+opid,inv_finance,company,base=legacy_url),financial
+                assert financial[0]==200 and financial[1]['operation']['journalEntryId'] is not None and sum(float(line['valueDelta']) for line in financial[1]['lines'])==0,financial
+                cost_view=request(detail,inv_finance,company)
+                assert cost_view==request(detail,inv_finance,company,base=legacy_url) and cost_view[1]==financial[1],cost_view
+                listing='/api/v1/accounting/inventory-operations?warehouseId='+inv_destination+'&kind=TRANSFER&pageSize=100'
+                assert request(listing,inv_finance,company)==request(listing,inv_finance,company,base=legacy_url)
+                backbody={**body,'sourceWarehouseId':inv_destination,'destinationWarehouseId':inv_source,'reference':'Control transfer return '+uuid.uuid4().hex}
+                backargs=dict(payload=backbody,key='inventory-return-'+uuid.uuid4().hex)
+                back=request(path,inv_operator,company,base=second,**backargs)
+                assert back[0]==201,back
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,inv_operator,company,base=first if n%2 else second,**backargs),range(6)))
+                assert all(result==back for result in attempts),attempts
+                damage={'warehouseId':inv_source,'reference':'Control write-off '+uuid.uuid4().hex,'reason':' Synthetic damaged fixture ','lines':[{'productId':'00000000-0000-0000-0000-000000000270','quantity':'1.000000'}]}
+                args=dict(payload=damage,key='inventory-writeoff-'+uuid.uuid4().hex)
+                for target in (first,second):assert request('/api/v1/inventory/write-offs',inv_operator,company,base=target,**args)[0]==403
+                written=request('/api/v1/inventory/write-offs',inv_finance,company,base=first,**args)
+                assert written[0]==201 and len(written[1]['lines'])==1 and float(written[1]['lines'][0]['valueDelta'])==-10,written
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request('/api/v1/inventory/write-offs',inv_finance,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==written for result in attempts),attempts
+                detail='/api/v1/accounting/inventory-operations/'+written[1]['operation']['id']
+                assert request(detail,inv_finance,company)[1]==written[1] and request(detail,inv_finance,company,base=legacy_url)[1]==written[1]
+                for target in (first,second):
+                    wrong=request('/api/v1/inventory/transfers/'+written[1]['operation']['id'],inv_operator,company,base=target)
+                    assert wrong[0]==422,wrong
+                    assert request('/api/v1/accounting/inventory-operations?kind=transfer',inv_finance,company,base=target)[0]==422
+            print('PASS: stock transfers/write-offs, dual warehouse scope, read-after-write rollback, cost redaction, valuation journals and mixed replay')
             print('PASS: customer/supplier contacts, shared party permissions, branch array/link replacement, route guard and mixed replay')
             print('PASS: branch CRUD, assigned customer scope, normalized AU/NZ addresses, parent ownership and mixed replay')
             print('PASS: customer/supplier maintenance, nullable requested terms, shared party scope, credit/hold permissions and mixed replay')
