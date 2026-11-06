@@ -1,3 +1,5 @@
+import { accountContactsSchema } from "../data/accountContacts";
+import { paymentTermsTypeSchema, validatePaymentTerms } from "../../payment-terms/paymentTerms";
 import { z } from "zod";
 
 export const businessTypes = [
@@ -47,6 +49,7 @@ const optionalAbn = z
     );
 
 export const customerFormSchema = z.object({
+    contacts: accountContactsSchema.optional(),
     businessName: z
         .string()
         .trim()
@@ -82,6 +85,7 @@ export const customerFormSchema = z.object({
         })
         .min(0, "Credit limit cannot be negative"),
 
+    paymentTermsType: paymentTermsTypeSchema,
     paymentTermsDays: z
         .number({
             message: "Payment terms are required",
@@ -92,6 +96,9 @@ export const customerFormSchema = z.object({
             365,
             "Payment terms cannot exceed 365 days",
         ),
+}).superRefine((value, context) => {
+    try { validatePaymentTerms(value); }
+    catch (error) { context.addIssue({code: "custom", message: (error as Error).message, path: ["paymentTermsDays"]}); }
 });
 
 export const locationFormSchema = z.object({
@@ -150,24 +157,19 @@ export const contactFormSchema = z.object({
         .string()
         .trim()
         .min(1, "First name is required")
-        .max(80, "First name is too long"),
+        .max(160, "Contact name is too long"),
 
     lastName: z
         .string()
         .trim()
-        .min(1, "Last name is required")
-        .max(80, "Last name is too long"),
+                .max(80, "Last name is too long"),
 
     jobTitle: z
         .string()
         .trim()
         .max(100, "Job title is too long"),
 
-    email: z
-        .string()
-        .trim()
-        .min(1, "Email is required")
-        .email("Enter a valid email address"),
+    email: optionalEmail,
 
     phone: z
         .string()

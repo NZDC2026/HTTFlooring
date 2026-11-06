@@ -56,3 +56,24 @@ it('preserves opening reversal accounting dates in a western business timezone',
 it('blocks inactive default taxes and renaming referenced tax codes', () => { const tax = state('workspace_tax_codes').records.find((r: any) => r.code === 'GST'); expect(() => cmd('workspace_tax_codes', 'save', { ...tax, status: 'Inactive' }, tax.revision)).toThrow(/default tax/); expect(() => cmd('workspace_tax_codes', 'save', { ...tax, code: 'NEWCODE' }, tax.revision)).toThrow(/referenced tax/); });
 it('keeps inclusive five-cent purchase bills and supplier credits exact', async () => { await settings({ basis: 'Inclusive' }); const p = state('products').products[0], supplier = state('suppliers').suppliers[0], { inventorySiteRepository } = await import('../inventory/data/inventorySiteRepository'); const po = cmd('purchaseOrders', 'create', { supplierId: supplier.id, orderDate: '2026-10-01', lines: [{ productId: p.id, unitId: p.baseUnitId, orderedQuantity: 1, unitCost: 0.05 }] }); expect(po.totals.total).toBe(0.05); cmd('purchaseOrders', 'approve', po.id); cmd('purchaseOrders', 'send', po.id); cmd('goodsReceipts', 'create', { purchaseOrderId: po.id, siteId: inventorySiteRepository.getActive()[0].id, receiptDate: '2026-10-02', lines: [{ purchaseOrderLineId: po.lines[0].id, receivedQuantity: 1 }] }); const bill = cmd('supplierBills', 'create', { purchaseOrderId: po.id, supplierInvoiceNumber: 'FIVE-CENT', billDate: '2026-10-03', dueDate: '2026-10-20', lines: [{ purchaseOrderLineId: po.lines[0].id, quantity: 1, unitCost: po.lines[0].unitCost }] }); expect(bill.totals.total).toBe(0.05); const credit = cmd('supplierCredits', 'create', { sourceSupplierBillId: bill.id, supplierCreditNumber: 'FIVE-CENT-CR', creditDate: '2026-10-04', reason: 'Exact supplier credit cents', lines: [{ supplierBillLineId: bill.lines[0].id, quantity: 1, unitCost: bill.lines[0].unitCost }] }); expect(credit.totals.total).toBe(0.05); expect(credit.totals.taxAmount).toBe(0); });
 it('rejects opening import in a closed accounting period without partial state', async () => { const raw = await input(), period = cmd('accountingPeriods', 'create', { name: 'Closed cutover', startDate: '2027-01-01', endDate: '2027-01-31', reason: 'Verify close controls' }), { snapshotRepositories, restoreRepositories } = await import('../security/repositoryHost'); const s = snapshotRepositories() as any, r = s.accountingPeriods.periods.find((p: any) => p.id === period.id); r.status = 'CLOSED'; r.history.push({ action: 'CLOSE', actor: security.principal()!.userId, reason: 'Synthetic closed evidence', at: new Date().toISOString(), checks: { journalCount: 0, debit: 0, credit: 0 } }); restoreRepositories(s); expect(() => cmd('openingBalances', 'post', raw)).toThrow(/closed/i); expect(state('openingBalances').batches).toEqual([]); });
+
+it('uses explicitly saved customer monthly terms when converting an order to an invoice', async () => {
+    const customer = state('customers').customers[0];
+    const {defaults} = await import('../data-transfer/transferModel');
+    const values = {...defaults.Customers,...Object.fromEntries(Object.entries(customer).filter(([,value])=>value!==undefined)),paymentTermsDays:30,paymentTermsType:'DAY_OF_MONTH'};
+    cmd('customers','update',customer.id,values);
+    const product = state('products').products[0];
+    const quote = cmd('sales','createQuote',{customerId:customer.id,documentDate:'2026-10-16',lines:[{productId:product.id,unitId:product.baseUnitId,quantity:1,unitPrice:100}]});
+    cmd('sales','sendQuote',quote.id);
+    cmd('sales','acceptQuote',quote.id);
+    const order = cmd('sales','convertQuoteToOrder',quote.id);
+    const invoice = cmd('sales','createInvoiceFromOrder',order.id);
+    const date = new Date(invoice.documentDate+'T00:00:00Z');
+    date.setUTCDate(1);
+    date.setUTCMonth(date.getUTCMonth()+1);
+    const monthEnd = new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)).getUTCDate();
+    date.setUTCDate(Math.min(30,monthEnd));
+    expect(invoice.dueDate).toBe(date.toISOString().slice(0,10));
+    await restart();
+    expect(state('customers').customers.find((c:any)=>c.id===customer.id).paymentTermsType).toBe('DAY_OF_MONTH');
+});

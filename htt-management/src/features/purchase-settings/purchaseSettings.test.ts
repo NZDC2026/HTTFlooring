@@ -29,3 +29,26 @@ it('handles leap dates and zero-day deadlines without local timezone drift',asyn
 
 it('rolls back settings and audit when persistence fails before durable commit',async()=>{settings();const before=readFileSync(join(root,'business.json'),'utf8'),rows=structuredClone(state('workspace_settings'));const spy=vi.spyOn(host as any,'persist').mockImplementation(()=>{throw new Error('Injected purchase settings failure');});expect(()=>settings({terms:'90'})).toThrow();spy.mockRestore();expect(state('workspace_settings')).toEqual(rows);expect(readFileSync(join(root,'business.json'),'utf8')).toBe(before);await restart();expect(state('workspace_settings')).toEqual(rows);});
 it('preserves a draft order snapshot when later edited after settings change',()=>{settings();const order=po();settings({terms:'90',paymentMethod:'CASH'});const updated=cmd('purchaseOrders','updateDraft',order.id,{supplierId:order.supplierId,orderDate:order.orderDate,notes:'Reviewed',lines:order.lines.map((l:any)=>({productId:l.productId,unitId:l.unitId,orderedQuantity:3,unitCost:100}))});expect(updated.purchaseDefaults).toEqual(order.purchaseDefaults);});
+
+it('persists next-month terms through supplier, source order, bill and restart', async () => {
+    settings({termsPolicy:'SUPPLIER'});
+    const supplier = state('suppliers').suppliers[0];
+    const {defaults} = await import('../data-transfer/transferModel');
+    const values = {...defaults.Suppliers,...Object.fromEntries(Object.entries(supplier).filter(([,value])=>value!==undefined)),paymentTermsDays:30,paymentTermsType:'DAY_OF_MONTH'};
+    cmd('suppliers','update',supplier.id,values);
+    const order = po();
+    expect(order.purchaseDefaults).toMatchObject({termsDays:30,termsType:'DAY_OF_MONTH'});
+    settings({termsPolicy:'PURCHASE_SETTINGS',terms:'7',termsType:'DAYS'});
+    const bill = await stockBill(order);
+    expect(bill.dueDate).toBe('2026-11-30');
+    await restart();
+    expect(state('supplierBills').supplierBills.find((b:any)=>b.id===bill.id).dueDate).toBe('2026-11-30');
+    expect(state('suppliers').suppliers.find((s:any)=>s.id===supplier.id).paymentTermsType).toBe('DAY_OF_MONTH');
+});
+it('uses next-month company purchase defaults for new expense bills and validates month day bounds', () => {
+    settings({terms:'31',termsType:'DAY_OF_MONTH'});
+    const payload = {...expense(),documentDate:'2027-01-10'};
+    expect(cmd('expenseBillDrafts','save',{operationId:'monthly-expense',payload}).payload.dueDate).toBe('2027-02-28');
+    expect(()=>settings({terms:'32',termsType:'DAY_OF_MONTH'})).toThrow();
+    expect(()=>settings({terms:'1',termsType:'COD'})).toThrow();
+});

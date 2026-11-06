@@ -1,3 +1,4 @@
+import { fxSchema, validateFx } from "../currency/currency";
 import {checkedCaptureSource} from '../bill-capture/captureEvidence';
 import { purchaseDefaults, purchaseDefaultsSchema, purchaseDueDate, type PurchaseDefaults } from '../purchase-settings/purchaseDefaults';
 import { resolvePricingInstant, validatePricingSnapshot } from '../sales/data/pricingInstant';
@@ -29,7 +30,7 @@ const text = z.string().trim().min(1).max(200), optional = z.string().trim().max
 const salesLine = z.object({ requestedArea: z.number().finite().positive().max(1e9).optional(), productId: text, unitId: text, quantity: z.number().positive().finite(), unitPrice: z.number().nonnegative().finite().optional(), priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
 const expenseLine = z.object({ description: z.string().trim().min(1).max(500), accountId: text, quantity: z.number().positive().finite(), unitCost: z.number().nonnegative().finite(), taxCode: text, priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
 const salesPayload = z.object({ kind: z.enum(['ORDER', 'INVOICE']), customerId: text, pricingAt: text.optional(), pricingTimezone: text.optional(), locationId: text.or(z.literal('')).optional(), accountingContactId: text.or(z.literal('')).optional(), documentDate: text, dueDate: text.optional(), customerReference: optional, notes: optional, lines: z.array(salesLine).min(1).max(500) }).strict();
-const billPayload = z.object({ kind: z.literal('EXPENSE'), supplierId: text, supplierInvoiceNumber: text, documentDate: text, dueDate: text.optional(), notes: optional, lines: z.array(expenseLine).min(1).max(500) }).strict();
+const billPayload = z.object({ kind: z.literal('EXPENSE'), fx:fxSchema.optional(), supplierId: text, supplierInvoiceNumber: text, documentDate: text, dueDate: text.optional(), notes: optional, lines: z.array(expenseLine).min(1).max(500) }).strict();
 export const parseManagedPayload = (raw: unknown) => z.union([salesPayload, billPayload]).parse(raw);
 const captureAmount = z.number().finite().nonnegative().refine(n => Number.isSafeInteger(Math.round(n*100)) && n===Math.round(n*100)/100, 'Use an amount in whole cents within the supported range.');
 const captureSchema = z.object({sourceId:text.optional(),operationId:text,sourceName:z.string().trim().max(200),reviewed:z.boolean(),declared:z.object({subtotal:captureAmount,taxAmount:captureAmount,total:captureAmount}).strict(),payload:billPayload.extend({notes:z.string().trim().max(1000).optional()})}).strict();
@@ -39,7 +40,8 @@ function reviewCaptureInput(input: CaptureInput) {
     if(input.sourceId){const source=checkedCaptureSource(input.sourceId);if(source.name!==input.sourceName)throw new Error('Source name differs from preserved original.');}
     const supplier = supplierRepository.getById(input.payload.supplierId);
     if (!supplier || supplier.status !== 'ACTIVE') throw new Error('Select an active supplier.');
-    const built = build(input.payload), reference = input.payload.supplierInvoiceNumber.trim().toLowerCase();
+    if(input.payload.fx)validateFx(input.payload.fx,businessSettings().currency);
+    const built = build({...input.payload,fx:undefined}), reference = input.payload.supplierInvoiceNumber.trim().toLowerCase();
     const bills = supplierBillRepository.getAll(), voidIds = new Set(bills.filter(b => b.status === 'VOID').map(b => b.id));
     const duplicates = [
         ...billDrafts.filter(d => d.operationId !== input.operationId && d.status !== 'CANCELLED'
@@ -140,6 +142,7 @@ function validateParties(row: ManagedDraft) {
     taxAccounts(row.lines);
 }
 function build(payload: SalesPayload | ExpensePayload) {
+    if(payload.kind === 'EXPENSE' && payload.fx) validateFx(payload.fx,businessSettings().currency);
     requireDateKey(payload.documentDate, 'Document date');
     if (payload.dueDate) {
         requireDateKey(payload.dueDate, 'Due date');
@@ -149,7 +152,7 @@ function build(payload: SalesPayload | ExpensePayload) {
     if (payload.kind !== 'ORDER' && !payload.dueDate)
         throw new Error('Due date is required.');
     const pricingContext = payload.kind === 'EXPENSE' ? undefined : resolvePricingInstant(payload.documentDate, payload.pricingAt, payload.pricingTimezone);
-    const lines: (SalesDocumentLine | SupplierBillLine)[] = payload.kind === 'EXPENSE' ? payload.lines.map(l => { expenseAccount(l.accountId); const tax = taxSnapshot(l.taxCode), netCost = exclusivePrice(l.unitCost, tax.taxRate, l.priceBasis), lineSubtotal = money(l.quantity * netCost), taxAmount = (l.priceBasis ?? businessSettings().basis) === 'Inclusive' ? money(l.quantity * l.unitCost - lineSubtotal) : money(lineSubtotal * tax.taxRate); return { id: crypto.randomUUID(), expenseAccountId: l.accountId, purchaseOrderLineId: '', productId: '', unitId: '', sku: 'SERVICE', description: l.description, unitSymbol: 'service', quantity: l.quantity, unitCost: netCost, ...tax, lineSubtotal, taxAmount, lineTotal: money(lineSubtotal + taxAmount) }; }) : payload.lines.map(l => buildSalesLine({ customerId: payload.customerId, documentDate: payload.documentDate, pricingContext, draft: l }));
+    const lines: (SalesDocumentLine | SupplierBillLine)[] = payload.kind === 'EXPENSE' ? payload.lines.map(l => { expenseAccount(l.accountId); const tax = taxSnapshot(l.taxCode), netCost = exclusivePrice(l.unitCost*(payload.fx?.rate??1), tax.taxRate, l.priceBasis), lineSubtotal = money(l.quantity * netCost), taxAmount = (l.priceBasis ?? businessSettings().basis) === 'Inclusive' ? money(l.quantity * l.unitCost*(payload.fx?.rate??1) - lineSubtotal) : money(lineSubtotal * tax.taxRate); return { id: crypto.randomUUID(), expenseAccountId: l.accountId, purchaseOrderLineId: '', productId: '', unitId: '', sku: 'SERVICE', description: l.description, unitSymbol: 'service', quantity: l.quantity, unitCost: netCost, ...tax, lineSubtotal, taxAmount, lineTotal: money(lineSubtotal + taxAmount) }; }) : payload.lines.map(l => buildSalesLine({ customerId: payload.customerId, documentDate: payload.documentDate, pricingContext, draft: l }));
     const totals = calculateDocumentTotals(lines as SalesDocumentLine[]);
     if (totals.total <= 0 || !Number.isFinite(totals.total))
         throw new Error('Document total must be finite and greater than zero.');
@@ -211,6 +214,7 @@ function repo(kind: 'sales' | 'expense') {
                 input.payload = { ...input.payload, ...context };
             }
             const defaults = input.payload.kind==='EXPENSE' ? old ? old.purchaseDefaults : purchaseDefaults(supplierRepository.getById(input.payload.supplierId)) : undefined;
+            if(input.payload.kind==='EXPENSE'&&!input.payload.fx&&supplierRepository.getById(input.payload.supplierId)?.currency!==businessSettings().currency)throw new Error('Choose the supplier bill currency and exchange rate.');
             if(input.payload.kind==='EXPENSE'&&!input.payload.dueDate) input.payload={...input.payload,dueDate:purchaseDueDate(input.payload.documentDate,defaults??{termsDays:30})};
             const built = build(input.payload), now = new Date().toISOString(), row: ManagedDraft = { ...(old?.originalSource?{originalSource:old.originalSource}:{}), purchaseDefaults: defaults, id: old?.id ?? crypto.randomUUID(), operationId: old?.operationId ?? input.operationId, creationFingerprint: old?.creationFingerprint ?? fingerprint, revision: (old?.revision ?? 0) + 1, kind: input.payload.kind, status: 'DRAFT', payload: input.payload.kind === 'EXPENSE' ? input.payload : {...input.payload,lines:input.payload.lines.map((l,i)=>({...l,quantity:built.lines[i].quantity}))}, recipient: input.payload.kind === 'EXPENSE' ? undefined : salesRecipient(input.payload.customerId,input.payload), ...built, createdAt: old?.createdAt ?? now, updatedAt: now, history: [...(old?.history ?? []), history(old ? 'Edited' : 'Created')] };
             if (old && old.kind !== row.kind)
@@ -256,7 +260,7 @@ function repo(kind: 'sales' | 'expense') {
             const p = row.payload;
             if (p.kind === 'EXPENSE') {
                 const party = supplierRepository.getById(p.supplierId)!;
-                const now = new Date().toISOString(), bill: SupplierBill = { id: crypto.randomUUID(), managedDraftId: row.id, kind: 'EXPENSE', billNumber: configuredNumber('BILL', supplierBillRepository.getAll().map(b => b.billNumber), p.documentDate.slice(0, 4)), supplierInvoiceNumber: p.supplierInvoiceNumber, supplierId: party.id, supplierCode: party.code, supplierName: party.businessName, purchaseOrderId: '', purchaseOrderNumber: 'Expense / service bill', billDate: p.documentDate, dueDate: p.dueDate!, purchaseDefaults: structuredClone(row.purchaseDefaults), status: 'OPEN', lines: structuredClone(row.lines) as SupplierBillLine[], totals: { ...row.totals, amountPaid: 0, amountCredited: 0, amountDue: row.totals.total }, notes: p.notes, createdAt: now, updatedAt: now };
+                const now = new Date().toISOString(), bill: SupplierBill = { id: crypto.randomUUID(), managedDraftId: row.id, kind: 'EXPENSE', fx:p.fx?{...p.fx,originalAmount:p.lines.reduce((sum,line)=>{const rate=taxSnapshot(line.taxCode).taxRate;const net=money(line.quantity*exclusivePrice(line.unitCost,rate,line.priceBasis));return money(sum+((line.priceBasis??businessSettings().basis)==='Inclusive'?money(line.quantity*line.unitCost):money(net+money(net*rate))));},0),baseAmount:row.totals.total}:undefined, billNumber: configuredNumber('BILL', supplierBillRepository.getAll().map(b => b.billNumber), p.documentDate.slice(0, 4)), supplierInvoiceNumber: p.supplierInvoiceNumber, supplierId: party.id, supplierCode: party.code, supplierName: party.businessName, purchaseOrderId: '', purchaseOrderNumber: 'Expense / service bill', billDate: p.documentDate, dueDate: p.dueDate!, purchaseDefaults: structuredClone(row.purchaseDefaults), status: 'OPEN', lines: structuredClone(row.lines) as SupplierBillLine[], totals: { ...row.totals, amountPaid: 0, amountCredited: 0, amountDue: row.totals.total }, notes: p.notes, createdAt: now, updatedAt: now };
                 supplierBillRepository.insertExpenseBill(bill);
                 const offsets = bill.lines.filter(l => l.lineSubtotal !== 0).map(l => ({ accountId: l.expenseAccountId!, description: l.description, debit: l.lineSubtotal, credit: 0 }));
                 journalEntryRepository.post({ journalDate: bill.billDate, description: 'Expense bill ' + bill.billNumber, reference: bill.supplierInvoiceNumber, sourceType: 'SUPPLIER_BILL', sourceId: bill.id, lines: [...offsets, ...taxPostingLines(bill.lines, 'paid', true, bill.totals.taxAmount), { accountId: accountRepository.requireBySystemRole('ACCOUNTS_PAYABLE').id, debit: 0, credit: bill.totals.total }] });

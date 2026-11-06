@@ -1,3 +1,4 @@
+import type { FxSnapshot } from "../../currency/currency";
 export type SupplierPaymentMethod =
     | "BANK_TRANSFER"
     | "CASH"
@@ -10,6 +11,8 @@ export type SupplierPaymentStatus =
     | "REVERSED";
 
 export interface SupplierPaymentAllocation {
+    originalAmount?: number;
+    originalCurrency?: string;
     id: string;
 
     supplierBillId: string;
@@ -21,6 +24,9 @@ export interface SupplierPaymentAllocation {
 }
 
 export interface SupplierPayment {
+    exchangeDifference?: number;
+    fx?: FxSnapshot;
+    settlementAmount?: number;
     prepaymentId?: string;
     prepaymentApplicationId?: string;
     operationId?: string;
@@ -61,6 +67,8 @@ export interface SupplierPaymentAllocationDraft {
 }
 
 export interface SupplierPaymentDraft {
+    fx?: FxSnapshot;
+    settlementAmount?: number;
     operationId?: string;
     supplierId: string;
 

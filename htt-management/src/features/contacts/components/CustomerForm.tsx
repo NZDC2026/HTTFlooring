@@ -1,3 +1,5 @@
+import { AccountContactsEditor } from "./AccountContactsEditor";
+import { PaymentTermsFields } from "../../payment-terms/PaymentTermsFields";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
@@ -44,6 +46,8 @@ export function CustomerForm({
 }: CustomerFormProps) {
     const {
         register,
+        watch,
+        setValue,
         control,
         handleSubmit,
         formState: {
@@ -57,6 +61,7 @@ export function CustomerForm({
         ),
 
         defaultValues: {
+            contacts: customer?.contacts ?? [],
             businessName:
                 customer?.businessName ?? "",
 
@@ -82,6 +87,7 @@ export function CustomerForm({
             creditLimit:
                 customer?.creditLimit ?? 0,
 
+            paymentTermsType: customer?.paymentTermsType ?? (customer ? undefined : "DAYS"),
             paymentTermsDays:
                 customer?.paymentTermsDays ?? 30,
         },
@@ -209,62 +215,15 @@ export function CustomerForm({
                                 )}
                             />
                         </FormField>
+                        <FormField label="Website" error={errors.website?.message}><Input {...register("website")} placeholder="https://example.com"/></FormField>
+                        <FormField label="Business landline" error={errors.phone?.message}><Input {...register("phone")} type="tel" placeholder="03 9000 2100"/></FormField>
+                        <FormField label="Business email" error={errors.email?.message}><Input {...register("email")} type="email" placeholder="accounts@example.com"/></FormField>
                     </div>
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardContent>
-                    <div className="mb-6">
-                        <h2 className="font-display text-xl">
-                            Contact Details
-                        </h2>
+            <Controller name="contacts" control={control} render={({field})=><AccountContactsEditor value={field.value??[]} onChange={field.onChange} error={errors.contacts ? "Check contact names and email addresses; choose only one primary and one accountant contact." : undefined}/>}/>
 
-                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            General contact information for
-                            the business.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-x-5 gap-y-5">
-                        <FormField
-                            label="Business Email"
-                            error={errors.email?.message}
-                        >
-                            <Input
-                                {...register("email")}
-                                type="email"
-                                placeholder="accounts@example.com.au"
-                            />
-                        </FormField>
-
-                        <FormField
-                            label="Business Phone"
-                            error={errors.phone?.message}
-                        >
-                            <Input
-                                {...register("phone")}
-                                type="tel"
-                                placeholder="03 9123 4567"
-                            />
-                        </FormField>
-
-                        <div className="col-span-2">
-                            <FormField
-                                label="Website"
-                                error={
-                                    errors.website?.message
-                                }
-                            >
-                                <Input
-                                    {...register("website")}
-                                    placeholder="www.example.com.au"
-                                />
-                            </FormField>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
             <Card>
                 <CardContent>
@@ -315,27 +274,12 @@ export function CustomerForm({
                                 errors.paymentTermsDays
                                     ?.message
                             }
-                            description="Number of days allowed before payment is due."
                         >
-                            <div className="relative">
-                                <Input
-                                    {...register(
-                                        "paymentTermsDays",
-                                        {
-                                            valueAsNumber: true,
-                                        },
-                                    )}
-                                    type="number"
-                                    min={0}
-                                    max={365}
-                                    step={1}
-                                    className="pr-14"
-                                />
-
-                                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--color-text-muted)]">
-                                    days
-                                </span>
-                            </div>
+                            <PaymentTermsFields value={{paymentTermsDays: watch("paymentTermsDays"), paymentTermsType: watch("paymentTermsType")}}
+                                onChange={value => {
+                                    setValue("paymentTermsType", value.paymentTermsType, {shouldDirty: true});
+                                    setValue("paymentTermsDays", value.paymentTermsDays, {shouldDirty: true, shouldValidate: true});
+                                }}/>
                         </FormField>
                     </div>
                 </CardContent>

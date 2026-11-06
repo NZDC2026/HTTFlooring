@@ -350,7 +350,7 @@ export function CustomersPage() {
                 .sort((a, b) => (a.deliveryAt || a.due).localeCompare(b.deliveryAt || b.due)),
             currentBalance: receivable.netAccountBalance,
             overdueBalance: receivable.overdueAmount,
-            availableCredit: customer.paymentTermsDays === 0 ? 0 : receivable.availableCredit,
+            availableCredit: receivable.availableCredit,
             lastSaleDate: documents
                 .filter(document => document.customerId === customer.id && document.type === "INVOICE" && document.status !== "DRAFT" && document.status !== "VOID")
                 .reduce((latest, document) => document.documentDate > latest ? document.documentDate : latest, ""),
@@ -386,7 +386,7 @@ export function CustomersPage() {
         );
 
     return (
-        <div className="pb-8">
+        <div className="pb-8"><Link to="/contacts" className="mb-4 inline-flex text-xs text-[var(--color-primary)] underline">← Back to Customers dashboard</Link>
             <div className="mb-7 flex items-start justify-between">
                 <div>
                     <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">

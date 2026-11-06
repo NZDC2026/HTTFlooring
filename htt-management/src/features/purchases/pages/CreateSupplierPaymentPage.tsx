@@ -1,3 +1,7 @@
+import { useSupplierPayments } from "../data/useSupplierPayments";
+import { foreignAllocationAmount } from "../../currency/settlement";
+import { CurrencyFields, CurrencyPaymentSample } from "../../currency/CurrencyFields";
+import { currencyCode, currencyLabel, moneyRound, type FxSnapshot } from "../../currency/currency";
 import { supplierBillRepository } from '../data/supplierBillRepository';
 import { purchaseDefaults } from '../../purchase-settings/purchaseDefaults';
 import { Link } from 'react-router-dom';
@@ -56,6 +60,8 @@ export function CreateSupplierPaymentPage() {
     const suppliers =
         useSuppliers();
 
+    const payments = useSupplierPayments();
+
     const bills =
         useSupplierBills();
 
@@ -91,6 +97,11 @@ export function CreateSupplierPaymentPage() {
         requestedSupplierId,
     );
 
+    const [fx,setFx] = useState<FxSnapshot | undefined>(() => {
+        const currency=currencyCode(suppliers.find(supplier=>supplier.id===requestedSupplierId)?.currency??businessSettings().currency);
+        return {currency:currency as FxSnapshot["currency"],baseCurrency:businessSettings().currency as FxSnapshot["baseCurrency"],rate:currency===businessSettings().currency?1:0,rateDate:getToday(),source:"Manual"};
+    });
+    const [settlementAmount,setSettlementAmount] = useState("");
     const [
         paymentDate,
         setPaymentDate,
@@ -133,6 +144,14 @@ export function CreateSupplierPaymentPage() {
             {},
         );
 
+    const allocatedBase = Object.values(allocations).reduce((sum,amount)=>sum+(Number(amount)||0),0);
+    const suggestedSettlement = moneyRound(Object.entries(allocations).reduce((sum,[id,amount])=>{
+        const bill=bills.find(bill=>bill.id===id);
+        const rate=bill?.fx?.currency===fx?.currency ? bill?.fx?.rate : fx?.rate;
+        try {return sum+(bill?.fx && bill.fx.currency===fx?.currency && Number(amount)>0 ? foreignAllocationAmount(bill,Number(amount),payments) : (Number(amount)||0)/(rate||1));}
+        catch {return sum;}
+    },0));
+    const paidForeign = settlementAmount === "" ? suggestedSettlement : Number(settlementAmount);
     const [
         error,
         setError,
@@ -490,6 +509,8 @@ export function CreateSupplierPaymentPage() {
                         operationId: operationIdRef.current,
                         supplierId,
                         paymentDate,
+                        fx,
+                        settlementAmount:fx ? paidForeign : undefined,
                         method,
 
                         bankAccountId:
@@ -524,6 +545,13 @@ export function CreateSupplierPaymentPage() {
 
     return (
         <div className="pb-8">
+            <CurrencyPaymentSample/>
+            <CurrencyFields baseCurrency={businessSettings().currency} value={fx} onChange={value=>{if(value.currency!==fx?.currency)setSettlementAmount("");setFx(value);}}/>
+            <label className="my-3 block text-sm">Actual payment amount ({currencyLabel(fx?.currency??businessSettings().currency)})
+                <input aria-label="Actual payment amount" type="number" min="0.01" step="0.01" className="ml-3 rounded border px-3 py-2" value={settlementAmount===""?suggestedSettlement:settlementAmount} onChange={event=>setSettlementAmount(event.target.value)}/>
+            </label>
+            <p className="mb-4 text-sm">Bill balance settled {currencyLabel(businessSettings().currency)} {allocatedBase.toFixed(2)} · Bank payment {moneyRound(paidForeign*(fx?.rate??1)).toFixed(2)} · Exchange difference {moneyRound(paidForeign*(fx?.rate??1)-allocatedBase).toFixed(2)}. Bill allocations below use the ledger currency.</p>
+
             <button
                 type="button"
                 onClick={() =>
@@ -580,15 +608,12 @@ export function CreateSupplierPaymentPage() {
                                     value={
                                         supplierId
                                     }
-                                    onChange={(
-                                        event,
-                                    ) =>
-                                        setSupplierId(
-                                            event
-                                                .target
-                                                .value,
-                                        )
-                                    }
+                                    onChange={event=>{
+                                        setSupplierId(event.target.value);
+                                        const currency=currencyCode(suppliers.find(supplier=>supplier.id===event.target.value)?.currency??businessSettings().currency);
+                                        setFx({currency:currency as FxSnapshot["currency"],baseCurrency:businessSettings().currency as FxSnapshot["baseCurrency"],rate:currency===businessSettings().currency?1:0,rateDate:getToday(),source:"Manual"});
+                                        setSettlementAmount("");
+                                    }}
                                     disabled={
                                         Boolean(
                                             requestedSupplierId,
@@ -894,6 +919,8 @@ export function CreateSupplierPaymentPage() {
                                                         {
                                                             bill.billNumber
                                                         }
+                                                        {bill.fx && <span className="ml-2 text-xs text-slate-500">{currencyLabel(bill.fx.currency)} {foreignAllocationAmount(bill,bill.totals.amountDue,payments).toFixed(2)} open</span>}
+
                                                     </td>
 
                                                     <td className="px-4 py-4 text-sm">

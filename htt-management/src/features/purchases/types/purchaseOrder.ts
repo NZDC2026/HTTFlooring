@@ -1,3 +1,5 @@
+import type { EtaChange } from "../../incoming-shipments/shipmentEta";
+import type { FxSnapshot } from "../../currency/currency";
 import type { PurchaseDefaults } from '../../purchase-settings/purchaseDefaults';
 export type PurchaseOrderStatus =
     | "DRAFT"
@@ -47,6 +49,9 @@ export interface PurchaseOrderTotals {
 }
 
 export interface PurchaseOrder {
+    etaHistory?: EtaChange[];
+    originalLines?: PurchaseOrderLine[];
+    fx?: FxSnapshot;
     purchaseDefaults?: PurchaseDefaults;
     id: string;
 
@@ -91,6 +96,7 @@ export interface PurchaseOrderLineDraft {
 }
 
 export interface PurchaseOrderDraft {
+    fx?: FxSnapshot;
     supplierId: string;
 
     orderDate: string;

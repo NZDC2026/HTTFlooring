@@ -1,3 +1,5 @@
+import { validateTaskDocument, type TaskDocument } from "../contacts/data/taskDocumentReference";
+import { paymentTermsTypeSchema, validatePaymentTerms } from "../payment-terms/paymentTerms";
 import { validTaskLocalTime } from "../delivery-tasks/deliveryTaskTime";
 import { parseBulkStatus } from './bulkStatus';
 import { reportPresentationSchema } from '../report-settings/reportPresentation';
@@ -29,12 +31,12 @@ export const workspaceDomains: Record<string, {
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },
     promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
     jobs: { read: 'accounting.read', write: 'accounting.post', required: ['code', 'customerId', 'starts', 'ends', 'budget', 'costBudget'], fields: ['code', 'customerId', 'owner', 'starts', 'ends', 'budget', 'costBudget'] },
-    tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'completedAt', 'completedBy', 'completedByName', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
+    tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'documentType', 'documentId', 'completedAt', 'completedBy', 'completedByName', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
     'bank-rules': { read: 'banking.read', write: 'banking.write', required: ['field', 'operator', 'value', 'accountId', 'taxCode'], fields: ['field', 'operator', 'value', 'accountId', 'taxCode', 'enabled', 'conditions', 'match', 'priority', 'automatic', 'bankAccountId'] },
     templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
     'report-packs': { read: 'accounting.read', write: 'accounting.post', required: ['periodStart', 'periodEnd', 'reports'], fields: ['periodStart', 'periodEnd', 'reports', 'cover', 'introduction'] },
-    settings: { read: 'inventory.read', write: 'accounting.post', required: ['section'], fields: ['reportDefaults', 'termsPolicy', 'paymentMethod', 'section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase', 'billPrefix', 'supplierCreditPrefix', 'nextBill', 'nextSupplierCredit', 'tradingName', 'identifier', 'email', 'phone', 'address'] },
+    settings: { read: 'inventory.read', write: 'accounting.post', required: ['section'], fields: ['termsType', 'reportDefaults', 'termsPolicy', 'paymentMethod', 'section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase', 'billPrefix', 'supplierCreditPrefix', 'nextBill', 'nextSupplierCredit', 'tradingName', 'identifier', 'email', 'phone', 'address'] },
 };
 const listeners = new Set<() => void>();
 let revision = 0;
@@ -133,6 +135,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             throw new Error('Job code must be unique.');
     }
     if (domain === 'tasks') {
+        if(checkReferences){const sales=snapshotRepositories().sales as {salesOrders:TaskDocument[];invoices:TaskDocument[]};validateTaskDocument(input.documentType,input.documentId,input.customerId,sales.salesOrders,sales.invoices,'customerId');}
         if (checkReferences && input.id && ((snapshotRepositories().salesVisits as {visits:{followupTaskId?:string;customerId:string}[]}|undefined)?.visits??[]).some(v=>v.followupTaskId===input.id&&v.customerId!==input.customerId)) throw new Error('A visit follow-up must retain the visit customer.');
         if (checkReferences && !['Open', 'In progress', 'Completed'].includes(input.status ?? 'Open')) throw new Error('Task status must be Open, In progress or Completed.');
         if (input.orderId) {
@@ -176,6 +179,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
         if(input.section==='purchases' && (input.termsPolicy!==undefined || input.paymentMethod!==undefined)) {
             if(input.status!=='Active')throw new Error('Purchase settings must remain active.');
             if(!/^\d+$/.test(input.terms)||Number(input.terms)>365)throw new Error('Purchase terms must be 0–365 days.');
+            validatePaymentTerms({paymentTermsDays:Number(input.terms),paymentTermsType:paymentTermsTypeSchema.parse(input.termsType)});
             if(!['SUPPLIER','PURCHASE_SETTINGS'].includes(input.termsPolicy))throw new Error('Invalid purchase terms policy.');
             if(!['BANK_TRANSFER','CARD','CASH','CHEQUE','OTHER'].includes(input.paymentMethod))throw new Error('Invalid preferred payment method.');
         }
@@ -184,6 +188,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             if(input.status!=='Active')throw new Error('Business settings must remain active.');
             if(!['Exclusive','Inclusive'].includes(input.basis))throw new Error('Invalid price basis.');
             if(!/^\d+$/.test(input.terms)||Number(input.terms)>365)throw new Error('Payment terms must be 0–365 days.');
+            validatePaymentTerms({paymentTermsDays:Number(input.terms),paymentTermsType:paymentTermsTypeSchema.parse(input.termsType)});
             if(!/^\d{2}-\d{2}$/.test(input.yearEnd)||!validDate('2001-'+input.yearEnd))throw new Error('Year end must be MM-DD.');
             for(const field of ['quotePrefix','orderPrefix','invoicePrefix','creditPrefix','purchasePrefix','billPrefix','supplierCreditPrefix']) if(input[field]&&!/^[A-Z0-9]{1,12}$/.test(input[field]))throw new Error('Number prefixes require 1–12 uppercase letters/numbers.');
             if(checkReferences) {
@@ -197,7 +202,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
 
         if (!['business', 'sales', 'purchases', 'payroll', 'reports'].includes(input.section))
             throw new Error('Unknown settings section.');
-        if (input.currency && !(input.section==='reports'?['BASE','NZD','AUD']:['NZD', 'AUD']).includes(input.currency))
+        if (input.currency && !(input.section==='reports'?['BASE','USD','AUD','CNY','NZD']:['USD','AUD','CNY','NZD']).includes(input.currency))
             throw new Error('Unsupported currency.');
         if (input.timezone) {
             try {
@@ -283,6 +288,7 @@ function validateConfigurationReferences(domain: string, value: unknown, snapsho
         records: ConfigRow[];
     }).records;
     for (const row of records) {
+        if(domain==='tasks'){const sales=snapshots.sales as {salesOrders:TaskDocument[];invoices:TaskDocument[]};validateTaskDocument(row.documentType,row.documentId,row.customerId,sales.salesOrders,sales.invoices,'customerId');}
         if (row.customerId && !customers.some(c => c.id === row.customerId))
             throw new Error('Backup workspace customer reference is invalid.');
         if (domain === 'promotions' && !products.some(p => p.id === row.productId && p.units.some(u => u.id === row.unitId)))

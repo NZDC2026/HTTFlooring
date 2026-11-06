@@ -1,3 +1,5 @@
+import { CurrencyFields } from "../../currency/CurrencyFields";
+import type { FxSnapshot } from "../../currency/currency";
 import { orderDefaults, purchaseDueDate } from '../../purchase-settings/purchaseDefaults';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
@@ -54,6 +56,7 @@ export function CreateSupplierBillPage() {
             purchaseOrderId,
         );
 
+    const [fx,setFx] = useState<FxSnapshot | undefined>(purchaseOrder?.fx);
     const [
         supplierInvoiceNumber,
         setSupplierInvoiceNumber,
@@ -134,7 +137,7 @@ export function CreateSupplierBillPage() {
                         unitCosts[
                         line.id
                         ] ??
-                        line.unitCost,
+                        line.unitCost / (purchaseOrder?.fx?.rate ?? 1),
                     );
 
                 if (
@@ -156,7 +159,7 @@ export function CreateSupplierBillPage() {
                             quantity,
                             inclusiveLineTotal:line.grossUnitCost!==undefined&&Math.abs(unitCost-line.unitCost)<1e-8?Math.round(quantity*line.grossUnitCost*100)/100:undefined,
                             taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
-                            unitCost,
+                            unitCost: unitCost * (fx?.rate ?? 1),
                         },
                     );
 
@@ -190,6 +193,7 @@ export function CreateSupplierBillPage() {
             billableLines,
             quantities,
             unitCosts,
+            fx,
         ]);
 
     if (!purchaseOrder) {
@@ -280,7 +284,7 @@ export function CreateSupplierBillPage() {
             nextCosts[
                 line.id
             ] = String(
-                line.unitCost,
+                line.unitCost / (purchaseOrder?.fx?.rate ?? 1),
             );
         }
 
@@ -363,7 +367,7 @@ export function CreateSupplierBillPage() {
                                 unitCosts[
                                 line.id
                                 ] ??
-                                line.unitCost,
+                                line.unitCost / (purchaseOrder?.fx?.rate ?? 1),
                             ),
                     }),
                 )
@@ -443,7 +447,7 @@ export function CreateSupplierBillPage() {
                     unitCosts[
                     line.id
                     ] ??
-                    line.unitCost,
+                    line.unitCost / (purchaseOrder?.fx?.rate ?? 1),
                 );
 
             if (
@@ -467,6 +471,7 @@ export function CreateSupplierBillPage() {
                         purchaseOrderId:
                             resolvedPurchaseOrderId,
 
+                        fx,
                         supplierInvoiceNumber:
                             supplierInvoiceNumber.trim(),
 
@@ -501,6 +506,8 @@ export function CreateSupplierBillPage() {
 
     return (
         <div className="pb-8">
+            <CurrencyFields value={fx} baseCurrency={businessSettings().currency} onChange={setFx}/><p className="my-2 text-sm">Unit costs in {fx?.currency === "CNY" ? "RMB" : fx?.currency ?? businessSettings().currency}; totals in {businessSettings().currency}.</p>
+
             <button
                 type="button"
                 onClick={() =>
@@ -716,7 +723,7 @@ export function CreateSupplierBillPage() {
                                             unitCosts[
                                             line.id
                                             ] ??
-                                            line.unitCost,
+                                            line.unitCost / (purchaseOrder?.fx?.rate ?? 1),
                                         );
 
                                     const lineTotal =
@@ -849,7 +856,7 @@ export function CreateSupplierBillPage() {
                                                         line.id
                                                         ] ??
                                                         String(
-                                                            line.unitCost,
+                                                            line.unitCost / (purchaseOrder?.fx?.rate ?? 1),
                                                         )
                                                     }
                                                     onChange={(

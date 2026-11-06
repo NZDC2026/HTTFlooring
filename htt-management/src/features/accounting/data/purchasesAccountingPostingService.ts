@@ -654,6 +654,13 @@ export const purchasesAccountingPostingService =
                     payment.id,
 
                 lines: [
+                    ...(payment.exchangeDifference ? [{
+                        accountId:getAccountId("OPERATING_EXPENSE"),
+                        description:"Realised foreign exchange difference",
+                        debit:Math.max(0,payment.exchangeDifference),
+                        credit:Math.max(0,-payment.exchangeDifference),
+                    }] : []),
+
                     {
                         accountId:
                             getAccountId(
@@ -664,7 +671,7 @@ export const purchasesAccountingPostingService =
                             payment.paymentNumber,
 
                         debit:
-                            payment.amount,
+                            roundAccountingAmount(payment.amount - (payment.exchangeDifference ?? 0)),
 
                         credit:
                             0,

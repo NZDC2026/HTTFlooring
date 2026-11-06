@@ -1,3 +1,5 @@
+import { normalizeAccountContacts, accountContactsSchema } from "./accountContacts";
+import { validatePaymentTerms } from "../../payment-terms/paymentTerms";
 import { z } from 'zod';
 import { trustedAuthorization } from '../../security/trustedAuthorization';
 import { contactFormSchema, customerStatuses } from '../schemas/customerSchemas';
@@ -171,6 +173,7 @@ export const customerRepository = {
     create(
         values: CustomerFormValues,
     ): Customer {
+        validatePaymentTerms(values);
         const now = new Date().toISOString();
 
         const customer: Customer = {
@@ -207,10 +210,12 @@ export const customerRepository = {
 
             paymentTermsDays:
                 values.paymentTermsDays,
+            paymentTermsType: values.paymentTermsType,
 
             locations: [],
 
-            contacts: [],
+            contacts: values.contacts===undefined?[]:normalizeAccountContacts(values.contacts),
+            primaryContactId: values.contacts===undefined?undefined:normalizeAccountContacts(values.contacts).find(c=>c.isPrimary)?.id,
 
             createdAt: now,
             updatedAt: now,
@@ -240,6 +245,7 @@ export const customerRepository = {
         customerId: string,
         values: CustomerFormValues,
     ): Customer {
+        validatePaymentTerms(values);
         let updatedCustomer:
             | Customer
             | undefined;
@@ -249,6 +255,7 @@ export const customerRepository = {
             (customer) => {
                 updatedCustomer = {
                     ...customer,
+                    ...(values.contacts===undefined?{}:{contacts:normalizeAccountContacts(values.contacts),primaryContactId:normalizeAccountContacts(values.contacts).find(c=>c.isPrimary)?.id}),
 
                     businessName:
                         values.businessName.trim(),
@@ -281,6 +288,7 @@ export const customerRepository = {
 
                     paymentTermsDays:
                         values.paymentTermsDays,
+                    paymentTermsType: values.paymentTermsType,
 
                     updatedAt:
                         new Date().toISOString(),
@@ -698,7 +706,7 @@ registerRepository("customers", {
     commands: {"addNote": "contacts.write", "if": null, "emitChange": null, "create": "contacts.write", "update": "contacts.write", "setStatus": "contacts.write", "addLocation": "contacts.write", "updateLocation": "contacts.write", "addContact": "contacts.write", "updateContact": "contacts.write"},
     validate: value => {
         const ids=new Set<string>(), operations=new Set<string>(),sources=new Set<string>();
-        for(const c of (value as {customers:Customer[]}).customers){if(c.notes===undefined)continue;if(!Array.isArray(c.notes))throw Error('Invalid customer notes.');for(const n of c.notes){
+        for(const c of (value as {customers:Customer[]}).customers){accountContactsSchema.parse(c.contacts);if(c.paymentTermsType!==undefined)validatePaymentTerms(c);if(c.notes===undefined)continue;if(!Array.isArray(c.notes))throw Error('Invalid customer notes.');for(const n of c.notes){
             const parsed=noteInput.extend({id:z.string().min(1),actorId:z.string().min(1),actorName:z.string().min(1).optional(),createdAt:z.iso.datetime()}).parse(n);
             if(parsed.customerId!==c.id || ids.has(n.id)||operations.has(n.operationId)||(n.source==='Sales import')!==!!n.externalId)throw Error('Invalid customer note provenance.');
             if (Boolean(parsed.action) !== Boolean(parsed.threadId) || (parsed.action && parsed.source !== 'Desktop') ||

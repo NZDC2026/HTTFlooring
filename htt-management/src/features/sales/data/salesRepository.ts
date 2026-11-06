@@ -1,3 +1,5 @@
+import { paymentDueDate, invoicePaymentTerms } from "../../payment-terms/paymentTerms";
+import { customerRepository } from "../../contacts/data/customerRepository";
 import { resolvePricingInstant, validatePricingSnapshot } from './pricingInstant';
 import { visibleDocuments } from '../../document-recycle/recycleState';
 import { validateLineItemType } from '../../inventory/data/itemTypes';
@@ -797,10 +799,7 @@ export const salesRepository = {
             documentDate,
 
             dueDate:
-                addDays(
-                    documentDate,
-                    Number(businessSettings().terms),
-                ),
+                paymentDueDate(documentDate, invoicePaymentTerms(customerRepository.getById(order.customerId), businessSettings())),
 
             status:
                 "ISSUED",
@@ -2143,46 +2142,6 @@ function getNextDocumentNumber(
 
 function getToday() {
     return businessDateKey(new Date().toISOString());
-}
-
-function addDays(
-    value: string,
-    days: number,
-) {
-    const [
-        year,
-        month,
-        day,
-    ] = value
-        .split("-")
-        .map(Number);
-
-    const date =
-        new Date(
-            year,
-            month - 1,
-            day,
-        );
-
-    date.setDate(
-        date.getDate() +
-        days,
-    );
-
-    const resultYear =
-        date.getFullYear();
-
-    const resultMonth =
-        String(
-            date.getMonth() + 1,
-        ).padStart(2, "0");
-
-    const resultDay =
-        String(
-            date.getDate(),
-        ).padStart(2, "0");
-
-    return `${resultYear}-${resultMonth}-${resultDay}`;
 }
 
 function roundCurrency(

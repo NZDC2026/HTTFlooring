@@ -18,7 +18,7 @@ function workflow(
 }
 
 export const workflowSamples = [
-    workflow("Accountant contact", /^\/contacts(?:$|\/customers(?:\/|$))/,
+    workflow("Accountant contact", /^\/contacts(?:\/list$|\/customers(?:\/|$))/,
         ["Harbour Flooring", "No accountant assigned · add a contact in customer details", "Awaiting contact"],
         ["Parkside Interiors", "Morgan Lee · 0491 570 110 · accounts@example.invalid", "Saved"]),
     workflow("Delivery tasks", /^\/(?:dashboard$|contacts\/customers\/[^/]+(?:\/activity)?$|sales\/orders\/|inventory\/sales-dispatch)/,

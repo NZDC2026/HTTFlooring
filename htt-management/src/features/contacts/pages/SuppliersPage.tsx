@@ -1,3 +1,7 @@
+import { useSearchParams, Link } from "react-router-dom";
+import { filterSupplierRows, parseSupplierListFilter, supplierListFilters, supplierFilterLabels } from "../data/supplierListFilter";
+import { storedCurrencySchema } from "../../currency/currency";
+import { paymentTermsLabel } from "../../payment-terms/paymentTerms";
 import { ChevronDown } from "lucide-react";
 import { usePermission } from "../../security/usePermission";
 import { supplierRepository } from "../data/supplierRepository";
@@ -174,11 +178,7 @@ const columns: ColumnDef<
                 row,
             }) => (
                 <span className="text-[var(--color-text-secondary)]">
-                    {
-                        row.original
-                            .paymentTermsDays
-                    }{" "}
-                    days
+                    {paymentTermsLabel(row.original)}
                 </span>
             ),
         },
@@ -240,6 +240,7 @@ function SupplierStatusCell({ supplier }: { supplier: Supplier }) {
                     if (!current) throw new Error("Supplier not found.");
                     supplierRepository.update(current.id, {
                         ...current,
+                        currency:storedCurrencySchema.parse(current.currency),
                         status,
                         tradingName: current.tradingName ?? "",
                         abn: current.abn ?? "",
@@ -271,6 +272,10 @@ export function SuppliersPage() {
     const navigate =
         useNavigate();
 
+    const [params,setParams]=useSearchParams();
+    const selectedFilter=parseSupplierListFilter(params.get("filter"));
+    const sample=params.get("sample")==="1";
+    const changeFilter=(value:string)=>{const next=new URLSearchParams(params);if(value==="all")next.delete("filter");else next.set("filter",value);setParams(next);};
     const profiles = useSuppliers();
     const bills = useSupplierBills();
     const payments = useSupplierPayments();
@@ -280,7 +285,7 @@ export function SuppliersPage() {
     const suppliers = useMemo<SupplierRow[]>(() => profiles.map(supplier => {
         const payable = calculateSupplierAccountsPayable(supplier, bills, payments, credits, allocations, today);
         return {
-            ...supplier,
+            ...supplier, currency:storedCurrencySchema.parse(supplier.currency),
             currentBalance: payable.totalOutstanding,
             overdueBalance: payable.overdueAmount,
             lastPurchaseDate: bills
@@ -292,6 +297,12 @@ export function SuppliersPage() {
         };
     }), [profiles, bills, payments, credits, allocations, today]);
 
+    const filteredSuppliers=filterSupplierRows(suppliers,selectedFilter);
+    const sampleSuppliers=filterSupplierRows([
+        {name:"Sample Melbourne Flooring",status:"ACTIVE",currentBalance:48375,overdueBalance:12000},
+        {name:"Sample Oak Timber Supply",status:"ACTIVE",currentBalance:36200,overdueBalance:0},
+        {name:"Sample Timber Export",status:"ACTIVE",currentBalance:24800,overdueBalance:8400},
+    ],selectedFilter);
     const active =
         suppliers.filter(
             (supplier) =>
@@ -360,10 +371,25 @@ export function SuppliersPage() {
                 <Summary label="Overdue" value={money(overdueBalance)}/>
             </div>
 
+            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border)] bg-white px-4 py-3">
+                <label className="flex items-center gap-2 text-sm">Show
+                    <select aria-label="Supplier list filter" value={selectedFilter} onChange={e=>changeFilter(e.target.value)} className="rounded-lg border border-[var(--color-border)] bg-white px-3 py-2">
+                        {supplierListFilters.map(filter=><option key={filter} value={filter}>{supplierFilterLabels[filter]}</option>)}
+                    </select>
+                </label>
+                <span className="text-xs text-[var(--color-text-muted)]">{filteredSuppliers.length} recorded suppliers</span>
+                {selectedFilter!=="all"&&<button className="text-xs underline" onClick={()=>changeFilter("all")}>Clear filter</button>}
+                <Link className="ml-auto text-xs underline" to="/contacts/supplier-dashboard">Back to Suppliers overview →</Link>
+            </div>
+            <details open={sample} className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs">
+                <summary className="cursor-pointer font-semibold text-amber-900">Sample · {supplierFilterLabels[selectedFilter]} · {sampleSuppliers.length} suppliers</summary>
+                <p className="my-2 text-amber-900">Read-only preview using the same filter as the list below. Sample amounts are excluded from real balances and exports.</p>
+                <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr>{["Supplier","Status","Current Balance","Overdue"].map(h=><th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{sampleSuppliers.map(row=><tr key={row.name} className="border-t border-amber-200"><td className="p-2">{row.name}</td><td className="p-2">Active</td><td className="p-2">{money(row.currentBalance)}</td><td className="p-2 text-red-700">{money(row.overdueBalance)}</td></tr>)}</tbody></table></div>
+            </details>
             <DataTable
                 capabilities={{id:"suppliers",scope:"complete",permission:"purchases.read",rowId:r=>r.id}}
                 data={
-                    suppliers
+                    filteredSuppliers
                 }
                 columns={
                     columns

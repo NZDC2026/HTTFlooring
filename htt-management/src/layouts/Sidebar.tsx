@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {presentationPathEnabled} from '../features/security/optionalWorkflows';
 import {businessSettings} from '../features/business-workspace/configurationState';
 import {useWorkspaceRecords} from '../features/business-workspace/workspaceRepository';
@@ -18,6 +19,7 @@ import {
     ReceiptText,
     Settings,
     ShoppingCart,
+    Ship,
     UsersRound,
 } from "lucide-react";
 import { NavLink, Link, useLocation } from "react-router-dom";
@@ -54,6 +56,11 @@ const sections = [
                 label: "Purchases",
                 path: "/purchases",
                 icon: ShoppingCart,
+            },
+            {
+                label: "Incoming Shipment",
+                path: "/purchases/incoming-shipments",
+                icon: Ship,
             },
             {
                 label: "Inventory",
@@ -130,7 +137,7 @@ const sections = [
             },
             {
                 label: "Suppliers",
-                path: "/contacts/suppliers",
+                path: "/contacts/supplier-dashboard",
                 icon: PackageCheck,
             },
             {
@@ -167,7 +174,10 @@ export function Sidebar() {
     useWorkspaceRecords('settings');
     const { session } = useSecurity();
     const { pathname } = useLocation();
-    const inSuppliers = pathname === "/contacts/suppliers" || pathname.startsWith("/contacts/suppliers/");
+    const inSuppliers = pathname === "/contacts/supplier-dashboard" || pathname === "/contacts/suppliers" || pathname.startsWith("/contacts/suppliers/");
+    const inCustomers=pathname==='/contacts'||pathname==='/contacts/list'||pathname.startsWith('/contacts/customers/')||pathname.startsWith('/contacts/review');
+    const [expanded,setExpanded]=useState({customers:inCustomers,suppliers:inSuppliers});
+    useEffect(()=>{if(inCustomers)setExpanded(value=>({...value,customers:true}));if(inSuppliers)setExpanded(value=>({...value,suppliers:true}));},[pathname,inCustomers,inSuppliers]);
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
         if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
@@ -179,6 +189,7 @@ export function Sidebar() {
         if (path === '/banking') return 'banking.read';
         if (path === '/sales' || path === '/demo' || path === '/reports') return 'sales.read';
         if (path === '/inventory') return 'inventory.read';
+        if (path === '/contacts/supplier-dashboard') return 'purchases.read';
         if (path === '/contacts' || path === '/contacts/suppliers') return 'contacts.write';
     };
     const visibleSections = sections.map(section => ({ ...section, items: section.items.filter(item => presentationPathEnabled(item.path)).filter(item => !permissionForPath(item.path) || hasPermission(principal, permissionForPath(item.path)!)) })).filter(section => section.items.length);
@@ -228,17 +239,33 @@ export function Sidebar() {
                             <div className="space-y-1">
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
+                                    if(item.path==='/contacts'||item.path==='/contacts/supplier-dashboard'){
+                                        const key=item.path==='/contacts'?'customers':'suppliers';
+                                        const active=key==='customers'?inCustomers:inSuppliers;
+                                        const childPath=key==='customers'?'/contacts/list':'/contacts/suppliers';
+                                        const childLabel=key==='customers'?'All Customers':'All Suppliers';
+                                        const childAllowed=hasPermission(principal,'contacts.write');
+                                        return <div key={item.path}>
+                                            <div className={cn('group flex h-10 items-center rounded-lg text-[13px] font-medium transition',active?'bg-white/12 text-white':'text-white/65 hover:bg-white/7 hover:text-white')}>
+                                                <NavLink to={item.path} end onClick={()=>setExpanded(value=>({...value,[key]:true}))} className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3">
+                                                    <Icon size={17} strokeWidth={1.8} className={active?'text-[var(--color-accent)]':'text-white/55'}/><span>{item.label}</span>
+                                                </NavLink>
+                                                {childAllowed&&<button type="button" aria-label={`${expanded[key]?'Collapse':'Expand'} ${item.label}`} aria-expanded={expanded[key]} aria-controls={`sidebar-${key}-submenu`} onClick={()=>setExpanded(value=>({...value,[key]:!value[key]}))} className="mr-1 grid size-8 place-items-center rounded-md hover:bg-white/10"><ChevronDown size={14} className={cn('transition-transform',expanded[key]?'rotate-180':'')}/></button>}
+                                            </div>
+                                            {childAllowed&&expanded[key]&&<nav id={`sidebar-${key}-submenu`} aria-label={`${item.label} submenu`} className="ml-5 mt-1 border-l border-white/15 pl-3"><NavLink to={childPath} end className={({isActive})=>cn('block rounded-lg px-3 py-2 text-xs transition',isActive?'bg-white/10 font-semibold text-white':'text-white/60 hover:bg-white/7 hover:text-white')}>{childLabel}</NavLink></nav>}
+                                        </div>;
+                                    }
 
                                     return (
                                         <NavLink
                                             key={item.path}
                                             to={item.path}
-                                            end={item.path === "/reports" || item.path === "/settings" || (item.path === "/contacts" && inSuppliers)}
+                                            end={(item.path === "/purchases" && pathname === "/purchases/incoming-shipments") || item.path === "/reports" || item.path === "/settings" || (item.path === "/contacts" && inSuppliers)}
                                             className={({ isActive }) =>
                                                 cn(
                                                     "group flex h-10 items-center gap-3 rounded-lg px-3",
                                                     "text-[13px] font-medium transition",
-                                                    isActive
+                                                    (isActive || (item.path === "/contacts/supplier-dashboard" && inSuppliers))
                                                         ? "bg-white/12 text-white"
                                                         : "text-white/65 hover:bg-white/7 hover:text-white",
                                                 )
@@ -250,7 +277,7 @@ export function Sidebar() {
                                                         size={17}
                                                         strokeWidth={1.8}
                                                         className={
-                                                            isActive
+                                                            (isActive || (item.path === "/contacts/supplier-dashboard" && inSuppliers))
                                                                 ? "text-[var(--color-accent)]"
                                                                 : "text-white/55 group-hover:text-white"
                                                         }

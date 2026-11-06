@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { businessSettings, configurationRows } from '../business-workspace/configurationState';
-export const reportPresentationSchema=z.object({header:z.string().max(160),precision:z.number().int().min(2).max(4),basis:z.enum(['Accrual','Cash']),currency:z.enum(['BASE','AUD','NZD']),revision:z.string().regex(/^\d+$/).optional()}).strict();
+export const reportPresentationSchema=z.object({header:z.string().max(160),precision:z.number().int().min(2).max(4),basis:z.enum(['Accrual','Cash']),currency:z.enum(['BASE','USD','AUD','CNY','NZD']),revision:z.string().regex(/^\d+$/).optional()}).strict();
 export type ReportPresentation=z.infer<typeof reportPresentationSchema>;
 export const legacyReportPresentation:ReportPresentation={header:'',precision:2,basis:'Accrual',currency:'BASE'};
 export function reportSettings():ReportPresentation {

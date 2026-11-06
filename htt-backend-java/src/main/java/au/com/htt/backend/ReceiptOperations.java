@@ -150,7 +150,7 @@ class ReceiptOperations {
         return "{\"" + field + "\":\"" + id + "\",\"amount\":\"" + amount.toPlainString() + "\"}";
     }
 
-    private static BigDecimal amount(BigDecimal value, String positiveMessage) {
+    static BigDecimal amount(BigDecimal value, String positiveMessage) {
         var amount = value == null ? BigDecimal.ZERO : value;
         require(amount.signum() >= 0 && amount.compareTo(MAX_AMOUNT) <= 0 && amount.stripTrailingZeros().scale() <= 2,
                 "amount", "amount must be nonnegative, within the storage limit, and have at most 2 decimals.");

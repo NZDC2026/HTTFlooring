@@ -1,3 +1,4 @@
+import { CurrencySummary } from "../../currency/CurrencyFields";
 import { usePermission } from '../../security/usePermission';
 import { Link } from 'react-router-dom';
 import { businessSettings } from '../../business-workspace/configurationState';
@@ -125,6 +126,8 @@ export function SupplierBillDetailPage() {
 
     return (
         <div className="pb-8">
+            <CurrencySummary fx={bill.fx} amount={bill.totals.total}/>
+
             <button
                 type="button"
                 onClick={() =>

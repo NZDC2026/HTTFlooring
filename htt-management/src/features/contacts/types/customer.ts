@@ -1,3 +1,4 @@
+import type { PaymentTermsType } from "../../payment-terms/paymentTerms";
 export type CustomerStatus =
     | "ACTIVE"
     | "ON_HOLD"
@@ -88,6 +89,7 @@ export interface Customer {
     overdueBalance: number;
 
     paymentTermsDays: number;
+    paymentTermsType?: PaymentTermsType;
 
     locations: CustomerLocation[];
     contacts: CustomerContact[];

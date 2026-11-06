@@ -1,3 +1,4 @@
+import { paymentTermsLabel } from "../../payment-terms/paymentTerms";
 import { DeliveryTasks } from "../../delivery-tasks/DeliveryTasks";
 import { CustomerOverviewSales } from "../components/CustomerOverviewSales";
 import { usePermission } from "../../security/usePermission";
@@ -583,6 +584,8 @@ function OverviewTab({
                                 }
                             />
 
+                            <Detail label="Website" value={customer.website??"—"}/>
+                            <Detail label="Business landline" value={customer.phone??"—"}/>
                             <Detail
                                 label="Business type"
                                 value={
@@ -592,7 +595,7 @@ function OverviewTab({
 
                             <Detail
                                 label="Payment terms"
-                                value={`${customer.paymentTermsDays} days`}
+                                value={paymentTermsLabel(customer)}
                             />
 
                             <Detail

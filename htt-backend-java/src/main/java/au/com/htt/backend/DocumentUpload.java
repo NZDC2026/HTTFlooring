@@ -1,15 +1,11 @@
 package au.com.htt.backend;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
@@ -18,7 +14,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty("htt.staff.database.url")
 class DocumentUpload {
     static final int UPLOAD_TIMEOUT_MS = 30_000;
-    private static final int MAX_BYTES = 10 * 1024 * 1024;
+    static final int MAX_BYTES = 10 * 1024 * 1024;
     private static final byte[] PNG = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
     private final JdbcClient jdbc;
     private final IdempotentWrite writes;
@@ -28,26 +24,29 @@ class DocumentUpload {
         this.writes = writes;
     }
 
-    IdempotentWrite.StoredResponse upload(StaffScope.CompanyAccess scope, UUID id, String fileName,
-            HttpServletRequest request, String requestId) {
-        if (!jdbc.sql("SELECT platform.document_visible(:id)").param("id", id).query(Boolean.class).single()) {
-            throw new StaffScope.Failure(404, "not_found", "Document is unavailable in this scope.");
+    Prepared prepare(StaffScope.CompanyAccess scope,UUID id,String fileName,HttpServletRequest request) {
+        if (!jdbc.sql("SELECT platform.document_visible(:id)").param("id",id).query(Boolean.class).single()) {
+            throw new StaffScope.Failure(404,"not_found","Document is unavailable in this scope.");
         }
         authorize(id);
-        long version = version(request.getHeader("If-Match"));
-        String filename = filename(fileName);
-        String mediaType = request.getContentType();
-        String type = mediaType == null ? "" : mediaType.split(";", 2)[0].strip().toLowerCase(Locale.ROOT);
-        byte[] body = body(request);
-        validate(body, type, filename);
-        String sha = HexFormat.of().formatHex(IdempotentWrite.sha256(body));
-        String canonical = "{\"id\":\"" + id + "\",\"version\":" + version
-                + ",\"filename\":" + CollaborationCreate.legacyString(filename) + ",\"contentType\":\"" + type
-                + "\",\"sha\":\"" + sha + "\",\"size\":" + body.length + "}";
-        return writes.execute(scope, "POST /documents/" + id + "/attachments",
-                request.getHeader("Idempotency-Key"), canonical,
-                () -> store(scope, id, version, filename, type, body, sha, requestId));
+        long version=version(request.getHeader("If-Match"));
+        String filename=filename(fileName);
+        String mediaType=request.getContentType();
+        String type=mediaType==null?"":mediaType.split(";",2)[0].strip().toLowerCase(Locale.ROOT);
+        return new Prepared(id,version,filename,type);
     }
+
+    IdempotentWrite.StoredResponse finish(StaffScope.CompanyAccess scope,Prepared prepared,byte[] body,String key,String requestId) {
+        UUID id=prepared.id();long version=prepared.version();String filename=prepared.filename();String type=prepared.type();
+        if (body.length==0) throw new StaffScope.Failure(422,"invalid_file_size","File size must be 1 byte..10 MiB.");
+        validate(body,type,filename);
+        String sha=HexFormat.of().formatHex(IdempotentWrite.sha256(body));
+        String canonical="{\"id\":\""+id+"\",\"version\":"+version+",\"filename\":"
+                +CollaborationCreate.legacyString(filename)+",\"contentType\":\""+type+"\",\"sha\":\""+sha+"\",\"size\":"+body.length+"}";
+        return writes.execute(scope,"POST /documents/"+id+"/attachments",key,canonical,
+                ()->store(scope,id,version,filename,type,body,sha,requestId));
+    }
+    record Prepared(UUID id,long version,String filename,String type) {}
 
     private IdempotentWrite.StoredResponse store(StaffScope.CompanyAccess scope, UUID id, long version,
             String filename, String type, byte[] body, String sha, String requestId) {
@@ -134,50 +133,6 @@ class DocumentUpload {
                     "Use a filename without paths or control characters (max 180).");
         }
         return name;
-    }
-
-    private static byte[] body(HttpServletRequest request) {
-        if (request.getContentLengthLong() > MAX_BYTES) {
-            throw tooLarge();
-        }
-        try {
-            var stream = request.getInputStream();
-            var body = new ByteArrayOutputStream();
-            long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(UPLOAD_TIMEOUT_MS);
-            byte[] chunk = new byte[16 * 1024];
-            while (true) {
-                int count = stream.read(chunk);
-                if (System.nanoTime() - deadline >= 0) {
-                    throw timedOut();
-                }
-                if (count < 0) {
-                    break;
-                }
-                if (body.size() + count > MAX_BYTES) {
-                    throw tooLarge();
-                }
-                body.write(chunk, 0, count);
-            }
-            if (body.size() == 0) {
-                throw new StaffScope.Failure(422, "invalid_file_size", "File size must be 1 byte..10 MiB.");
-            }
-            return body.toByteArray();
-        } catch (SocketTimeoutException timeout) {
-            throw timedOut();
-        } catch (IOException unreadable) {
-            if (unreadable.getCause() instanceof SocketTimeoutException) {
-                throw timedOut();
-            }
-            throw new StaffScope.Failure(400, "invalid_request", "Invalid request body or parameters.");
-        }
-    }
-
-    private static StaffScope.Failure timedOut() {
-        return new StaffScope.Failure(408, "upload_timeout", "Attachment upload timed out.");
-    }
-
-    private static StaffScope.Failure tooLarge() {
-        return new StaffScope.Failure(413, "file_too_large", "Attachments are limited to 10 MiB.");
     }
 
     private static void validate(byte[] body, String type, String filename) {

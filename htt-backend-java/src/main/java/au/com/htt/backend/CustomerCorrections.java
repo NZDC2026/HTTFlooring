@@ -47,6 +47,93 @@ class CustomerCorrections {
         return correct(token,request,id,input,true);
     }
 
+    @PostMapping("/api/v1/receipt-reversals/{id}/reapply")
+    ResponseEntity<String> reapply(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @PathVariable UUID id,@RequestBody Reassignment input) {
+        return reassign(token,request,id,input,false);
+    }
+
+    @PostMapping("/api/v1/customer-receipts/{id}/reallocate")
+    ResponseEntity<String> reallocate(@AuthenticationPrincipal Jwt token,HttpServletRequest request,
+            @PathVariable UUID id,@RequestBody Reassignment input) {
+        return reassign(token,request,id,input,true);
+    }
+
+    private ResponseEntity<String> reassign(Jwt token,HttpServletRequest request,UUID id,Reassignment input,boolean reallocating) {
+        var scope=staff.require(token,request.getHeader("X-Company-Id"),
+                reallocating?"accounting.receipts.reverse":"accounting.receipts.reapply");
+        String requestId=requestId(request);
+        var response=staff.inCompany(scope,requestId,()->{
+            var permissions=List.of(scope.permissions());
+            if (!permissions.containsAll(List.of("accounting.receipts.read","accounting.receivables.read",
+                    "accounting.receipts.reapply","accounting.receipts.write"))) {
+                throw new StaffScope.Failure(403,"permission_denied",
+                        "Settlement correction requires receipt and receivable access, and reapplication authority when applicable.");
+            }
+            UUID customer=jdbc.sql(reallocating
+                    ?"SELECT customer_id FROM accounting.customer_receipts WHERE company_id=:company AND id=:id"
+                    :"SELECT customer_id FROM accounting.receipt_reversals WHERE company_id=:company AND id=:id")
+                    .param("company",scope.companyId()).param("id",id).query(UUID.class).optional()
+                    .orElseThrow(CustomerCorrections::notFound);
+            receipts.requireCustomer(scope,customer);
+            String reference=text(input.reference(),"reference",200);
+            String reversalReference=reallocating?text(input.reversalReference(),"reversalReference",200):null;
+            String reason=text(input.reason(),"reason",2000);
+            var allocations=input.allocations()==null?List.<ReceiptOperations.Allocation>of():input.allocations();
+            var advances=input.advances()==null?List.<ReceiptOperations.Advance>of():input.advances();
+            require(allocations.size()<=50 && allocations.stream().allMatch(a->a!=null && validId(a.invoiceLineId()))
+                    && allocations.stream().map(ReceiptOperations.Allocation::invoiceLineId).distinct().count()==allocations.size(),
+                    "allocations","Supply up to 50 distinct invoice lines.");
+            require(advances.size()<=50 && advances.stream().allMatch(a->a!=null && validId(a.orderLineId()))
+                    && advances.stream().map(ReceiptOperations.Advance::orderLineId).distinct().count()==advances.size(),
+                    "advances","Supply up to 50 distinct order lines.");
+            allocations.forEach(a->ReceiptOperations.amount(a.amount(),"Allocation must be positive."));
+            advances.forEach(a->ReceiptOperations.amount(a.amount(),"Advance must be positive."));
+            String items=allocations.stream().sorted(java.util.Comparator.comparing(a->a.invoiceLineId().toString()))
+                    .map(a->line("invoiceLineId",a.invoiceLineId(),a.amount())).collect(java.util.stream.Collectors.joining(",","[","]"));
+            String prepaid=advances.stream().sorted(java.util.Comparator.comparing(a->a.orderLineId().toString()))
+                    .map(a->line("orderLineId",a.orderLineId(),a.amount())).collect(java.util.stream.Collectors.joining(",","[","]"));
+            String canonical="{\"id\":\""+id+"\""+(reallocating?",\"reversalReference\":"+CollaborationCreate.legacyString(reversalReference):"")
+                    +",\"reference\":"+CollaborationCreate.legacyString(reference)+",\"reason\":"+CollaborationCreate.legacyString(reason)
+                    +",\"allocations\":"+items+",\"advances\":"+prepaid+"}";
+            String route=reallocating?"POST /customer-receipts/"+id+"/reallocate":"POST /receipt-reversals/"+id+"/reapply";
+            return writes.execute(scope,route,request.getHeader("Idempotency-Key"),canonical,()->{
+                var sql=jdbc.sql(reallocating
+                        ?"SELECT accounting.reallocate_receipt(:id,:reversal,:reference,:reason,CAST(:items AS jsonb),CAST(:advances AS jsonb))"
+                        :"SELECT accounting.reapply_receipt(:id,:reference,:reason,CAST(:items AS jsonb),CAST(:advances AS jsonb))")
+                        .param("id",id).param("reference",reference).param("reason",reason).param("items",items).param("advances",prepaid);
+                if (reallocating) sql.param("reversal",reversalReference);
+                UUID doc=sql.query(UUID.class).single();
+                UUID reversal=reallocating?jdbc.sql("SELECT reversal_id FROM accounting.receipt_reapplications WHERE company_id=:company AND id=:id")
+                        .param("company",scope.companyId()).param("id",doc).query(UUID.class).single():id;
+                if (reallocating) {
+                    audit.record(scope,"accounting.customer_receipt_reversed","receipt_reversal",reversal,requestId,
+                            Map.of("receiptId",id,"reference",reversalReference));
+                }
+                audit.record(scope,"accounting.customer_receipt_reapplied","customer_receipt",doc,requestId,
+                        Map.of("reversalId",reversal,"reference",reference));
+                return new IdempotentWrite.StoredResponse(201,"{\"receipt\":"+receipts.view(scope,doc)
+                        +",\"reversalId\":\""+reversal+"\"}");
+            });
+        });
+        return ResponseEntity.status(response.status()).contentType(MediaType.APPLICATION_JSON).body(response.body());
+    }
+
+    private static boolean validId(UUID id) {
+        return id!=null && !new UUID(0,0).equals(id);
+    }
+
+    private static void require(boolean valid,String field,String message) {
+        if (!valid) throw new BranchQuery.InvalidFilter(field,message);
+    }
+
+    private static String line(String field,UUID id,java.math.BigDecimal amount) {
+        return "{\""+field+"\":\""+id+"\",\"amount\":\""+amount.toPlainString()+"\"}";
+    }
+
+    record Reassignment(String reversalReference,String reference,String reason,
+            List<ReceiptOperations.Allocation> allocations,List<ReceiptOperations.Advance> advances) {}
+
     @GetMapping("/api/v1/receipt-reversals/{id}")
     Map<String,Object> reversal(@AuthenticationPrincipal Jwt token, HttpServletRequest request, @PathVariable UUID id) {
         return read(token,request,id,false);

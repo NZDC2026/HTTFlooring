@@ -18,7 +18,7 @@ class PortalSecurity {
             @Value("${htt.portal.audience:}") String audience,
             @Value("${htt.portal.mode:Oidc}") String mode,
             @Value("${htt.portal.database.url:}") String databaseUrl,
-            @Value("${htt.staff.audience:}") String staffAudience) throws Exception {
+            @Value("${htt.staff.audience:}") String staffAudience, LegacyRateLimit limiter) throws Exception {
         boolean configured = !authority.isBlank() || !audience.isBlank();
         if (configured) {
             if (audience.equals(staffAudience) || databaseUrl.isBlank()) {
@@ -34,6 +34,7 @@ class PortalSecurity {
                         requests.requestMatchers(HttpMethod.GET, "/api/portal/v1/**").authenticated();
                     }
                     requests.anyRequest().denyAll();
-                }).build();
+                }).addFilterAfter(new LegacyRateLimit.Filter(limiter,true),
+                        org.springframework.security.web.access.intercept.AuthorizationFilter.class).build();
     }
 }

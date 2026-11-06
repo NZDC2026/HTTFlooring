@@ -12,7 +12,8 @@ class UploadConnector implements WebServerFactoryCustomizer<TomcatServletWebServ
         factory.addConnectorCustomizers(connector -> {
             if (connector.getProtocolHandler() instanceof AbstractHttp11Protocol<?> protocol) {
                 protocol.setDisableUploadTimeout(false);
-                protocol.setConnectionUploadTimeout(DocumentUpload.UPLOAD_TIMEOUT_MS);
+                protocol.setConnectionUploadTimeout(DocumentUpload.UPLOAD_TIMEOUT_MS+5_000);
+                protocol.setMaxSwallowSize(0);
             }
         });
     }

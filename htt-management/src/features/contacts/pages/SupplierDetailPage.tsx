@@ -1,12 +1,14 @@
+import { SupplierPurchases } from "../../incoming-shipments/SupplierShipments";
+import { supplierContacts } from "../data/accountContacts";
+import { SupplierNotesTasks } from "../components/SupplierNotesTasks";
+import { supplierYearToDate } from "../data/supplierYearToDate";
+import { currencyLabel } from "../../currency/currency";
+import { paymentTermsLabel } from "../../payment-terms/paymentTerms";
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
     ArrowLeft,
-    Building2,
-    Mail,
-    MapPin,
     Pencil,
-    Phone,
 } from "lucide-react";
 
 import {
@@ -163,9 +165,9 @@ export function SupplierDetailPage() {
                 Back to suppliers
             </button>
 
-            <div className="mb-7 flex items-start justify-between">
+            <div className="mb-4 flex items-start justify-between">
                 <div>
-                    <div className="mb-3 flex items-center gap-3">
+                    <div className="mb-2 flex items-center gap-3">
                         <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
                             {
                                 supplier.code
@@ -179,7 +181,7 @@ export function SupplierDetailPage() {
                         />
                     </div>
 
-                    <h1 className="font-display text-[34px] leading-tight">
+                    <h1 className="font-display text-[28px] leading-tight">
                         {
                             supplier.businessName
                         }
@@ -206,7 +208,7 @@ export function SupplierDetailPage() {
                 </Button>
             </div>
 
-            <div className="mb-6 flex gap-1 border-b border-[var(--color-border)]">
+            <div className="mb-2 flex gap-1 border-b border-[var(--color-border)]">
                 <Tab
                     active={
                         activeTab ===
@@ -295,6 +297,8 @@ export function SupplierDetailPage() {
             {activeTab ===
                 "overview" && (
                     <OverviewTab
+                        bills={bills}
+                        payments={payments}
                         supplier={
                             supplier
                         }
@@ -306,7 +310,7 @@ export function SupplierDetailPage() {
 
             {activeTab ===
                 "purchases" && (
-                    <div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
+                    <SupplierPurchases supplierId={supplier.id}><div className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-[var(--shadow-xs)]">
                         <SectionHeader
                             title="Purchase Orders"
                             description="Purchase orders raised for this supplier."
@@ -378,7 +382,7 @@ export function SupplierDetailPage() {
                                 )}
                             </div>
                         )}
-                    </div>
+                    </div></SupplierPurchases>
                 )}
 
             {activeTab ===
@@ -652,7 +656,11 @@ export function SupplierDetailPage() {
 function OverviewTab({
     supplier,
     payable,
+    bills,
+    payments,
 }: {
+    bills: ReturnType<typeof useSupplierSupplierBills>;
+    payments: ReturnType<typeof useSupplierPaymentsBySupplier>;
     supplier: NonNullable<
         ReturnType<
             typeof useSupplier
@@ -663,6 +671,7 @@ function OverviewTab({
         typeof useSupplierAccountsPayable
     >;
 }) {
+    const ytd = supplierYearToDate(supplier.id,bills,payments,getToday());
     return (
         <div className="grid grid-cols-[1.4fr_1fr] gap-5">
             <Card>
@@ -693,16 +702,20 @@ function OverviewTab({
                             }
                         />
 
+                        <Detail label="Business address" value={formatAddress(supplier)}/>
+                        <Detail label="Website" value={supplier.website}/>
+                        <Detail label="Business landline" value={supplier.phone}/>
+                        <Detail label="Business email" value={supplier.email}/>
                         <Detail
                             label="Currency"
                             value={
-                                supplier.currency
+                                currencyLabel(supplier.currency)
                             }
                         />
 
                         <Detail
                             label="Payment Terms"
-                            value={`${supplier.paymentTermsDays} days`}
+                            value={paymentTermsLabel(supplier)}
                         />
 
                         <Detail
@@ -717,56 +730,13 @@ function OverviewTab({
                 </CardContent>
             </Card>
 
+            <Card><CardContent><SectionTitle>Contact Details</SectionTitle><div className="space-y-3">{supplierContacts(supplier).map(contact=><div key={contact.id} className="rounded-lg border border-[var(--color-border)] p-3"><p className="text-sm font-semibold">{contact.firstName} {contact.lastName} <span className="text-xs font-normal text-[var(--color-text-muted)]">{contact.isPrimary?" · Primary":""}{contact.isAccounting?" · Accountant":""}</span></p><p className="mt-1 text-sm">{contact.mobile||contact.phone||"No phone recorded"}</p><p className="mt-1 text-sm">{contact.email||"No email recorded"}</p></div>)}{!supplierContacts(supplier).length&&<p className="text-sm text-[var(--color-text-muted)]">No contacts recorded. Add contacts using Edit supplier.</p>}</div></CardContent></Card>
+
+            <SupplierNotesTasks supplierId={supplier.id}/>
             <Card>
                 <CardContent>
                     <SectionTitle>
-                        Contact
-                    </SectionTitle>
-
-                    <div className="space-y-4">
-                        <ContactRow
-                            icon={
-                                Building2
-                            }
-                            value={
-                                supplier.contactName
-                            }
-                        />
-
-                        <ContactRow
-                            icon={
-                                Mail
-                            }
-                            value={
-                                supplier.email
-                            }
-                        />
-
-                        <ContactRow
-                            icon={
-                                Phone
-                            }
-                            value={
-                                supplier.phone
-                            }
-                        />
-
-                        <ContactRow
-                            icon={
-                                MapPin
-                            }
-                            value={formatAddress(
-                                supplier,
-                            )}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardContent>
-                    <SectionTitle>
-                        Notes
+                        Supplier profile notes
                     </SectionTitle>
 
                     <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--color-text-secondary)]">
@@ -783,43 +753,29 @@ function OverviewTab({
                     </SectionTitle>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <AccountMetric
-                            label="Outstanding"
-                            value={formatMoney(
-                                payable?.totalOutstanding ??
-                                0,
-                            )}
-                        />
-
-                        <AccountMetric
-                            label="Overdue"
-                            value={formatMoney(
-                                payable?.overdueAmount ??
-                                0,
-                            )}
-                            danger={
-                                (payable?.overdueAmount ??
-                                    0) >
-                                0
-                            }
-                        />
-
-                        <AccountMetric
-                            label="Open Bills"
-                            value={String(
-                                payable?.outstandingBillCount ??
-                                0,
-                            )}
-                        />
-
-                        <AccountMetric
-                            label="Overdue Bills"
-                            value={String(
-                                payable?.overdueBillCount ??
-                                0,
-                            )}
-                        />
+                        <AccountMetric label="Outstanding"
+                            value={`${formatMoney(payable?.totalOutstanding ?? 0)} (${payable?.outstandingBillCount ?? 0})`}/>
+                        <AccountMetric label="Overdue" danger
+                            value={`${formatMoney(payable?.overdueAmount ?? 0)} (${payable?.overdueBillCount ?? 0})`}/>
+                        <AccountMetric label="Total Payable (YTD)"
+                            value={`${formatMoney(ytd.purchaseAmount)} (${ytd.purchaseCount})`}/>
+                        <AccountMetric label="Total Paid (YTD)"
+                            value={`${formatMoney(ytd.paidAmount)} (${ytd.paidBillCount})`}/>
                     </div>
+                    <p className="mt-3 text-xs text-[var(--color-text-muted)]">
+                        {ytd.from} – {ytd.to} · Purchases include GST. Paid covers actual bill payments.
+                        Counts in brackets are bills; paid bills are counted once across partial payments.
+                    </p>
+                    <details className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                        <summary className="cursor-pointer font-medium">Sample · Accounts Payable totals</summary>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                            <AccountMetric label="Outstanding" value={`${formatMoney(8400)} (6)`}/>
+                            <AccountMetric label="Overdue" danger value={`${formatMoney(1500)} (2)`}/>
+                            <AccountMetric label="Total Payable (YTD)" value={`${formatMoney(48000)} (27)`}/>
+                            <AccountMetric label="Total Paid (YTD)" value={`${formatMoney(39600)} (21)`}/>
+                        </div>
+                        <p className="mt-2">Synthetic read-only amounts.</p>
+                    </details>
                 </CardContent>
             </Card>
         </div>
@@ -1276,29 +1232,6 @@ function Detail({
     );
 }
 
-function ContactRow({
-    icon: Icon,
-    value,
-}: {
-    icon: React.ComponentType<{
-        size?: number;
-    }>;
-    value?: string;
-}) {
-    return (
-        <div className="flex items-start gap-3">
-            <Icon
-                size={15}
-            />
-
-            <div className="text-sm">
-                {value ??
-                    "—"}
-            </div>
-        </div>
-    );
-}
-
 function AccountMetric({
     label,
     value,
@@ -1310,7 +1243,7 @@ function AccountMetric({
 }) {
     return (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--color-text-muted)]">
+            <div className={`text-[10px] font-semibold uppercase tracking-[0.07em] ${danger ? "text-red-700" : "text-[var(--color-text-muted)]"}`}>
                 {label}
             </div>
 

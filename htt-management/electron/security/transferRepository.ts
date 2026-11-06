@@ -101,8 +101,9 @@ function apply(dataset: Dataset, mode: TransferSource['mode'], values: Record<st
     let result: any;
     if (dataset === 'Customers') {
         const data = customerFormSchema.strict().parse(v);
+        const { contacts: _contacts, ...duplicateData } = data;
         const others = customerRepository.getAll().filter(c => c.id !== old?.id);
-        if (newMatches(duplicateCandidates({ kind: 'Customer', customerId: '', values: data }, others), old ? duplicateCandidates({ kind: 'Customer', customerId: '', values: old.raw }, others) : []))
+        if (newMatches(duplicateCandidates({ kind: 'Customer', customerId: '', values: duplicateData }, others), old ? duplicateCandidates({ kind: 'Customer', customerId: '', values: old.raw }, others) : []))
             throw new Error('Possible existing customer duplicate. Use the customer review workflow or explicit ID update.');
         result = old ? customerRepository.update(old.id, data) : customerRepository.create(data);
     }

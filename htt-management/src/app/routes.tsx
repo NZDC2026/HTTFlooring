@@ -1,3 +1,6 @@
+import { CustomerDashboardPage } from "../features/contacts/pages/CustomerDashboardPage";
+import { SupplierDashboardPage } from "../features/contacts/pages/SupplierDashboardPage";
+import { IncomingShipmentsPage } from "../features/incoming-shipments/IncomingShipmentsPage";
 // Communications is registered with the permission-guarded workspace routes.
 import { PurchaseOutputPage } from '../features/document-output/PurchaseOutputPage';
 import { additionalRoutes } from '../features/page-previews/previewRoutes';
@@ -137,6 +140,7 @@ export const appRoutes:RouteObject[] = [
                 path: "purchases",
                 element: <PurchaseOrdersPage />,
             },
+            { path:"purchases/incoming-shipments", element:<IncomingShipmentsPage/> },
             {
                 path: "purchases/new",
                 element: (
@@ -376,6 +380,10 @@ export const appRoutes:RouteObject[] = [
             },
             {
                 path: "contacts",
+                element: <CustomerDashboardPage />,
+            },
+            {
+                path: "contacts/list",
                 element: <CustomersPage />,
             },
             {
@@ -413,6 +421,10 @@ export const appRoutes:RouteObject[] = [
             {
                 path: "contacts/customers/:customerId/activity",
                 element: <CustomerDetailPage />,
+            },
+            {
+                path: "contacts/supplier-dashboard",
+                element: <SupplierDashboardPage />,
             },
             {
                 path: "contacts/suppliers",

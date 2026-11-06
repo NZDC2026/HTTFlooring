@@ -246,7 +246,7 @@ export function calculateCustomerAccountsReceivable(
             customer.creditLimit,
 
         availableCredit:
-            roundCurrency(
+            customer.paymentTermsType === "COD" || customer.paymentTermsDays === 0 ? 0 : roundCurrency(
                 Math.max(
                     0,
                     customer.creditLimit -

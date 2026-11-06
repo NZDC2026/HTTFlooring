@@ -1,3 +1,6 @@
+import { paymentDueDate, paymentTermsTypeSchema, validatePaymentTerms, type PaymentTerms, invoicePaymentTerms } from "../payment-terms/paymentTerms";
+import { customerRepository } from "../contacts/data/customerRepository";
+import { businessSettings } from "../business-workspace/configurationState";
 import { useSyncExternalStore } from 'react';
 import { z } from 'zod';
 import { registerRepository } from '../security/repositoryHost';
@@ -22,6 +25,7 @@ export type Schedule = {
     endDate: string;
     occurrence: number;
     termsDays: number;
+    paymentTerms?: PaymentTerms;
     createdAt: string;
     updatedAt: string;
 };
@@ -42,7 +46,7 @@ catch {
 } }, 'Use a valid YYYY-MM-DD date.');
 const newSchema = z.object({ operationId: text, name: text, sourceDraftId: text, frequency: z.enum(frequencies), firstDate: date, endDate: date }).strict(), editSchema = z.object({ id: text, expectedRevision: z.number().int().positive(), name: text, endDate: date }).strict();
 const timestamp = z.string().refine(v => Number.isFinite(Date.parse(v)), 'Invalid timestamp.');
-const scheduleSchema = z.object({ id: text, name: text, kind: z.enum(['INVOICE', 'EXPENSE']), status: z.enum(['Active', 'Paused', 'Ended']), revision: z.number().int().positive(), operationId: text, creationFingerprint: z.string().min(1).max(2000), sourceDraftId: text, payload: z.unknown(), frequency: z.enum(frequencies), firstDate: date, nextDate: date, endDate: date, occurrence: z.number().int().nonnegative(), termsDays: z.number().int().nonnegative(), createdAt: timestamp, updatedAt: timestamp }).strict();
+const scheduleSchema = z.object({ id: text, name: text, kind: z.enum(['INVOICE', 'EXPENSE']), status: z.enum(['Active', 'Paused', 'Ended']), revision: z.number().int().positive(), operationId: text, creationFingerprint: z.string().min(1).max(2000), sourceDraftId: text, payload: z.unknown(), frequency: z.enum(frequencies), firstDate: date, nextDate: date, endDate: date, occurrence: z.number().int().nonnegative(), termsDays: z.number().int().nonnegative(), paymentTerms: z.object({paymentTermsDays:z.number().int().min(0).max(365),paymentTermsType:paymentTermsTypeSchema}).strict().optional(), createdAt: timestamp, updatedAt: timestamp }).strict();
 const runSchema = z.object({ id: text, scheduleId: text, date, draftId: text, actorId: text, createdAt: timestamp }).strict();
 let revision = 0;
 const listeners = new Set<() => void>();
@@ -55,7 +59,7 @@ const permission = (kind: RecurringKind) => kind === 'INVOICE' ? 'sales.manage' 
 const drafts = (kind: RecurringKind) => kind === 'INVOICE' ? managedSalesRepository : expenseDraftRepository;
 const now = () => new Date().toISOString();
 function snapshotPayload(source: ManagedDraft): SalesPayload | ExpensePayload { if (source.payload.kind === 'EXPENSE')
-    return { ...structuredClone(source.payload), lines: source.payload.lines.map((l, i) => ({ ...l, unitCost: (source.lines[i] as import('../purchases/types/supplierBill').SupplierBillLine).unitCost, priceBasis: 'Exclusive' as const })) }; return { ...structuredClone(source.payload), lines: source.payload.lines.map((l, i) => ({ ...l, unitPrice: (source.lines[i] as import('../sales/types/salesDocument').SalesDocumentLine).unitPrice, priceBasis: 'Exclusive' as const })) }; }
+    return { ...structuredClone(source.payload), lines: source.payload.lines.map((l, i) => ({ ...l, unitCost: (source.lines[i] as import('../purchases/types/supplierBill').SupplierBillLine).unitCost / (source.payload.kind === 'EXPENSE' ? source.payload.fx?.rate??1 : 1), priceBasis: 'Exclusive' as const })) }; return { ...structuredClone(source.payload), lines: source.payload.lines.map((l, i) => ({ ...l, unitPrice: (source.lines[i] as import('../sales/types/salesDocument').SalesDocumentLine).unitPrice, priceBasis: 'Exclusive' as const })) }; }
 function make(kind: RecurringKind) {
     const state = () => stores[kind], get = (id: string) => { const row = state().schedules.find(r => r.id === id); if (!row)
         throw new Error('Recurring schedule not found.'); return row; }, expected = (row: Schedule, rev: number) => { if (row.revision !== rev)
@@ -67,7 +71,11 @@ function make(kind: RecurringKind) {
             return prior;
         } const source = drafts(kind).getAll().find(r => r.id === input.sourceDraftId); if (!source || source.kind !== kind || source.status === 'CANCELLED')
             throw new Error('Select an existing invoice or expense entry draft of the correct type.'); if (input.endDate < input.firstDate)
-            throw new Error('End date must not precede first generation date.'); const payload = snapshotPayload(source), termsDays = Math.round((Date.parse(payload.dueDate! + 'T00:00:00Z') - Date.parse(payload.documentDate + 'T00:00:00Z')) / 86400000), at = now(); const row: Schedule = { ...input, id: crypto.randomUUID(), kind, status: 'Active', revision: 1, creationFingerprint: fingerprint, payload, termsDays, occurrence: 0, nextDate: input.firstDate, createdAt: at, updatedAt: at }; state().schedules = [...state().schedules, row]; emit(); return row; },
+            throw new Error('End date must not precede first generation date.'); const payload = snapshotPayload(source), termsDays = Math.round((Date.parse(payload.dueDate! + 'T00:00:00Z') - Date.parse(payload.documentDate + 'T00:00:00Z')) / 86400000), at = now(); const candidateTerms: PaymentTerms | undefined = payload.kind === 'EXPENSE'
+                ? source.purchaseDefaults && {paymentTermsDays:source.purchaseDefaults.termsDays,paymentTermsType:source.purchaseDefaults.termsType}
+                : invoicePaymentTerms(customerRepository.getById(payload.customerId),businessSettings());
+            const paymentTerms = candidateTerms?.paymentTermsType && paymentDueDate(payload.documentDate,candidateTerms) === payload.dueDate ? candidateTerms : undefined;
+            const row: Schedule = { ...input, id: crypto.randomUUID(), kind, status: 'Active', revision: 1, creationFingerprint: fingerprint, payload, termsDays, ...(paymentTerms ? {paymentTerms}:{}), occurrence: 0, nextDate: input.firstDate, createdAt: at, updatedAt: at }; state().schedules = [...state().schedules, row]; emit(); return row; },
         update(raw: unknown) { trustedAuthorization.require(permission(kind)); const input = editSchema.parse(raw), old = get(input.id); expected(old, input.expectedRevision); if (input.endDate < old.firstDate || old.occurrence && input.endDate < state().runs.filter(r => r.scheduleId === old.id).map(r => r.date).sort().at(-1)!)
             throw new Error('End date cannot precede the schedule start or its last generated occurrence.'); const row = { ...old, name: input.name, endDate: input.endDate, status: old.nextDate > input.endDate ? 'Ended' as const : old.status === 'Ended' ? 'Paused' as const : old.status, revision: old.revision + 1, updatedAt: now() }; state().schedules = state().schedules.map(r => r.id === old.id ? row : r); emit(); return row; },
         setStatus(raw: unknown) { trustedAuthorization.require(permission(kind)); const input = z.object({ id: text, expectedRevision: z.number().int().positive(), status: z.enum(['Active', 'Paused']) }).strict().parse(raw), old = get(input.id); expected(old, input.expectedRevision); if (old.nextDate > old.endDate)
@@ -77,7 +85,7 @@ function make(kind: RecurringKind) {
             throw new Error('Activate the schedule before generating.'); if (input.date !== old.nextDate)
             throw new Error('Generate the next occurrence in order.'); if (input.date > businessDateKey(now()))
             throw new Error('This occurrence is not due yet.'); if (input.date > old.endDate)
-            throw new Error('The schedule has ended.'); const nextDate = occurrenceDate(old.firstDate, old.frequency, old.occurrence + 1), payload = structuredClone(old.payload); payload.documentDate = input.date; if (payload.kind !== 'EXPENSE') { delete payload.pricingAt; delete payload.pricingTimezone; } payload.dueDate = addDays(input.date, old.termsDays); if (payload.kind === 'EXPENSE')
+            throw new Error('The schedule has ended.'); const nextDate = occurrenceDate(old.firstDate, old.frequency, old.occurrence + 1), payload = structuredClone(old.payload); payload.documentDate = input.date; if (payload.kind !== 'EXPENSE') { delete payload.pricingAt; delete payload.pricingTimezone; } payload.dueDate = old.paymentTerms ? paymentDueDate(input.date,old.paymentTerms) : addDays(input.date, old.termsDays); if (payload.kind === 'EXPENSE')
             payload.supplierInvoiceNumber = payload.supplierInvoiceNumber.slice(0, 170) + ' [' + input.date + ']'; const draft = drafts(kind).save({ operationId: 'recurring:' + old.id + ':' + input.date, payload }), at = now(), run: RecurringRun = { id: crypto.randomUUID(), scheduleId: old.id, date: input.date, draftId: draft.id, actorId: trustedAuthorization.current()!.userId, createdAt: at }, schedule: Schedule = { ...old, nextDate, occurrence: old.occurrence + 1, status: nextDate > old.endDate ? 'Ended' : 'Active', revision: old.revision + 1, updatedAt: at }; state().schedules = state().schedules.map(r => r.id === old.id ? schedule : r); state().runs = [...state().runs, run]; emit(); return { schedule, run, draft }; }
     };
 }
@@ -91,6 +99,10 @@ for (const kind of ['INVOICE', 'EXPENSE'] as const)
             parseManagedPayload(r.payload);
             if (!r.id || !r.creationFingerprint || !Number.isFinite(Date.parse(r.createdAt)) || !Number.isFinite(Date.parse(r.updatedAt)))
                 throw new Error('Invalid recurring identity or audit timestamps.');
+            if (r.paymentTerms) {
+                validatePaymentTerms(r.paymentTerms);
+                if (paymentDueDate(r.payload.documentDate,r.paymentTerms) !== r.payload.dueDate) throw new Error('Recurring terms do not match the source due date.');
+            }
             requireDateKey(r.payload.documentDate);
             requireDateKey(r.payload.dueDate!);
             if (r.payload.dueDate! < r.payload.documentDate || r.termsDays !== Math.round((Date.parse(r.payload.dueDate! + 'T00:00:00Z') - Date.parse(r.payload.documentDate + 'T00:00:00Z')) / 86400000))

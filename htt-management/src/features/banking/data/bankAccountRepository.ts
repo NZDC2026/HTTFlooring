@@ -244,7 +244,7 @@ export const bankAccountRepository =
     },
 
     save(raw: {id?:string;name:string;bankName:string;accountNumber:string;accountType:BankAccount['accountType'];currency:string;glAccountId:string;openingBalanceDate:string;active:boolean},expectedUpdatedAt?:string): BankAccount {
-        const input=z.object({id:z.string().optional(),name:z.string().trim().min(1).max(180),bankName:z.string().trim().min(1).max(180),accountNumber:z.string().trim().min(1).max(100),accountType:z.enum(['TRANSACTION','SAVINGS','CREDIT_CARD','OTHER']),currency:z.enum(['AUD','NZD']),glAccountId:z.string().min(1),openingBalanceDate:z.string(),active:z.boolean()}).strict().parse(raw);
+        const input=z.object({id:z.string().optional(),name:z.string().trim().min(1).max(180),bankName:z.string().trim().min(1).max(180),accountNumber:z.string().trim().min(1).max(100),accountType:z.enum(['TRANSACTION','SAVINGS','CREDIT_CARD','OTHER']),currency:z.enum(['USD','AUD','CNY','NZD']),glAccountId:z.string().min(1),openingBalanceDate:z.string(),active:z.boolean()}).strict().parse(raw);
         requireDateKey(input.openingBalanceDate,'Opening date');if(bankAccounts[0]&&input.currency!==bankAccounts[0].currency)throw new Error('This profile uses one base currency; foreign-currency bank accounts are not supported.');const existing=bankAccounts.find(a=>a.id===input.id);
         if(existing&&existing.updatedAt!==expectedUpdatedAt)throw new Error('Bank account changed; reload before editing.');
         if(!existing&&input.id)throw new Error('Bank account was not found.');

@@ -1,3 +1,8 @@
+import { supplierContacts } from "../data/accountContacts";
+import { AccountContactsEditor } from "./AccountContactsEditor";
+import { CurrencySelect } from "../../currency/CurrencyFields";
+import type { Currency } from "../../currency/currency";
+import { PaymentTermsFields } from "../../payment-terms/PaymentTermsFields";
 import {
     zodResolver,
 } from "@hookform/resolvers/zod";
@@ -77,6 +82,8 @@ export function SupplierForm({
 }: Props) {
     const {
         register,
+        watch,
+        setValue,
         control,
         handleSubmit,
         formState: {
@@ -91,6 +98,7 @@ export function SupplierForm({
                 ),
 
             defaultValues: {
+                contacts: supplier ? supplierContacts(supplier) : [],
                 businessName:
                     supplier?.businessName ??
                     "",
@@ -137,7 +145,7 @@ export function SupplierForm({
 
                 state:
                     supplier?.state ??
-                    "VIC",
+                    "",
 
                 postcode:
                     supplier?.postcode ??
@@ -145,8 +153,10 @@ export function SupplierForm({
 
                 country:
                     supplier?.country ??
-                    "Australia",
+                    "",
 
+                currency: (supplier?.currency ?? "AUD") as Currency,
+                paymentTermsType: supplier?.paymentTermsType ?? (supplier ? undefined : "DAYS"),
                 paymentTermsDays:
                     supplier?.paymentTermsDays ??
                     30,
@@ -272,81 +282,15 @@ export function SupplierForm({
                                 )}
                             />
                         </FormField>
+                        <FormField label="Website" error={errors.website?.message}><Input {...register("website")} placeholder="https://example.com"/></FormField>
+                        <FormField label="Business landline" error={errors.phone?.message}><Input {...register("phone")} type="tel" placeholder="03 9000 2100"/></FormField>
+                        <FormField label="Business email" error={errors.email?.message}><Input {...register("email")} type="email" placeholder="accounts@example.com"/></FormField>
                     </div>
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardContent>
-                    <SectionHeader
-                        title="Contact Details"
-                        description="Primary supplier contact information."
-                    />
+            <Controller name="contacts" control={control} render={({field})=><AccountContactsEditor value={field.value??[]} onChange={field.onChange} error={errors.contacts ? "Check contact names and email addresses; choose only one primary and one accountant contact." : undefined}/>}/>
 
-                    <div className="grid grid-cols-2 gap-x-5 gap-y-5">
-                        <FormField
-                            label="Contact Name"
-                            error={
-                                errors.contactName
-                                    ?.message
-                            }
-                        >
-                            <Input
-                                {...register(
-                                    "contactName",
-                                )}
-                                placeholder="Michael Chen"
-                            />
-                        </FormField>
-
-                        <FormField
-                            label="Email"
-                            error={
-                                errors.email
-                                    ?.message
-                            }
-                        >
-                            <Input
-                                {...register(
-                                    "email",
-                                )}
-                                type="email"
-                                placeholder="accounts@supplier.com.au"
-                            />
-                        </FormField>
-
-                        <FormField
-                            label="Phone"
-                            error={
-                                errors.phone
-                                    ?.message
-                            }
-                        >
-                            <Input
-                                {...register(
-                                    "phone",
-                                )}
-                                placeholder="03 9000 2100"
-                            />
-                        </FormField>
-
-                        <FormField
-                            label="Website"
-                            error={
-                                errors.website
-                                    ?.message
-                            }
-                        >
-                            <Input
-                                {...register(
-                                    "website",
-                                )}
-                                placeholder="https://supplier.com.au"
-                            />
-                        </FormField>
-                    </div>
-                </CardContent>
-            </Card>
 
             <Card>
                 <CardContent>
@@ -368,8 +312,7 @@ export function SupplierForm({
                                     {...register(
                                         "addressLine1",
                                     )}
-                                    placeholder="18 Trade Park Drive"
-                                />
+                                    />
                             </FormField>
                         </div>
 
@@ -400,7 +343,6 @@ export function SupplierForm({
                                 {...register(
                                     "suburb",
                                 )}
-                                placeholder="Dandenong South"
                             />
                         </FormField>
 
@@ -415,7 +357,6 @@ export function SupplierForm({
                                 {...register(
                                     "state",
                                 )}
-                                placeholder="VIC"
                             />
                         </FormField>
 
@@ -430,7 +371,6 @@ export function SupplierForm({
                                 {...register(
                                     "postcode",
                                 )}
-                                placeholder="3175"
                             />
                         </FormField>
 
@@ -449,6 +389,10 @@ export function SupplierForm({
                             />
                         </FormField>
                     </div>
+                    <details className="mt-3 text-xs text-[var(--color-text-secondary)]">
+                        <summary className="cursor-pointer">Sample · Supplier address</summary>
+                        <p className="mt-2">18 Sample Trade Drive · Dandenong South · VIC 3175 · Australia</p>
+                    </details>
                 </CardContent>
             </Card>
 
@@ -467,30 +411,16 @@ export function SupplierForm({
                                 errors.paymentTermsDays
                                     ?.message
                             }
-                            description="Number of days from supplier bill date."
                         >
-                            <Input
-                                {...register(
-                                    "paymentTermsDays",
-                                    {
-                                        valueAsNumber:
-                                            true,
-                                    },
-                                )}
-                                type="number"
-                                min={0}
-                                step={1}
-                            />
+                            <PaymentTermsFields value={{paymentTermsDays: watch("paymentTermsDays"), paymentTermsType: watch("paymentTermsType")}}
+                                onChange={value => {
+                                    setValue("paymentTermsType", value.paymentTermsType, {shouldDirty: true});
+                                    setValue("paymentTermsDays", value.paymentTermsDays, {shouldDirty: true, shouldValidate: true});
+                                }}/>
                         </FormField>
 
-                        <FormField
-                            label="Currency"
-                            description="Supplier transactions currently use AUD."
-                        >
-                            <Input
-                                value="AUD"
-                                disabled
-                            />
+                        <FormField label="Currency" description="Default currency for new purchases and supplier payments.">
+                            <CurrencySelect value={watch("currency") ?? "AUD"} onChange={value=>setValue("currency",value,{shouldDirty:true})}/><details className="mt-2 text-xs text-amber-900"><summary>Sample · Purchase currencies</summary><p>USD 1,000 · AUD 1,500 · RMB 7,000 · Synthetic display examples.</p></details>
                         </FormField>
 
                         <div className="col-span-2">

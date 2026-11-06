@@ -1,3 +1,6 @@
+import { CurrencyFields } from "../../currency/CurrencyFields";
+import { currencyCode, type FxSnapshot } from "../../currency/currency";
+import { paymentTermsLabel } from "../../payment-terms/paymentTerms";
 import { purchaseDefaults, orderDefaults } from '../../purchase-settings/purchaseDefaults';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
@@ -85,6 +88,7 @@ export function PurchaseOrderForm({
         "",
     );
 
+    const [fx,setFx] = useState<FxSnapshot | undefined>(purchaseOrder?.fx);
     const [
         orderDate,
         setOrderDate,
@@ -151,7 +155,7 @@ export function PurchaseOrderForm({
 
                     unitCost:
                         String(
-                            line.unitCost,
+                            line.unitCost / (purchaseOrder?.fx?.rate ?? 1),
                         ),
                 }),
             )
@@ -216,11 +220,11 @@ export function PurchaseOrderForm({
                                 ? calculatePurchaseOrderLine(
                                     {
                                         taxRate: activeTaxRate(product?.taxCode??'GST'),
-                                        inclusiveLineTotal:!purchaseOrder&&businessSettings().basis==='Inclusive'?Math.round(quantity*unitCost*100)/100:undefined,
+                                        inclusiveLineTotal:!purchaseOrder&&businessSettings().basis==='Inclusive'?Math.round(quantity*unitCost*(fx?.rate??1)*100)/100:undefined,
                                         orderedQuantity:
                                             quantity,
 
-                                        unitCost: purchaseOrder ? unitCost : exclusivePrice(unitCost,activeTaxRate(product?.taxCode??'GST')),
+                                        unitCost: (purchaseOrder ? unitCost : exclusivePrice(unitCost,activeTaxRate(product?.taxCode??'GST'))) * (fx?.rate??1),
                                     },
                                 )
                                 : {
@@ -250,7 +254,7 @@ export function PurchaseOrderForm({
                         };
                     },
                 ),
-            [lines],
+            [lines, fx, purchaseOrder],
         );
 
     const totals =
@@ -457,6 +461,7 @@ export function PurchaseOrderForm({
         }
 
         onSave({
+            fx,
             supplierId,
 
             orderDate,
@@ -498,7 +503,8 @@ export function PurchaseOrderForm({
     }
 
     return (
-        <div className="space-y-5"><p className="text-sm text-slate-600">Purchase terms: {(purchaseOrder ? orderDefaults(purchaseOrder) : purchaseDefaults(suppliers.find(s=>s.id===supplierId))).termsDays} days · Payment preference: {(purchaseOrder ? orderDefaults(purchaseOrder) : purchaseDefaults(suppliers.find(s=>s.id===supplierId))).paymentMethod.replaceAll("_"," ")}</p><p className="text-sm text-slate-600">New unit costs: {businessSettings().basis} tax. Existing orders retain net cost snapshots.</p>
+        <div className="space-y-5"><CurrencyFields baseCurrency={businessSettings().currency} value={fx} onChange={setFx}/>
+<p className="text-sm text-slate-600">Purchase terms: {paymentTermsLabel({paymentTermsDays:(purchaseOrder ? orderDefaults(purchaseOrder) : purchaseDefaults(suppliers.find(s=>s.id===supplierId))).termsDays,paymentTermsType:(purchaseOrder ? orderDefaults(purchaseOrder) : purchaseDefaults(suppliers.find(s=>s.id===supplierId))).termsType})} · Payment preference: {(purchaseOrder ? orderDefaults(purchaseOrder) : purchaseDefaults(suppliers.find(s=>s.id===supplierId))).paymentMethod.replaceAll("_"," ")}</p><p className="text-sm text-slate-600">Unit costs: {fx?.currency === "CNY" ? "RMB" : fx?.currency ?? businessSettings().currency} · {businessSettings().basis} tax. Totals are in {businessSettings().currency}. Existing orders retain net cost snapshots.</p>
             {error && (
                 <div className="flex items-start gap-3 rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-4 py-3 text-sm text-[var(--color-danger)]">
                     <AlertCircle
@@ -535,6 +541,9 @@ export function PurchaseOrderForm({
                                         .target
                                         .value,
                                 );
+                                const currency = currencyCode(suppliers.find(supplier=>supplier.id===event.target.value)?.currency ?? businessSettings().currency);
+                                if (currency !== fx?.currency) setFx({currency:currency as FxSnapshot["currency"],baseCurrency:businessSettings().currency as FxSnapshot["baseCurrency"],rate:currency===businessSettings().currency?1:0,rateDate:getToday(),source:"Manual"});
+
 
                                 setError(
                                     null,

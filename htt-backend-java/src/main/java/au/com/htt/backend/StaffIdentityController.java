@@ -42,8 +42,9 @@ class StaffIdentityController {
     private final OrderWrites orderWrites;
     private final InvoiceOperations invoiceOperations;
     private final ReceiptOperations receipts;
+    private final AsyncAttachmentBody attachmentBodies;
 
-    StaffIdentityController(JdbcClient jdbc, StaffScope staff, JsonMapper json, IdempotentWrite writes, DocumentUpload uploads, CustomerWrites customers, StaffAudit audit, ProductWrites productWrites, PriceRead prices, SalesRead sales, OrderWrites orderWrites, InvoiceOperations invoiceOperations, ReceiptOperations receipts) {
+    StaffIdentityController(JdbcClient jdbc, StaffScope staff, JsonMapper json, IdempotentWrite writes, DocumentUpload uploads, CustomerWrites customers, StaffAudit audit, ProductWrites productWrites, PriceRead prices, SalesRead sales, OrderWrites orderWrites, InvoiceOperations invoiceOperations, ReceiptOperations receipts, AsyncAttachmentBody attachmentBodies) {
         this.jdbc = jdbc;
         this.staff = staff;
         this.json = json;
@@ -57,6 +58,7 @@ class StaffIdentityController {
         this.orderWrites = orderWrites;
         this.invoiceOperations = invoiceOperations;
         this.receipts = receipts;
+        this.attachmentBodies = attachmentBodies;
     }
 
     @GetMapping("/api/v1/me")
@@ -418,12 +420,17 @@ class StaffIdentityController {
     }
 
     @PostMapping("/api/v1/documents/{id}/attachments")
-    ResponseEntity<String> uploadAttachment(@AuthenticationPrincipal Jwt token, @PathVariable UUID id,
-            @RequestParam String fileName, HttpServletRequest request) {
-        var scope = staff.require(token, request.getHeader("X-Company-Id"), "documents.attachments.write");
-        String requestId = (String) request.getAttribute(ApiResponseHeaders.REQUEST_ID);
-        var result = staff.inCompany(scope, requestId, () -> uploads.upload(scope, id, fileName, request, requestId));
-        return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+    org.springframework.web.context.request.async.DeferredResult<ResponseEntity<String>> uploadAttachment(
+            @AuthenticationPrincipal Jwt token,@PathVariable UUID id,@RequestParam String fileName,
+            HttpServletRequest request,jakarta.servlet.http.HttpServletResponse response) {
+        var scope=staff.require(token,request.getHeader("X-Company-Id"),"documents.attachments.write");
+        String requestId=(String)request.getAttribute(ApiResponseHeaders.REQUEST_ID);
+        var prepared=staff.inCompany(scope,requestId,()->uploads.prepare(scope,id,fileName,request));
+        String key=request.getHeader("Idempotency-Key");
+        return attachmentBodies.read(request,response,body->{
+            var result=staff.inCompany(scope,requestId,()->uploads.finish(scope,prepared,body,key,requestId));
+            return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
+        });
     }
 
     @PostMapping("/api/v1/customers")

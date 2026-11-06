@@ -42,7 +42,7 @@ export function isLinkedAccount(id: string) { return (configurationRows['linked-
 
 export function businessSettings() {
  const row = configurationRows.settings?.find(r => r.section === 'business' && r.status === 'Active');
- return {companyName:'ABC Flooring Melbourne',currency:'AUD',timezone:'Pacific/Auckland',yearEnd:'06-30',gstCode:'GST',basis:'Exclusive',terms:'30',quotePrefix:'QU',orderPrefix:'SO',invoicePrefix:'INV',creditPrefix:'CN',purchasePrefix:'PO',billPrefix:'BILL',supplierCreditPrefix:'SC',nextQuote:'1',nextOrder:'1',nextInvoice:'1',nextCredit:'1',nextPurchase:'1',nextBill:'1',nextSupplierCredit:'1',...row};
+ return {termsType:row?.termsType??(row?.terms==='0'?'COD':'DAYS'),companyName:'ABC Flooring Melbourne',currency:'AUD',timezone:'Pacific/Auckland',yearEnd:'06-30',gstCode:'GST',basis:'Exclusive',terms:'30',quotePrefix:'QU',orderPrefix:'SO',invoicePrefix:'INV',creditPrefix:'CN',purchasePrefix:'PO',billPrefix:'BILL',supplierCreditPrefix:'SC',nextQuote:'1',nextOrder:'1',nextInvoice:'1',nextCredit:'1',nextPurchase:'1',nextBill:'1',nextSupplierCredit:'1',...row};
 }
 export function configuredNumber(kind: string, existing: string[], year: string) {
  existing = [...existing, ...purgedNumbers()];

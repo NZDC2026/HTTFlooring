@@ -1,3 +1,5 @@
+import { foreignAllocationAmount } from "../../currency/settlement";
+import { validateFx, moneyRound } from "../../currency/currency";
 import { businessSettings } from '../../business-workspace/configurationState';
 import { assertSourceNotReconciled } from '../../banking/data/reconciliationLock';
 import { registerRepository } from "../../security/repositoryHost";
@@ -110,6 +112,7 @@ export const supplierPaymentRepository =
         const operationId = draft.operationId?.trim();
         if (draft.operationId !== undefined && !operationId) throw new Error("Operation ID cannot be empty.");
         const requestFingerprint = JSON.stringify({
+            fx:draft.fx,settlementAmount:draft.settlementAmount,
             supplierId: draft.supplierId, paymentDate: draft.paymentDate, method: draft.method,
             bankAccountId: draft.bankAccountId, reference: normalizeOptional(draft.reference), notes: normalizeOptional(draft.notes),
             allocations: draft.allocations.filter(a => a.amount !== 0).map(a => ({ supplierBillId: a.supplierBillId, amount: roundCurrency(a.amount) })).sort((a, b) => a.supplierBillId.localeCompare(b.supplierBillId)),
@@ -290,13 +293,15 @@ export const supplierPaymentRepository =
 
                         supplierInvoiceNumber:
                             bill.supplierInvoiceNumber,
+                        originalCurrency:bill.fx?.currency,
+                        originalAmount:bill.fx ? foreignAllocationAmount(bill,amount,supplierPayments) : undefined,
 
                         amount,
                     };
                 },
             );
 
-        const amount =
+        const allocatedAmount =
             roundCurrency(
                 allocations.reduce(
                     (
@@ -309,6 +314,21 @@ export const supplierPaymentRepository =
                 ),
             );
 
+        const fx = draft.fx ? validateFx(draft.fx,businessSettings().currency) : undefined;
+        if (!fx && draft.settlementAmount !== undefined) throw new Error("A settlement amount requires a currency and rate.");
+        if (fx && (!Number.isFinite(draft.settlementAmount) || draft.settlementAmount! <= 0 || moneyRound(draft.settlementAmount!) !== draft.settlementAmount))
+            throw new Error("Enter the actual settlement amount with at most two decimal places.");
+        if (fx && bankAccount.currency !== businessSettings().currency) throw new Error("Select a bank account in the business base currency.");
+        if (!fx && allocations.some(allocation=>{const bill=supplierBillRepository.getById(allocation.supplierBillId);return bill?.fx && bill.fx.currency!==bill.fx.baseCurrency;}))
+            throw new Error("Choose the settlement currency and exchange rate for foreign bills.");
+        if (fx && allocations.every(allocation=>supplierBillRepository.getById(allocation.supplierBillId)?.fx?.currency===fx.currency)) {
+            const original=moneyRound(allocations.reduce((sum,allocation)=>sum+(allocation.originalAmount??0),0));
+            if (draft.settlementAmount !== original) throw new Error("The payment amount must match the original-currency bill allocation. Adjust the bill allocation for a partial payment.");
+        }
+        const amount = fx ? moneyRound(draft.settlementAmount! * fx.rate) : allocatedAmount;
+        const exchangeDifference = moneyRound(amount - allocatedAmount);
+        if (exchangeDifference !== 0 && allocations.some(allocation => {const billFx=supplierBillRepository.getById(allocation.supplierBillId)?.fx;return !billFx||billFx.currency===billFx.baseCurrency;}))
+            throw new Error("Exchange differences require foreign-currency bill snapshots.");
         if (
             amount <= 0
         ) {
@@ -358,6 +378,9 @@ export const supplierPaymentRepository =
                 draft.paymentDate,
 
             amount,
+            fx:fx ? {...fx,originalAmount:draft.settlementAmount,baseAmount:amount} : undefined,
+            settlementAmount: fx ? draft.settlementAmount : undefined,
+            exchangeDifference: fx ? exchangeDifference : undefined,
 
             method:
                 draft.method,
@@ -645,6 +668,22 @@ supplierPaymentRepository.reverse = function (...args: Parameters<typeof reverse
 registerRepository("supplierPayments", {
     repository: supplierPaymentRepository, read: "purchases.read",
     commands: {"recordPrepaymentSettlement":null,"reversePrepaymentSettlement":null,"create": "purchases.payment", "reverse": "purchases.payment", "return": null, "assertCurrentCrossModuleWriteSafe": null},
+    validate: value => {
+        for(const payment of (value as {supplierPayments:SupplierPayment[]}).supplierPayments) {
+            if(payment.fx) {
+                validateFx(payment.fx);
+                for(const allocation of payment.allocations) {
+                    if(allocation.originalAmount!==undefined && (!Number.isFinite(allocation.originalAmount)||allocation.originalAmount<=0||moneyRound(allocation.originalAmount)!==allocation.originalAmount))
+                        throw new Error("Invalid original-currency allocation.");
+                }
+                const allocated=moneyRound(payment.allocations.reduce((sum,row)=>sum+row.amount,0));
+                if(!Number.isFinite(payment.settlementAmount) || payment.settlementAmount!<=0 ||
+                    moneyRound(payment.settlementAmount!*payment.fx.rate)!==payment.amount ||
+                    moneyRound(payment.amount-allocated)!==payment.exchangeDifference)
+                    throw new Error("Invalid foreign-currency payment snapshot.");
+            } else if(payment.exchangeDifference !== undefined || payment.settlementAmount !== undefined) throw new Error("Currency metadata requires an exchange rate.");
+        }
+    },
     snapshot: () => ({ supplierPayments }),
     restore: value => { supplierPayments = value.supplierPayments;  },
     publish: () => listeners.forEach(listener => listener()),

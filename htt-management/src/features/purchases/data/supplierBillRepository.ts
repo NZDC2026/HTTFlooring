@@ -1,3 +1,5 @@
+import { validateFx } from "../../currency/currency";
+import { businessSettings } from "../../business-workspace/configurationState";
 import { orderDefaults, purchaseDueDate, purchaseDefaultsSchema } from '../../purchase-settings/purchaseDefaults';
 import { requireDateKey } from '../../../lib/businessDate';
 import { configuredNumber } from '../../business-workspace/configurationState';
@@ -664,6 +666,16 @@ export const supplierBillRepository =
             );
         }
 
+        const fx = draft.fx ? validateFx(draft.fx,businessSettings().currency) : purchaseOrder.fx;
+        const originalAmount = fx ? roundCurrency(draft.lines.filter(line=>line.quantity>0).reduce((sum,line)=>{
+            const source=purchaseOrder.lines.find(source=>source.id===line.purchaseOrderLineId);
+            const cost=draft.fx ? line.unitCost : line.unitCost/fx.rate;
+            const net=roundCurrency(line.quantity*cost);
+            const sourceRate=purchaseOrder.fx?.rate??1;
+            const matchesSource=source?.grossUnitCost!==undefined && fx.currency===(purchaseOrder.fx?.currency??businessSettings().currency) && Math.abs(cost-source.unitCost/sourceRate)<1e-8;
+            return sum+(matchesSource ? roundCurrency(line.quantity*source!.grossUnitCost!/sourceRate) : net+roundCurrency(net*(source?.taxRate??0.1)));
+        },0)) : undefined;
+        if (draft.fx) draft = {...draft,lines:draft.lines.map(line=>({...line,unitCost:line.unitCost*draft.fx!.rate}))};
         const supplierInvoiceNumber =
             draft.supplierInvoiceNumber.trim();
 
@@ -871,6 +883,7 @@ export const supplierBillRepository =
         const bill:
             SupplierBill =
         {
+            fx:fx ? {...fx,originalAmount:fx.currency===fx.baseCurrency?totals.total:originalAmount,baseAmount:totals.total} : undefined,
             id:
                 `bill_${crypto.randomUUID()}`,
 
@@ -1002,7 +1015,7 @@ function roundCurrency(
     );
 }
 registerRepository("supplierBills", {
-    validate: (value,snapshots) => { for(const row of (value as {supplierBills:SupplierBill[]}).supplierBills) if(row.purchaseDefaults!==undefined) {
+    validate: (value,snapshots) => { for(const row of (value as {supplierBills:SupplierBill[]}).supplierBills) if(row.fx)validateFx(row.fx); for(const row of (value as {supplierBills:SupplierBill[]}).supplierBills) if(row.purchaseDefaults!==undefined) {
         purchaseDefaultsSchema.parse(row.purchaseDefaults);
         if(row.purchaseOrderId){const order=(snapshots.purchaseOrders as {purchaseOrders:import('../types/purchaseOrder').PurchaseOrder[]}).purchaseOrders.find(p=>p.id===row.purchaseOrderId);if(!order||JSON.stringify(orderDefaults(order))!==JSON.stringify(row.purchaseDefaults))throw new Error('Bill purchase defaults do not match the source order.');}
     } },

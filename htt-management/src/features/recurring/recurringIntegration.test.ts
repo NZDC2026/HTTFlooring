@@ -54,3 +54,16 @@ it('uses frozen net prices and current tax configuration when generating', () =>
 it('keeps cancelled generated drafts in history and does not recreate that occurrence', () => { const s = create(), r = generate(s); cmd('managedSalesDocuments', 'cancel', r.draft.id, r.draft.revision, 'Cancel duplicate review'); expect(generate(s).draft.status).toBe('CANCELLED'); expect(state('recurringInvoices').runs).toHaveLength(1); expect(state('managedSalesDocuments').drafts).toHaveLength(2); });
 it('rejects invalid source types, invalid ranges and forged source payloads at template creation', () => { const s = create(), input = JSON.parse(s.creationFingerprint); for (const change of [{ sourceDraftId: 'missing' }, { endDate: '2025-01-01' }, { payload: s.payload }, { frequency: 'Daily' }])
     expect(() => cmd('recurringInvoices', 'create', { ...input, operationId: crypto.randomUUID(), ...change })).toThrow(); const source = cmd('managedSalesDocuments', 'save', { operationId: 'order-template', payload: sales('ORDER') }); expect(() => cmd('recurringInvoices', 'create', { ...input, operationId: 'wrong-type', sourceDraftId: source.id })).toThrow(/correct type/); });
+
+it('retains next-month day terms through recurring generation and restart', async () => {
+    const customer = state('customers').customers[0];
+    const {defaults} = await import('../data-transfer/transferModel');
+    cmd('customers','update',customer.id,{...defaults.Customers,...Object.fromEntries(Object.entries(customer).filter(([,value])=>value!==undefined)),paymentTermsDays:30,paymentTermsType:'DAY_OF_MONTH'});
+    const source = cmd('managedSalesDocuments','save',{operationId:'monthly-source',payload:{...sales(),documentDate:'2026-01-10',dueDate:'2026-02-28'}});
+    const schedule = cmd('recurringInvoices','create',{operationId:'monthly-schedule',name:'Monthly terms',sourceDraftId:source.id,frequency:'Monthly',firstDate:'2026-02-10',endDate:'2026-04-10'});
+    expect(schedule.paymentTerms).toEqual({paymentTermsDays:30,paymentTermsType:'DAY_OF_MONTH'});
+    expect(generate(schedule).draft.payload.dueDate).toBe('2026-03-30');
+    await restart();
+    const saved = state('recurringInvoices').schedules.find((s:any)=>s.id===schedule.id);
+    expect(generate(saved).draft.payload.dueDate).toBe('2026-04-30');
+});

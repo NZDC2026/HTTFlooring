@@ -9,8 +9,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = {StaffIdentityController.class, CustomerCorrections.class, WarehouseOrders.class, QuoteTransitions.class, PurchaseGst.class, PurchaseOrders.class, SupplierBills.class, SupplierPayments.class})
+@RestControllerAdvice(assignableTypes = {StaffIdentityController.class, CustomerCorrections.class, CustomerRefunds.class, SalesCredits.class, SalesReturns.class, CustomerGst.class, CustomerCreditApplications.class, SupplierCreditApplications.class, PurchaseReturns.class, SupplierRefunds.class, SupplierRefundCorrections.class, SupplierExpenses.class, WarehouseOrders.class, QuoteDrafts.class, QuoteTransitions.class, PurchaseGst.class, PurchaseOrders.class, SupplierBills.class, SupplierPayments.class})
 class StaffApiErrors {
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class})
+    ResponseEntity<ApiError> invalidRequest(HttpServletRequest request) {
+        return sqlError(400,"invalid_request","Invalid request body or parameters.",
+                (String)request.getAttribute(ApiResponseHeaders.REQUEST_ID),false);
+    }
+
+    @ExceptionHandler(AsyncAttachmentBody.ReadFailure.class)
+    ResponseEntity<ApiError> uploadReadFailure(AsyncAttachmentBody.ReadFailure failure,HttpServletRequest request) {
+        return sqlError(failure.status,failure.code,failure.getMessage(),
+                (String)request.getAttribute(ApiResponseHeaders.REQUEST_ID),false);
+    }
+
     @ExceptionHandler(StaffScope.Failure.class)
     ResponseEntity<ApiError> accessDenied(StaffScope.Failure failure, HttpServletRequest request) {
         return error(failure.status, failure.code, failure.getMessage(),

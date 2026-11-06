@@ -1,3 +1,6 @@
+import { etaChangeInput, etaHistorySchema, incomingStatuses } from "../../incoming-shipments/shipmentEta";
+import { trustedAuthorization } from "../../security/trustedAuthorization";
+import { validateFx } from "../../currency/currency";
 import { purchaseDefaults, purchaseDefaultsSchema } from '../../purchase-settings/purchaseDefaults';
 import { visibleDocuments } from '../../document-recycle/recycleState';
 import { configuredNumber, businessSettings, taxSnapshot, exclusivePrice } from '../../business-workspace/configurationState';
@@ -300,6 +303,36 @@ export const purchaseOrderRepository =
         );
     },
 
+    updateEta(raw: unknown): PurchaseOrder {
+        const actor=trustedAuthorization.require("purchases.write");
+        const input=etaChangeInput.parse(raw);
+        const old=purchaseOrders.find(order=>order.id===input.id);
+        if(!old) throw new Error("Purchase order not found.");
+        const prior=purchaseOrders.flatMap(order=>(order.etaHistory??[]).map(event=>({order,event})))
+            .find(entry=>entry.event.operationId===input.operationId);
+        if(prior) {
+            if(prior.order.id!==input.id || prior.event.eta!==input.eta || prior.event.reason!==input.reason)
+                throw new Error("This operation ID was used for a different ETA update.");
+            return old;
+        }
+        if(!incomingStatuses.some(status=>status===old.status))
+            throw new Error("ETA can be updated for approved, sent or partially received purchase orders.");
+        if((old.etaHistory?.length??0)!==input.expectedRevision)
+            throw new Error("ETA changed. Reopen the editor and review the latest date.");
+        if(input.eta<old.orderDate) throw new Error("ETA cannot precede the purchase order date.");
+        if(input.eta===old.expectedDeliveryDate) throw new Error("Choose a different ETA.");
+        const at=new Date().toISOString();
+        if(at<old.updatedAt) throw new Error("System clock precedes the last order update.");
+        const updated:PurchaseOrder={...old,expectedDeliveryDate:input.eta,updatedAt:at,
+            etaHistory:[...(old.etaHistory??[]),{
+                operationId:input.operationId,previousEta:old.expectedDeliveryDate||undefined,eta:input.eta,
+                reason:input.reason,actorId:actor.userId,actorName:actor.displayName||actor.userId,at,
+            }]};
+        purchaseOrders=purchaseOrders.map(order=>order.id===old.id?updated:order);
+        emitChange();
+        return updated;
+    },
+
     create(
         draft: PurchaseOrderDraft,
     ) {
@@ -312,11 +345,14 @@ export const purchaseOrderRepository =
                 draft.supplierId,
             );
 
+        const fx = draft.fx ? validateFx(draft.fx,businessSettings().currency) : undefined;
+        if (!fx && supplier.currency !== businessSettings().currency) throw new Error("Choose the purchase currency and exchange rate.");
         const lines =
             buildLines(
-                draft,
+                draft.fx ? {...draft,lines:draft.lines.map(line=>({...line,unitCost:line.unitCost*draft.fx!.rate}))} : draft,
             );
 
+        const originalLines = fx ? buildLines(draft).map((line,index)=>({...line,id:lines[index].id})) : undefined;
         const now =
             new Date().toISOString();
 
@@ -328,6 +364,8 @@ export const purchaseOrderRepository =
                     "po",
                 ),
 
+            fx:fx ? {...fx,baseAmount:calculatePurchaseOrderTotals(lines).total,originalAmount:calculatePurchaseOrderTotals(originalLines!).total} : undefined,
+            originalLines,
             purchaseDefaults: purchaseDefaults(supplier),
             purchaseOrderNumber:
                 createPurchaseOrderNumber(
@@ -424,15 +462,19 @@ export const purchaseOrderRepository =
                 draft.supplierId,
             );
 
+        const fx = draft.fx ? validateFx(draft.fx,businessSettings().currency) : existing.fx;
         const lines =
             buildLines(
-                draft,
+                draft.fx ? {...draft,lines:draft.lines.map(line=>({...line,unitCost:line.unitCost*draft.fx!.rate}))} : draft,
             );
 
+        const originalLines = fx ? buildLines(draft.fx ? draft : {...draft,lines:draft.lines.map(line=>({...line,unitCost:line.unitCost/fx.rate}))}).map((line,index)=>({...line,id:lines[index].id})) : undefined;
         const updated:
             PurchaseOrder =
         {
             ...existing,
+            fx:fx ? {...fx,baseAmount:calculatePurchaseOrderTotals(lines).total,originalAmount:calculatePurchaseOrderTotals(originalLines!).total} : undefined,
+            originalLines,
 
             supplierId:
                 supplier.id,
@@ -1222,9 +1264,38 @@ function roundQuantity(
     );
 }
 registerRepository("purchaseOrders", {
-    validate: value => { for(const row of (value as {purchaseOrders:PurchaseOrder[]}).purchaseOrders) if(row.purchaseDefaults!==undefined) purchaseDefaultsSchema.parse(row.purchaseDefaults); },
+    validate: value => {
+        const etaOperations=new Set<string>();
+        for(const row of (value as {purchaseOrders:PurchaseOrder[]}).purchaseOrders) {
+            if(row.etaHistory) {
+                let previous: string | undefined;
+                let lastAt="";
+                row.etaHistory.forEach((raw,index)=>{
+                    const event=etaHistorySchema.parse(raw);
+                    if(etaOperations.has(event.operationId) || index>0 && event.previousEta!==previous || event.at<lastAt || event.at<row.createdAt || event.at>row.updatedAt || event.eta<row.orderDate || event.previousEta===event.eta)
+                        throw new Error("Invalid ETA history.");
+                    etaOperations.add(event.operationId);previous=event.eta;lastAt=event.at;
+                });
+                if(row.etaHistory.length && previous!==row.expectedDeliveryDate) throw new Error("ETA does not match its history.");
+            }
+            if(row.purchaseDefaults!==undefined) purchaseDefaultsSchema.parse(row.purchaseDefaults);
+            if(row.fx) validateFx(row.fx);
+            if(row.originalLines) {
+                if(!row.fx || row.originalLines.length!==row.lines.length ||
+                    calculatePurchaseOrderTotals(row.originalLines).total!==row.fx.originalAmount ||
+                    row.totals.total!==row.fx.baseAmount) throw new Error("Invalid original-currency order totals.");
+                row.originalLines.forEach((line,index)=>{
+                    const base=row.lines[index];
+                    if(line.id!==base.id || line.productId!==base.productId || line.unitId!==base.unitId ||
+                        line.orderedQuantity!==base.orderedQuantity || !Number.isFinite(line.unitCost) || line.unitCost<0 ||
+                        Math.abs(line.unitCost*row.fx!.rate-base.unitCost)>Math.max(0.000001,row.fx!.rate*0.00000001))
+                        throw new Error("Original purchase costs do not match the saved conversion.");
+                });
+            }
+        }
+    },
     repository: purchaseOrderRepository, read: "purchases.read",
-    commands: {"catch": null, "if": null, "create": "purchases.write", "updateDraft": "purchases.write", "approve": "purchases.write", "send": "purchases.write", "recordGoodsReceipt": null, "recordSupplierBill": null, "reverseSupplierBill": null, "emitChange": null, "return": null, "cancel": "purchases.write"},
+    commands: {"updateEta":"purchases.write", "catch": null, "if": null, "create": "purchases.write", "updateDraft": "purchases.write", "approve": "purchases.write", "send": "purchases.write", "recordGoodsReceipt": null, "recordSupplierBill": null, "reverseSupplierBill": null, "emitChange": null, "return": null, "cancel": "purchases.write"},
     snapshot: () => ({ purchaseOrders }),
     restore: value => { purchaseOrders = (value as {purchaseOrders:PurchaseOrder[]}).purchaseOrders;  },
     publish: () => listeners.forEach(listener => listener()),

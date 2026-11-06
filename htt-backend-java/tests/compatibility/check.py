@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from collections import deque
-import datetime, uuid, socketserver, struct, socket
+from zoneinfo import ZoneInfo
+import datetime, uuid, socketserver, struct, socket, select
 import base64, http.server, json, os, pathlib, ssl, subprocess, threading, time, urllib.error, urllib.request
 
 here = pathlib.Path(__file__).resolve().parent
@@ -45,7 +46,9 @@ def scan_with_legacy(job, employee, company, legacy_url, db_port):
         threading.Thread(target=scanner.serve_forever,daemon=True).start()
         env = dict(os.environ,
             ConnectionStrings__Database=f'Host=127.0.0.1;Port={db_port};Database=htt_java_test;Username=htt_worker;Password=local-worker-test',
-            Documents__ClamAvHost='127.0.0.1',Documents__ClamAvPort=str(scanner.server_address[1]),BankFeeds__Enabled='false')
+            Documents__ClamAvHost='127.0.0.1',Documents__ClamAvPort=str(scanner.server_address[1]),BankFeeds__Enabled='false',
+            Documents__MailApiKey='',Documents__MailFrom='',Geocoding__ApiKey='',
+            CardOcr__ApiKey='',CardOcr__Endpoint='',Push__ProjectId='',Push__ClientEmail='',Push__PrivateKeyPem='')
         worker = subprocess.Popen([os.environ['HTT_COMPAT_DOTNET'],dll],env=env,stdout=log,stderr=subprocess.STDOUT)
         try:
             for _ in range(40):
@@ -59,18 +62,19 @@ def scan_with_legacy(job, employee, company, legacy_url, db_port):
             worker.wait(timeout=15)
             scanner.shutdown()
 
-def token(subject, audience='staff'):
+def token(subject, audience='staff', lifetime=900):
     head = b64(json.dumps({'alg':'RS256','kid':'fixture'}).encode())
-    claims = b64(json.dumps({'iss':issuer,'sub':subject,'aud':[audience],'exp':int(time.time())+300}).encode())
+    claims = b64(json.dumps({'iss':issuer,'sub':subject,'aud':[audience],'exp':int(time.time())+lifetime}).encode())
     content = f'{head}.{claims}'
     signature = subprocess.check_output(['openssl','dgst','-sha256','-sign','sign.key'], input=content.encode())
     return f'{content}.{b64(signature)}'
 
-legacy_requests = deque()
+backend_requests = {'15081':deque(),'15082':deque()}
 legacy_rate_lock = threading.Lock()
 
-def pace_legacy():
-    # Keep the expanded fixture below the unchanged legacy 300/minute policy.
+def pace_backend(base):
+    legacy_requests=backend_requests[base.rsplit(':',1)[1]]
+    # Keep each backend below its 300/minute policy during business regression.
     # Reserve capacity for Flutter/proxy/worker requests outside this helper.
     while True:
         with legacy_rate_lock:
@@ -83,9 +87,34 @@ def pace_legacy():
             delay = max(.01,61-(now-legacy_requests[0]))
         time.sleep(min(delay,30))
 
+def raw_rate_status(path,jwt,base):
+    try:
+        with urllib.request.urlopen(urllib.request.Request(base+path,headers={'Authorization':'Bearer '+jwt}),timeout=5) as result:
+            result.read()
+            return result.status
+    except urllib.error.HTTPError as failure:
+        failure.read()
+        return failure.code
+
+def verify_rate_limits(legacy_url):
+    subject='rate-probe-'+uuid.uuid4().hex
+    for audience,path,expected in (('staff','/api/v1/me',200),('portal','/api/portal/v1/me',403)):
+        jwt=token(subject,audience)
+        for base in (url,legacy_url):
+            started=time.monotonic()
+            statuses=[raw_rate_status(path,jwt,base) for _ in range(301)]
+            assert statuses[:300]==[expected]*300 and statuses[300]==429, (audience,base,statuses)
+            assert time.monotonic()-started<55, 'Rate probe exceeded a single window'
+            assert raw_rate_status(path,token(subject+'-independent',audience),base)==expected
+            assert raw_rate_status(path,jwt,base)==429
+    expired=token('expired-rate-probe',lifetime=-120)
+    for base in (url,legacy_url):
+        assert raw_rate_status('/api/v1/me',expired,base)==401
+    print('PASS: staff and portal 300/minute policy, independent subjects, 301st rejection and expired token')
+
 def request(path, jwt=None, company=None, grant=None, base=url, payload=None, key=None, version=None, content_type=None, method=None):
-    if base.endswith(':15082'):
-        pace_legacy()
+    if base.endswith((':15081',':15082')):
+        pace_backend(base)
     headers = {} if jwt is None else {'Authorization':'Bearer '+jwt}
     if company is not None:
         headers['X-Company-Id'] = company
@@ -114,8 +143,25 @@ def verify_stalled_upload(attachment, employee, company, base):
             elapsed = time.monotonic() - started
             return (data.split(b'\r\n',1)[0].decode(),round(elapsed,1))
     result = attempt(base)
-    assert 1 <= result[1] < 37 and not result[0].startswith(('HTTP/1.1 201','HTTP/1.1 202')), result
+    assert 4 <= result[1] < 9 and result[0].startswith('HTTP/1.1 400'), result
     print('Stalled upload:',base,result,flush=True)
+
+def verify_upload_deadline(attachment, employee, company, base):
+    with socket.create_connection(('127.0.0.1',int(base.rsplit(':',1)[1])),timeout=40) as conn:
+        conn.sendall((f'POST {attachment} HTTP/1.1\r\nHost: localhost\r\n'
+            f'Authorization: Bearer {employee}\r\nX-Company-Id: {company}\r\n'
+            'If-Match: "1"\r\nIdempotency-Key: deadline-body-fixture\r\nContent-Type: image/png\r\n'
+            'Content-Length: 64000\r\nConnection: close\r\n\r\n').encode())
+        started=time.monotonic()
+        while time.monotonic()-started<38:
+            conn.sendall(b'x'*1024)
+            if select.select([conn],[],[],.5)[0]:
+                data=conn.recv(8192)
+                result=(data.split(b'\r\n',1)[0].decode(),round(time.monotonic()-started,1))
+                assert 28<=result[1]<34 and result[0].startswith('HTTP/1.1 500'), result
+                print('Upload absolute deadline:',base,result,flush=True)
+                return
+        raise AssertionError('Upload deadline did not respond')
 
 def verify_flutter(employee, legacy_url, ssl_context):
     trace = []
@@ -191,6 +237,27 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 except OSError:
                     pass
                 time.sleep(.25)
+            if os.environ.get('HTT_COMPAT_UPLOAD_ONLY')=='1':
+                employee=token('test-employee')
+                company='00000000-0000-0000-0000-000000000001'
+                for first,second in ((url,legacy_url),(legacy_url,url)):
+                    item_id=str(uuid.uuid4())
+                    created=request('/api/v1/crm/collaboration',employee,company,base=legacy_url,payload={
+                        'id':item_id,'kind':'NOTE','customerId':'00000000-0000-0000-0000-000000000011',
+                        'branchId':'00000000-0000-0000-0000-000000000012','data':{'text':'Synthetic async attachment'}},key='async-note-'+item_id)
+                    assert created[0]==201, created
+                    attachment='/api/v1/documents/'+item_id+'/attachments?fileName=async.png'
+                    args=dict(payload=b'\x89PNG\r\n\x1a\n'+b'\0'*24,content_type='image/png',key='async-upload-'+item_id,version=1)
+                    assert request(attachment,None,company,base=url,**args)[0]==401
+                    assert request(attachment,token('test-purchase-reader'),company,base=url,**args)[0]==403
+                    uploaded=request(attachment,employee,company,base=first,**args)
+                    assert uploaded[0]==202, uploaded
+                    assert request(attachment,employee,company,base=second,**args)==uploaded
+                    if os.environ.get('HTT_STALL_TEST'):
+                        verify_stalled_upload(attachment,employee,company,first)
+                        verify_upload_deadline(attachment,employee,company,first)
+                print('PASS: focused authorized async upload, bidirectional replay and unauthenticated/unauthorized rejection')
+                raise SystemExit(0)
             assert request('/health/ready') == (200,{'status':'ready'})
             expected = {'companies':[{'actorId':'00000000-0000-0000-0000-000000000002',
                         'companyId':'00000000-0000-0000-0000-000000000001','companyName':'Synthetic HTT',
@@ -200,7 +267,11 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             other = '00000000-0000-0000-0000-000000000021'
             assert {entry['companyId'] for entry in actual[1]['companies']} == {other, expected['companies'][0]['companyId']}
             actual[1]['companies'][:] = [entry for entry in actual[1]['companies'] if entry['companyId'] != other]
-            expected['companies'][0]['permissions'] += ['crm.collaboration.read','crm.visits.write','documents.attachments.write','documents.files.read','crm.notes.write','crm.boards.write','catalog.read','foundation.read','accounting.read','audit.read','customers.write','catalog.write','pricing.read','sales.quotes.read','sales.quotes.write','sales.quotes.approve','sales.orders.read','sales.credit.read','warehouses.all','sales.orders.create','inventory.read','sales.orders.cancel','sales.invoices.read','sales.invoices.write','accounting.receipts.read','accounting.receipts.write','accounting.banks.use','accounting.receivables.read','inventory.picks.read','inventory.picks.write','inventory.dispatch','inventory.opening.write','purchase.orders.read','purchase.orders.write','purchase.cost.read','purchase.orders.confirm','purchase.orders.close','purchase.receipts.read','purchase.receipts.write','purchase.grni.read','purchase.bills.read','purchase.bills.post','purchase.payments.read','purchase.payments.post','purchase.ap.read','purchase.advances.apply','purchase.advances.unapply','purchase.payments.reverse','purchase.bills.variance.post','purchase.payments.reapply','purchase.input_gst.read','accounting.advances.apply','accounting.advances.unapply','accounting.receipts.reverse']
+            expected['companies'][0]['permissions'] += ['crm.collaboration.read','crm.visits.write','documents.attachments.write','documents.files.read','crm.notes.write','crm.boards.write','catalog.read','foundation.read','accounting.read','audit.read','customers.write','catalog.write','pricing.read','sales.quotes.read','sales.quotes.write','sales.quotes.approve','sales.orders.read','sales.credit.read','warehouses.all','sales.orders.create','inventory.read','sales.orders.cancel','sales.invoices.read','sales.invoices.write','accounting.receipts.read','accounting.receipts.write','accounting.banks.use','accounting.receivables.read','inventory.picks.read','inventory.picks.write','inventory.dispatch','inventory.opening.write','purchase.orders.read','purchase.orders.write','purchase.cost.read','purchase.orders.confirm','purchase.orders.close','purchase.receipts.read','purchase.receipts.write','purchase.grni.read','purchase.bills.read','purchase.bills.post','purchase.payments.read','purchase.payments.post','purchase.ap.read','purchase.advances.apply','purchase.advances.unapply','purchase.payments.reverse','purchase.bills.variance.post','purchase.payments.reapply','purchase.input_gst.read','accounting.advances.apply','accounting.advances.unapply','accounting.receipts.reverse','accounting.receipts.reapply','accounting.refunds.read','accounting.refunds.write','accounting.refunds.reverse','accounting.refunds.correct','sales.credits.read','sales.credits.write','sales.credits.adjust','inventory.returns.read','inventory.returns.write','accounting.gst.read','sales.credits.apply','sales.credits.unapply']
+            expected['companies'][0]['permissions'] += ['purchase.returns.post','purchase.returns.read','purchase.credits.post','purchase.credits.read','purchase.credits.apply','purchase.credits.unapply']
+            expected['companies'][0]['permissions'] += ['purchase.refunds.post','purchase.refunds.read']
+            expected['companies'][0]['permissions'] += ['purchase.refunds.reverse','purchase.refunds.correct']
+            expected['companies'][0]['permissions'] += ['purchase.expense_bills.post','purchase.expense_credits.post','purchase.credits.adjust']
             expected['companies'][0]['permissions'].sort()
             actual[1]['companies'][0]['permissions'].sort()
             assert actual == (200,expected), actual
@@ -215,11 +286,11 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             assert code == 200 and body['total'] == 1 and body['items'][0]['id'] == branch, (code,body)
             for _ in range(4):
                 assert request(branches,employee,other) == (200,{'total':0,'items':[]})
-                assert request(branches,employee,company)[1]['items'][0]['id'] == branch
+                assert any(item['id']==branch for item in request(branches,employee,company)[1]['items'])
             def isolated_lookup(index):
                 scope = company if index % 2 == 0 else other
                 status, result = request(branches, employee, scope)
-                assert status == 200 and result['total'] == (1 if scope == company else 0)
+                assert status == 200 and result['total'] == (2 if scope == company else 0)
             with ThreadPoolExecutor(max_workers=8) as executor:
                 list(executor.map(isolated_lookup, range(32)))
             assert request(branches,employee)[0] == 400
@@ -257,18 +328,27 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             price_path = '/api/v1/pricing/resolve?customerId=00000000-0000-0000-0000-000000000011&productUnitId='
             price = request(price_path+unit_id,employee,company)
             assert price[0] == 200 and price[1]['unitPrice'] == '45.00000000' and price[1]['source'] == 'CUSTOMER', price
-            quote = request('/api/v1/quotes',employee,company,base=legacy_url,payload={
+            quote = request('/api/v1/quotes',employee,company,base=url,payload={
                 'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
                 'warehouseId':'00000000-0000-0000-0000-000000000014',
                 'lines':[{'productUnitId':unit_id,'quantity':2}]},key='legacy-quote-'+str(uuid.uuid4()))
             assert quote[0] == 201, quote
             assert quote[1]['id'] in [item['id'] for item in request('/api/v1/quotes',employee,company)[1]['items']]
             for first, second in ((legacy_url,url),(url,legacy_url)):
-                draft = request('/api/v1/quotes',employee,company,base=legacy_url,payload={
-                    'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
+                quote_args=dict(payload={'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
                     'warehouseId':'00000000-0000-0000-0000-000000000014',
-                    'lines':[{'productUnitId':unit_id,'quantity':2}]},key='review-quote-'+str(uuid.uuid4()))
-                assert draft[0] == 201, draft
+                    'lines':[{'productUnitId':unit_id,'quantity':2}],'notes':' Synthetic café & quote '},key='review-quote-'+str(uuid.uuid4()))
+                for target in (first,second):
+                    assert request('/api/v1/quotes',None,company,base=target,**quote_args)[0]==401
+                    rejected=request('/api/v1/quotes',token('test-purchase-reader'),company,base=target,**quote_args)
+                    assert rejected[0]==403,rejected
+                draft=request('/api/v1/quotes',employee,company,base=first,**quote_args)
+                assert draft[0]==201,draft
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request('/api/v1/quotes',employee,company,base=first if n%2 else second,**quote_args),range(6)))
+                assert all(result==draft for result in attempts),attempts
+                changed={**quote_args['payload'],'notes':'Changed quote'}
+                assert request('/api/v1/quotes',employee,company,base=second,payload=changed,key=quote_args['key'])[0]==409
                 path = '/api/v1/quotes/'+draft[1]['id']
                 submitted = request(path+'/submit',employee,company,base=legacy_url,
                     payload={},key='submit-'+draft[1]['id'],version=1)
@@ -481,18 +561,183 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert float(entry['paid'])==0 and float(entry['outstanding'])==50, entry
                 reversal_view='/api/v1/receipt-reversals/'+reversed_direct[1]['reversal']['id']
                 assert request(reversal_view,employee,company)==request(reversal_view,employee,company,base=legacy_url)==(200,reversed_direct[1])
+                reapply_path='/api/v1/receipt-reversals/'+reversed_direct[1]['reversal']['id']+'/reapply'
+                reapply_args=dict(payload={'reference':' Customer café reapplication '+uuid.uuid4().hex,
+                    'reason':' Synthetic corrected receipt allocation ',
+                    'allocations':[{'invoiceLineId':posted[1]['lines'][0]['id'],'amount':20}]},key='customer-reapply-'+uuid.uuid4().hex)
+                assert request(reapply_path,token('test-purchase-reader'),company,base=first,**reapply_args)[0]==403
+                invalid=dict(payload={**reapply_args['payload'],'allocations':[{'invoiceLineId':posted[1]['lines'][0]['id'],'amount':21}]},
+                    key='customer-over-reapply-'+uuid.uuid4().hex)
+                rejected=[request(reapply_path,employee,company,base=target,**invalid) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(reapply_path,employee,company,
+                        base=first if n%2 else second,**reapply_args),range(6)))
+                reapplied=attempts[0]
+                assert reapplied[0]==201 and all(result==reapplied for result in attempts), attempts
+                assert reapplied[1]['reversalId']==reversed_direct[1]['reversal']['id'], reapplied
+                assert request('/api/v1/customer-receipts/'+reapplied[1]['receipt']['id'],employee,company)==(200,reapplied[1]['receipt'])
+                ar=request(ar_path,employee,company)
+                entry=next(item for item in ar[1]['items'] if item['invoiceId']==posted[1]['id'])
+                assert float(entry['paid'])==20 and float(entry['outstanding'])==30, entry
+                reallocate_path='/api/v1/customer-receipts/'+reapplied[1]['receipt']['id']+'/reallocate'
+                reallocate_args=dict(payload={'reversalReference':'Customer allocation reversal '+uuid.uuid4().hex,
+                    'reference':'Customer reallocation '+uuid.uuid4().hex,'reason':'Synthetic move to remaining service advance',
+                    'advances':[{'orderLineId':eligible[1]['lines'][0]['id'],'amount':20}]},key='customer-reallocate-'+uuid.uuid4().hex)
+                failing=dict(payload={**reallocate_args['payload'],'advances':[{'orderLineId':eligible[1]['lines'][0]['id'],'amount':21}]},
+                    key='customer-over-reallocate-'+uuid.uuid4().hex)
+                rejected=[request(reallocate_path,employee,company,base=target,**failing) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                active=request('/api/v1/customer-receipts/'+reapplied[1]['receipt']['id'],employee,company)
+                assert active[1]['settlementStatus']=='ACTIVE', active
+                ar=request(ar_path,employee,company)
+                entry=next(item for item in ar[1]['items'] if item['invoiceId']==posted[1]['id'])
+                assert float(entry['paid'])==20 and float(entry['outstanding'])==30, entry
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(reallocate_path,employee,company,
+                        base=first if n%2 else second,**reallocate_args),range(6)))
+                reallocated=attempts[0]
+                assert reallocated[0]==201 and all(result==reallocated for result in attempts), attempts
+                assert float(reallocated[1]['receipt']['advanceAmount'])==20, reallocated
+                assert request('/api/v1/customer-receipts/'+reallocated[1]['receipt']['id'],employee,company,base=legacy_url)==(200,reallocated[1]['receipt'])
+                original_reversal=request(reversal_view,employee,company)
+                assert original_reversal==request(reversal_view,employee,company,base=legacy_url)
+                assert original_reversal[1]['reversal']['replacementReceiptId']==reapplied[1]['receipt']['id'], original_reversal
+                ar=request(ar_path,employee,company)
+                entry=next(item for item in ar[1]['items'] if item['invoiceId']==posted[1]['id'])
+                assert float(entry['paid'])==0 and float(entry['outstanding'])==50, entry
+                cleanup=dict(payload={'reference':'Synthetic final reversal '+uuid.uuid4().hex,'reason':'Finish reallocation fixture'},
+                    key='finish-reallocation-'+uuid.uuid4().hex)
+                cleanup_path='/api/v1/customer-receipts/'+reallocated[1]['receipt']['id']+'/reverse'
+                finished=request(cleanup_path,employee,company,base=first,**cleanup)
+                assert finished[0]==201, finished
+                assert request(cleanup_path,employee,company,base=second,**cleanup)==finished
+                customer='00000000-0000-0000-0000-000000000011'
+                deposit_args=dict(payload={'amount':20,'method':'BANK_TRANSFER','reference':'Refundable deposit '+uuid.uuid4().hex,
+                    'advances':[{'orderLineId':eligible[1]['lines'][0]['id'],'amount':20}]},key='refund-deposit-'+uuid.uuid4().hex)
+                refundable=request('/api/v1/customers/'+customer+'/receipts',employee,company,base=first,**deposit_args)
+                assert refundable[0]==201, refundable
+                advance=refundable[1]['advances'][0]['id']
+                refund_path='/api/v1/customers/'+customer+'/refunds'
+                refund_args=dict(payload={'amount':20,'reference':' Refund café & deposit '+uuid.uuid4().hex,
+                    'reason':' Synthetic customer refund request ','advanceId':advance},key='customer-refund-'+uuid.uuid4().hex)
+                if first==url:
+                    refund_args['payload']['bankAccountId']='00000000-0000-0000-0000-000000000038'
+                assert request(refund_path,token('test-purchase-reader'),company,base=first,**refund_args)[0]==403
+                invalid_null=dict(payload={**refund_args['payload'],'cancelOrder':None},key='null-cancel-refund-'+uuid.uuid4().hex)
+                null_results=[request(refund_path,employee,company,base=target,**invalid_null) for target in (first,second)]
+                assert null_results[0][0]==null_results[1][0]==400, null_results
+                over=dict(payload={**refund_args['payload'],'amount':21},key='over-refund-'+uuid.uuid4().hex)
+                rejected=[request(refund_path,employee,company,base=target,**over) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                # Force each backend to execute one original mutation, then stress replay.
+                first_refund=request(refund_path,employee,company,base=first,**refund_args)
+                assert first_refund[0]==201, first_refund
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(refund_path,employee,company,
+                        base=first if n%2 else second,**refund_args),range(6)))
+                refunded=attempts[0]
+                assert refunded==first_refund and all(result==refunded for result in attempts), attempts
+                assert float(refunded[1]['amount'])==20 and refunded[1]['refundStatus']=='ACTIVE', refunded
+                detail_path='/api/v1/customer-refunds/'+refunded[1]['id']
+                assert request(detail_path,employee,company)==request(detail_path,employee,company,base=legacy_url)==(200,refunded[1])
+                listed=request(refund_path,employee,company)
+                assert listed==request(refund_path,employee,company,base=legacy_url)
+                assert any(item['id']==refunded[1]['id'] for item in listed[1]['items']), listed
+                for query in ('?pageSize=1','?page=0','?pageSize=101'):
+                    actual=request(refund_path+query,employee,company)
+                    other=request(refund_path+query,employee,company,base=legacy_url)
+                    assert actual[0]==other[0] and normalize(actual[1])==normalize(other[1]), (actual,other)
+                changed=dict(payload={**refund_args['payload'],'reason':'Different refund reason'},key=refund_args['key'])
+                assert request(refund_path,employee,company,base=second,**changed)[0]==409
+                reverse_path='/api/v1/customer-refunds/'+refunded[1]['id']+'/reverse'
+                reversal_args=dict(payload={'reference':' Refund café reversal '+uuid.uuid4().hex,
+                    'reason':' Synthetic refund correction '},key='reverse-customer-refund-'+uuid.uuid4().hex)
+                assert request(reverse_path,token('test-purchase-reader'),company,base=first,**reversal_args)[0]==403
+                reversed_refund=request(reverse_path,employee,company,base=first,**reversal_args)
+                assert reversed_refund[0]==201, reversed_refund
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(reverse_path,employee,company,
+                        base=first if n%2 else second,**reversal_args),range(6)))
+                assert all(result==reversed_refund for result in attempts), attempts
+                reversed_view='/api/v1/customer-refund-reversals/'+reversed_refund[1]['reversal']['id']
+                assert request(reversed_view,employee,company)==request(reversed_view,employee,company,base=legacy_url)==(200,reversed_refund[1])
+                original_refund=request(detail_path,employee,company)
+                assert original_refund==request(detail_path,employee,company,base=legacy_url)
+                assert original_refund[1]['refundStatus']=='REVERSED', original_refund
+                duplicate=dict(payload=reversal_args['payload'],key='duplicate-refund-reversal-'+uuid.uuid4().hex)
+                rejected=[request(reverse_path,employee,company,base=target,**duplicate) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0]==409, rejected
+                changed=dict(payload={**reversal_args['payload'],'reason':'Different reversal reason'},key=reversal_args['key'])
+                assert request(reverse_path,employee,company,base=second,**changed)[0]==409
+                restored_credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                assert restored_credit==request('/api/v1/customers/'+customer+'/credit',employee,company,base=legacy_url)
+                assert float(restored_credit[1]['availableAdvances'])==20, restored_credit
+                correction_path=reversed_view+'/correct'
+                correction_args=dict(payload={'reference':' Correct café refund '+uuid.uuid4().hex,
+                    'reason':' Synthetic replacement refund ','amount':20,'advanceId':advance,
+                    'bankAccountId':{'ignored':'unknown field'},'reversalReference':{'ignored':True}},key='replace-refund-'+uuid.uuid4().hex)
+                assert request(correction_path,token('test-purchase-reader'),company,base=first,**correction_args)[0]==403
+                over=dict(payload={**correction_args['payload'],'amount':21},key='over-replace-refund-'+uuid.uuid4().hex)
+                rejected=[request(correction_path,employee,company,base=target,**over) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                replacement=request(correction_path,employee,company,base=second,**correction_args)
+                assert replacement[0]==201, replacement
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(correction_path,employee,company,
+                        base=first if n%2 else second,**correction_args),range(6)))
+                assert all(result==replacement for result in attempts), attempts
+                assert replacement[1]['refund']['originalRefundId']==refunded[1]['id'], replacement
+                assert replacement[1]['refund']['bankAccountId']==refunded[1]['bankAccountId'], replacement
+                relation=request(reversed_view,employee,company)
+                assert relation==request(reversed_view,employee,company,base=legacy_url)
+                assert relation[1]['reversal']['replacementRefundId']==replacement[1]['refund']['id'], relation
+                atomic_path='/api/v1/customer-refunds/'+replacement[1]['refund']['id']+'/correct'
+                atomic_args=dict(payload={'reversalReference':' Atomic café reversal '+uuid.uuid4().hex,
+                    'reference':' Atomic café corrected refund '+uuid.uuid4().hex,
+                    'reason':' Synthetic atomic refund correction ','amount':20,'advanceId':advance,
+                    'bankAccountId':{'ignored':'unknown field'}},
+                    key='atomic-refund-'+uuid.uuid4().hex)
+                over=dict(payload={**atomic_args['payload'],'amount':21},key='over-atomic-refund-'+uuid.uuid4().hex)
+                rejected=[request(atomic_path,employee,company,base=target,**over) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                active_path='/api/v1/customer-refunds/'+replacement[1]['refund']['id']
+                active=request(active_path,employee,company)
+                assert active==request(active_path,employee,company,base=legacy_url)
+                assert active[1]['refundStatus']=='ACTIVE', active
+                credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                assert float(credit[1]['availableAdvances'])==0, credit
+                corrected=request(atomic_path,employee,company,base=first,**atomic_args)
+                assert corrected[0]==201, corrected
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(atomic_path,employee,company,
+                        base=first if n%2 else second,**atomic_args),range(6)))
+                assert all(result==corrected for result in attempts), attempts
+                assert corrected[1]['refund']['originalRefundId']==replacement[1]['refund']['id'], corrected
+                assert corrected[1]['refund']['bankAccountId']==refunded[1]['bankAccountId'], corrected
+                final_path='/api/v1/customer-refunds/'+corrected[1]['refund']['id']
+                assert request(final_path,employee,company)==request(final_path,employee,company,base=legacy_url)==(200,corrected[1]['refund'])
+                credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                assert float(credit[1]['availableAdvances'])==0, credit
+                changed=dict(payload={**atomic_args['payload'],'reason':'Different correction reason'},key=atomic_args['key'])
+                assert request(atomic_path,employee,company,base=second,**changed)[0]==409
 
-            for first, second in ((legacy_url,url),(url,legacy_url)):
+
+
+
+            for first, second, taxable in ((legacy_url,url,False),(url,legacy_url,False),(legacy_url,url,True),(url,legacy_url,True)):
+                advance_amount=22 if taxable else 20
+                invoice_gross=55 if taxable else 50
                 service = request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
                     'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
                     'warehouseId':'00000000-0000-0000-0000-000000000014',
-                    'lines':[{'productUnitId':'00000000-0000-0000-0000-000000000032','quantity':2}],
+                    'lines':[{'productUnitId':('00000000-0000-0000-0000-000000000077' if taxable else '00000000-0000-0000-0000-000000000032'),'quantity':2}],
                     'reason':'Synthetic customer advance application'},key='advance-order-'+uuid.uuid4().hex)
                 assert service[0] == 201, service
                 order_path = '/api/v1/sales-orders/'+service[1]['orderId']
                 detail = request(order_path,employee,company)
-                receipt_args = dict(payload={'amount':20,'method':'BANK_TRANSFER','reference':'Customer deposit '+uuid.uuid4().hex,
-                    'advances':[{'orderLineId':detail[1]['lines'][0]['id'],'amount':20}]},key='customer-deposit-'+uuid.uuid4().hex)
+                receipt_args = dict(payload={'amount':advance_amount,'method':'BANK_TRANSFER','reference':'Customer deposit '+uuid.uuid4().hex,
+                    'advances':[{'orderLineId':detail[1]['lines'][0]['id'],'amount':advance_amount}]},key='customer-deposit-'+uuid.uuid4().hex)
                 receipt_path = '/api/v1/customers/00000000-0000-0000-0000-000000000011/receipts'
                 deposited = request(receipt_path,employee,company,base=first,**receipt_args)
                 assert deposited[0] == 201, deposited
@@ -501,32 +746,49 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                     key='advance-invoice-'+uuid.uuid4().hex,version=detail[1]['version'])
                 invoiced = request(order_path+'/invoices',employee,company,base=legacy_url,**invoice_args)
                 assert invoiced[0] == 201, invoiced
+                advance_sources={deposited[1]['id']}
+                def advance_gst(expected_invoice,expected_receipt):
+                    if not taxable: return
+                    today=datetime.datetime.now(ZoneInfo('Australia/Sydney')).date()
+                    path='/api/v1/accounting/gst-attributions?from='+today.isoformat()+'&to='+(today+datetime.timedelta(days=1)).isoformat()+'&customerId=00000000-0000-0000-0000-000000000011&pageSize=100'
+                    result=request(path,employee,company)
+                    assert result==request(path,employee,company,base=legacy_url) and result[0]==200, result
+                    entries=result[1]['items']
+                    invoice_tax=round(sum(float(row['gstAmount']) for row in entries if row['invoiceLineId']==invoiced[1]['lines'][0]['id']),2)
+                    receipt_tax=round(sum(float(row['gstAmount']) for row in entries if row['sourceDocumentId'] in advance_sources),2)
+                    assert (invoice_tax,receipt_tax)==(expected_invoice,expected_receipt), (expected_invoice,expected_receipt,entries)
+                cash=os.environ.get('HTT_COMPAT_GST_BASIS')=='CASH'
+                advance_gst(0,2 if cash else 10)
                 application_path = '/api/v1/customer-advances/'+deposited[1]['advances'][0]['id']+'/apply'
                 apply_args = dict(payload={'reference':' Customer café & advance '+uuid.uuid4().hex,
-                    'allocations':[{'invoiceLineId':invoiced[1]['lines'][0]['id'],'amount':20}]},
+                    'allocations':[{'invoiceLineId':invoiced[1]['lines'][0]['id'],'amount':advance_amount}]},
                     key='customer-apply-'+uuid.uuid4().hex)
                 assert request(application_path,token('test-purchase-reader'),company,base=first,**apply_args)[0] == 403
-                bad = dict(payload={**apply_args['payload'],'allocations':[{'invoiceLineId':invoiced[1]['lines'][0]['id'],'amount':21}]},
+                bad = dict(payload={**apply_args['payload'],'allocations':[{'invoiceLineId':invoiced[1]['lines'][0]['id'],'amount':advance_amount+1}]},
                     key='customer-over-apply-'+uuid.uuid4().hex)
                 rejected = [request(application_path,employee,company,base=target,**bad) for target in (first,second)]
                 assert rejected[0][0] == rejected[1][0] and 400 <= rejected[0][0] < 500, rejected
+                advance_gst(0,2 if cash else 10)
                 with ThreadPoolExecutor(max_workers=6) as pool:
                     attempts = list(pool.map(lambda n: request(application_path,employee,company,
                         base=first if n%2 else second,**apply_args),range(6)))
                 applied = attempts[0]
                 assert applied[0] == 201 and all(result==applied for result in attempts), attempts
-                assert applied[1]['applicationStatus']=='APPLIED' and float(applied[1]['amount'])==20, applied
+                assert applied[1]['applicationStatus']=='APPLIED' and float(applied[1]['amount'])==advance_amount, applied
+                advance_sources.add(applied[1]['id'])
+                advance_gst(2 if cash else 0,2 if cash else 10)
                 read_path = '/api/v1/advance-applications/'+applied[1]['id']
                 assert request(read_path,employee,company)==(200,applied[1])
                 assert request(read_path,employee,company,base=legacy_url)==(200,applied[1])
                 ar = request('/api/v1/customers/00000000-0000-0000-0000-000000000011/receivables?pageSize=100',employee,company)
                 entry = next(item for item in ar[1]['items'] if item['invoiceId']==invoiced[1]['id'])
-                assert float(entry['paid'])==20 and float(entry['outstanding'])==30, entry
+                assert float(entry['paid'])==advance_amount and float(entry['outstanding'])==invoice_gross-advance_amount, entry
                 reverse_path = '/api/v1/customer-receipts/'+deposited[1]['id']+'/reverse'
                 reverse_args = dict(payload={'reference':' Customer café reversal '+uuid.uuid4().hex,
                     'reason':' Synthetic correction after unapplication '},key='customer-reverse-'+uuid.uuid4().hex)
                 rejected = [request(reverse_path,employee,company,base=target,**reverse_args) for target in (first,second)]
                 assert rejected[0][0]==rejected[1][0]==409, rejected
+                advance_gst(2 if cash else 0,2 if cash else 10)
                 undo_path = '/api/v1/advance-applications/'+applied[1]['id']+'/unapply'
                 undo_args = dict(payload={'reference':' Undo café application '+uuid.uuid4().hex,
                     'reason':' Synthetic office correction '},key='customer-unapply-'+uuid.uuid4().hex)
@@ -538,12 +800,14 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert undone[0]==201 and all(result==undone for result in attempts), attempts
                 assert request('/api/v1/advance-unapplications/'+undone[1]['unapplication']['id'],employee,company)==(200,undone[1])
                 assert request('/api/v1/advance-unapplications/'+undone[1]['unapplication']['id'],employee,company,base=legacy_url)==(200,undone[1])
+                advance_sources.add(undone[1]['unapplication']['id'])
+                advance_gst(0,2 if cash else 10)
                 applied_view = request(read_path,employee,company)
                 assert applied_view==request(read_path,employee,company,base=legacy_url)
                 assert applied_view[1]['applicationStatus']=='UNAPPLIED', applied_view
                 ar = request('/api/v1/customers/00000000-0000-0000-0000-000000000011/receivables?pageSize=100',employee,company)
                 entry = next(item for item in ar[1]['items'] if item['invoiceId']==invoiced[1]['id'])
-                assert float(entry['paid'])==0 and float(entry['outstanding'])==50, entry
+                assert float(entry['paid'])==0 and float(entry['outstanding'])==invoice_gross, entry
                 with ThreadPoolExecutor(max_workers=6) as pool:
                     attempts = list(pool.map(lambda n: request(reverse_path,employee,company,
                         base=first if n%2 else second,**reverse_args),range(6)))
@@ -557,7 +821,300 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 changed = dict(payload={**reverse_args['payload'],'reason':'Different reason'},key=reverse_args['key'])
                 assert request(reverse_path,employee,company,base=second,**changed)[0]==409
 
+                advance_sources.add(reversed_receipt[1]['reversal']['id'])
+                advance_gst(0,0 if cash else 5)
+                if taxable:
+                    credit_args=dict(payload={'reason':'Close synthetic taxable advance invoice',
+                        'lines':[{'invoiceLineId':invoiced[1]['lines'][0]['id'],'quantity':1}]},key='advance-tax-credit-'+uuid.uuid4().hex)
+                    credit_path='/api/v1/sales-invoices/'+invoiced[1]['id']+'/credit-notes'
+                    credit=request(credit_path,employee,company,base=first,**credit_args)
+                    assert credit[0]==201 and float(credit[1]['tax'])==5, credit
+                    assert request(credit_path,employee,company,base=second,**credit_args)==credit
+                    advance_gst(0 if cash else -5,0 if cash else 5)
+            print('PASS: taxable customer advance/apply/unapply/receipt reversal GST matrix')
             print('PASS: customer application/unapplication and receipt reversal, cross-backend concurrent replay and guards')
+            for first, second in ((legacy_url,url),(url,legacy_url)):
+                customer='00000000-0000-0000-0000-000000000072'
+                created=request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+                    'customerId':customer,'customerBranchId':'00000000-0000-0000-0000-000000000073','warehouseId':'00000000-0000-0000-0000-000000000014',
+                    'lines':[{'productUnitId':'00000000-0000-0000-0000-000000000032','quantity':1}],
+                    'reason':'Synthetic service credit'},key='credit-order-'+uuid.uuid4().hex)
+                assert created[0]==201, created
+                order_path='/api/v1/sales-orders/'+created[1]['orderId']
+                invoiceable=request(order_path+'/invoiceable',employee,company)
+                posted_credit_invoice=request(order_path+'/invoices',employee,company,base=first,
+                    payload={'lines':[{'orderLineId':invoiceable[1]['lines'][0]['id'],'quantity':1}],
+                        'fulfilmentReference':'Synthetic completed service'},key='credit-invoice-'+uuid.uuid4().hex,version=created[1]['version'])
+                assert posted_credit_invoice[0]==201, posted_credit_invoice
+                invoice_id=posted_credit_invoice[1]['id']
+                line_id=posted_credit_invoice[1]['lines'][0]['id']
+                receipt=request('/api/v1/customers/'+customer+'/receipts',employee,company,base=first,
+                    payload={'amount':50,'method':'BANK_TRANSFER','reference':'Credit paid invoice '+uuid.uuid4().hex,
+                        'allocations':[{'invoiceLineId':line_id,'amount':50}]},key='credit-receipt-'+uuid.uuid4().hex)
+                assert receipt[0]==201, receipt
+                creditable_path='/api/v1/sales-invoices/'+invoice_id+'/creditable'
+                before=request(creditable_path,employee,company)
+                assert before==request(creditable_path,employee,company,base=legacy_url), before
+                assert float(before[1]['lines'][0]['creditableQuantity'])==1, before
+                credit_path='/api/v1/sales-invoices/'+invoice_id+'/credit-notes'
+                credit_args=dict(payload={'reason':' Synthetic café service credit ',
+                    'lines':[{'invoiceLineId':line_id,'quantity':1}]},key='service-credit-'+uuid.uuid4().hex)
+                assert request(credit_path,token('test-purchase-reader'),company,base=first,**credit_args)[0]==403
+                for broken in ({'invoiceLineId':line_id,'quantity':None},{'invoiceLineId':None,'quantity':1}):
+                    malformed=dict(payload={**credit_args['payload'],'lines':[broken]},key='null-credit-'+uuid.uuid4().hex)
+                    rejected=[request(credit_path,employee,company,base=target,**malformed) for target in (first,second)]
+                    assert rejected[0][0]==rejected[1][0]==400, rejected
+                missing=dict(payload={**credit_args['payload'],'lines':[{'invoiceLineId':line_id}]},key='missing-credit-quantity-'+uuid.uuid4().hex)
+                rejected=[request(credit_path,employee,company,base=target,**missing) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0]==422, rejected
+                excessive=dict(payload={**credit_args['payload'],'lines':[{'invoiceLineId':line_id,'quantity':2}]},
+                    key='excess-credit-'+uuid.uuid4().hex)
+                rejected=[request(credit_path,employee,company,base=target,**excessive) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0]==409, rejected
+                credited=request(credit_path,employee,company,base=first,**credit_args)
+                assert credited[0]==201 and float(credited[1]['gross'])==50, credited
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(credit_path,employee,company,
+                        base=first if n%2 else second,**credit_args),range(6)))
+                assert all(result==credited for result in attempts), attempts
+                detail_path='/api/v1/sales-credit-notes/'+credited[1]['id']
+                assert request(detail_path,employee,company)==request(detail_path,employee,company,base=legacy_url)==(200,credited[1])
+                assert request(credit_path,employee,company)==request(credit_path,employee,company,base=legacy_url)
+                after=request(creditable_path,employee,company)
+                assert after==request(creditable_path,employee,company,base=legacy_url)
+                assert float(after[1]['lines'][0]['creditableQuantity'])==0, after
+                refund_args=dict(payload={'amount':50,'reference':'Credit note refund '+uuid.uuid4().hex,
+                    'reason':'Synthetic refund of paid service credit','creditLineId':credited[1]['lines'][0]['id']},
+                    key='credit-note-refund-'+uuid.uuid4().hex)
+                refunded_credit=request('/api/v1/customers/'+customer+'/refunds',employee,company,base=second,**refund_args)
+                assert refunded_credit[0]==201, refunded_credit
+                assert request('/api/v1/customers/'+customer+'/refunds',employee,company,base=first,**refund_args)==refunded_credit
+                credit_view=request(detail_path,employee,company)
+                assert credit_view==request(detail_path,employee,company,base=legacy_url)
+                assert float(credit_view[1]['lines'][0]['refundedAmount'])==50 and float(credit_view[1]['lines'][0]['unrefundedCredit'])==0, credit_view
+            print('PASS: service quantity credit, creditable/detail/list, concurrent replay and credit-note refund')
+            for first, second in ((legacy_url,url),(url,legacy_url)):
+                customer='00000000-0000-0000-0000-000000000072'
+                created=request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+                    'customerId':customer,'customerBranchId':'00000000-0000-0000-0000-000000000073',
+                    'warehouseId':'00000000-0000-0000-0000-000000000014',
+                    'lines':[{'productUnitId':'00000000-0000-0000-0000-000000000032','quantity':1}],
+                    'reason':'Synthetic amount credit'},key='amount-credit-order-'+uuid.uuid4().hex)
+                assert created[0]==201, created
+                order_path='/api/v1/sales-orders/'+created[1]['orderId']
+                invoiceable=request(order_path+'/invoiceable',employee,company)
+                posted=request(order_path+'/invoices',employee,company,base=first,
+                    payload={'lines':[{'orderLineId':invoiceable[1]['lines'][0]['id'],'quantity':1}],
+                        'fulfilmentReference':'Synthetic amount credit service'},key='amount-credit-invoice-'+uuid.uuid4().hex,version=created[1]['version'])
+                assert posted[0]==201, posted
+                invoice_id=posted[1]['id'];line_id=posted[1]['lines'][0]['id']
+                received=request('/api/v1/customers/'+customer+'/receipts',employee,company,base=second,
+                    payload={'amount':50,'method':'BANK_TRANSFER','reference':'Amount credit paid '+uuid.uuid4().hex,
+                        'allocations':[{'invoiceLineId':line_id,'amount':50}]},key='amount-credit-receipt-'+uuid.uuid4().hex)
+                assert received[0]==201, received
+                path='/api/v1/sales-invoices/'+invoice_id+'/amount-credit-notes'
+                line={'invoiceLineId':line_id,'net':10,'description':'  Synthetic café & price adjustment  '}
+                args=dict(payload={'reason':' Synthetic amount reduction ','lines':[line]},key='amount-credit-'+uuid.uuid4().hex)
+                assert request(path,token('test-purchase-reader'),company,base=first,**args)[0]==403
+                for field in ('net','tax','invoiceLineId'):
+                    invalid=dict(payload={**args['payload'],'lines':[{**line,field:None}]},key='null-amount-credit-'+uuid.uuid4().hex)
+                    rejected=[request(path,employee,company,base=target,**invalid) for target in (first,second)]
+                    assert rejected[0][0]==rejected[1][0]==400, rejected
+                invalid=dict(payload={**args['payload'],'lines':[{**line,'net':51}]},key='over-amount-credit-'+uuid.uuid4().hex)
+                rejected=[request(path,employee,company,base=target,**invalid) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                credited=request(path,employee,company,base=first,**args)
+                assert credited[0]==201 and float(credited[1]['gross'])==10 and credited[1]['creditType']=='AMOUNT', credited
+                assert credited[1]['lines'][0]['quantity'] is None, credited
+                assert credited[1]['lines'][0]['description']=='Synthetic café & price adjustment', credited
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,employee,company,
+                        base=first if n%2 else second,**args),range(6)))
+                assert all(result==credited for result in attempts), attempts
+                detail='/api/v1/sales-credit-notes/'+credited[1]['id']
+                assert request(detail,employee,company)==request(detail,employee,company,base=legacy_url)==(200,credited[1])
+                creditable='/api/v1/sales-invoices/'+invoice_id+'/creditable'
+                after=request(creditable,employee,company)
+                assert after==request(creditable,employee,company,base=legacy_url)
+                assert float(after[1]['lines'][0]['creditableNet'])==40 and float(after[1]['lines'][0]['creditableQuantity'])==1, after
+                refund_args=dict(payload={'amount':10,'reference':'Amount credit refund '+uuid.uuid4().hex,
+                    'reason':'Synthetic amount credit refund','creditLineId':credited[1]['lines'][0]['id']},key='refund-amount-credit-'+uuid.uuid4().hex)
+                refunded=request('/api/v1/customers/'+customer+'/refunds',employee,company,base=second,**refund_args)
+                assert refunded[0]==201, refunded
+                assert request('/api/v1/customers/'+customer+'/refunds',employee,company,base=first,**refund_args)==refunded
+                after=request(detail,employee,company)
+                assert after==request(detail,employee,company,base=legacy_url)
+                assert float(after[1]['lines'][0]['refundedAmount'])==10 and float(after[1]['lines'][0]['unrefundedCredit'])==0, after
+                changed=dict(payload={**args['payload'],'reason':'Different adjustment reason'},key=args['key'])
+                assert request(path,employee,company,base=second,**changed)[0]==409
+            print('PASS: amount credit with omitted tax, null validation, frozen quantity, concurrent replay and refund')
+            customer='00000000-0000-0000-0000-000000000072'
+            today=datetime.datetime.now(ZoneInfo('Australia/Sydney')).date()
+            report='/api/v1/accounting/gst-attributions?from='+today.isoformat()+'&to='+(today+datetime.timedelta(days=1)).isoformat()+'&customerId='+customer+'&pageSize=100'
+            cash=os.environ.get('HTT_COMPAT_GST_BASIS')=='CASH'
+            def invoice_tax(invoice_line,expected):
+                result=request(report,employee,company)
+                old=request(report,employee,company,base=legacy_url)
+                assert result==old and result[0]==200, (result,old)
+                entries=[item for item in result[1]['items'] if item['invoiceLineId']==invoice_line]
+                assert round(sum(float(item['gstAmount']) for item in entries),2)==expected, (expected,entries)
+                return entries
+            created=request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+                'customerId':customer,'customerBranchId':'00000000-0000-0000-0000-000000000073',
+                'warehouseId':'00000000-0000-0000-0000-000000000014',
+                'lines':[{'productUnitId':'00000000-0000-0000-0000-000000000077','quantity':1}],
+                'reason':'Synthetic taxable service'},key='gst-order-'+uuid.uuid4().hex)
+            assert created[0]==201, created
+            order_path='/api/v1/sales-orders/'+created[1]['orderId']
+            eligible=request(order_path+'/invoiceable',employee,company)
+            posted=request(order_path+'/invoices',employee,company,payload={
+                'lines':[{'orderLineId':eligible[1]['lines'][0]['id'],'quantity':1}],
+                'fulfilmentReference':'Synthetic taxable completed service'},key='gst-invoice-'+uuid.uuid4().hex,version=created[1]['version'])
+            assert posted[0]==201 and float(posted[1]['tax'])==5 and float(posted[1]['gross'])==55, posted
+            line_id=posted[1]['lines'][0]['id']
+            invoice_tax(line_id,0 if cash else 5)
+            payment_args=dict(payload={'amount':22,'method':'BANK_TRANSFER','reference':'Taxable partial receipt '+uuid.uuid4().hex,
+                'allocations':[{'invoiceLineId':line_id,'amount':22}]},key='gst-receipt-'+uuid.uuid4().hex)
+            received=request('/api/v1/customers/'+customer+'/receipts',employee,company,**payment_args)
+            assert received[0]==201, received
+            assert request('/api/v1/customers/'+customer+'/receipts',employee,company,base=legacy_url,**payment_args)==received
+            invoice_tax(line_id,2 if cash else 5)
+            reverse_args=dict(payload={'reference':'Taxable receipt reversal '+uuid.uuid4().hex,'reason':'Synthetic GST reversal'},key='gst-reverse-'+uuid.uuid4().hex)
+            reverse_path='/api/v1/customer-receipts/'+received[1]['id']+'/reverse'
+            reversed_receipt=request(reverse_path,employee,company,base=legacy_url,**reverse_args)
+            assert reversed_receipt[0]==201, reversed_receipt
+            assert request(reverse_path,employee,company,**reverse_args)==reversed_receipt
+            invoice_tax(line_id,0 if cash else 5)
+            credited=request('/api/v1/sales-invoices/'+posted[1]['id']+'/credit-notes',employee,company,
+                payload={'reason':'Synthetic taxable invoice cancellation','lines':[{'invoiceLineId':line_id,'quantity':1}]},key='gst-credit-'+uuid.uuid4().hex)
+            assert credited[0]==201 and float(credited[1]['tax'])==5, credited
+            invoice_tax(line_id,0)
+            assert request(report,token('test-purchase-reader'),company)[0]==403
+            base='/api/v1/accounting/gst-attributions'
+            for query,expected_status in (('',400),('?from='+today.isoformat()+'&to='+today.isoformat(),422),
+                    ('?from=2026-01-01&to=2027-01-03',422),('?from=bad&to='+today.isoformat(),400)):
+                replies=[request(base+query,employee,company,base=target) for target in (url,legacy_url)]
+                assert replies[0][0]==replies[1][0]==expected_status, replies
+            next_day=today+datetime.timedelta(days=1)
+            excluded=base+'?from='+next_day.isoformat()+'&to='+(next_day+datetime.timedelta(days=1)).isoformat()+'&customerId='+customer
+            result=request(excluded,employee,company)
+            assert result==request(excluded,employee,company,base=legacy_url) and result[1]['items']==[], result
+            print('PASS: taxable customer GST invoice/partial receipt/reversal/credit and half-open report under '+('CASH' if cash else 'NON_CASH'))
+            for first, second, taxable in ((legacy_url,url,False),(url,legacy_url,False),(legacy_url,url,True),(url,legacy_url,True)):
+                gross=55 if taxable else 50
+                transfer=33 if taxable else 30
+                remaining=gross-transfer
+                customer='00000000-0000-0000-0000-000000000072'
+                def service_invoice(label):
+                    created=request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+                        'customerId':customer,'customerBranchId':'00000000-0000-0000-0000-000000000073',
+                        'warehouseId':'00000000-0000-0000-0000-000000000014',
+                        'lines':[{'productUnitId':('00000000-0000-0000-0000-000000000077' if taxable else '00000000-0000-0000-0000-000000000032'),'quantity':1}],
+                        'reason':'Synthetic credit '+label},key='credit-app-order-'+uuid.uuid4().hex)
+                    assert created[0]==201, created
+                    path='/api/v1/sales-orders/'+created[1]['orderId']
+                    eligible=request(path+'/invoiceable',employee,company)
+                    result=request(path+'/invoices',employee,company,base=first,payload={
+                        'lines':[{'orderLineId':eligible[1]['lines'][0]['id'],'quantity':1}],
+                        'fulfilmentReference':'Synthetic credit application service'},key='credit-app-invoice-'+uuid.uuid4().hex,version=created[1]['version'])
+                    assert result[0]==201, result
+                    return result[1]
+                source=service_invoice('source')
+                target_invoice=service_invoice('target')
+                if taxable:
+                    invoice_tax(source['lines'][0]['id'],0 if cash else 5)
+                    invoice_tax(target_invoice['lines'][0]['id'],0 if cash else 5)
+                paid=request('/api/v1/customers/'+customer+'/receipts',employee,company,base=first,payload={
+                    'amount':gross,'method':'BANK_TRANSFER','reference':'Credit application source paid '+uuid.uuid4().hex,
+                    'allocations':[{'invoiceLineId':source['lines'][0]['id'],'amount':gross}]},key='credit-app-paid-'+uuid.uuid4().hex)
+                assert paid[0]==201, paid
+                credit=request('/api/v1/sales-invoices/'+source['id']+'/credit-notes',employee,company,base=first,payload={
+                    'reason':'Synthetic transferable credit','lines':[{'invoiceLineId':source['lines'][0]['id'],'quantity':1}]},key='transfer-credit-'+uuid.uuid4().hex)
+                assert credit[0]==201, credit
+                if taxable:
+                    invoice_tax(source['lines'][0]['id'],5 if cash else 0)
+                path='/api/v1/sales-credit-notes/'+credit[1]['id']+'/apply'
+                args=dict(payload={'reference':' Apply café & credit '+uuid.uuid4().hex,'reason':' Synthetic cross invoice settlement ',
+                    'lines':[{'creditLineId':credit[1]['lines'][0]['id'],'invoiceLineId':target_invoice['lines'][0]['id'],'amount':transfer}]},
+                    key='credit-application-'+uuid.uuid4().hex)
+                assert request(path,token('test-purchase-reader'),company,base=first,**args)[0]==403
+                null_amount=dict(payload={**args['payload'],'lines':[{**args['payload']['lines'][0],'amount':None}]},key='null-credit-app-'+uuid.uuid4().hex)
+                rejected=[request(path,employee,company,base=base,**null_amount) for base in (first,second)]
+                assert rejected[0][0]==rejected[1][0]==422, rejected
+                over=dict(payload={**args['payload'],'lines':[{**args['payload']['lines'][0],'amount':gross+1}]},key='over-credit-app-'+uuid.uuid4().hex)
+                rejected=[request(path,employee,company,base=base,**over) for base in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                if taxable:
+                    invoice_tax(source['lines'][0]['id'],5 if cash else 0)
+                    invoice_tax(target_invoice['lines'][0]['id'],0 if cash else 5)
+                applied=request(path,employee,company,base=first,**args)
+                assert applied[0]==201 and applied[1]['application']['applicationStatus']=='APPLIED', applied
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,employee,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==applied for result in attempts), attempts
+                if taxable:
+                    invoice_tax(source['lines'][0]['id'],2 if cash else 0)
+                    invoice_tax(target_invoice['lines'][0]['id'],3 if cash else 5)
+                read_path='/api/v1/customer-credit-applications/'+applied[1]['application']['id']
+                assert request(read_path,employee,company)==request(read_path,employee,company,base=legacy_url)==(200,applied[1])
+                listed='/api/v1/sales-credit-notes/'+credit[1]['id']+'/applications'
+                assert request(listed,employee,company)==request(listed,employee,company,base=legacy_url)
+                source_view=request('/api/v1/sales-credit-notes/'+credit[1]['id'],employee,company)
+                assert float(source_view[1]['lines'][0]['appliedAmount'])==transfer and float(source_view[1]['lines'][0]['availableApplyAmount'])==remaining, source_view
+                ar='/api/v1/customers/'+customer+'/receivables?pageSize=100'
+                target_view=next(item for item in request(ar,employee,company)[1]['items'] if item['invoiceId']==target_invoice['id'])
+                assert float(target_view['paid'])==0 and float(target_view['creditReceived'])==transfer and float(target_view['outstanding'])==remaining, target_view
+                undo_path=read_path+'/unapply'
+                undo_args=dict(payload={'reference':' Unapply café credit '+uuid.uuid4().hex,'reason':' Synthetic correction of settlement '},key='unapply-credit-'+uuid.uuid4().hex)
+                undone=request(undo_path,employee,company,base=second,**undo_args)
+                assert undone[0]==201, undone
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(undo_path,employee,company,base=first if n%2 else second,**undo_args),range(6)))
+                assert all(result==undone for result in attempts), attempts
+                unapplication='/api/v1/customer-credit-unapplications/'+undone[1]['unapplication']['id']
+                assert request(unapplication,employee,company)==request(unapplication,employee,company,base=legacy_url)==(200,undone[1])
+                status=request(read_path,employee,company)
+                assert status==request(read_path,employee,company,base=legacy_url) and status[1]['application']['applicationStatus']=='UNAPPLIED', status
+                source_view=request('/api/v1/sales-credit-notes/'+credit[1]['id'],employee,company)
+                assert source_view==request('/api/v1/sales-credit-notes/'+credit[1]['id'],employee,company,base=legacy_url)
+                assert float(source_view[1]['lines'][0]['appliedAmount'])==0 and float(source_view[1]['lines'][0]['availableApplyAmount'])==gross, source_view
+                target_view=next(item for item in request(ar,employee,company)[1]['items'] if item['invoiceId']==target_invoice['id'])
+                assert float(target_view['paid'])==0 and float(target_view['creditReceived'])==0 and float(target_view['outstanding'])==gross, target_view
+                if taxable:
+                    invoice_tax(source['lines'][0]['id'],5 if cash else 0)
+                    invoice_tax(target_invoice['lines'][0]['id'],0 if cash else 5)
+                    cancel_path='/api/v1/sales-invoices/'+target_invoice['id']+'/credit-notes'
+                    cancel_args=dict(payload={'reason':'Close synthetic taxable credit transfer target',
+                        'lines':[{'invoiceLineId':target_invoice['lines'][0]['id'],'quantity':1}]},key='tax-transfer-target-credit-'+uuid.uuid4().hex)
+                    canceled=request(cancel_path,employee,company,base=second,**cancel_args)
+                    assert canceled[0]==201 and float(canceled[1]['tax'])==5, canceled
+                    assert request(cancel_path,employee,company,base=first,**cancel_args)==canceled
+                    invoice_tax(target_invoice['lines'][0]['id'],0)
+                    refund_path='/api/v1/customers/'+customer+'/refunds'
+                    refund_args=dict(payload={'creditLineId':credit[1]['lines'][0]['id'],'amount':gross,
+                        'reference':'Taxable credit refund '+uuid.uuid4().hex,'reason':'Synthetic refund after unapplication'},key='tax-transfer-refund-'+uuid.uuid4().hex)
+                    assert request(refund_path,token('test-purchase-reader'),company,base=first,**refund_args)[0]==403
+                    too_much=dict(payload={**refund_args['payload'],'amount':gross+1},key=refund_args['key']+'-over')
+                    rejected=[request(refund_path,employee,company,base=target,**too_much) for target in (first,second)]
+                    assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                    invoice_tax(source['lines'][0]['id'],5 if cash else 0)
+                    refunded=request(refund_path,employee,company,base=first,**refund_args)
+                    assert refunded[0]==201, refunded
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(refund_path,employee,company,base=first if n%2 else second,**refund_args),range(6)))
+                    assert all(result==refunded for result in attempts), attempts
+                    invoice_tax(source['lines'][0]['id'],0)
+                    after=request('/api/v1/sales-credit-notes/'+credit[1]['id'],employee,company)
+                    assert after==request('/api/v1/sales-credit-notes/'+credit[1]['id'],employee,company,base=legacy_url)
+                    assert float(after[1]['lines'][0]['refundedAmount'])==gross and float(after[1]['lines'][0]['availableApplyAmount'])==0, after
+                    changed=dict(payload={**refund_args['payload'],'reason':'Changed taxable refund reason'},key=refund_args['key'])
+                    assert request(refund_path,employee,company,base=second,**changed)[0]==409
+            print('PASS: taxable credit transfer/unapplication/refund GST and atomic rejection matrix')
+            print('PASS: customer credit application/unapplication, source and target balances, list/detail and mixed concurrent replay')
+
+
+
+
 
             print('PASS: matching GST and receivable balances after partial settlement')
             print('PASS: bidirectional default/explicit-bank receipt replay')
@@ -607,8 +1164,203 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 invoice = request(stock_path+'/invoices',employee,company,base=first,**invoicing)
                 assert invoice[0] == 201 and float(invoice[1]['gross']) == 45, invoice
                 assert request(stock_path+'/invoices',employee,company,base=second,**invoicing) == invoice
+                returnable_path='/api/v1/warehouse/orders/'+stock_order[1]['orderId']+'/returnable'
+                returnable=request(returnable_path,employee,company)
+                assert returnable==request(returnable_path,employee,company,base=legacy_url), returnable
+                movement=returnable[1]['movements'][0]['stockMovementId']
+                disposition='RESTOCK' if first==legacy_url else 'QUARANTINE'
+                warehouse='00000000-0000-0000-0000-000000000014' if disposition=='RESTOCK' else '00000000-0000-0000-0000-000000000074'
+                return_path=stock_path+'/returns'
+                return_line={'stockMovementId':movement,'quantity':1,'invoiceLineId':invoice[1]['lines'][0]['id']}
+                return_args=dict(payload={'warehouseId':warehouse,'disposition':disposition,
+                    'reason':' Synthetic café & returned stock ','lines':[return_line]},key='sales-return-'+uuid.uuid4().hex)
+                assert request(return_path,token('test-purchase-reader'),company,base=first,**return_args)[0]==403
+                broken=dict(payload={**return_args['payload'],'lines':[{**return_line,'quantity':None}]},key='null-return-'+uuid.uuid4().hex)
+                rejected=[request(return_path,employee,company,base=target,**broken) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0]==400, rejected
+                excessive=dict(payload={**return_args['payload'],'lines':[{**return_line,'quantity':2}]},key='over-return-'+uuid.uuid4().hex)
+                rejected=[request(return_path,employee,company,base=target,**excessive) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                before_hand=float(request(warehouse_path,employee,company)[1]['items'][0]['onHand'])
+                returned=request(return_path,employee,company,base=first,**return_args)
+                assert returned[0]==201 and returned[1]['disposition']==disposition, returned
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(return_path,employee,company,
+                        base=first if n%2 else second,**return_args),range(6)))
+                assert all(result==returned for result in attempts), attempts
+                view_path='/api/v1/warehouse/returns/'+returned[1]['id']
+                assert request(view_path,employee,company)==request(view_path,employee,company,base=legacy_url)==(200,returned[1])
+                root_hand=float(request(warehouse_path,employee,company)[1]['items'][0]['onHand'])
+                assert root_hand==before_hand+(1 if disposition=='RESTOCK' else 0)
+                target='/api/v1/inventory/availability?warehouseId='+warehouse
+                stock=request(target,employee,company)
+                old_stock=request(target,employee,company,base=legacy_url)
+                assert stock[0]==old_stock[0] and normalize(stock[1])==normalize(old_stock[1]), (stock,old_stock)
+                if disposition=='QUARANTINE':
+                    assert float(stock[1]['items'][0]['onHand'])==1 and float(stock[1]['items'][0]['available'])==0, stock
+                after=request(returnable_path,employee,company)
+                assert after==request(returnable_path,employee,company,base=legacy_url)
+                assert float(after[1]['movements'][0]['returnedQuantity'])==1 and float(after[1]['invoiceLines'][0]['returnedQuantity'])==1, after
+                credit_path='/api/v1/sales-invoices/'+invoice[1]['id']+'/credit-notes'
+                credit_args=dict(payload={'reason':'Synthetic stock return credit',
+                    'lines':[{'invoiceLineId':invoice[1]['lines'][0]['id'],'quantity':1,'returnLineId':returned[1]['lines'][0]['id']}]},
+                    key='stock-return-credit-'+uuid.uuid4().hex)
+                credited=request(credit_path,employee,company,base=second,**credit_args)
+                assert credited[0]==201 and float(credited[1]['gross'])==45, credited
+                assert request(credit_path,employee,company,base=first,**credit_args)==credited
+                changed=dict(payload={**return_args['payload'],'reason':'Different return reason'},key=return_args['key'])
+                assert request(return_path,employee,company,base=second,**changed)[0]==409
+
             print('PASS: bidirectional pick creation with shortage and legacy snapshot')
             print('PASS: bidirectional warehouse dispatch and stock invoicing replay')
+            for first, second in ((legacy_url,url),(url,legacy_url)):
+                customer='00000000-0000-0000-0000-000000000011'
+                created=request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+                    'customerId':customer,'customerBranchId':branch,'warehouseId':'00000000-0000-0000-0000-000000000014',
+                    'lines':[{'productUnitId':unit_id,'quantity':1}],'reason':'Synthetic unbilled return'},key='unbilled-order-'+uuid.uuid4().hex)
+                assert created[0]==201, created
+                order_path='/api/v1/sales-orders/'+created[1]['orderId']
+                detail=request(order_path,employee,company)
+                picked=request('/api/v1/warehouse/orders/'+created[1]['orderId']+'/picks',employee,company,base=first,
+                    payload={'lines':[{'orderLineId':detail[1]['lines'][0]['id'],'quantity':1}]},
+                    key='unbilled-pick-'+uuid.uuid4().hex,version=created[1]['version'])
+                assert picked[0]==201, picked
+                shipped=request('/api/v1/warehouse/picks/'+picked[1]['id']+'/confirm',employee,company,base=first,
+                    payload={'recipient':'Synthetic customer','reference':'Unbilled dispatch'},
+                    key='unbilled-dispatch-'+uuid.uuid4().hex,version=picked[1]['version'])
+                assert shipped[0]==200, shipped
+                returnable_path='/api/v1/warehouse/orders/'+created[1]['orderId']+'/returnable'
+                available=request(returnable_path,employee,company)
+                assert available[0]==200 and available[1]['invoiceLines']==[], available
+                before_credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                before_hand=float(request(warehouse_path,employee,company)[1]['items'][0]['onHand'])
+                args=dict(payload={'warehouseId':'00000000-0000-0000-0000-000000000014','disposition':'RESTOCK',
+                    'reason':'Synthetic unbilled return cancels delivered remainder',
+                    'lines':[{'stockMovementId':available[1]['movements'][0]['stockMovementId'],'quantity':1}]},
+                    key='unbilled-return-'+uuid.uuid4().hex)
+                returned=request(order_path+'/returns',employee,company,base=first,**args)
+                assert returned[0]==201 and returned[1]['lines'][0]['invoiceLineId'] is None, returned
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(order_path+'/returns',employee,company,
+                        base=first if n%2 else second,**args),range(6)))
+                assert all(result==returned for result in attempts), attempts
+                assert float(request(warehouse_path,employee,company)[1]['items'][0]['onHand'])==before_hand+1
+                after_credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                assert after_credit==request('/api/v1/customers/'+customer+'/credit',employee,company,base=legacy_url)
+                assert float(after_credit[1]['unbilledOrders'])==float(before_credit[1]['unbilledOrders'])-45, (before_credit,after_credit)
+                invoiceable=request(order_path+'/invoiceable',employee,company)
+                assert invoiceable==request(order_path+'/invoiceable',employee,company,base=legacy_url)
+                assert float(invoiceable[1]['lines'][0]['availableQuantity'])==0, invoiceable
+            print('PASS: unbilled return nullable invoice, single inventory restoration and credit commitment release')
+
+            for first, second, taxable in ((legacy_url,url,False),(url,legacy_url,False),(legacy_url,url,True),(url,legacy_url,True)):
+                amount=22 if taxable else 20
+                order_gross=55 if taxable else 45
+                cash=os.environ.get('HTT_COMPAT_GST_BASIS')=='CASH'
+                customer='00000000-0000-0000-0000-000000000011'
+                created=request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+                    'customerId':customer,'customerBranchId':branch,'warehouseId':'00000000-0000-0000-0000-000000000014',
+                    'lines':[{'productUnitId':('00000000-0000-0000-0000-000000000077' if taxable else unit_id),'quantity':1}],'reason':'Synthetic refundable order cancellation'},
+                    key='cancel-refund-order-'+uuid.uuid4().hex)
+                assert created[0]==201, created
+                path='/api/v1/sales-orders/'+created[1]['orderId']
+                detail=request(path,employee,company)
+                deposit=request('/api/v1/customers/'+customer+'/receipts',employee,company,base=first,
+                    payload={'amount':amount,'method':'BANK_TRANSFER','reference':'Cancelable deposit '+uuid.uuid4().hex,
+                        'advances':[{'orderLineId':detail[1]['lines'][0]['id'],'amount':amount}]},key='cancelable-deposit-'+uuid.uuid4().hex)
+                assert deposit[0]==201, deposit
+                advance_id=deposit[1]['advances'][0]['id']
+                def advance_tax(expected):
+                    if not taxable: return
+                    today=datetime.datetime.now(ZoneInfo('Australia/Sydney')).date()
+                    report='/api/v1/accounting/gst-attributions?from='+today.isoformat()+'&to='+(today+datetime.timedelta(days=1)).isoformat()+'&customerId='+customer+'&pageSize=100'
+                    result=request(report,employee,company)
+                    assert result==request(report,employee,company,base=legacy_url) and result[0]==200, result
+                    entries=[row for row in result[1]['items'] if row['advanceId']==advance_id]
+                    assert round(sum(float(row['gstAmount']) for row in entries),2)==expected, (expected,entries)
+                advance_tax(2 if cash else 5)
+                refund_path='/api/v1/customers/'+customer+'/refunds'
+                args=dict(payload={'amount':amount,'reference':'Cancel and refund '+uuid.uuid4().hex,
+                    'reason':'Synthetic customer cancels unfulfilled order','advanceId':deposit[1]['advances'][0]['id'],
+                    'cancelOrder':True},key='cancel-with-refund-'+uuid.uuid4().hex)
+                over=dict(payload={**args['payload'],'amount':amount+1},key='over-cancel-refund-'+uuid.uuid4().hex)
+                rejected=[request(refund_path,employee,company,base=target,**over) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                partial=dict(payload={**args['payload'],'amount':amount-1},key='partial-cancel-refund-'+uuid.uuid4().hex)
+                rejected=[request(refund_path,employee,company,base=target,**partial) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0]==409, rejected
+                advance_tax(2 if cash else 5)
+                unchanged=request(path,employee,company)
+                assert unchanged[1]['state']=='CONFIRMED', unchanged
+                before_stock=float(request(warehouse_path,employee,company)[1]['items'][0]['reserved'])
+                before_credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                refunded=request(refund_path,employee,company,base=first,**args)
+                assert refunded[0]==201, refunded
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(refund_path,employee,company,
+                        base=first if n%2 else second,**args),range(6)))
+                assert all(result==refunded for result in attempts), attempts
+                canceled=request(path,employee,company)
+                assert canceled==request(path,employee,company,base=legacy_url)
+                assert canceled[1]['state']=='CANCELLED', canceled
+                assert float(request(warehouse_path,employee,company)[1]['items'][0]['reserved'])==before_stock-(0 if taxable else 1)
+                after_credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                assert after_credit==request('/api/v1/customers/'+customer+'/credit',employee,company,base=legacy_url)
+                assert float(after_credit[1]['unbilledOrders'])==float(before_credit[1]['unbilledOrders'])-order_gross
+                assert float(after_credit[1]['availableAdvances'])==float(before_credit[1]['availableAdvances'])-amount
+                if taxable:
+                    advance_tax(0)
+                    assert float(refunded[1]['gstAmount'])==(2 if cash else 5), refunded
+                    reverse_path='/api/v1/customer-refunds/'+refunded[1]['id']+'/reverse'
+                    reverse_args=dict(payload={'reference':'Taxable cancel refund reversal '+uuid.uuid4().hex,
+                        'reason':'Synthetic canceled-order refund correction'},key='tax-cancel-refund-reverse-'+uuid.uuid4().hex)
+                    reversed_refund=request(reverse_path,employee,company,base=second,**reverse_args)
+                    assert reversed_refund[0]==201, reversed_refund
+                    assert request(reverse_path,employee,company,base=first,**reverse_args)==reversed_refund
+                    advance_tax(2 if cash else 0)
+                    assert request(path,employee,company)[1]['state']=='CANCELLED'
+                    reversal_path='/api/v1/customer-refund-reversals/'+reversed_refund[1]['reversal']['id']
+                    correction_args=dict(payload={'reference':'Taxable canceled replacement '+uuid.uuid4().hex,
+                        'reason':'Partial replacement retains business cancellation','amount':11,'advanceId':advance_id,
+                        'cancelOrder':True},key='tax-cancel-replacement-'+uuid.uuid4().hex)
+                    replacement=request(reversal_path+'/correct',employee,company,base=first,**correction_args)
+                    assert replacement[0]==201, replacement
+                    assert request(reversal_path+'/correct',employee,company,base=second,**correction_args)==replacement
+                    assert replacement[1]['refund']['bankAccountId']==refunded[1]['bankAccountId']
+                    assert replacement[1]['refund']['originalRefundId']==refunded[1]['id']
+                    advance_tax(1 if cash else 0)
+                    remaining_credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                    assert float(remaining_credit[1]['availableAdvances'])==float(before_credit[1]['availableAdvances'])-11, remaining_credit
+                    atomic_path='/api/v1/customer-refunds/'+replacement[1]['refund']['id']+'/correct'
+                    atomic_args=dict(payload={'reference':'Taxable canceled atomic refund '+uuid.uuid4().hex,
+                        'reversalReference':'Taxable canceled atomic reversal '+uuid.uuid4().hex,
+                        'reason':'Restore full refund with retained cancellation','amount':22,'advanceId':advance_id,
+                        'cancelOrder':True},key='tax-cancel-atomic-'+uuid.uuid4().hex)
+                    invalid=dict(payload={**atomic_args['payload'],'amount':23},key=atomic_args['key']+'-over')
+                    rejected=[request(atomic_path,employee,company,base=target,**invalid) for target in (first,second)]
+                    assert rejected[0][0]==rejected[1][0] and 400<=rejected[0][0]<500, rejected
+                    advance_tax(1 if cash else 0)
+                    still_active=request('/api/v1/customer-refunds/'+replacement[1]['refund']['id'],employee,company)
+                    assert still_active==request('/api/v1/customer-refunds/'+replacement[1]['refund']['id'],employee,company,base=legacy_url)
+                    assert still_active[1]['refundStatus']=='ACTIVE', still_active
+                    corrected=request(atomic_path,employee,company,base=second,**atomic_args)
+                    assert corrected[0]==201, corrected
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(atomic_path,employee,company,base=first if n%2 else second,**atomic_args),range(6)))
+                    assert all(result==corrected for result in attempts), attempts
+                    assert corrected[1]['refund']['bankAccountId']==refunded[1]['bankAccountId']
+                    assert corrected[1]['refund']['originalRefundId']==replacement[1]['refund']['id']
+                    advance_tax(0)
+                    canceled_again=request(path,employee,company)
+                    assert canceled_again==request(path,employee,company,base=legacy_url) and canceled_again[1]['state']=='CANCELLED', canceled_again
+                    final_credit=request('/api/v1/customers/'+customer+'/credit',employee,company)
+                    assert final_credit==request('/api/v1/customers/'+customer+'/credit',employee,company,base=legacy_url)
+                    assert float(final_credit[1]['availableAdvances'])==float(before_credit[1]['availableAdvances'])-amount, final_credit
+                    assert float(final_credit[1]['unbilledOrders'])==float(after_credit[1]['unbilledOrders']), final_credit
+                    assert float(request(warehouse_path,employee,company)[1]['items'][0]['reserved'])==before_stock
+            print('PASS: taxable advance cancel refund/reversal/replacement/atomic correction and failed-transaction GST matrix')
+            print('PASS: cancelOrder advance refund, failed over-refund rollback and single reservation/credit release')
+
             for first, second in ((legacy_url,url),(url,legacy_url)):
                 draft = {'supplierId':supplier,'warehouseId':'00000000-0000-0000-0000-000000000014',
                          'notes':'  Synthetic café + order  ',
@@ -640,7 +1392,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert request('/api/v1/purchase-receipts/'+receive_id,employee,company) == (200,received[1])
                 assert request('/api/v1/accounting/grni/receipts/'+receive_id,employee,company) == request(
                     '/api/v1/accounting/grni/receipts/'+receive_id,employee,company,base=legacy_url)
-                today = datetime.date.today().isoformat()
+                today = datetime.datetime.now(ZoneInfo('Australia/Sydney')).date().isoformat()
                 bill_args = dict(payload={'supplierId':supplier,'supplierInvoice':' Synthetic bill '+uuid.uuid4().hex+' ',
                     'invoiceDate':today,'dueOn':today,'postingDate':today,
                     'lines':[{'receiptLineId':received[1]['lines'][0]['id'],'quantity':1.0,'net':15.0,'tax':0.0}],
@@ -779,7 +1531,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             print('PASS: bidirectional supplier bill/payment replay with partially settled AP')
             print('PASS: bidirectional purchase receipt and exactly-once stock addition')
             print('PASS: bidirectional purchase order draft, update, confirmation and closure replay')
-            today = datetime.date.today().isoformat()
+            today = datetime.datetime.now(ZoneInfo('Australia/Sydney')).date().isoformat()
             taxable = request('/api/v1/purchase-orders',employee,company,payload={
                 'supplierId':supplier,'warehouseId':'00000000-0000-0000-0000-000000000014',
                 'lines':[{'productUnitId':unit_id,'quantity':1,'unitCost':15,
@@ -948,6 +1700,504 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert float(request(warehouse_path,employee,company)[1]['items'][0]['reserved']) == before_stock-2
                 assert float(request(credit_path,employee,company)[1]['unbilledOrders']) == before_credit-90
                 assert request(cancel_path,employee,company,base=url,payload=args['payload'],key=key+'-stale',version=1)[0] == 409
+            for first,second,taxable in ((legacy_url,url,False),(url,legacy_url,False),(legacy_url,url,True),(url,legacy_url,True)):
+                gross=16.5 if taxable else 15
+                transfer=9.9 if taxable else 9
+                remainder=round(gross-transfer,2)
+                cash=os.environ.get('HTT_COMPAT_GST_BASIS')=='CASH'
+                def supplier_bill_fixture(label,billed=True,taxable_fixture=None):
+                    taxed=taxable if taxable_fixture is None else taxable_fixture
+                    draft={'supplierId':supplier,'warehouseId':'00000000-0000-0000-0000-000000000014',
+                        'notes':'Synthetic supplier credit '+label,'lines':[{'productUnitId':unit_id,'quantity':1,
+                        'unitCost':15,'taxCodeId':('00000000-0000-0000-0000-000000000053' if taxed else '00000000-0000-0000-0000-000000000016')}]}
+                    created=request('/api/v1/purchase-orders',employee,company,base=legacy_url,payload=draft,key='supplier-credit-po-'+uuid.uuid4().hex)
+                    assert created[0]==201, created
+                    po_path='/api/v1/purchase-orders/'+created[1]['order']['id']
+                    confirmed=request(po_path+'/confirm',employee,company,base=legacy_url,payload={},key='supplier-credit-confirm-'+uuid.uuid4().hex,version=created[1]['order']['version'])
+                    assert confirmed[0]==200, confirmed
+                    receipt=request(po_path+'/receipts',employee,company,base=legacy_url,payload={
+                        'reference':'Supplier credit receiving '+uuid.uuid4().hex,
+                        'lines':[{'orderLineId':confirmed[1]['lines'][0]['id'],'quantity':1}]},key='supplier-credit-receive-'+uuid.uuid4().hex,version=confirmed[1]['order']['version'])
+                    assert receipt[0]==201, receipt
+                    if not billed: return None,receipt[1]
+                    today=datetime.datetime.now(ZoneInfo('Australia/Sydney')).date().isoformat()
+                    bill=request('/api/v1/supplier-bills',employee,company,base=legacy_url,payload={
+                        'supplierId':supplier,'supplierInvoice':'Supplier credit fixture '+uuid.uuid4().hex,
+                        'invoiceDate':today,'dueOn':today,'postingDate':today,
+                        **({'taxInvoiceReference':'Synthetic verified supplier credit invoice','taxInvoiceHeldOn':today} if taxed else {}),
+                        'lines':[{'receiptLineId':receipt[1]['lines'][0]['id'],'quantity':1,'net':15,'tax':(1.5 if taxed else 0)}]},key='supplier-credit-bill-'+uuid.uuid4().hex)
+                    assert bill[0]==201, bill
+                    return bill[1],receipt[1]
+                def supplier_bill_tax(line_id,expected):
+                    if not taxable: return
+                    entries=[]
+                    for page in range(1,11):
+                        path='/api/v1/accounting/purchase-gst-attributions?supplierId='+supplier+'&pageSize=100&page='+str(page)
+                        result=request(path,employee,company)
+                        assert result==request(path,employee,company,base=legacy_url) and result[0]==200, result
+                        entries.extend(result[1]['items'])
+                        if len(result[1]['items'])<100: break
+                    else: raise AssertionError('Synthetic GST report pagination exceeded fixture bound')
+                    selected=[row for row in entries if row['billLineId']==line_id]
+                    assert round(sum(float(row['gstAmount']) for row in selected),2)==expected, (expected,selected)
+                source,source_receipt=supplier_bill_fixture('source')
+                target_bill,target_receipt=supplier_bill_fixture('target')
+                supplier_bill_tax(source['lines'][0]['id'],0 if cash else 1.5)
+                supplier_bill_tax(target_bill['lines'][0]['id'],0 if cash else 1.5)
+                paid=request('/api/v1/suppliers/'+supplier+'/payments',employee,company,base=legacy_url,payload={
+                    'amount':gross,'method':'BANK_TRANSFER','reference':'Supplier credit source payment '+uuid.uuid4().hex,
+                    'allocations':[{'billLineId':source['lines'][0]['id'],'amount':gross}]},key='supplier-credit-paid-'+uuid.uuid4().hex)
+                assert paid[0]==201, paid
+                supplier_bill_tax(source['lines'][0]['id'],1.5)
+                return_path='/api/v1/purchase-receipts/'+source_receipt['receipt']['id']+'/returns'
+                sources_path='/api/v1/warehouse/purchase-receipts/'+source_receipt['receipt']['id']+'/return-sources'
+                before_sources=request(sources_path,employee,company)
+                assert before_sources==request(sources_path,employee,company,base=legacy_url) and before_sources[0]==200, before_sources
+                before_hand=float(request(warehouse_path,employee,company)[1]['items'][0]['onHand'])
+                return_args=dict(payload={'reference':' Supplier café returned goods '+uuid.uuid4().hex,'reason':' Synthetic supplier credit source ',
+                    'lines':[{'receiptLineId':source_receipt['lines'][0]['id'],'billLineId':source['lines'][0]['id'],'quantity':1}]},key='supplier-credit-return-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    assert request(return_path,None,company,base=target,**return_args)[0]==401
+                    assert request(return_path,token('test-purchase-reader'),company,base=target,**return_args)[0]==403
+                    for changed_line,status in (({**return_args['payload']['lines'][0],'quantity':None},400),
+                            ({**return_args['payload']['lines'][0],'receiptLineId':None},400),
+                            ({**return_args['payload']['lines'][0],'billLineId':'00000000-0000-0000-0000-000000000000'},422)):
+                        failed=request(return_path,employee,company,base=target,payload={**return_args['payload'],'lines':[changed_line]},key='invalid-purchase-return-'+uuid.uuid4().hex)
+                        assert failed[0]==status, failed
+                returned=request(return_path,employee,company,base=first,**return_args)
+                assert returned[0]==201, returned
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(return_path,employee,company,base=first if n%2 else second,**return_args),range(6)))
+                assert all(result==returned for result in attempts), attempts
+                assert float(request(warehouse_path,employee,company)[1]['items'][0]['onHand'])==before_hand-1
+                return_detail='/api/v1/purchase-returns/'+returned[1]['return']['id']
+                financial_detail='/api/v1/accounting/purchase-returns/'+returned[1]['return']['id']
+                assert request(return_detail,employee,company)==request(return_detail,employee,company,base=legacy_url)==(200,returned[1])
+                assert request(financial_detail,employee,company)==request(financial_detail,employee,company,base=legacy_url)==(200,returned[1])
+                redacted=request(return_detail,token('test-return-no-cost'),company)
+                assert redacted==request(return_detail,token('test-return-no-cost'),company,base=legacy_url) and redacted[0]==200, redacted
+                assert 'journalEntryId' not in redacted[1]['return']
+                for line in redacted[1]['lines']:
+                    assert not set(line).intersection({'net','tax','recoverableTax','valuationAmount','cost','valueAfter','contraAccountId'}), line
+                assert request(financial_detail,token('test-credit-no-bills'),company)==(200,returned[1])
+                for target in (first,second):
+                    assert request(return_detail,token('test-return-unassigned'),company,base=target)[0]==403
+                    assert request(sources_path,token('test-return-unassigned'),company,base=target)[0]==403
+                after_sources=request(sources_path,employee,company)
+                assert after_sources==request(sources_path,employee,company,base=legacy_url), after_sources
+                assert all(float(row['availableQuantity'])==0 for row in after_sources[1]['items']), after_sources
+                conflict=dict(payload={**return_args['payload'],'reason':'Changed return reason'},key=return_args['key'])
+                assert request(return_path,employee,company,base=second,**conflict)[0]==409
+                credit_path='/api/v1/supplier-bills/'+source['bill']['id']+'/credits'
+                credit_args=dict(payload={'reference':' Supplier café credit note '+uuid.uuid4().hex,'reason':' Synthetic transfer source ',
+                    'lines':[{'returnLineId':returned[1]['lines'][0]['id'],'quantity':1}]},key='supplier-credit-note-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    assert request(credit_path,None,company,base=target,**credit_args)[0]==401
+                    assert request(credit_path,token('test-purchase-reader'),company,base=target,**credit_args)[0]==403
+                    failed=request(credit_path,employee,company,base=target,payload={**credit_args['payload'],
+                        'lines':[{'returnLineId':returned[1]['lines'][0]['id'],'quantity':2}]},key='over-supplier-credit-'+uuid.uuid4().hex)
+                    assert 400<=failed[0]<500, failed
+                credit=request(credit_path,employee,company,base=first,**credit_args)
+                assert credit[0]==201, credit
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(credit_path,employee,company,base=first if n%2 else second,**credit_args),range(6)))
+                assert all(result==credit for result in attempts), attempts
+                assert request('/api/v1/supplier-credits/'+credit[1]['credit']['id'],employee,company)==request('/api/v1/supplier-credits/'+credit[1]['credit']['id'],employee,company,base=legacy_url)==(200,credit[1])
+                for query in ('','?supplierId='+supplier,'?supplierId=00000000-0000-0000-0000-000000000099','?page=0','?pageSize=101','?supplierId=bad'):
+                    java=request('/api/v1/supplier-credits'+query,employee,company)
+                    old=request('/api/v1/supplier-credits'+query,employee,company,base=legacy_url)
+                    assert java[0]==old[0] and normalize(java[1])==normalize(old[1]), (java,old)
+                supplier_bill_tax(source['lines'][0]['id'],1.5 if cash else 0)
+                path='/api/v1/supplier-credits/'+credit[1]['credit']['id']+'/apply'
+                args=dict(payload={'reference':' Apply café supplier credit '+uuid.uuid4().hex,'reason':' Synthetic bill settlement ',
+                    'lines':[{'creditLineId':credit[1]['lines'][0]['id'],'billLineId':target_bill['lines'][0]['id'],'amount':transfer}]},key='supplier-credit-apply-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    assert request(path,None,company,base=target,**args)[0]==401
+                for subject in ('test-purchase-reader','test-credit-no-bills'):
+                    rejected=[request(path,token(subject),company,base=target,**args) for target in (first,second)]
+                    assert rejected[0][0]==rejected[1][0]==403 and normalize(rejected[0][1])==normalize(rejected[1][1]), rejected
+                for target in (first,second):
+                    for invalid_line,status in (({**args['payload']['lines'][0],'amount':None},422),
+                            ({**args['payload']['lines'][0],'creditLineId':None},400),
+                            ({**args['payload']['lines'][0],'amount':gross+1},409)):
+                        rejected=request(path,employee,company,base=target,payload={**args['payload'],'lines':[invalid_line]},key='invalid-supplier-credit-'+uuid.uuid4().hex)
+                        assert rejected[0]==status, rejected
+                applied=request(path,employee,company,base=first,**args)
+                assert applied[0]==201 and applied[1]['application']['applicationStatus']=='APPLIED', applied
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,employee,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==applied for result in attempts), attempts
+                supplier_bill_tax(source['lines'][0]['id'],.6 if cash else 0)
+                supplier_bill_tax(target_bill['lines'][0]['id'],.9 if cash else 1.5)
+                read_path='/api/v1/supplier-credit-applications/'+applied[1]['application']['id']
+                assert request(read_path,employee,company)==request(read_path,employee,company,base=legacy_url)==(200,applied[1])
+                assert request(read_path,token('test-credit-no-bills'),company)==(200,applied[1])
+                assert request(read_path,None,company)[0]==401
+                listed='/api/v1/supplier-credits/'+credit[1]['credit']['id']+'/applications'
+                assert request(listed,employee,company)==request(listed,employee,company,base=legacy_url)
+                for query in ('?page=0','?pageSize=101'):
+                    assert request(listed+query,employee,company)[0]==request(listed+query,employee,company,base=legacy_url)[0]==422
+                source_credit=request('/api/v1/supplier-credits/'+credit[1]['credit']['id'],employee,company,base=legacy_url)
+                assert float(source_credit[1]['lines'][0]['appliedAmount'])==transfer and float(source_credit[1]['lines'][0]['availableApplyAmount'])==remainder, source_credit
+                target_view=request('/api/v1/supplier-bills/'+target_bill['bill']['id'],employee,company)
+                assert target_view==request('/api/v1/supplier-bills/'+target_bill['bill']['id'],employee,company,base=legacy_url)
+                assert float(target_view[1]['lines'][0]['creditReceivedAmount'])==transfer and float(target_view[1]['lines'][0]['outstandingAmount'])==remainder, target_view
+                undo_path=read_path+'/unapply'
+                undo_args=dict(payload={'reference':' Unapply café supplier credit '+uuid.uuid4().hex,'reason':' Synthetic correction '},key='supplier-credit-unapply-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    assert request(undo_path,token('test-credit-no-bills'),company,base=target,**undo_args)[0]==403
+                undone=request(undo_path,employee,company,base=second,**undo_args)
+                assert undone[0]==201, undone
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(undo_path,employee,company,base=first if n%2 else second,**undo_args),range(6)))
+                assert all(result==undone for result in attempts), attempts
+                unapplication='/api/v1/supplier-credit-unapplications/'+undone[1]['unapplication']['id']
+                assert request(unapplication,employee,company)==request(unapplication,employee,company,base=legacy_url)==(200,undone[1])
+                status=request(read_path,employee,company)
+                assert status==request(read_path,employee,company,base=legacy_url) and status[1]['application']['applicationStatus']=='UNAPPLIED', status
+                source_credit=request('/api/v1/supplier-credits/'+credit[1]['credit']['id'],employee,company,base=legacy_url)
+                assert float(source_credit[1]['lines'][0]['appliedAmount'])==0 and float(source_credit[1]['lines'][0]['availableApplyAmount'])==gross, source_credit
+                target_view=request('/api/v1/supplier-bills/'+target_bill['bill']['id'],employee,company)
+                assert target_view==request('/api/v1/supplier-bills/'+target_bill['bill']['id'],employee,company,base=legacy_url)
+                assert float(target_view[1]['lines'][0]['creditReceivedAmount'])==0 and float(target_view[1]['lines'][0]['outstandingAmount'])==gross, target_view
+                changed=dict(payload={**args['payload'],'reason':'Changed supplier application reason'},key=args['key'])
+                assert request(path,employee,company,base=second,**changed)[0]==409
+                supplier_bill_tax(source['lines'][0]['id'],1.5 if cash else 0)
+                supplier_bill_tax(target_bill['lines'][0]['id'],0 if cash else 1.5)
+                def supplier_refund_case(source_input,amount):
+                    path='/api/v1/supplier-refunds'
+                    args=dict(payload={**source_input,'amount':amount,'reference':' Supplier café & refund '+uuid.uuid4().hex,
+                        'reason':' Synthetic supplier refund ','ignoredField':{'legacy':'ignored'}},key='supplier-refund-'+uuid.uuid4().hex)
+                    today=datetime.datetime.now(ZoneInfo('Australia/Sydney')).date()
+                    if first==url:
+                        args['payload']['receivedOn']=today.isoformat()
+                        args['payload']['bankAccountId']='00000000-0000-0000-0000-000000000160'
+                    for target in (first,second):
+                        assert request(path,None,company,base=target,**args)[0]==401
+                        assert request(path,token('test-purchase-reader'),company,base=target,**args)[0]==403
+                    bank_choice=dict(payload={**args['payload'],'bankAccountId':'00000000-0000-0000-0000-000000000038'},key=args['key']+'-bank-guard')
+                    denied=[request(path,token('test-refund-no-bank'),company,base=target,**bank_choice) for target in (first,second)]
+                    assert denied[0][0]==denied[1][0]==403 and normalize(denied[0][1])==normalize(denied[1][1]), denied
+                    for change,status in (({'amount':None},400),({'amount':amount+1},409),
+                            ({'creditLineId':None,'advanceId':None},422),({'receivedOn':(today+datetime.timedelta(days=1)).isoformat()},422),
+                            ({'bankAccountId':'00000000-0000-0000-0000-000000000000'},422)):
+                        bad=dict(payload={**args['payload'],**change},key=args['key']+'-invalid-'+uuid.uuid4().hex)
+                        rejected=[request(path,employee,company,base=target,**bad) for target in (first,second)]
+                        assert rejected[0][0]==rejected[1][0]==status and normalize(rejected[0][1])==normalize(rejected[1][1]), rejected
+                    posted=request(path,employee,company,base=first,**args)
+                    assert posted[0]==201 and posted[1]['refund']['refundStatus']=='ACTIVE' and float(posted[1]['refund']['amount'])==amount, posted
+                    assert posted[1]['refund']['bankAccountId']==args['payload'].get('bankAccountId','00000000-0000-0000-0000-000000000038'), posted
+                    supplier_bill_tax(source['lines'][0]['id'],0)
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(path,employee,company,base=first if n%2 else second,**args),range(6)))
+                    assert all(result==posted for result in attempts), attempts
+                    detail=path+'/'+posted[1]['refund']['id']
+                    assert request(detail,employee,company)==request(detail,employee,company,base=legacy_url)==(200,posted[1])
+                    assert request(detail,token('test-refund-no-bank'),company)==(200,posted[1])
+                    assert request(detail,None,company)[0]==401
+                    for query in ('','?supplierId='+supplier,'?supplierId=00000000-0000-0000-0000-000000000099','?pageSize=1','?page=0','?pageSize=101','?supplierId=bad'):
+                        java=request(path+query,employee,company)
+                        old=request(path+query,employee,company,base=legacy_url)
+                        assert java[0]==old[0] and normalize(java[1])==normalize(old[1]), (java,old)
+                    changed=dict(payload={**args['payload'],'reason':'Changed supplier refund reason'},key=args['key'])
+                    assert request(path,employee,company,base=second,**changed)[0]==409
+                    def source_available():
+                        if 'creditLineId' in source_input:
+                            current=request('/api/v1/supplier-credits/'+credit[1]['credit']['id'],employee,company)
+                            return float(current[1]['lines'][0]['availableApplyAmount'])
+                        current=request('/api/v1/supplier-payments/'+prepaid[1]['payment']['id'],employee,company)
+                        return float(current[1]['advances'][0]['available'])
+                    reverse_path=detail+'/reverse'
+                    reverse_args=dict(payload={'reference':' Supplier café refund reversal '+uuid.uuid4().hex,
+                        'reason':' Synthetic supplier refund correction '},key='supplier-refund-reverse-'+uuid.uuid4().hex)
+                    for subject in ('test-purchase-reader','test-refund-no-bank'):
+                        denied=[request(reverse_path,token(subject),company,base=target,**reverse_args) for target in (first,second)]
+                        assert denied[0][0]==denied[1][0]==403 and normalize(denied[0][1])==normalize(denied[1][1]), denied
+                    assert request(reverse_path,None,company,**reverse_args)[0]==401
+                    reversed_refund=request(reverse_path,employee,company,base=second,**reverse_args)
+                    assert reversed_refund[0]==201, reversed_refund
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(reverse_path,employee,company,base=first if n%2 else second,**reverse_args),range(6)))
+                    assert all(result==reversed_refund for result in attempts), attempts
+                    assert source_available()==amount
+                    supplier_bill_tax(source['lines'][0]['id'],1.5 if cash else 0)
+                    reversal_path='/api/v1/supplier-refund-reversals/'+reversed_refund[1]['reversal']['id']
+                    assert request(reversal_path,employee,company)==request(reversal_path,employee,company,base=legacy_url)==(200,reversed_refund[1])
+                    assert request(reversal_path,token('test-refund-no-bank'),company)==(200,reversed_refund[1])
+                    original=request(detail,employee,company)
+                    assert original==request(detail,employee,company,base=legacy_url) and original[1]['refund']['refundStatus']=='REVERSED', original
+                    duplicate=dict(payload=reverse_args['payload'],key=reverse_args['key']+'-different')
+                    rejected=[request(reverse_path,employee,company,base=target,**duplicate) for target in (first,second)]
+                    assert rejected[0][0]==rejected[1][0]==409, rejected
+                    replace_path=reversal_path+'/correct'
+                    replace_args=dict(payload={**source_input,'reference':' Supplier café replacement '+uuid.uuid4().hex,
+                        'reason':' Synthetic partial replacement ','amount':amount-1,'bankAccountId':{'ignored':True},
+                        'receivedOn':{'ignored':True},'reversalReference':{'ignored':True}},key='supplier-refund-replace-'+uuid.uuid4().hex)
+                    for subject in ('test-purchase-reader','test-refund-no-bank','test-refund-no-post'):
+                        denied=[request(replace_path,token(subject),company,base=target,**replace_args) for target in (first,second)]
+                        assert denied[0][0]==denied[1][0]==403 and normalize(denied[0][1])==normalize(denied[1][1]), denied
+                    bad=dict(payload={**replace_args['payload'],'amount':amount+1},key=replace_args['key']+'-over')
+                    rejected=[request(replace_path,employee,company,base=target,**bad) for target in (first,second)]
+                    assert rejected[0][0]==rejected[1][0]==409, rejected
+                    assert source_available()==amount
+                    supplier_bill_tax(source['lines'][0]['id'],1.5 if cash else 0)
+                    replacement=request(replace_path,employee,company,base=first,**replace_args)
+                    assert replacement[0]==201, replacement
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(replace_path,employee,company,base=first if n%2 else second,**replace_args),range(6)))
+                    assert all(result==replacement for result in attempts), attempts
+                    assert replacement[1]['refund']['originalRefundId']==posted[1]['refund']['id']
+                    assert replacement[1]['refund']['bankAccountId']==posted[1]['refund']['bankAccountId']
+                    assert float(replacement[1]['refund']['amount'])==amount-1 and source_available()==1, replacement
+                    supplier_bill_tax(source['lines'][0]['id'],.09 if cash else 0)
+                    relation=request(reversal_path,employee,company)
+                    assert relation==request(reversal_path,employee,company,base=legacy_url)
+                    assert relation[1]['reversal']['replacementRefundId']==replacement[1]['refund']['id'], relation
+                    atomic_path='/api/v1/supplier-refunds/'+replacement[1]['refund']['id']+'/correct'
+                    atomic_args=dict(payload={**source_input,'reference':' Supplier café atomic correction '+uuid.uuid4().hex,
+                        'reversalReference':' Supplier café atomic reversal '+uuid.uuid4().hex,'reason':' Synthetic full correction ',
+                        'amount':amount,'bankAccountId':{'ignored':True},'receivedOn':{'ignored':True}},key='supplier-refund-atomic-'+uuid.uuid4().hex)
+                    for subject in ('test-purchase-reader','test-refund-no-bank','test-refund-no-post','test-refund-no-reverse'):
+                        denied=[request(atomic_path,token(subject),company,base=target,**atomic_args) for target in (first,second)]
+                        assert denied[0][0]==denied[1][0]==403 and normalize(denied[0][1])==normalize(denied[1][1]), denied
+                    for change,status in (({'amount':None},400),({'amount':amount+1},409),({'reversalReference':None},404)):
+                        invalid=dict(payload={**atomic_args['payload'],**change},key=atomic_args['key']+'-invalid-'+uuid.uuid4().hex)
+                        rejected=[request(atomic_path,employee,company,base=target,**invalid) for target in (first,second)]
+                        assert rejected[0][0]==rejected[1][0]==status and normalize(rejected[0][1])==normalize(rejected[1][1]), rejected
+                    still_active=request('/api/v1/supplier-refunds/'+replacement[1]['refund']['id'],employee,company)
+                    assert still_active==request('/api/v1/supplier-refunds/'+replacement[1]['refund']['id'],employee,company,base=legacy_url)
+                    assert still_active[1]['refund']['refundStatus']=='ACTIVE' and source_available()==1, still_active
+                    supplier_bill_tax(source['lines'][0]['id'],.09 if cash else 0)
+                    corrected=request(atomic_path,employee,company,base=second,**atomic_args)
+                    assert corrected[0]==201, corrected
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(atomic_path,employee,company,base=first if n%2 else second,**atomic_args),range(6)))
+                    assert all(result==corrected for result in attempts), attempts
+                    assert corrected[1]['refund']['originalRefundId']==replacement[1]['refund']['id']
+                    assert corrected[1]['refund']['bankAccountId']==posted[1]['refund']['bankAccountId'] and source_available()==0
+                    supplier_bill_tax(source['lines'][0]['id'],0)
+                    final_detail='/api/v1/supplier-refunds/'+corrected[1]['refund']['id']
+                    assert request(final_detail,employee,company)==request(final_detail,employee,company,base=legacy_url)==(200,{'refund':corrected[1]['refund']})
+                    changed=dict(payload={**atomic_args['payload'],'reason':'Changed atomic supplier correction'},key=atomic_args['key'])
+                    assert request(atomic_path,employee,company,base=first,**changed)[0]==409
+                    return corrected[1]['refund']
+
+                supplier_refund_case({'creditLineId':credit[1]['lines'][0]['id']},gross)
+                after=request('/api/v1/supplier-credits/'+credit[1]['credit']['id'],employee,company)
+                assert after==request('/api/v1/supplier-credits/'+credit[1]['credit']['id'],employee,company,base=legacy_url)
+                assert float(after[1]['lines'][0]['refundedAmount'])==gross and float(after[1]['lines'][0]['availableApplyAmount'])==0, after
+                if taxable:
+                    returned=request('/api/v1/purchase-receipts/'+target_receipt['receipt']['id']+'/returns',employee,company,base=second,payload={
+                        'reference':'Close taxable target return '+uuid.uuid4().hex,'reason':'Synthetic target bill cancellation',
+                        'lines':[{'receiptLineId':target_receipt['lines'][0]['id'],'billLineId':target_bill['lines'][0]['id'],'quantity':1}]},key='tax-target-return-'+uuid.uuid4().hex)
+                    assert returned[0]==201, returned
+                    credited=request('/api/v1/supplier-bills/'+target_bill['bill']['id']+'/credits',employee,company,base=first,payload={
+                        'reference':'Close taxable target credit '+uuid.uuid4().hex,'reason':'Synthetic target bill cancellation',
+                        'lines':[{'returnLineId':returned[1]['lines'][0]['id'],'quantity':1}]},key='tax-target-credit-'+uuid.uuid4().hex)
+                    assert credited[0]==201 and float(credited[1]['credit']['tax'])==1.5, credited
+                    supplier_bill_tax(target_bill['lines'][0]['id'],0)
+                else:
+                    prepaid=request('/api/v1/suppliers/'+supplier+'/payments',employee,company,base=first,payload={
+                        'amount':12,'advanceAmount':12,'method':'BANK_TRANSFER','reference':'Supplier refundable prepayment '+uuid.uuid4().hex,
+                        'allocations':[],'notes':'Synthetic refundable prepayment'},key='supplier-refundable-prepay-'+uuid.uuid4().hex)
+                    assert prepaid[0]==201 and float(prepaid[1]['advances'][0]['available'])==12, prepaid
+                    supplier_refund_case({'advanceId':prepaid[1]['advances'][0]['id']},12)
+                    after=request('/api/v1/supplier-payments/'+prepaid[1]['payment']['id'],employee,company)
+                    assert after==request('/api/v1/supplier-payments/'+prepaid[1]['payment']['id'],employee,company,base=legacy_url)
+                    assert float(after[1]['advances'][0]['available'])==0, after
+
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                _,receipt=supplier_bill_fixture('unbilled',False,False)
+                path='/api/v1/purchase-receipts/'+receipt['receipt']['id']+'/returns'
+                args=dict(payload={'reference':'Unbilled café purchase return '+uuid.uuid4().hex,'reason':'Synthetic return before supplier billing',
+                    'lines':[{'receiptLineId':receipt['lines'][0]['id'],'quantity':1}]},key='unbilled-purchase-return-'+uuid.uuid4().hex)
+                before_hand=float(request(warehouse_path,employee,company)[1]['items'][0]['onHand'])
+                returned=request(path,employee,company,base=first,**args)
+                assert returned[0]==201 and returned[1]['lines'][0]['billLineId'] is None, returned
+                replay=dict(payload={**args['payload'],'lines':[{**args['payload']['lines'][0],'billLineId':None}]},key=args['key'])
+                assert request(path,employee,company,base=second,**replay)==returned
+                assert float(request(warehouse_path,employee,company)[1]['items'][0]['onHand'])==before_hand-1
+                sources='/api/v1/warehouse/purchase-receipts/'+receipt['receipt']['id']+'/return-sources'
+                available=request(sources,employee,company)
+                assert available==request(sources,employee,company,base=legacy_url), available
+                assert all(float(line['availableQuantity'])==0 for line in available[1]['items']), available
+            print('PASS: taxable supplier return/credit/application/refund/correction GST matrix')
+            print('PASS: purchase return/credit writers, cost redaction, warehouse guards, unbilled nullable source and mixed replay')
+            print('PASS: supplier refund reversal/replacement/atomic correction, compound authorities, immutable bank and rollback')
+            print('PASS: supplier credit/advance refunds, bank choice permissions, date/source validation, read/list and mixed replay')
+            print('PASS: supplier credit application/unapplication, permission conjunctions, balances, list/detail and mixed replay')
+            for first,second,recoverable in ((legacy_url,url,None),(url,legacy_url,None),(legacy_url,url,True),(url,legacy_url,True),(legacy_url,url,False),(url,legacy_url,False)):
+                taxed=recoverable is not None
+                expense_gross=22 if taxed else 20
+                adjustment_gross=5.5 if taxed else 5
+                remaining_gross=expense_gross-adjustment_gross
+                expected_gst=2 if recoverable else 0
+                cash=os.environ.get("HTT_COMPAT_GST_BASIS")=="CASH"
+                today=datetime.datetime.now(ZoneInfo('Australia/Sydney')).date().isoformat()
+                draft={'supplierId':supplier,'supplierInvoice':' Expense café bill '+uuid.uuid4().hex+' ',
+                    'invoiceDate':today,'dueOn':today,'postingDate':today,'notes':' Synthetic expense ',
+                    'lines':[{'expenseAccountId':'00000000-0000-0000-0000-000000000170','description':' Synthetic café & expense ',
+                        'net':20,'tax':(2 if taxed else 0),'taxCodeId':('00000000-0000-0000-0000-000000000053' if taxed else '00000000-0000-0000-0000-000000000016'),
+                        **({'recoverableGst':recoverable} if taxed else {})}]}
+                if recoverable:
+                    draft.update(taxInvoiceReference='Synthetic verified expense invoice',taxInvoiceHeldOn=today)
+                path='/api/v1/supplier-expense-bills'
+                args=dict(payload=draft,key='expense-bill-'+uuid.uuid4().hex)
+                for subject in ('test-purchase-reader','test-refund-no-bank'):
+                    denied=[request(path,token(subject),company,base=target,**args) for target in (first,second)]
+                    assert denied[0][0]==denied[1][0]==403 and normalize(denied[0][1])==normalize(denied[1][1]), denied
+                for target in (first,second):
+                    assert request(path,None,company,base=target,**args)[0]==401
+                    for change,status in (({'invoiceDate':None},400),({'invoiceDate':'0001-01-01'},422),
+                            ({'lines':[{**draft['lines'][0],'net':None}]},422),({'lines':[{**draft['lines'][0],'expenseAccountId':None}]},400)):
+                        rejected=request(path,employee,company,base=target,payload={**draft,**change},key='invalid-expense-'+uuid.uuid4().hex)
+                        assert rejected[0]==status, rejected
+                before_stock=request(warehouse_path,employee,company)
+                posted=request(path,employee,company,base=first,**args)
+                assert posted[0]==201 and posted[1]['bill']['billType']=='EXPENSE' and float(posted[1]['bill']['gross'])==expense_gross, posted
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,employee,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==posted for result in attempts), attempts
+                current_stock=request(warehouse_path,employee,company)
+                assert current_stock[0]==before_stock[0]==200 and normalize(current_stock[1])==normalize(before_stock[1]), (before_stock,current_stock)
+                detail='/api/v1/supplier-bills/'+posted[1]['bill']['id']
+                assert request(detail,employee,company)==request(detail,employee,company,base=legacy_url)==(200,posted[1])
+                assert posted[1]['lines'][0]['description']=='Synthetic café & expense'
+                assert posted[1]['lines'][0]['expenseAccountId']=='00000000-0000-0000-0000-000000000170'
+                supplier_bill_tax(posted[1]['lines'][0]['id'],0 if cash else expected_gst)
+                assert float(posted[1]['lines'][0]['recoverableTax'])==expected_gst,posted
+                changed=dict(payload={**draft,'notes':'Changed expense notes'},key=args['key'])
+                assert request(path,employee,company,base=second,**changed)[0]==409
+                if taxed:
+                    payment_path='/api/v1/suppliers/'+supplier+'/payments'
+                    payment_args=dict(payload={'amount':11,'method':'BANK_TRANSFER','reference':'Paid expense GST '+uuid.uuid4().hex,
+                        'allocations':[{'billLineId':posted[1]['lines'][0]['id'],'amount':11}]},key='paid-expense-'+uuid.uuid4().hex)
+                    paid_expense=request(payment_path,employee,company,base=second,**payment_args)
+                    assert paid_expense[0]==201,paid_expense
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(payment_path,employee,company,base=first if n%2 else second,**payment_args),range(6)))
+                    assert all(result==paid_expense for result in attempts),attempts
+                    supplier_bill_tax(posted[1]['lines'][0]['id'],(1 if recoverable else 0) if cash else expected_gst)
+                adjustment_path=detail+'/amount-credits'
+                adjustment=dict(payload={'reference':' Amount café '+uuid.uuid4().hex,'reason':' Synthetic price reduction ',
+                    'lines':[{'billLineId':posted[1]['lines'][0]['id'],'net':5,**({'tax':.5} if taxed else {}),'description':' Price only '} ]},key='supplier-amount-'+uuid.uuid4().hex)
+                for subject in ('test-purchase-reader','test-refund-no-bank'):
+                    denied=[request(adjustment_path,token(subject),company,base=target,**adjustment) for target in (first,second)]
+                    assert denied[0][0]==denied[1][0]==403 and normalize(denied[0][1])==normalize(denied[1][1]), denied
+                for target in (first,second):
+                    assert request(adjustment_path,None,company,base=target,**adjustment)[0]==401
+                    for change,status in (({'net':None},400),({'tax':None},400),({'net':0,'tax':0},422)):
+                        rejected=request(adjustment_path,employee,company,base=target,payload={**adjustment['payload'],
+                            'lines':[{**adjustment['payload']['lines'][0],**change}]},key='bad-amount-'+uuid.uuid4().hex)
+                        assert rejected[0]==status,rejected
+                adjusted=request(adjustment_path,employee,company,base=first,**adjustment)
+                assert adjusted[0]==201 and float(adjusted[1]['credit']['gross'])==adjustment_gross,adjusted
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(adjustment_path,employee,company,base=first if n%2 else second,**adjustment),range(6)))
+                assert all(result==adjusted for result in attempts),attempts
+                adjustment_detail='/api/v1/supplier-credits/'+adjusted[1]['credit']['id']
+                assert request(adjustment_detail,employee,company)==request(adjustment_detail,employee,company,base=legacy_url)==(200,adjusted[1])
+                remaining=request(detail,employee,company)
+                assert remaining==request(detail,employee,company,base=legacy_url) and float(remaining[1]['lines'][0]['outstandingAmount'])==remaining_gross-(11 if taxed else 0),remaining
+                assert request(adjustment_path,employee,company,base=second,payload={**adjustment['payload'],'reason':'Changed'},key=adjustment['key'])[0]==409
+                supplier_bill_tax(posted[1]['lines'][0]['id'],(1 if recoverable else 0) if cash and taxed else (0 if cash else (1.5 if recoverable else 0)))
+                if taxed:
+                    reversal_path='/api/v1/supplier-payments/'+paid_expense[1]['payment']['id']+'/reverse'
+                    reversal_args=dict(payload={'reference':'Paid expense reversal '+uuid.uuid4().hex,'reason':'Synthetic expense payment correction'},key='paid-expense-reverse-'+uuid.uuid4().hex)
+                    reversed_expense=request(reversal_path,employee,company,base=first,**reversal_args)
+                    assert reversed_expense[0]==201,reversed_expense
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(reversal_path,employee,company,base=first if n%2 else second,**reversal_args),range(6)))
+                    assert all(result==reversed_expense for result in attempts),attempts
+                    restored=request(detail,employee,company)
+                    assert restored==request(detail,employee,company,base=legacy_url) and float(restored[1]['lines'][0]['outstandingAmount'])==remaining_gross,restored
+                    supplier_bill_tax(posted[1]['lines'][0]['id'],0 if cash else (1.5 if recoverable else 0))
+
+                credit_path=path+'/'+posted[1]['bill']['id']+'/credits'
+                credit_args=dict(payload={'reference':' Expense café credit '+uuid.uuid4().hex,'reason':' Synthetic expense cancellation ',
+                    'lines':[{'billLineId':posted[1]['lines'][0]['id'],'amount':remaining_gross}]},key='expense-credit-'+uuid.uuid4().hex)
+                for subject in ('test-purchase-reader','test-refund-no-bank'):
+                    denied=[request(credit_path,token(subject),company,base=target,**credit_args) for target in (first,second)]
+                    assert denied[0][0]==denied[1][0]==403 and normalize(denied[0][1])==normalize(denied[1][1]), denied
+                for target in (first,second):
+                    assert request(credit_path,None,company,base=target,**credit_args)[0]==401
+                    invalid=dict(payload={**credit_args['payload'],'lines':[{'billLineId':posted[1]['lines'][0]['id'],'amount':None}]},key='null-expense-credit-'+uuid.uuid4().hex)
+                    assert request(credit_path,employee,company,base=target,**invalid)[0]==422
+                    invalid=dict(payload={**credit_args['payload'],'lines':[{'billLineId':posted[1]['lines'][0]['id'],'amount':21}]},key='over-expense-credit-'+uuid.uuid4().hex)
+                    result=request(credit_path,employee,company,base=target,**invalid)
+                    assert 400<=result[0]<500, result
+                credited=request(credit_path,employee,company,base=second,**credit_args)
+                assert credited[0]==201 and credited[1]['credit']['creditType']=='EXPENSE' and float(credited[1]['credit']['gross'])==remaining_gross, credited
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(credit_path,employee,company,base=first if n%2 else second,**credit_args),range(6)))
+                assert all(result==credited for result in attempts), attempts
+                credit_detail='/api/v1/supplier-credits/'+credited[1]['credit']['id']
+                assert request(credit_detail,employee,company)==request(credit_detail,employee,company,base=legacy_url)==(200,credited[1])
+                after=request(detail,employee,company)
+                assert after==request(detail,employee,company,base=legacy_url)
+                assert float(after[1]['lines'][0]['outstandingAmount'])==0, after
+                supplier_bill_tax(posted[1]['lines'][0]['id'],0)
+                current_stock=request(warehouse_path,employee,company)
+                assert current_stock[0]==before_stock[0]==200 and normalize(current_stock[1])==normalize(before_stock[1]), (before_stock,current_stock)
+            for first,second,stock_taxable in ((legacy_url,url,False),(url,legacy_url,False),(legacy_url,url,True),(url,legacy_url,True)):
+                cash=os.environ.get('HTT_COMPAT_GST_BASIS')=='CASH'
+                stock_bill,stock_receipt=supplier_bill_fixture('stock-price-adjust',True,stock_taxable)
+                detail='/api/v1/supplier-bills/'+stock_bill['bill']['id']
+                adjustment_path=detail+'/amount-credits'
+                before_stock=request(warehouse_path,employee,company)
+                supplier_bill_tax(stock_bill['lines'][0]['id'],0 if cash or not stock_taxable else 1.5)
+                if stock_taxable:
+                    payment_path='/api/v1/suppliers/'+supplier+'/payments'
+                    pay_args=dict(payload={'amount':5.5,'method':'BANK_TRANSFER','reference':'Stock amount GST '+uuid.uuid4().hex,
+                        'allocations':[{'billLineId':stock_bill['lines'][0]['id'],'amount':5.5}]},key='stock-amount-pay-'+uuid.uuid4().hex)
+                    paid_stock=request(payment_path,employee,company,base=second,**pay_args)
+                    assert paid_stock[0]==201,paid_stock
+                    assert request(payment_path,employee,company,base=first,**pay_args)==paid_stock
+                    supplier_bill_tax(stock_bill['lines'][0]['id'],.5 if cash else 1.5)
+                args=dict(payload={'reference':' Stock amount café '+uuid.uuid4().hex,'reason':' Synthetic price reduction ',
+                    'lines':[{'billLineId':stock_bill['lines'][0]['id'],'net':5,'tax':(.5 if stock_taxable else 0),'description':' Price only, no physical return '} ]},key='stock-amount-'+uuid.uuid4().hex)
+                adjusted=request(adjustment_path,employee,company,base=first,**args)
+                assert adjusted[0]==201 and adjusted[1]['credit']['creditType']=='RECEIPT' and adjusted[1]['credit']['creditMode']=='AMOUNT',adjusted
+                assert float(adjusted[1]['credit']['gross'])==(5.5 if stock_taxable else 5) and adjusted[1]['lines'][0]['quantity'] is None,adjusted
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(adjustment_path,employee,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==adjusted for result in attempts),attempts
+                credit_detail='/api/v1/supplier-credits/'+adjusted[1]['credit']['id']
+                assert request(credit_detail,employee,company)==request(credit_detail,employee,company,base=legacy_url)==(200,adjusted[1])
+                after=request(detail,employee,company)
+                assert after==request(detail,employee,company,base=legacy_url),after
+                line=after[1]['lines'][0]
+                assert float(line['quantity'])==1 and float(line['creditedQuantity'])==0 and float(line['creditedAmount'])==(5.5 if stock_taxable else 5) and float(line['outstandingAmount'])==(5.5 if stock_taxable else 10),line
+                current_stock=request(warehouse_path,employee,company)
+                assert current_stock[0]==before_stock[0]==200 and normalize(current_stock[1])==normalize(before_stock[1]),(before_stock,current_stock)
+                invalid={**args['payload'],'lines':[{**args['payload']['lines'][0],'net':11}]}
+                rejected=[request(adjustment_path,employee,company,base=target,payload=invalid,key='over-stock-amount-'+uuid.uuid4().hex) for target in (first,second)]
+                assert rejected[0][0]==rejected[1][0]==409 and normalize(rejected[0][1])==normalize(rejected[1][1]),rejected
+                assert request(detail,employee,company)==after
+                if stock_taxable:
+                    supplier_bill_tax(stock_bill['lines'][0]['id'],.5 if cash else 1)
+                    reversal_path='/api/v1/supplier-payments/'+paid_stock[1]['payment']['id']+'/reverse'
+                    reverse_args=dict(payload={'reference':'Stock amount reversal '+uuid.uuid4().hex,'reason':'Synthetic stock amount settlement correction'},key='stock-amount-reverse-'+uuid.uuid4().hex)
+                    reversed_stock=request(reversal_path,employee,company,base=first,**reverse_args)
+                    assert reversed_stock[0]==201,reversed_stock
+                    assert request(reversal_path,employee,company,base=second,**reverse_args)==reversed_stock
+                    supplier_bill_tax(stock_bill['lines'][0]['id'],0 if cash else 1)
+                    cleanup=dict(payload={'reference':'Stock amount close '+uuid.uuid4().hex,'reason':'Synthetic remaining price credit',
+                        'lines':[{'billLineId':stock_bill['lines'][0]['id'],'net':10,'tax':1,'description':'Remaining amount only'}]},key='stock-amount-close-'+uuid.uuid4().hex)
+                    closed=request(adjustment_path,employee,company,base=second,**cleanup)
+                    assert closed[0]==201 and float(closed[1]['credit']['gross'])==11,closed
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(adjustment_path,employee,company,base=first if n%2 else second,**cleanup),range(6)))
+                    assert all(result==closed for result in attempts),attempts
+                    supplier_bill_tax(stock_bill['lines'][0]['id'],0)
+                    final_bill=request(detail,employee,company)
+                    assert final_bill==request(detail,employee,company,base=legacy_url),final_bill
+                    final_line=final_bill[1]['lines'][0]
+                    assert float(final_line['outstandingAmount'])==0 and float(final_line['creditedQuantity'])==0 and float(final_line['quantity'])==1,final_line
+                    final_stock=request(warehouse_path,employee,company)
+                    assert normalize(final_stock[1])==normalize(before_stock[1]),(before_stock,final_stock)
+            print('PASS: stock-source amount credits, frozen physical quantity, AP reduction, valuation audit and mixed replay')
+            print('PASS: expense bills/credits, line/date binding, compound permissions, shared replay and zero stock movement')
             print('PASS: bidirectional sales order cancellation, single stock and credit release')
             for first, second in ((legacy_url,url),(url,legacy_url)):
                 key = 'customer-'+str(uuid.uuid4())
@@ -1006,9 +2256,20 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 attachment = '/api/v1/documents/'+visit_id+'/attachments?fileName=visit-'+visit_id+'.png'
                 args = dict(payload=photo,key='visit-photo-'+visit_id,content_type='image/png',version=1)
                 java_created = request(attachment,employee,company,base=url,**args) if first == url else None
+                def upload_attempt(index):
+                    # Both APIs explicitly expose transient PostgreSQL contention as retryable409.
+                    # Retain identical body/key; any other conflict still fails the assertions below.
+                    for attempt in range(4):
+                        response=request(attachment,employee,company,
+                            base=first if index % 2 == 0 else second,**args)
+                        error=json.loads(response[1]) if response[0]==409 and isinstance(response[1],str) else {}
+                        if error.get('code')!='concurrent_operation' or error.get('retryable') is not True:
+                            return response
+                        print('Retrying transient attachment contention:',index,attempt+1,flush=True)
+                        time.sleep(.1*(attempt+1))
+                    return response
                 with ThreadPoolExecutor(max_workers=8) as pool:
-                    responses = list(pool.map(lambda index: request(attachment,employee,company,
-                        base=first if index % 2 == 0 else second,**args), range(8)))
+                    responses = list(pool.map(upload_attempt, range(8)))
                 uploaded = responses[0]
                 assert all(response == uploaded for response in responses), responses
                 assert java_created is None or java_created == uploaded
@@ -1022,6 +2283,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert request(attachment,employee,company,base=url,**args)[0] == 409
                 if os.environ.get('HTT_STALL_TEST'):
                     verify_stalled_upload(attachment,employee,company,first)
+                    verify_upload_deadline(attachment,employee,company,first)
                 scan_with_legacy(uploaded[1]['jobId'],employee,company,legacy_url,db_port)
                 canceled = request('/api/v1/crm/collaboration/'+visit_id+'/cancel',employee,company,base=legacy_url,
                     payload={'reason':'Finish synthetic parity fixture'},key='cancel-'+visit_id,version=1)
@@ -1053,6 +2315,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             print('PASS: bidirectional Java/.NET visit create replay and changed payload conflict')
             print(f'PASS: {len(cases)} Java/.NET HTTP contract comparisons')
             print('PASS: signed identity, wrong audience, scoped branch query, missing/cross-company rejection and validation')
+            verify_rate_limits(legacy_url)
         finally:
             legacy.terminate()
             legacy.wait(timeout=15)

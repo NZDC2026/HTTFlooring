@@ -1,3 +1,5 @@
+import { accountContactsSchema } from "../data/accountContacts";
+import { paymentTermsTypeSchema, validatePaymentTerms } from "../../payment-terms/paymentTerms";
 import { z } from "zod";
 
 export const supplierStatuses = [
@@ -38,6 +40,7 @@ const optionalAbn = z
 
 export const supplierFormSchema =
     z.object({
+        contacts: accountContactsSchema.optional(),
         businessName: z
             .string()
             .trim()
@@ -142,7 +145,9 @@ export const supplierFormSchema =
                 "Country is too long",
             ),
 
-        paymentTermsDays: z
+        currency: z.enum(["USD","AUD","CNY","RMB","NZD"]).optional(),
+        paymentTermsType: paymentTermsTypeSchema,
+    paymentTermsDays: z
             .number({
                 message:
                     "Payment terms are required",
@@ -169,7 +174,10 @@ export const supplierFormSchema =
                 2000,
                 "Notes are too long",
             ),
-    });
+    }).superRefine((value, context) => {
+    try { validatePaymentTerms(value); }
+    catch (error) { context.addIssue({code: "custom", message: (error as Error).message, path: ["paymentTermsDays"]}); }
+});
 
 export type SupplierFormValues =
     z.infer<

@@ -1,3 +1,4 @@
+import type { FxSnapshot } from "../../currency/currency";
 import type { PurchaseDefaults } from '../../purchase-settings/purchaseDefaults';
 export type SupplierBillStatus =
     | "OPEN"
@@ -44,6 +45,7 @@ export interface SupplierBillTotals {
 }
 
 export interface SupplierBill {
+    fx?: FxSnapshot;
     purchaseDefaults?: PurchaseDefaults;
     kind?: "STOCK"|"EXPENSE";
     managedDraftId?: string;
@@ -88,6 +90,7 @@ export interface SupplierBillLineDraft {
 }
 
 export interface SupplierBillDraft {
+    fx?: FxSnapshot;
     purchaseOrderId: string;
 
     supplierInvoiceNumber: string;

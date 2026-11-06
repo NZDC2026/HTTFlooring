@@ -83,8 +83,8 @@ export function auditFinancialConsistency(input: {
   for (const transfer of input.transfers) if (Number.isFinite(transfer.amount)) checkSource(transfer.id, 'BANK_TRANSFER', transfer.amount, false);
   for (const bill of input.supplierBills ?? []) checkSource(bill.id, 'SUPPLIER_BILL', bill.totals.total, bill.status === 'VOID');
   for (const payment of input.supplierPayments ?? []) {
-    checkSource(payment.id, 'SUPPLIER_PAYMENT', payment.amount, payment.status === 'REVERSED');
-    if (round(payment.allocations.reduce((n, a) => n + a.amount, 0)) !== round(payment.amount))
+    checkSource(payment.id, 'SUPPLIER_PAYMENT', Math.max(payment.amount,round(payment.amount-(payment.exchangeDifference??0))), payment.status === 'REVERSED');
+    if (round(payment.allocations.reduce((n, a) => n + a.amount, 0)) !== round(payment.amount-(payment.exchangeDifference??0)))
       issues.push({ code: 'AMOUNT_MISMATCH', entityId: payment.id, message: 'Supplier payment allocations do not equal payment total' });
   }
   for (const credit of input.supplierCredits ?? []) checkSource(credit.id, 'SUPPLIER_CREDIT', credit.totals.total, credit.status === 'VOID');

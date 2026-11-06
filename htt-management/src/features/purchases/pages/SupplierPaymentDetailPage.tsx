@@ -1,3 +1,4 @@
+import { CurrencySummary } from "../../currency/CurrencyFields";
 import {optionalWorkflows} from '../../security/optionalWorkflows';
 import {Link} from 'react-router-dom';
 import { businessSettings } from '../../business-workspace/configurationState';
@@ -97,7 +98,9 @@ export function SupplierPaymentDetailPage() {
     }
 
     return (
-        <div className="pb-8">{optionalWorkflows.remittance && <Link className="mb-4 inline-block underline" to={"/documents/purchase-output?kind=REMITTANCE&sourceId="+encodeURIComponent(payment.id)}>Prepare remittance advice</Link>}{payment.prepaymentId&&<p className="mb-5 rounded-lg border bg-white p-4 text-sm">Prepayment applied to this bill · No new bank payment. <Link className="underline" to={"/purchases/prepayments/"+payment.prepaymentId}>Review or reverse through supplier prepayments</Link></p>}
+        <div className="pb-8">
+            <CurrencySummary fx={payment.fx} amount={payment.amount}/>
+{optionalWorkflows.remittance && <Link className="mb-4 inline-block underline" to={"/documents/purchase-output?kind=REMITTANCE&sourceId="+encodeURIComponent(payment.id)}>Prepare remittance advice</Link>}{payment.prepaymentId&&<p className="mb-5 rounded-lg border bg-white p-4 text-sm">Prepayment applied to this bill · No new bank payment. <Link className="underline" to={"/purchases/prepayments/"+payment.prepaymentId}>Review or reverse through supplier prepayments</Link></p>}
             <button
                 type="button"
                 onClick={() =>

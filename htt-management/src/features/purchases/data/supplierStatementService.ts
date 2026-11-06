@@ -239,7 +239,7 @@ export function buildSupplierStatement({
 
             debit:
                 roundCurrency(
-                    payment.amount,
+                    payment.amount - (payment.exchangeDifference ?? 0),
                 ),
 
             credit: 0,
@@ -287,7 +287,7 @@ export function buildSupplierStatement({
 
                     credit:
                         roundCurrency(
-                            payment.amount,
+                            payment.amount - (payment.exchangeDifference ?? 0),
                         ),
                 });
             }

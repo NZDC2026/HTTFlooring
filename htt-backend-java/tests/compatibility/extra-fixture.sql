@@ -34,3 +34,112 @@ INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES
 INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES
  ('00000000-0000-0000-0000-000000000001','ADVANCE_UNAPPLICATION','AAU-'),
  ('00000000-0000-0000-0000-000000000001','RECEIPT_REVERSAL','RCR-');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','accounting.receipts.reapply') ON CONFLICT DO NOTHING;
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES
+ ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','accounting.refunds.read'),
+ ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','accounting.refunds.write') ON CONFLICT DO NOTHING;
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES ('00000000-0000-0000-0000-000000000001','CUSTOMER_REFUND','CRF-');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','accounting.refunds.reverse') ON CONFLICT DO NOTHING;
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES ('00000000-0000-0000-0000-000000000001','CUSTOMER_REFUND_REVERSAL','CFR-');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','accounting.refunds.correct') ON CONFLICT DO NOTHING;
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES
+ ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','sales.credits.read'),
+ ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','sales.credits.write') ON CONFLICT DO NOTHING;
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES ('00000000-0000-0000-0000-000000000001','CREDIT_NOTE','CN-');
+INSERT INTO crm.parties(id,company_id,legal_name) VALUES ('00000000-0000-0000-0000-000000000071','00000000-0000-0000-0000-000000000001','Synthetic Credit-only Customer');
+INSERT INTO crm.customers(id,company_id,party_id,code,credit_limit) VALUES ('00000000-0000-0000-0000-000000000072','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000071','CREDIT_ONLY',100000);
+INSERT INTO crm.customer_credit_exposures(company_id,customer_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000072');
+INSERT INTO crm.customer_branches(id,company_id,customer_id,code,name,address_line1,suburb,state,postcode) VALUES ('00000000-0000-0000-0000-000000000073','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000072','CREDIT_TEST','Synthetic Credit Branch','20 Test Street','Sydney','NSW','2000');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','sales.credits.adjust') ON CONFLICT DO NOTHING;
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES
+ ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','inventory.returns.read'),
+ ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','inventory.returns.write') ON CONFLICT DO NOTHING;
+INSERT INTO catalog.warehouses(id,company_id,code,name,kind) VALUES ('00000000-0000-0000-0000-000000000074','00000000-0000-0000-0000-000000000001','QUARANTINE_TEST','Synthetic Quarantine','QUARANTINE');
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES ('00000000-0000-0000-0000-000000000001','SALES_RETURN','RT-');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','accounting.gst.read') ON CONFLICT DO NOTHING;
+INSERT INTO accounting.accounts(id,company_id,code,name,kind,control_kind) VALUES ('00000000-0000-0000-0000-000000000075','00000000-0000-0000-0000-000000000001','TEST_GST_OUTPUT','Synthetic Output GST','LIABILITY','GST');
+UPDATE accounting.tax_account_mappings SET output_account_id='00000000-0000-0000-0000-000000000075' WHERE company_id='00000000-0000-0000-0000-000000000001' AND tax_code_id='00000000-0000-0000-0000-000000000053';
+INSERT INTO catalog.products(id,company_id,sku,name,item_type,base_uom_id,tax_code_id,whole_packs) VALUES ('00000000-0000-0000-0000-000000000076','00000000-0000-0000-0000-000000000001','SERVICE_GST_TEST','Synthetic Taxable Service','SERVICE','00000000-0000-0000-0000-000000000015','00000000-0000-0000-0000-000000000053',false);
+INSERT INTO catalog.product_units(id,company_id,product_id,uom_id,conversion_to_base) VALUES ('00000000-0000-0000-0000-000000000077','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000076','00000000-0000-0000-0000-000000000015',1);
+INSERT INTO pricing.price_list_items(id,company_id,price_list_id,product_unit_id,amount,effective_from) VALUES ('00000000-0000-0000-0000-000000000078','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000024','00000000-0000-0000-0000-000000000077',50,'2026-01-01');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES
+ ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','sales.credits.apply'),
+ ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004','sales.credits.unapply') ON CONFLICT DO NOTHING;
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES
+ ('00000000-0000-0000-0000-000000000001','CUSTOMER_CREDIT_APPLICATION','CCA-'),
+ ('00000000-0000-0000-0000-000000000001','CUSTOMER_CREDIT_UNAPPLICATION','CCU-');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)
+SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004',p
+FROM unnest(ARRAY['purchase.returns.post','purchase.returns.read','purchase.credits.post','purchase.credits.read','purchase.credits.apply','purchase.credits.unapply']) p ON CONFLICT DO NOTHING;
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000100','https://localhost:15443','test-credit-no-bills','Synthetic Credit Without Bill Read');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000101','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000100');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000102','00000000-0000-0000-0000-000000000001','CREDIT_NO_BILLS','Synthetic Credit Without Bill Read');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000101','00000000-0000-0000-0000-000000000102');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)
+SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000102',p
+FROM unnest(ARRAY['purchase.credits.read','purchase.credits.apply','purchase.credits.unapply']) p;
+
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES
+ ('00000000-0000-0000-0000-000000000001','PURCHASE_RETURN','PRT-'),
+ ('00000000-0000-0000-0000-000000000001','SUPPLIER_CREDIT','SC-'),
+ ('00000000-0000-0000-0000-000000000001','SUPPLIER_CREDIT_APPLICATION','SCA-'),
+ ('00000000-0000-0000-0000-000000000001','SUPPLIER_CREDIT_UNAPPLICATION','SCU-') ON CONFLICT DO NOTHING;
+INSERT INTO accounting.accounts(id,company_id,code,name,kind) VALUES
+ ('00000000-0000-0000-0000-000000000110','00000000-0000-0000-0000-000000000001','TEST_RETURN_CLEARING','Synthetic purchase return clearing','ASSET'),
+ ('00000000-0000-0000-0000-000000000111','00000000-0000-0000-0000-000000000001','TEST_RETURN_VARIANCE','Synthetic purchase return variance','EXPENSE');
+INSERT INTO accounting.account_mappings(company_id,purpose,account_id) VALUES
+ ('00000000-0000-0000-0000-000000000001','PURCHASE_RETURN_CLEARING','00000000-0000-0000-0000-000000000110'),
+ ('00000000-0000-0000-0000-000000000001','PURCHASE_RETURN_VARIANCE','00000000-0000-0000-0000-000000000111');
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000120','https://localhost:15443','test-return-no-cost','Synthetic Return Access');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000121','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000120');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000122','00000000-0000-0000-0000-000000000001','TEST_RETURN_NO_COST','Synthetic Return Access');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000121','00000000-0000-0000-0000-000000000122');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000122','purchase.returns.read');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000122','warehouses.all');
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000123','https://localhost:15443','test-return-unassigned','Synthetic Return Access');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000124','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000123');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000125','00000000-0000-0000-0000-000000000001','TEST_RETURN_UNASSIGNED','Synthetic Return Access');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000124','00000000-0000-0000-0000-000000000125');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000125','purchase.returns.read');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)
+SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000004',p FROM unnest(ARRAY['purchase.refunds.post','purchase.refunds.read']) p ON CONFLICT DO NOTHING;
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES ('00000000-0000-0000-0000-000000000001','SUPPLIER_REFUND','SR-') ON CONFLICT DO NOTHING;
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000130','https://localhost:15443','test-refund-no-bank','Synthetic Supplier Refund Without Bank Choice');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000131','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000130');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000132','00000000-0000-0000-0000-000000000001','REFUND_NO_BANK','Synthetic Refund Without Bank Choice');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000131','00000000-0000-0000-0000-000000000132');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)
+SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000132',p FROM unnest(ARRAY['purchase.refunds.post','purchase.refunds.read']) p;
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)
+SELECT '00000000-0000-0000-0000-000000000001',r,p FROM unnest(ARRAY['00000000-0000-0000-0000-000000000004'::uuid,'00000000-0000-0000-0000-000000000132'::uuid]) r CROSS JOIN unnest(ARRAY['purchase.refunds.reverse','purchase.refunds.correct']) p ON CONFLICT DO NOTHING;
+INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES ('00000000-0000-0000-0000-000000000001','SUPPLIER_REFUND_REVERSAL','SFR-') ON CONFLICT DO NOTHING;
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000150','https://localhost:15443','test-refund-no-post','Synthetic Supplier Refund Authority');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000151','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000150');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000152','00000000-0000-0000-0000-000000000001','TEST_REFUND_NO_POST','Synthetic Refund Authority');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000151','00000000-0000-0000-0000-000000000152');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000152','purchase.refunds.read');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000152','purchase.bills.read');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000152','purchase.refunds.reverse');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000152','purchase.refunds.correct');
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000153','https://localhost:15443','test-refund-no-reverse','Synthetic Supplier Refund Authority');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000154','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000153');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000155','00000000-0000-0000-0000-000000000001','TEST_REFUND_NO_REVERSE','Synthetic Refund Authority');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000154','00000000-0000-0000-0000-000000000155');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000155','purchase.refunds.read');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000155','purchase.bills.read');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000155','purchase.refunds.post');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000155','purchase.refunds.correct');
+
+INSERT INTO accounting.accounts(id,company_id,code,name,kind,control_kind) VALUES ('00000000-0000-0000-0000-000000000160','00000000-0000-0000-0000-000000000001','TEST_REFUND_ALT_BANK','Synthetic alternate refund bank','ASSET','BANK');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)
+SELECT '00000000-0000-0000-0000-000000000001',r,p FROM unnest(ARRAY['00000000-0000-0000-0000-000000000004'::uuid,'00000000-0000-0000-0000-000000000132'::uuid]) r CROSS JOIN unnest(ARRAY['purchase.expense_bills.post','purchase.expense_credits.post','purchase.credits.adjust']) p ON CONFLICT DO NOTHING;
+INSERT INTO accounting.accounts(id,company_id,code,name,kind) VALUES ('00000000-0000-0000-0000-000000000170','00000000-0000-0000-0000-000000000001','TEST_SUPPLIER_EXPENSE','Synthetic supplier expense','EXPENSE');
