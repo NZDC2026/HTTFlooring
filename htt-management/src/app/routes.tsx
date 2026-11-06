@@ -1,3 +1,5 @@
+import { CustomerPriceSettingsPage } from "../features/contacts/pages/CustomerPriceSettingsPage";
+import { StaffManagementPage } from "../features/security/pages/StaffManagementPage";
 import { CustomerDashboardPage } from "../features/contacts/pages/CustomerDashboardPage";
 import { SupplierDashboardPage } from "../features/contacts/pages/SupplierDashboardPage";
 import { IncomingShipmentsPage } from "../features/incoming-shipments/IncomingShipmentsPage";
@@ -99,6 +101,7 @@ export const appRoutes:RouteObject[] = [
             { path: 'settings/integrations/:integrationId', element: <SettingsOverviewPage key="integration-detail" /> },
             { path: 'reports/library', element: <ReportsLibraryPage /> },
             { path: '*', element: <NotFoundPage /> },
+            { path: "settings/employees", element: <StaffManagementPage /> },
             { path: "settings/security", element: <SecurityAdministrationPage /> },
             {
                 index: true,
@@ -385,6 +388,14 @@ export const appRoutes:RouteObject[] = [
             {
                 path: "contacts",
                 element: <CustomerDashboardPage />,
+            },
+            {
+                path: "inventory/price-settings",
+                element: <CustomerPriceSettingsPage />,
+            },
+            {
+                path: "contacts/price-settings",
+                element: <Navigate to="/inventory/price-settings" replace />,
             },
             {
                 path: "contacts/list",

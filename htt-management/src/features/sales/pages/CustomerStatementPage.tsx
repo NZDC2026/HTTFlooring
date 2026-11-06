@@ -19,6 +19,7 @@ import {
     Navigate,
     useNavigate,
     useParams,
+    useSearchParams,
 } from "react-router-dom";
 
 import { Button } from "../../../components/ui/Button";
@@ -45,6 +46,10 @@ export function CustomerStatementPage() {
     const navigate =
         useNavigate();
 
+    const [query] = useSearchParams();
+    const queryFrom=query.get("from"),queryTo=query.get("to");
+    const validQuery=!!queryFrom&&!!queryTo&&/^\d{4}-\d{2}-\d{2}$/.test(queryFrom)&&/^\d{4}-\d{2}-\d{2}$/.test(queryTo)&&queryFrom<=queryTo;
+
     const today =
         getToday();
 
@@ -52,14 +57,14 @@ export function CustomerStatementPage() {
         fromDate,
         setFromDate,
     ] = useState(
-        getDefaultFromDate(),
+        validQuery ? queryFrom : getDefaultFromDate(),
     );
 
     const [
         toDate,
         setToDate,
     ] = useState(
-        today,
+        validQuery ? queryTo : today,
     );
 
     const [

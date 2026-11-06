@@ -1,3 +1,4 @@
+import { customerPriceGroup, pricingTiers } from "./customerPriceGroups";
 import { nextCustomerCode } from "./customerCode";
 import { normalizeBillingAddress, normalizeDeliveryAddresses, customerAddressSchema, deliveryAddressesSchema } from "./customerAddresses";
 import { normalizeAccountContacts, accountContactsSchema } from "./accountContacts";
@@ -160,12 +161,14 @@ export const customerRepository = {
         values: CustomerFormValues,
     ): Customer {
         validatePaymentTerms(values);
+        if(values.pricingTier!==undefined)z.enum(pricingTiers).parse(values.pricingTier);
         const now = new Date().toISOString();
 
         const customer: Customer = {
             id: createId("cus"),
 
             code: createCustomerCode(),
+            pricingTier:customerPriceGroup(values.businessType)==="A"?(values.pricingTier??"STANDARD"):"STANDARD",
             creditHold: values.creditHold??false,
             internalNotes: values.internalNotes?.trim(),
 
@@ -221,6 +224,13 @@ export const customerRepository = {
         return customer;
     },
 
+    setPricingTier(customerId:string,tier:unknown) {
+        const parsed=z.enum(pricingTiers).parse(tier);
+        const customer=customerRepository.getById(customerId);
+        if(!customer)throw new Error("Customer not found.");
+        if(customerPriceGroup(customer.businessType)!=="A"&&parsed!=="STANDARD")throw new Error("VIP, VVIP and Container prices are only available to group A retailers.");
+        updateCustomerRecord(customerId,c=>({...c,pricingTier:parsed,updatedAt:new Date().toISOString()}));
+    },
     setStatus(customerId: string, status: unknown) {
         trustedAuthorization.require("contacts.write");
         const nextStatus = z.enum(customerStatuses).parse(status);
@@ -236,6 +246,7 @@ export const customerRepository = {
         values: CustomerFormValues,
     ): Customer {
         validatePaymentTerms(values);
+        if(values.pricingTier!==undefined)z.enum(pricingTiers).parse(values.pricingTier);
         let updatedCustomer:
             | Customer
             | undefined;
@@ -245,6 +256,7 @@ export const customerRepository = {
             (customer) => {
                 updatedCustomer = {
                     ...customer,
+                    pricingTier:customerPriceGroup(values.businessType)==="A"?(values.pricingTier??customer.pricingTier??"STANDARD"):"STANDARD",
                     ...(values.creditHold===undefined?{}:{creditHold:values.creditHold}),
                     ...(values.internalNotes===undefined?{}:{internalNotes:values.internalNotes.trim()}),
                     ...(values.billingAddress===undefined?{}:{billingAddress:normalizeBillingAddress(values.billingAddress)}),
@@ -698,10 +710,10 @@ export const customerRepository = {
 };
 registerRepository("customers", {
     repository: customerRepository, read: "sales.read",
-    commands: {"addNote": "contacts.write", "if": null, "emitChange": null, "create": "contacts.write", "update": "contacts.write", "setStatus": "contacts.write", "addLocation": "contacts.write", "updateLocation": "contacts.write", "addContact": "contacts.write", "updateContact": "contacts.write"},
+    commands: {"addNote": "contacts.write", "if": null, "emitChange": null, "create": "contacts.write", "update": "contacts.write", "setStatus": "contacts.write", "setPricingTier":"contacts.write", "addLocation": "contacts.write", "updateLocation": "contacts.write", "addContact": "contacts.write", "updateContact": "contacts.write"},
     validate: value => {
         const ids=new Set<string>(), operations=new Set<string>(),sources=new Set<string>();
-        for(const c of (value as {customers:Customer[]}).customers){if(c.creditHold!==undefined&&typeof c.creditHold!=='boolean')throw Error('Invalid credit hold');if(c.internalNotes!==undefined&&(typeof c.internalNotes!=='string'||c.internalNotes.length>500))throw Error('Invalid internal notes');accountContactsSchema.parse(c.contacts);if(c.billingAddress!==undefined)customerAddressSchema.parse(c.billingAddress);deliveryAddressesSchema.parse(c.locations);if(c.primaryLocationId&&!c.locations.some(a=>a.id===c.primaryLocationId))throw Error("Invalid default delivery address");if(c.paymentTermsType!==undefined)validatePaymentTerms(c);if(c.notes===undefined)continue;if(!Array.isArray(c.notes))throw Error('Invalid customer notes.');for(const n of c.notes){
+        for(const c of (value as {customers:Customer[]}).customers){if(c.pricingTier!==undefined)z.enum(pricingTiers).parse(c.pricingTier);if(c.creditHold!==undefined&&typeof c.creditHold!=='boolean')throw Error('Invalid credit hold');if(c.internalNotes!==undefined&&(typeof c.internalNotes!=='string'||c.internalNotes.length>500))throw Error('Invalid internal notes');accountContactsSchema.parse(c.contacts);if(c.billingAddress!==undefined)customerAddressSchema.parse(c.billingAddress);deliveryAddressesSchema.parse(c.locations);if(c.primaryLocationId&&!c.locations.some(a=>a.id===c.primaryLocationId))throw Error("Invalid default delivery address");if(c.paymentTermsType!==undefined)validatePaymentTerms(c);if(c.notes===undefined)continue;if(!Array.isArray(c.notes))throw Error('Invalid customer notes.');for(const n of c.notes){
             const parsed=noteInput.extend({id:z.string().min(1),actorId:z.string().min(1),actorName:z.string().min(1).optional(),createdAt:z.iso.datetime()}).parse(n);
             if(parsed.customerId!==c.id || ids.has(n.id)||operations.has(n.operationId)||(n.source==='Sales import')!==!!n.externalId)throw Error('Invalid customer note provenance.');
             if (Boolean(parsed.action) !== Boolean(parsed.threadId) || (parsed.action && parsed.source !== 'Desktop') ||

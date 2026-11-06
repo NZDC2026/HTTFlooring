@@ -107,7 +107,7 @@ class CustomerWrites {
         return List.of(scope.permissions()).contains(permission);
     }
 
-    private static String normalizeAbn(String input) {
+    static String normalizeAbn(String input) {
         if (input == null || input.isBlank()) {
             return null;
         }

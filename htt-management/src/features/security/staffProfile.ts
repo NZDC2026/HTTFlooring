@@ -1,0 +1,6 @@
+import { z } from "zod";
+export const staffDepartments=["Sales","Warehouse","Finance","Administration","Purchasing","Other"] as const;
+export const staffProfileSchema=z.object({employeeCode:z.string().trim().min(1).max(40),department:z.enum(staffDepartments),position:z.string().trim().max(100),phone:z.string().trim().max(40),email:z.union([z.literal(""),z.string().email()]),startDate:z.string().refine(v=>!v||/^\d{4}-\d{2}-\d{2}$/.test(v)&&new Date(`${v}T00:00:00Z`).toISOString().slice(0,10)===v,"Enter a valid start date.")}).strict();
+export type StaffProfile=z.infer<typeof staffProfileSchema>;
+export const staffRoleLabels={ADMIN:"Administrator",SALES:"Sales",WAREHOUSE:"Warehouse",ACCOUNTANT:"Accountant",FINANCE_ADMIN:"Finance Manager",PURCHASING:"Purchasing",AUDITOR:"Auditor"};
+export const staffRoleDescriptions={ADMIN:"All system functions, employee accounts and permissions.",SALES:"Customers, quotes, sales orders, customer notes and tasks; stock visibility.",WAREHOUSE:"Inventory, goods receiving and warehouse adjustments.",ACCOUNTANT:"Accounting, reports, bank reconciliation and payroll.",FINANCE_ADMIN:"Financial operations, payments, accounting approvals and payroll.",PURCHASING:"Suppliers, purchase orders, bills and goods receiving.",AUDITOR:"Read-only financial records, reports and audit history."};

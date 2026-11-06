@@ -35,7 +35,7 @@ import {
     CardContent,
 } from "../../../components/ui/Card";
 
-import { CustomerStatusBadge } from "../components/CustomerStatusBadge";
+import { CustomerStatusSelect } from "../components/CustomerStatusSelect";
 import { CustomerLocationsTab } from "../components/CustomerLocationsTab";
 import { CustomerContactsTab } from "../components/CustomerContactsTab";
 import { CustomerPricingTab } from "../components/CustomerPricingTab";
@@ -229,11 +229,11 @@ export function CustomerDetailPage() {
 
     return (
         <>
-            <div className="pb-8"><div className="mb-4 rounded-xl border bg-white p-4 text-sm">Customer deposits held: {new Intl.NumberFormat('en-AU',{style:'currency',currency:businessSettings().currency}).format(depositBalanceAt(deposits,customer.id,new Intl.DateTimeFormat('en-CA',{timeZone:businessSettings().timezone}).format(new Date())))} · Held separately from invoice receivables. <Link className="underline" to="/sales/customer-deposits">Review deposits</Link></div>
+            <div className="pb-8">
                 <button
                     type="button"
                     onClick={() =>
-                        navigate("/contacts")
+                        navigate("/contacts/list")
                     }
                     className="mb-5 flex items-center gap-2 text-xs text-[var(--color-text-secondary)] transition hover:text-[var(--color-primary)]"
                 >
@@ -243,19 +243,11 @@ export function CustomerDetailPage() {
 
                 <div className="mb-7 flex items-start justify-between">
                     <div>
-                        <div className="mb-3 flex items-center gap-3">
-                            <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
-                                {customer.code}
-                            </span>
-
-                            <CustomerStatusBadge
-                                status={customer.status}
-                            />
+                        <div className="flex flex-wrap items-center gap-4">
+                            <h1 className="font-display text-[34px] font-bold leading-tight">{customer.businessName}</h1>
+                            <CustomerStatusSelect customer={customer}/>
+                            <span className="rounded-xl bg-[#efe5da] px-4 py-2 text-sm">{customer.code}</span>
                         </div>
-
-                        <h1 className="font-display text-[34px] leading-tight">
-                            {customer.businessName}
-                        </h1>
 
                         <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                             {customer.businessType}
@@ -275,7 +267,7 @@ export function CustomerDetailPage() {
                     </Button>
                 </div>
 
-                <div className="mb-6 flex gap-1 border-b border-[var(--color-border)]">
+                <div className="mb-5 flex overflow-x-auto gap-3 border-b border-[var(--color-border)]">
                     <Tab
                         active={
                             activeTab === "overview"
@@ -350,7 +342,7 @@ export function CustomerDetailPage() {
                 </div>
 
                 {activeTab === "overview" && canReadSales && <CustomerOverviewSales customer={customer}/>}
-                {activeTab === "overview" && (
+                {activeTab === "overview" && !canReadSales && (
                     <OverviewTab
                         customer={customer}
                         primaryContact={
@@ -369,6 +361,8 @@ export function CustomerDetailPage() {
                         }
                     />
                 )}
+
+                {activeTab === "overview" && (<div className="mb-4 rounded-xl border bg-white p-4 text-sm">Customer deposits held: {new Intl.NumberFormat('en-AU',{style:'currency',currency:businessSettings().currency}).format(depositBalanceAt(deposits,customer.id,new Intl.DateTimeFormat('en-CA',{timeZone:businessSettings().timezone}).format(new Date())))} · Held separately from invoice receivables. <Link className="underline" to="/sales/customer-deposits">Review deposits</Link></div>)}
 
                 {activeTab === "locations" && (
                     <CustomerLocationsTab
@@ -517,6 +511,7 @@ export function CustomerDetailPage() {
                         }
                     >
                         <CustomerPriceForm
+                            customerId={customer.id}
                             customerPrice={
                                 editor.item
                             }
@@ -910,8 +905,8 @@ function Tab({
             onClick={onClick}
             className={
                 active
-                    ? "flex h-10 items-center gap-2 border-b-2 border-[var(--color-accent)] px-3 text-xs font-medium text-[var(--color-primary)]"
-                    : "flex h-10 items-center gap-2 border-b-2 border-transparent px-3 text-xs text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]"
+                    ? "flex h-10 items-center gap-2 border-b-2 border-[#16632b] px-4 text-sm font-semibold text-[var(--color-primary)]"
+                    : "flex h-10 items-center gap-2 border-b-2 border-transparent px-4 text-sm text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]"
             }
         >
             {children}

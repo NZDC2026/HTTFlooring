@@ -10,6 +10,7 @@ export const businessTypes = [
     "Designer",
     "Architect",
     "Installer",
+    "End Customer",
     "Other",
 ] as const;
 
@@ -50,6 +51,7 @@ const optionalAbn = z
     );
 
 export const customerFormSchema = z.object({
+    pricingTier: z.enum(["STANDARD","VIP","VVIP","CONTAINER"]).optional(),
     creditHold: z.boolean().optional(),
     internalNotes: z.string().trim().max(500).optional(),
     billingAddress: customerAddressSchema.optional(),

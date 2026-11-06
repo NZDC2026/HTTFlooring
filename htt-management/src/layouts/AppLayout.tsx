@@ -26,6 +26,7 @@ export function AppLayout() {
     const location = useLocation(), searchReturn = recordSearchReturnPath(location.state);
     useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); }, [location.pathname]);
     const isCustomerForm=location.pathname==='/contacts/customers/new'||/^\/contacts\/customers\/[^/]+\/edit$/.test(location.pathname);
+    const samplesAfterContent=location.pathname==='/inventory'||isCustomerForm||/^\/contacts\/customers\/[^/]+\/(sales|pricing)$/.test(location.pathname);
     const isDemoVisit = new URLSearchParams(location.search).get("demo") === "1";
     return (
         <div data-workspace-density={preferences.density.toLowerCase()} data-reduce-motion={preferences.reduceMotion ? "true" : "false"} className="min-h-screen bg-[var(--color-background)]">
@@ -55,7 +56,7 @@ export function AppLayout() {
                         </div>
                     )}
                     {searchReturn && location.pathname !== '/search/records' && <Link className="mb-4 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm underline" to={searchReturn}><ArrowLeft size={15}/>Back to record search</Link>}
-                    <p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess><ModuleNavigation/>{!isCustomerForm&&<PageSamples/>}<Outlet />{isCustomerForm&&<div className="mt-4"><PageSamples/></div>}</RouteAccess>
+                    <p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess><ModuleNavigation/>{!samplesAfterContent&&<PageSamples/>}<Outlet />{samplesAfterContent&&<div className="mt-4"><PageSamples/></div>}</RouteAccess>
                 </div>
             </main>
         </div>

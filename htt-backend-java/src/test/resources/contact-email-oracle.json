@@ -1,0 +1,3057 @@
+[
+  {
+    "input": null,
+    "value": null,
+    "valid": true
+  },
+  {
+    "input": "",
+    "value": null,
+    "valid": true
+  },
+  {
+    "input": "  ",
+    "value": null,
+    "valid": true
+  },
+  {
+    "input": "a@example.com",
+    "value": "a@example.com",
+    "valid": true
+  },
+  {
+    "input": " a@example.com ",
+    "value": "a@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@localhost",
+    "value": "a@localhost",
+    "valid": true
+  },
+  {
+    "input": "a@b",
+    "value": "a@b",
+    "valid": true
+  },
+  {
+    "input": "a@",
+    "value": "a@",
+    "valid": false
+  },
+  {
+    "input": "@b",
+    "value": "@b",
+    "valid": false
+  },
+  {
+    "input": "a..b@example.com",
+    "value": "a..b@example.com",
+    "valid": false
+  },
+  {
+    "input": ".a@example.com",
+    "value": ".a@example.com",
+    "valid": false
+  },
+  {
+    "input": "a.@example.com",
+    "value": "a.@example.com",
+    "valid": true
+  },
+  {
+    "input": "a+b@example.com",
+    "value": "a+b@example.com",
+    "valid": true
+  },
+  {
+    "input": "\"a b\"@example.com",
+    "value": "\"a b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "\"a..b\"@example.com",
+    "value": "\"a..b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "Name <a@example.com>",
+    "value": "Name <a@example.com>",
+    "valid": false
+  },
+  {
+    "input": "<a@example.com>",
+    "value": "<a@example.com>",
+    "valid": false
+  },
+  {
+    "input": "a@example.com (Name)",
+    "value": "a@example.com (Name)",
+    "valid": false
+  },
+  {
+    "input": "a(comment)@example.com",
+    "value": "a(comment)@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@exa_mple.com",
+    "value": "a@exa_mple.com",
+    "valid": true
+  },
+  {
+    "input": "a@[127.0.0.1]",
+    "value": "a@[127.0.0.1]",
+    "valid": true
+  },
+  {
+    "input": "a@[IPv6:::1]",
+    "value": "a@[IPv6:::1]",
+    "valid": true
+  },
+  {
+    "input": "\u7528\u6237@example.com",
+    "value": "\u7528\u6237@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@\u4f8b\u5b50.\u6d4b\u8bd5",
+    "value": "a@\u4f8b\u5b50.\u6d4b\u8bd5",
+    "valid": true
+  },
+  {
+    "input": "a b@example.com",
+    "value": "a b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a\tb@example.com",
+    "value": "a\tb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a\nb@example.com",
+    "value": "a\nb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@example..com",
+    "value": "a@example..com",
+    "valid": false
+  },
+  {
+    "input": "a@.example.com",
+    "value": "a@.example.com",
+    "valid": false
+  },
+  {
+    "input": "a@example.com.",
+    "value": "a@example.com.",
+    "valid": true
+  },
+  {
+    "input": "a@-example.com",
+    "value": "a@-example.com",
+    "valid": true
+  },
+  {
+    "input": "a@example-.com",
+    "value": "a@example-.com",
+    "valid": true
+  },
+  {
+    "input": "a@example,com",
+    "value": "a@example,com",
+    "valid": false
+  },
+  {
+    "input": "a@example.com;b@example.com",
+    "value": "a@example.com;b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@example.com,b@example.com",
+    "value": "a@example.com,b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a\\b@example.com",
+    "value": "a\\b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a#b@example.com",
+    "value": "a#b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a/b@example.com",
+    "value": "a/b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a=b@example.com",
+    "value": "a=b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a~b@example.com",
+    "value": "a~b@example.com",
+    "valid": true
+  },
+  {
+    "input": "\"\"@example.com",
+    "value": "\"\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@b(c)",
+    "value": "a@b(c)",
+    "valid": false
+  },
+  {
+    "input": "\u0085a@example.com\u00a0",
+    "value": "a@example.com",
+    "valid": true
+  },
+  {
+    "input": "a\u0000b@example.com",
+    "value": "a\u0000b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0000b",
+    "value": "a@a\u0000b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0000b\"@example.com",
+    "value": "\"a\u0000b\"@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@[a\u0000b]",
+    "value": "a@[a\u0000b]",
+    "valid": false
+  },
+  {
+    "input": "a\u0001b@example.com",
+    "value": "a\u0001b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0001b",
+    "value": "a@a\u0001b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0001b\"@example.com",
+    "value": "\"a\u0001b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0001b]",
+    "value": "a@[a\u0001b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0002b@example.com",
+    "value": "a\u0002b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0002b",
+    "value": "a@a\u0002b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0002b\"@example.com",
+    "value": "\"a\u0002b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0002b]",
+    "value": "a@[a\u0002b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0003b@example.com",
+    "value": "a\u0003b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0003b",
+    "value": "a@a\u0003b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0003b\"@example.com",
+    "value": "\"a\u0003b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0003b]",
+    "value": "a@[a\u0003b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0004b@example.com",
+    "value": "a\u0004b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0004b",
+    "value": "a@a\u0004b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0004b\"@example.com",
+    "value": "\"a\u0004b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0004b]",
+    "value": "a@[a\u0004b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0005b@example.com",
+    "value": "a\u0005b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0005b",
+    "value": "a@a\u0005b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0005b\"@example.com",
+    "value": "\"a\u0005b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0005b]",
+    "value": "a@[a\u0005b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0006b@example.com",
+    "value": "a\u0006b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0006b",
+    "value": "a@a\u0006b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0006b\"@example.com",
+    "value": "\"a\u0006b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0006b]",
+    "value": "a@[a\u0006b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0007b@example.com",
+    "value": "a\u0007b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0007b",
+    "value": "a@a\u0007b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0007b\"@example.com",
+    "value": "\"a\u0007b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0007b]",
+    "value": "a@[a\u0007b]",
+    "valid": true
+  },
+  {
+    "input": "a\bb@example.com",
+    "value": "a\bb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\bb",
+    "value": "a@a\bb",
+    "valid": false
+  },
+  {
+    "input": "\"a\bb\"@example.com",
+    "value": "\"a\bb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\bb]",
+    "value": "a@[a\bb]",
+    "valid": true
+  },
+  {
+    "input": "a\tb@example.com",
+    "value": "a\tb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\tb",
+    "value": "a@a\tb",
+    "valid": false
+  },
+  {
+    "input": "\"a\tb\"@example.com",
+    "value": "\"a\tb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\tb]",
+    "value": "a@[a\tb]",
+    "valid": true
+  },
+  {
+    "input": "a\nb@example.com",
+    "value": "a\nb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\nb",
+    "value": "a@a\nb",
+    "valid": false
+  },
+  {
+    "input": "\"a\nb\"@example.com",
+    "value": "\"a\nb\"@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@[a\nb]",
+    "value": "a@[a\nb]",
+    "valid": false
+  },
+  {
+    "input": "a\u000bb@example.com",
+    "value": "a\u000bb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u000bb",
+    "value": "a@a\u000bb",
+    "valid": false
+  },
+  {
+    "input": "\"a\u000bb\"@example.com",
+    "value": "\"a\u000bb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u000bb]",
+    "value": "a@[a\u000bb]",
+    "valid": true
+  },
+  {
+    "input": "a\fb@example.com",
+    "value": "a\fb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\fb",
+    "value": "a@a\fb",
+    "valid": false
+  },
+  {
+    "input": "\"a\fb\"@example.com",
+    "value": "\"a\fb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\fb]",
+    "value": "a@[a\fb]",
+    "valid": true
+  },
+  {
+    "input": "a\rb@example.com",
+    "value": "a\rb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\rb",
+    "value": "a@a\rb",
+    "valid": false
+  },
+  {
+    "input": "\"a\rb\"@example.com",
+    "value": "\"a\rb\"@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@[a\rb]",
+    "value": "a@[a\rb]",
+    "valid": false
+  },
+  {
+    "input": "a\u000eb@example.com",
+    "value": "a\u000eb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u000eb",
+    "value": "a@a\u000eb",
+    "valid": false
+  },
+  {
+    "input": "\"a\u000eb\"@example.com",
+    "value": "\"a\u000eb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u000eb]",
+    "value": "a@[a\u000eb]",
+    "valid": true
+  },
+  {
+    "input": "a\u000fb@example.com",
+    "value": "a\u000fb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u000fb",
+    "value": "a@a\u000fb",
+    "valid": false
+  },
+  {
+    "input": "\"a\u000fb\"@example.com",
+    "value": "\"a\u000fb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u000fb]",
+    "value": "a@[a\u000fb]",
+    "valid": true
+  },
+  {
+    "input": "a\u0010b@example.com",
+    "value": "a\u0010b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0010b",
+    "value": "a@a\u0010b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0010b\"@example.com",
+    "value": "\"a\u0010b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0010b]",
+    "value": "a@[a\u0010b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0011b@example.com",
+    "value": "a\u0011b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0011b",
+    "value": "a@a\u0011b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0011b\"@example.com",
+    "value": "\"a\u0011b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0011b]",
+    "value": "a@[a\u0011b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0012b@example.com",
+    "value": "a\u0012b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0012b",
+    "value": "a@a\u0012b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0012b\"@example.com",
+    "value": "\"a\u0012b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0012b]",
+    "value": "a@[a\u0012b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0013b@example.com",
+    "value": "a\u0013b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0013b",
+    "value": "a@a\u0013b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0013b\"@example.com",
+    "value": "\"a\u0013b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0013b]",
+    "value": "a@[a\u0013b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0014b@example.com",
+    "value": "a\u0014b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0014b",
+    "value": "a@a\u0014b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0014b\"@example.com",
+    "value": "\"a\u0014b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0014b]",
+    "value": "a@[a\u0014b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0015b@example.com",
+    "value": "a\u0015b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0015b",
+    "value": "a@a\u0015b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0015b\"@example.com",
+    "value": "\"a\u0015b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0015b]",
+    "value": "a@[a\u0015b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0016b@example.com",
+    "value": "a\u0016b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0016b",
+    "value": "a@a\u0016b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0016b\"@example.com",
+    "value": "\"a\u0016b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0016b]",
+    "value": "a@[a\u0016b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0017b@example.com",
+    "value": "a\u0017b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0017b",
+    "value": "a@a\u0017b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0017b\"@example.com",
+    "value": "\"a\u0017b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0017b]",
+    "value": "a@[a\u0017b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0018b@example.com",
+    "value": "a\u0018b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0018b",
+    "value": "a@a\u0018b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0018b\"@example.com",
+    "value": "\"a\u0018b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0018b]",
+    "value": "a@[a\u0018b]",
+    "valid": true
+  },
+  {
+    "input": "a\u0019b@example.com",
+    "value": "a\u0019b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u0019b",
+    "value": "a@a\u0019b",
+    "valid": false
+  },
+  {
+    "input": "\"a\u0019b\"@example.com",
+    "value": "\"a\u0019b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0019b]",
+    "value": "a@[a\u0019b]",
+    "valid": true
+  },
+  {
+    "input": "a\u001ab@example.com",
+    "value": "a\u001ab@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u001ab",
+    "value": "a@a\u001ab",
+    "valid": false
+  },
+  {
+    "input": "\"a\u001ab\"@example.com",
+    "value": "\"a\u001ab\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u001ab]",
+    "value": "a@[a\u001ab]",
+    "valid": true
+  },
+  {
+    "input": "a\u001bb@example.com",
+    "value": "a\u001bb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u001bb",
+    "value": "a@a\u001bb",
+    "valid": false
+  },
+  {
+    "input": "\"a\u001bb\"@example.com",
+    "value": "\"a\u001bb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u001bb]",
+    "value": "a@[a\u001bb]",
+    "valid": true
+  },
+  {
+    "input": "a\u001cb@example.com",
+    "value": "a\u001cb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u001cb",
+    "value": "a@a\u001cb",
+    "valid": false
+  },
+  {
+    "input": "\"a\u001cb\"@example.com",
+    "value": "\"a\u001cb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u001cb]",
+    "value": "a@[a\u001cb]",
+    "valid": true
+  },
+  {
+    "input": "a\u001db@example.com",
+    "value": "a\u001db@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u001db",
+    "value": "a@a\u001db",
+    "valid": false
+  },
+  {
+    "input": "\"a\u001db\"@example.com",
+    "value": "\"a\u001db\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u001db]",
+    "value": "a@[a\u001db]",
+    "valid": true
+  },
+  {
+    "input": "a\u001eb@example.com",
+    "value": "a\u001eb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u001eb",
+    "value": "a@a\u001eb",
+    "valid": false
+  },
+  {
+    "input": "\"a\u001eb\"@example.com",
+    "value": "\"a\u001eb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u001eb]",
+    "value": "a@[a\u001eb]",
+    "valid": true
+  },
+  {
+    "input": "a\u001fb@example.com",
+    "value": "a\u001fb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u001fb",
+    "value": "a@a\u001fb",
+    "valid": false
+  },
+  {
+    "input": "\"a\u001fb\"@example.com",
+    "value": "\"a\u001fb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u001fb]",
+    "value": "a@[a\u001fb]",
+    "valid": true
+  },
+  {
+    "input": "a b@example.com",
+    "value": "a b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a b",
+    "value": "a@a b",
+    "valid": false
+  },
+  {
+    "input": "\"a b\"@example.com",
+    "value": "\"a b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a b]",
+    "value": "a@[a b]",
+    "valid": true
+  },
+  {
+    "input": "a!b@example.com",
+    "value": "a!b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a!b",
+    "value": "a@a!b",
+    "valid": true
+  },
+  {
+    "input": "\"a!b\"@example.com",
+    "value": "\"a!b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a!b]",
+    "value": "a@[a!b]",
+    "valid": true
+  },
+  {
+    "input": "a\"b@example.com",
+    "value": "a\"b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\"b",
+    "value": "a@a\"b",
+    "valid": false
+  },
+  {
+    "input": "\"a\"b\"@example.com",
+    "value": "\"a\"b\"@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@[a\"b]",
+    "value": "a@[a\"b]",
+    "valid": true
+  },
+  {
+    "input": "a#b@example.com",
+    "value": "a#b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a#b",
+    "value": "a@a#b",
+    "valid": true
+  },
+  {
+    "input": "\"a#b\"@example.com",
+    "value": "\"a#b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a#b]",
+    "value": "a@[a#b]",
+    "valid": true
+  },
+  {
+    "input": "a$b@example.com",
+    "value": "a$b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a$b",
+    "value": "a@a$b",
+    "valid": true
+  },
+  {
+    "input": "\"a$b\"@example.com",
+    "value": "\"a$b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a$b]",
+    "value": "a@[a$b]",
+    "valid": true
+  },
+  {
+    "input": "a%b@example.com",
+    "value": "a%b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a%b",
+    "value": "a@a%b",
+    "valid": true
+  },
+  {
+    "input": "\"a%b\"@example.com",
+    "value": "\"a%b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a%b]",
+    "value": "a@[a%b]",
+    "valid": true
+  },
+  {
+    "input": "a&b@example.com",
+    "value": "a&b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a&b",
+    "value": "a@a&b",
+    "valid": true
+  },
+  {
+    "input": "\"a&b\"@example.com",
+    "value": "\"a&b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a&b]",
+    "value": "a@[a&b]",
+    "valid": true
+  },
+  {
+    "input": "a'b@example.com",
+    "value": "a'b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a'b",
+    "value": "a@a'b",
+    "valid": true
+  },
+  {
+    "input": "\"a'b\"@example.com",
+    "value": "\"a'b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a'b]",
+    "value": "a@[a'b]",
+    "valid": true
+  },
+  {
+    "input": "a(b@example.com",
+    "value": "a(b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a(b",
+    "value": "a@a(b",
+    "valid": false
+  },
+  {
+    "input": "\"a(b\"@example.com",
+    "value": "\"a(b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a(b]",
+    "value": "a@[a(b]",
+    "valid": true
+  },
+  {
+    "input": "a)b@example.com",
+    "value": "a)b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a)b",
+    "value": "a@a)b",
+    "valid": false
+  },
+  {
+    "input": "\"a)b\"@example.com",
+    "value": "\"a)b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a)b]",
+    "value": "a@[a)b]",
+    "valid": true
+  },
+  {
+    "input": "a*b@example.com",
+    "value": "a*b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a*b",
+    "value": "a@a*b",
+    "valid": true
+  },
+  {
+    "input": "\"a*b\"@example.com",
+    "value": "\"a*b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a*b]",
+    "value": "a@[a*b]",
+    "valid": true
+  },
+  {
+    "input": "a+b@example.com",
+    "value": "a+b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a+b",
+    "value": "a@a+b",
+    "valid": true
+  },
+  {
+    "input": "\"a+b\"@example.com",
+    "value": "\"a+b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a+b]",
+    "value": "a@[a+b]",
+    "valid": true
+  },
+  {
+    "input": "a,b@example.com",
+    "value": "a,b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a,b",
+    "value": "a@a,b",
+    "valid": false
+  },
+  {
+    "input": "\"a,b\"@example.com",
+    "value": "\"a,b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a,b]",
+    "value": "a@[a,b]",
+    "valid": true
+  },
+  {
+    "input": "a-b@example.com",
+    "value": "a-b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a-b",
+    "value": "a@a-b",
+    "valid": true
+  },
+  {
+    "input": "\"a-b\"@example.com",
+    "value": "\"a-b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a-b]",
+    "value": "a@[a-b]",
+    "valid": true
+  },
+  {
+    "input": "a.b@example.com",
+    "value": "a.b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a.b",
+    "value": "a@a.b",
+    "valid": true
+  },
+  {
+    "input": "\"a.b\"@example.com",
+    "value": "\"a.b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a.b]",
+    "value": "a@[a.b]",
+    "valid": true
+  },
+  {
+    "input": "a/b@example.com",
+    "value": "a/b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a/b",
+    "value": "a@a/b",
+    "valid": true
+  },
+  {
+    "input": "\"a/b\"@example.com",
+    "value": "\"a/b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a/b]",
+    "value": "a@[a/b]",
+    "valid": true
+  },
+  {
+    "input": "a0b@example.com",
+    "value": "a0b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a0b",
+    "value": "a@a0b",
+    "valid": true
+  },
+  {
+    "input": "\"a0b\"@example.com",
+    "value": "\"a0b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a0b]",
+    "value": "a@[a0b]",
+    "valid": true
+  },
+  {
+    "input": "a1b@example.com",
+    "value": "a1b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a1b",
+    "value": "a@a1b",
+    "valid": true
+  },
+  {
+    "input": "\"a1b\"@example.com",
+    "value": "\"a1b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a1b]",
+    "value": "a@[a1b]",
+    "valid": true
+  },
+  {
+    "input": "a2b@example.com",
+    "value": "a2b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a2b",
+    "value": "a@a2b",
+    "valid": true
+  },
+  {
+    "input": "\"a2b\"@example.com",
+    "value": "\"a2b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a2b]",
+    "value": "a@[a2b]",
+    "valid": true
+  },
+  {
+    "input": "a3b@example.com",
+    "value": "a3b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a3b",
+    "value": "a@a3b",
+    "valid": true
+  },
+  {
+    "input": "\"a3b\"@example.com",
+    "value": "\"a3b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a3b]",
+    "value": "a@[a3b]",
+    "valid": true
+  },
+  {
+    "input": "a4b@example.com",
+    "value": "a4b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a4b",
+    "value": "a@a4b",
+    "valid": true
+  },
+  {
+    "input": "\"a4b\"@example.com",
+    "value": "\"a4b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a4b]",
+    "value": "a@[a4b]",
+    "valid": true
+  },
+  {
+    "input": "a5b@example.com",
+    "value": "a5b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a5b",
+    "value": "a@a5b",
+    "valid": true
+  },
+  {
+    "input": "\"a5b\"@example.com",
+    "value": "\"a5b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a5b]",
+    "value": "a@[a5b]",
+    "valid": true
+  },
+  {
+    "input": "a6b@example.com",
+    "value": "a6b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a6b",
+    "value": "a@a6b",
+    "valid": true
+  },
+  {
+    "input": "\"a6b\"@example.com",
+    "value": "\"a6b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a6b]",
+    "value": "a@[a6b]",
+    "valid": true
+  },
+  {
+    "input": "a7b@example.com",
+    "value": "a7b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a7b",
+    "value": "a@a7b",
+    "valid": true
+  },
+  {
+    "input": "\"a7b\"@example.com",
+    "value": "\"a7b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a7b]",
+    "value": "a@[a7b]",
+    "valid": true
+  },
+  {
+    "input": "a8b@example.com",
+    "value": "a8b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a8b",
+    "value": "a@a8b",
+    "valid": true
+  },
+  {
+    "input": "\"a8b\"@example.com",
+    "value": "\"a8b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a8b]",
+    "value": "a@[a8b]",
+    "valid": true
+  },
+  {
+    "input": "a9b@example.com",
+    "value": "a9b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a9b",
+    "value": "a@a9b",
+    "valid": true
+  },
+  {
+    "input": "\"a9b\"@example.com",
+    "value": "\"a9b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a9b]",
+    "value": "a@[a9b]",
+    "valid": true
+  },
+  {
+    "input": "a:b@example.com",
+    "value": "a:b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a:b",
+    "value": "a@a:b",
+    "valid": false
+  },
+  {
+    "input": "\"a:b\"@example.com",
+    "value": "\"a:b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a:b]",
+    "value": "a@[a:b]",
+    "valid": true
+  },
+  {
+    "input": "a;b@example.com",
+    "value": "a;b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a;b",
+    "value": "a@a;b",
+    "valid": false
+  },
+  {
+    "input": "\"a;b\"@example.com",
+    "value": "\"a;b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a;b]",
+    "value": "a@[a;b]",
+    "valid": true
+  },
+  {
+    "input": "a<b@example.com",
+    "value": "a<b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a<b",
+    "value": "a@a<b",
+    "valid": false
+  },
+  {
+    "input": "\"a<b\"@example.com",
+    "value": "\"a<b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a<b]",
+    "value": "a@[a<b]",
+    "valid": true
+  },
+  {
+    "input": "a=b@example.com",
+    "value": "a=b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a=b",
+    "value": "a@a=b",
+    "valid": true
+  },
+  {
+    "input": "\"a=b\"@example.com",
+    "value": "\"a=b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a=b]",
+    "value": "a@[a=b]",
+    "valid": true
+  },
+  {
+    "input": "a>b@example.com",
+    "value": "a>b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a>b",
+    "value": "a@a>b",
+    "valid": false
+  },
+  {
+    "input": "\"a>b\"@example.com",
+    "value": "\"a>b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a>b]",
+    "value": "a@[a>b]",
+    "valid": true
+  },
+  {
+    "input": "a?b@example.com",
+    "value": "a?b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a?b",
+    "value": "a@a?b",
+    "valid": true
+  },
+  {
+    "input": "\"a?b\"@example.com",
+    "value": "\"a?b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a?b]",
+    "value": "a@[a?b]",
+    "valid": true
+  },
+  {
+    "input": "a@b@example.com",
+    "value": "a@b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a@b",
+    "value": "a@a@b",
+    "valid": false
+  },
+  {
+    "input": "\"a@b\"@example.com",
+    "value": "\"a@b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a@b]",
+    "value": "a@[a@b]",
+    "valid": true
+  },
+  {
+    "input": "aAb@example.com",
+    "value": "aAb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aAb",
+    "value": "a@aAb",
+    "valid": true
+  },
+  {
+    "input": "\"aAb\"@example.com",
+    "value": "\"aAb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aAb]",
+    "value": "a@[aAb]",
+    "valid": true
+  },
+  {
+    "input": "aBb@example.com",
+    "value": "aBb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aBb",
+    "value": "a@aBb",
+    "valid": true
+  },
+  {
+    "input": "\"aBb\"@example.com",
+    "value": "\"aBb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aBb]",
+    "value": "a@[aBb]",
+    "valid": true
+  },
+  {
+    "input": "aCb@example.com",
+    "value": "aCb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aCb",
+    "value": "a@aCb",
+    "valid": true
+  },
+  {
+    "input": "\"aCb\"@example.com",
+    "value": "\"aCb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aCb]",
+    "value": "a@[aCb]",
+    "valid": true
+  },
+  {
+    "input": "aDb@example.com",
+    "value": "aDb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aDb",
+    "value": "a@aDb",
+    "valid": true
+  },
+  {
+    "input": "\"aDb\"@example.com",
+    "value": "\"aDb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aDb]",
+    "value": "a@[aDb]",
+    "valid": true
+  },
+  {
+    "input": "aEb@example.com",
+    "value": "aEb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aEb",
+    "value": "a@aEb",
+    "valid": true
+  },
+  {
+    "input": "\"aEb\"@example.com",
+    "value": "\"aEb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aEb]",
+    "value": "a@[aEb]",
+    "valid": true
+  },
+  {
+    "input": "aFb@example.com",
+    "value": "aFb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aFb",
+    "value": "a@aFb",
+    "valid": true
+  },
+  {
+    "input": "\"aFb\"@example.com",
+    "value": "\"aFb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aFb]",
+    "value": "a@[aFb]",
+    "valid": true
+  },
+  {
+    "input": "aGb@example.com",
+    "value": "aGb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aGb",
+    "value": "a@aGb",
+    "valid": true
+  },
+  {
+    "input": "\"aGb\"@example.com",
+    "value": "\"aGb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aGb]",
+    "value": "a@[aGb]",
+    "valid": true
+  },
+  {
+    "input": "aHb@example.com",
+    "value": "aHb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aHb",
+    "value": "a@aHb",
+    "valid": true
+  },
+  {
+    "input": "\"aHb\"@example.com",
+    "value": "\"aHb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aHb]",
+    "value": "a@[aHb]",
+    "valid": true
+  },
+  {
+    "input": "aIb@example.com",
+    "value": "aIb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aIb",
+    "value": "a@aIb",
+    "valid": true
+  },
+  {
+    "input": "\"aIb\"@example.com",
+    "value": "\"aIb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aIb]",
+    "value": "a@[aIb]",
+    "valid": true
+  },
+  {
+    "input": "aJb@example.com",
+    "value": "aJb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aJb",
+    "value": "a@aJb",
+    "valid": true
+  },
+  {
+    "input": "\"aJb\"@example.com",
+    "value": "\"aJb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aJb]",
+    "value": "a@[aJb]",
+    "valid": true
+  },
+  {
+    "input": "aKb@example.com",
+    "value": "aKb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aKb",
+    "value": "a@aKb",
+    "valid": true
+  },
+  {
+    "input": "\"aKb\"@example.com",
+    "value": "\"aKb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aKb]",
+    "value": "a@[aKb]",
+    "valid": true
+  },
+  {
+    "input": "aLb@example.com",
+    "value": "aLb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aLb",
+    "value": "a@aLb",
+    "valid": true
+  },
+  {
+    "input": "\"aLb\"@example.com",
+    "value": "\"aLb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aLb]",
+    "value": "a@[aLb]",
+    "valid": true
+  },
+  {
+    "input": "aMb@example.com",
+    "value": "aMb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aMb",
+    "value": "a@aMb",
+    "valid": true
+  },
+  {
+    "input": "\"aMb\"@example.com",
+    "value": "\"aMb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aMb]",
+    "value": "a@[aMb]",
+    "valid": true
+  },
+  {
+    "input": "aNb@example.com",
+    "value": "aNb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aNb",
+    "value": "a@aNb",
+    "valid": true
+  },
+  {
+    "input": "\"aNb\"@example.com",
+    "value": "\"aNb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aNb]",
+    "value": "a@[aNb]",
+    "valid": true
+  },
+  {
+    "input": "aOb@example.com",
+    "value": "aOb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aOb",
+    "value": "a@aOb",
+    "valid": true
+  },
+  {
+    "input": "\"aOb\"@example.com",
+    "value": "\"aOb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aOb]",
+    "value": "a@[aOb]",
+    "valid": true
+  },
+  {
+    "input": "aPb@example.com",
+    "value": "aPb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aPb",
+    "value": "a@aPb",
+    "valid": true
+  },
+  {
+    "input": "\"aPb\"@example.com",
+    "value": "\"aPb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aPb]",
+    "value": "a@[aPb]",
+    "valid": true
+  },
+  {
+    "input": "aQb@example.com",
+    "value": "aQb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aQb",
+    "value": "a@aQb",
+    "valid": true
+  },
+  {
+    "input": "\"aQb\"@example.com",
+    "value": "\"aQb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aQb]",
+    "value": "a@[aQb]",
+    "valid": true
+  },
+  {
+    "input": "aRb@example.com",
+    "value": "aRb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aRb",
+    "value": "a@aRb",
+    "valid": true
+  },
+  {
+    "input": "\"aRb\"@example.com",
+    "value": "\"aRb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aRb]",
+    "value": "a@[aRb]",
+    "valid": true
+  },
+  {
+    "input": "aSb@example.com",
+    "value": "aSb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aSb",
+    "value": "a@aSb",
+    "valid": true
+  },
+  {
+    "input": "\"aSb\"@example.com",
+    "value": "\"aSb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aSb]",
+    "value": "a@[aSb]",
+    "valid": true
+  },
+  {
+    "input": "aTb@example.com",
+    "value": "aTb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aTb",
+    "value": "a@aTb",
+    "valid": true
+  },
+  {
+    "input": "\"aTb\"@example.com",
+    "value": "\"aTb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aTb]",
+    "value": "a@[aTb]",
+    "valid": true
+  },
+  {
+    "input": "aUb@example.com",
+    "value": "aUb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aUb",
+    "value": "a@aUb",
+    "valid": true
+  },
+  {
+    "input": "\"aUb\"@example.com",
+    "value": "\"aUb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aUb]",
+    "value": "a@[aUb]",
+    "valid": true
+  },
+  {
+    "input": "aVb@example.com",
+    "value": "aVb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aVb",
+    "value": "a@aVb",
+    "valid": true
+  },
+  {
+    "input": "\"aVb\"@example.com",
+    "value": "\"aVb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aVb]",
+    "value": "a@[aVb]",
+    "valid": true
+  },
+  {
+    "input": "aWb@example.com",
+    "value": "aWb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aWb",
+    "value": "a@aWb",
+    "valid": true
+  },
+  {
+    "input": "\"aWb\"@example.com",
+    "value": "\"aWb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aWb]",
+    "value": "a@[aWb]",
+    "valid": true
+  },
+  {
+    "input": "aXb@example.com",
+    "value": "aXb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aXb",
+    "value": "a@aXb",
+    "valid": true
+  },
+  {
+    "input": "\"aXb\"@example.com",
+    "value": "\"aXb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aXb]",
+    "value": "a@[aXb]",
+    "valid": true
+  },
+  {
+    "input": "aYb@example.com",
+    "value": "aYb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aYb",
+    "value": "a@aYb",
+    "valid": true
+  },
+  {
+    "input": "\"aYb\"@example.com",
+    "value": "\"aYb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aYb]",
+    "value": "a@[aYb]",
+    "valid": true
+  },
+  {
+    "input": "aZb@example.com",
+    "value": "aZb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aZb",
+    "value": "a@aZb",
+    "valid": true
+  },
+  {
+    "input": "\"aZb\"@example.com",
+    "value": "\"aZb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aZb]",
+    "value": "a@[aZb]",
+    "valid": true
+  },
+  {
+    "input": "a[b@example.com",
+    "value": "a[b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a[b",
+    "value": "a@a[b",
+    "valid": false
+  },
+  {
+    "input": "\"a[b\"@example.com",
+    "value": "\"a[b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a[b]",
+    "value": "a@[a[b]",
+    "valid": false
+  },
+  {
+    "input": "a\\b@example.com",
+    "value": "a\\b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\\b",
+    "value": "a@a\\b",
+    "valid": false
+  },
+  {
+    "input": "\"a\\b\"@example.com",
+    "value": "\"a\\b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\b]",
+    "value": "a@[a\\b]",
+    "valid": true
+  },
+  {
+    "input": "a]b@example.com",
+    "value": "a]b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a]b",
+    "value": "a@a]b",
+    "valid": false
+  },
+  {
+    "input": "\"a]b\"@example.com",
+    "value": "\"a]b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a]b]",
+    "value": "a@[a]b]",
+    "valid": false
+  },
+  {
+    "input": "a^b@example.com",
+    "value": "a^b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a^b",
+    "value": "a@a^b",
+    "valid": true
+  },
+  {
+    "input": "\"a^b\"@example.com",
+    "value": "\"a^b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a^b]",
+    "value": "a@[a^b]",
+    "valid": true
+  },
+  {
+    "input": "a_b@example.com",
+    "value": "a_b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a_b",
+    "value": "a@a_b",
+    "valid": true
+  },
+  {
+    "input": "\"a_b\"@example.com",
+    "value": "\"a_b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a_b]",
+    "value": "a@[a_b]",
+    "valid": true
+  },
+  {
+    "input": "a`b@example.com",
+    "value": "a`b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a`b",
+    "value": "a@a`b",
+    "valid": true
+  },
+  {
+    "input": "\"a`b\"@example.com",
+    "value": "\"a`b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a`b]",
+    "value": "a@[a`b]",
+    "valid": true
+  },
+  {
+    "input": "aab@example.com",
+    "value": "aab@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aab",
+    "value": "a@aab",
+    "valid": true
+  },
+  {
+    "input": "\"aab\"@example.com",
+    "value": "\"aab\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aab]",
+    "value": "a@[aab]",
+    "valid": true
+  },
+  {
+    "input": "abb@example.com",
+    "value": "abb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@abb",
+    "value": "a@abb",
+    "valid": true
+  },
+  {
+    "input": "\"abb\"@example.com",
+    "value": "\"abb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[abb]",
+    "value": "a@[abb]",
+    "valid": true
+  },
+  {
+    "input": "acb@example.com",
+    "value": "acb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@acb",
+    "value": "a@acb",
+    "valid": true
+  },
+  {
+    "input": "\"acb\"@example.com",
+    "value": "\"acb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[acb]",
+    "value": "a@[acb]",
+    "valid": true
+  },
+  {
+    "input": "adb@example.com",
+    "value": "adb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@adb",
+    "value": "a@adb",
+    "valid": true
+  },
+  {
+    "input": "\"adb\"@example.com",
+    "value": "\"adb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[adb]",
+    "value": "a@[adb]",
+    "valid": true
+  },
+  {
+    "input": "aeb@example.com",
+    "value": "aeb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aeb",
+    "value": "a@aeb",
+    "valid": true
+  },
+  {
+    "input": "\"aeb\"@example.com",
+    "value": "\"aeb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aeb]",
+    "value": "a@[aeb]",
+    "valid": true
+  },
+  {
+    "input": "afb@example.com",
+    "value": "afb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@afb",
+    "value": "a@afb",
+    "valid": true
+  },
+  {
+    "input": "\"afb\"@example.com",
+    "value": "\"afb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[afb]",
+    "value": "a@[afb]",
+    "valid": true
+  },
+  {
+    "input": "agb@example.com",
+    "value": "agb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@agb",
+    "value": "a@agb",
+    "valid": true
+  },
+  {
+    "input": "\"agb\"@example.com",
+    "value": "\"agb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[agb]",
+    "value": "a@[agb]",
+    "valid": true
+  },
+  {
+    "input": "ahb@example.com",
+    "value": "ahb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@ahb",
+    "value": "a@ahb",
+    "valid": true
+  },
+  {
+    "input": "\"ahb\"@example.com",
+    "value": "\"ahb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[ahb]",
+    "value": "a@[ahb]",
+    "valid": true
+  },
+  {
+    "input": "aib@example.com",
+    "value": "aib@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aib",
+    "value": "a@aib",
+    "valid": true
+  },
+  {
+    "input": "\"aib\"@example.com",
+    "value": "\"aib\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aib]",
+    "value": "a@[aib]",
+    "valid": true
+  },
+  {
+    "input": "ajb@example.com",
+    "value": "ajb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@ajb",
+    "value": "a@ajb",
+    "valid": true
+  },
+  {
+    "input": "\"ajb\"@example.com",
+    "value": "\"ajb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[ajb]",
+    "value": "a@[ajb]",
+    "valid": true
+  },
+  {
+    "input": "akb@example.com",
+    "value": "akb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@akb",
+    "value": "a@akb",
+    "valid": true
+  },
+  {
+    "input": "\"akb\"@example.com",
+    "value": "\"akb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[akb]",
+    "value": "a@[akb]",
+    "valid": true
+  },
+  {
+    "input": "alb@example.com",
+    "value": "alb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@alb",
+    "value": "a@alb",
+    "valid": true
+  },
+  {
+    "input": "\"alb\"@example.com",
+    "value": "\"alb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[alb]",
+    "value": "a@[alb]",
+    "valid": true
+  },
+  {
+    "input": "amb@example.com",
+    "value": "amb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@amb",
+    "value": "a@amb",
+    "valid": true
+  },
+  {
+    "input": "\"amb\"@example.com",
+    "value": "\"amb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[amb]",
+    "value": "a@[amb]",
+    "valid": true
+  },
+  {
+    "input": "anb@example.com",
+    "value": "anb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@anb",
+    "value": "a@anb",
+    "valid": true
+  },
+  {
+    "input": "\"anb\"@example.com",
+    "value": "\"anb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[anb]",
+    "value": "a@[anb]",
+    "valid": true
+  },
+  {
+    "input": "aob@example.com",
+    "value": "aob@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aob",
+    "value": "a@aob",
+    "valid": true
+  },
+  {
+    "input": "\"aob\"@example.com",
+    "value": "\"aob\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aob]",
+    "value": "a@[aob]",
+    "valid": true
+  },
+  {
+    "input": "apb@example.com",
+    "value": "apb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@apb",
+    "value": "a@apb",
+    "valid": true
+  },
+  {
+    "input": "\"apb\"@example.com",
+    "value": "\"apb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[apb]",
+    "value": "a@[apb]",
+    "valid": true
+  },
+  {
+    "input": "aqb@example.com",
+    "value": "aqb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aqb",
+    "value": "a@aqb",
+    "valid": true
+  },
+  {
+    "input": "\"aqb\"@example.com",
+    "value": "\"aqb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aqb]",
+    "value": "a@[aqb]",
+    "valid": true
+  },
+  {
+    "input": "arb@example.com",
+    "value": "arb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@arb",
+    "value": "a@arb",
+    "valid": true
+  },
+  {
+    "input": "\"arb\"@example.com",
+    "value": "\"arb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[arb]",
+    "value": "a@[arb]",
+    "valid": true
+  },
+  {
+    "input": "asb@example.com",
+    "value": "asb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@asb",
+    "value": "a@asb",
+    "valid": true
+  },
+  {
+    "input": "\"asb\"@example.com",
+    "value": "\"asb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[asb]",
+    "value": "a@[asb]",
+    "valid": true
+  },
+  {
+    "input": "atb@example.com",
+    "value": "atb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@atb",
+    "value": "a@atb",
+    "valid": true
+  },
+  {
+    "input": "\"atb\"@example.com",
+    "value": "\"atb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[atb]",
+    "value": "a@[atb]",
+    "valid": true
+  },
+  {
+    "input": "aub@example.com",
+    "value": "aub@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@aub",
+    "value": "a@aub",
+    "valid": true
+  },
+  {
+    "input": "\"aub\"@example.com",
+    "value": "\"aub\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[aub]",
+    "value": "a@[aub]",
+    "valid": true
+  },
+  {
+    "input": "avb@example.com",
+    "value": "avb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@avb",
+    "value": "a@avb",
+    "valid": true
+  },
+  {
+    "input": "\"avb\"@example.com",
+    "value": "\"avb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[avb]",
+    "value": "a@[avb]",
+    "valid": true
+  },
+  {
+    "input": "awb@example.com",
+    "value": "awb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@awb",
+    "value": "a@awb",
+    "valid": true
+  },
+  {
+    "input": "\"awb\"@example.com",
+    "value": "\"awb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[awb]",
+    "value": "a@[awb]",
+    "valid": true
+  },
+  {
+    "input": "axb@example.com",
+    "value": "axb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@axb",
+    "value": "a@axb",
+    "valid": true
+  },
+  {
+    "input": "\"axb\"@example.com",
+    "value": "\"axb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[axb]",
+    "value": "a@[axb]",
+    "valid": true
+  },
+  {
+    "input": "ayb@example.com",
+    "value": "ayb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@ayb",
+    "value": "a@ayb",
+    "valid": true
+  },
+  {
+    "input": "\"ayb\"@example.com",
+    "value": "\"ayb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[ayb]",
+    "value": "a@[ayb]",
+    "valid": true
+  },
+  {
+    "input": "azb@example.com",
+    "value": "azb@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@azb",
+    "value": "a@azb",
+    "valid": true
+  },
+  {
+    "input": "\"azb\"@example.com",
+    "value": "\"azb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[azb]",
+    "value": "a@[azb]",
+    "valid": true
+  },
+  {
+    "input": "a{b@example.com",
+    "value": "a{b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a{b",
+    "value": "a@a{b",
+    "valid": true
+  },
+  {
+    "input": "\"a{b\"@example.com",
+    "value": "\"a{b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a{b]",
+    "value": "a@[a{b]",
+    "valid": true
+  },
+  {
+    "input": "a|b@example.com",
+    "value": "a|b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a|b",
+    "value": "a@a|b",
+    "valid": true
+  },
+  {
+    "input": "\"a|b\"@example.com",
+    "value": "\"a|b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a|b]",
+    "value": "a@[a|b]",
+    "valid": true
+  },
+  {
+    "input": "a}b@example.com",
+    "value": "a}b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a}b",
+    "value": "a@a}b",
+    "valid": true
+  },
+  {
+    "input": "\"a}b\"@example.com",
+    "value": "\"a}b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a}b]",
+    "value": "a@[a}b]",
+    "valid": true
+  },
+  {
+    "input": "a~b@example.com",
+    "value": "a~b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a~b",
+    "value": "a@a~b",
+    "valid": true
+  },
+  {
+    "input": "\"a~b\"@example.com",
+    "value": "\"a~b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a~b]",
+    "value": "a@[a~b]",
+    "valid": true
+  },
+  {
+    "input": "a\u007fb@example.com",
+    "value": "a\u007fb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\u007fb",
+    "value": "a@a\u007fb",
+    "valid": false
+  },
+  {
+    "input": "\"a\u007fb\"@example.com",
+    "value": "\"a\u007fb\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u007fb]",
+    "value": "a@[a\u007fb]",
+    "valid": true
+  },
+  {
+    "input": "a\u00e9b@example.com",
+    "value": "a\u00e9b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a\u00e9b",
+    "value": "a@a\u00e9b",
+    "valid": true
+  },
+  {
+    "input": "\"a\u00e9b\"@example.com",
+    "value": "\"a\u00e9b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u00e9b]",
+    "value": "a@[a\u00e9b]",
+    "valid": false
+  },
+  {
+    "input": "ae\u0301b@example.com",
+    "value": "ae\u0301b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@ae\u0301b",
+    "value": "a@ae\u0301b",
+    "valid": false
+  },
+  {
+    "input": "\"ae\u0301b\"@example.com",
+    "value": "\"ae\u0301b\"@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@[ae\u0301b]",
+    "value": "a@[ae\u0301b]",
+    "valid": false
+  },
+  {
+    "input": "a\u7528\u6237b@example.com",
+    "value": "a\u7528\u6237b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a\u7528\u6237b",
+    "value": "a@a\u7528\u6237b",
+    "valid": true
+  },
+  {
+    "input": "\"a\u7528\u6237b\"@example.com",
+    "value": "\"a\u7528\u6237b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u7528\u6237b]",
+    "value": "a@[a\u7528\u6237b]",
+    "valid": false
+  },
+  {
+    "input": "a\u00a0b@example.com",
+    "value": "a\u00a0b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a\u00a0b",
+    "value": "a@a\u00a0b",
+    "valid": true
+  },
+  {
+    "input": "\"a\u00a0b\"@example.com",
+    "value": "\"a\u00a0b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u00a0b]",
+    "value": "a@[a\u00a0b]",
+    "valid": false
+  },
+  {
+    "input": "a\u0085b@example.com",
+    "value": "a\u0085b@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@a\u0085b",
+    "value": "a@a\u0085b",
+    "valid": true
+  },
+  {
+    "input": "\"a\u0085b\"@example.com",
+    "value": "\"a\u0085b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\u0085b]",
+    "value": "a@[a\u0085b]",
+    "valid": false
+  },
+  {
+    "input": "a\r\nb@example.com",
+    "value": "a\r\nb@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\r\nb",
+    "value": "a@a\r\nb",
+    "valid": false
+  },
+  {
+    "input": "\"a\r\nb\"@example.com",
+    "value": "\"a\r\nb\"@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@[a\r\nb]",
+    "value": "a@[a\r\nb]",
+    "valid": false
+  },
+  {
+    "input": "a\r\n b@example.com",
+    "value": "a\r\n b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\r\n b",
+    "value": "a@a\r\n b",
+    "valid": false
+  },
+  {
+    "input": "\"a\r\n b\"@example.com",
+    "value": "\"a\r\n b\"@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@[a\r\n b]",
+    "value": "a@[a\r\n b]",
+    "valid": false
+  },
+  {
+    "input": "a\\\u00e9b@example.com",
+    "value": "a\\\u00e9b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\\\u00e9b",
+    "value": "a@a\\\u00e9b",
+    "valid": false
+  },
+  {
+    "input": "\"a\\\u00e9b\"@example.com",
+    "value": "\"a\\\u00e9b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\\u00e9b]",
+    "value": "a@[a\\\u00e9b]",
+    "valid": false
+  },
+  {
+    "input": "a\\[b@example.com",
+    "value": "a\\[b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\\[b",
+    "value": "a@a\\[b",
+    "valid": false
+  },
+  {
+    "input": "\"a\\[b\"@example.com",
+    "value": "\"a\\[b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\[b]",
+    "value": "a@[a\\[b]",
+    "valid": true
+  },
+  {
+    "input": "a\\]b@example.com",
+    "value": "a\\]b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\\]b",
+    "value": "a@a\\]b",
+    "valid": false
+  },
+  {
+    "input": "\"a\\]b\"@example.com",
+    "value": "\"a\\]b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\]b]",
+    "value": "a@[a\\]b]",
+    "valid": true
+  },
+  {
+    "input": "a\\\"b@example.com",
+    "value": "a\\\"b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\\\"b",
+    "value": "a@a\\\"b",
+    "valid": false
+  },
+  {
+    "input": "\"a\\\"b\"@example.com",
+    "value": "\"a\\\"b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\\"b]",
+    "value": "a@[a\\\"b]",
+    "valid": true
+  },
+  {
+    "input": "a\\\\b@example.com",
+    "value": "a\\\\b@example.com",
+    "valid": false
+  },
+  {
+    "input": "a@a\\\\b",
+    "value": "a@a\\\\b",
+    "valid": false
+  },
+  {
+    "input": "\"a\\\\b\"@example.com",
+    "value": "\"a\\\\b\"@example.com",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\\\b]",
+    "value": "a@[a\\\\b]",
+    "valid": true
+  },
+  {
+    "input": "a@[]",
+    "value": "a@[]",
+    "valid": true
+  },
+  {
+    "input": "\"a@b\"@b",
+    "value": "\"a@b\"@b",
+    "valid": true
+  },
+  {
+    "input": "\"\"@b",
+    "value": "\"\"@b",
+    "valid": true
+  },
+  {
+    "input": "a@[a@b]",
+    "value": "a@[a@b]",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\[b]",
+    "value": "a@[a\\[b]",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\]b]",
+    "value": "a@[a\\]b]",
+    "valid": true
+  },
+  {
+    "input": "a@[a\\@b]",
+    "value": "a@[a\\@b]",
+    "valid": true
+  },
+  {
+    "input": "\"a\\\r\nb\"@b",
+    "value": "\"a\\\r\nb\"@b",
+    "valid": false
+  }
+]

@@ -39,6 +39,8 @@ export function Topbar() {
         pageNames[location.pathname] ??
         Object.entries(pageNames).find(([path]) => location.pathname.startsWith(path + "/"))?.[1] ?? "HTT Management";
 
+    if (location.pathname === "/contacts/price-settings" || location.pathname === "/inventory/price-settings") pageTitle = "Price Settings";
+    if (location.pathname === "/settings/employees") pageTitle = "Users";
     if (location.pathname === "/settings/trash") pageTitle = "Trash";
     if (location.pathname === "/contacts/supplier-dashboard") pageTitle = "Suppliers";
     if (location.pathname === "/contacts/suppliers" || location.pathname.startsWith("/contacts/suppliers/")) {

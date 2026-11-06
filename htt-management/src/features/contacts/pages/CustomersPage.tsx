@@ -1,17 +1,14 @@
+import { CustomerStatusSelect } from "../components/CustomerStatusSelect";
 import { useVisits } from "../../sales-visits/visitRepository";
 import { useWorkspaceRecords } from "../../business-workspace/workspaceRepository";
 import type { ConfigRow } from "../../business-workspace/configurationState";
 import { useSecurity } from "../../security/securityClient";
-import { usePermission } from "../../security/usePermission";
-import { customerRepository } from "../data/customerRepository";
-import { customerStatuses } from "../schemas/customerSchemas";
-import { feedback } from "../../../components/ui/feedback";
 import { useMemo } from "react";
 import { calculateCustomerAccountsReceivable } from "../../sales/data/accountsReceivableService";
 import { useSalesDocuments } from "../../sales/data/useSalesDocuments";
 import { usePayments } from "../../sales/data/usePayments";
 import { useCreditAllocations, useCreditNotes } from "../../sales/data/useCreditNotes";
-import { ChevronDown, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { Link, useNavigate } from "react-router-dom";
 
@@ -20,7 +17,6 @@ import type { CellContext, ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "../../../components/data-table/DataTable";
 import { Button } from "../../../components/ui/Button";
 
-import { CustomerStatusBadge, customerStatusLabels } from "../components/CustomerStatusBadge";
 
 import { useCustomers } from "../data/useCustomers";
 
@@ -249,40 +245,10 @@ const columns: ColumnDef<
             accessorKey: "status",
             header: "Status",
 
-            cell: ({ row }) => <CustomerStatusCell customer={row.original}/>,
+            cell: ({ row }) => <CustomerStatusSelect customer={row.original}/>,
         },
     ];
 
-function CustomerStatusCell({ customer }: { customer: Customer }) {
-    const canEdit = usePermission("contacts.write");
-    if (!canEdit) return <CustomerStatusBadge status={customer.status}/>;
-
-    const statusColor = {
-        ACTIVE: "bg-[var(--color-success-soft)] text-[var(--color-success)]",
-        ON_HOLD: "bg-[var(--color-warning-soft)] text-[#8a641c]",
-        INACTIVE: "bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]",
-    }[customer.status];
-
-    return <span className="relative inline-flex">
-    <select
-        aria-label={`Status for ${customer.businessName}`}
-        value={customer.status}
-        onClick={event => event.stopPropagation()}
-        className={`h-6 w-40 cursor-pointer appearance-none rounded-full border-0 pl-3 pr-7 text-xs font-medium ${statusColor}`}
-        onChange={event => {
-            try {
-                customerRepository.setStatus(customer.id, event.target.value);
-                feedback.success("Customer status updated.");
-            } catch (error) {
-                feedback.error(error instanceof Error ? error.message : "Could not update customer status.");
-            }
-        }}
-    >
-        {customerStatuses.map(status => <option key={status} value={status}>{customerStatusLabels[status]}</option>)}
-    </select>
-    <ChevronDown size={13} aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"/>
-    </span>;
-}
 
 function activityCounts(notes: CustomerNote[], tasks: ConfigRow[]) {
     const resolved = new Set(notes.filter(note => note.action === "resolve").map(note => note.threadId));

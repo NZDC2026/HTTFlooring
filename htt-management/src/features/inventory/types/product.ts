@@ -41,6 +41,11 @@ export interface ProductUnit {
      * Standard selling price for one of this unit.
      */
     basePrice: number;
+    tradePrice?: number;
+    publicPrice?: number;
+    vipPrice?: number;
+    vvipPrice?: number;
+    containerPrice?: number;
 
     isBaseUnit: boolean;
     active: boolean;
@@ -53,6 +58,8 @@ export interface Product {
     category: ProductCategory;
     brand?: string;
     collection?: string;
+    pattern?: "Plank" | "Herringbone" | "Chevron";
+    accessoryType?: import("../../contacts/data/priceCatalogue").AccessoryType;
     description?: string;
 
     status: ProductStatus;

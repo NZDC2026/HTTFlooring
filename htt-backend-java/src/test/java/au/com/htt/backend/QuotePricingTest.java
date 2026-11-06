@@ -42,4 +42,9 @@ class QuotePricingTest {
         var facts=QuotePricing.calculate(data,AT,false);
         assertEquals(new BigDecimal("1.23456790"),facts.unitPrice());assertEquals(new BigDecimal("2"),facts.floor());assertEquals(AT,facts.pricingAt());
     }
+    @Test void dateTimeOffsetMatchesIndependentDotnetLiteralWithoutEscapingOffsetPlus() {
+        var data=new LinkedHashMap<String,Object>();data.put("productUnitId",UUID.fromString("00000000-0000-0000-0000-000000000184"));data.put("amount",new BigDecimal("50.00"));
+        data.put("effectiveFrom",OffsetDateTime.parse("2026-01-01T00:00:00+00:00"));data.put("effectiveTo",null);data.put("active",true);
+        assertEquals("{\"productUnitId\":\"00000000-0000-0000-0000-000000000184\",\"amount\":\"50.00\",\"effectiveFrom\":\"2026-01-01T00:00:00+00:00\",\"effectiveTo\":null,\"active\":true}",QuotePricing.canonical(data));
+    }
 }

@@ -1,415 +1,49 @@
-import {CostingPolicyPanel} from '../components/CostingPolicyPanel';
-import {
-    useMemo,
-    useState,
-} from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useState, useSyncExternalStore } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Boxes, Plus, Warehouse, Package, Wallet, TriangleAlert, ArrowLeftRight, History, Download, ChevronRight, X, SlidersHorizontal } from 'lucide-react';
+import { CostingPolicyPanel } from '../components/CostingPolicyPanel';
+import { InventoryMovementTable } from '../components/InventoryMovementTable';
+import { inventorySiteRepository } from '../data/inventorySiteRepository';
+import { inventoryCostBalanceRepository } from '../data/inventoryCostBalanceRepository';
+import { useInventoryStockRows, useInventoryMovementRows } from '../data/useInventory';
+import { useProducts } from '../../business-workspace/productRepository';
+import { usePermission } from '../../security/usePermission';
+import { useSupplierBills } from '../../purchases/data/useSupplierBills';
+import { inventoryItemMetrics } from '../data/inventoryItemMetrics';
+import { samples, type Item } from '../data/inventorySamples';
+import { useNavigate } from 'react-router-dom';
+import './inventory-page.css';
 
-import {
-    Boxes,
-    History,
-    PackageCheck,
-    Warehouse,
-} from "lucide-react";
-
-import {
-    inventorySiteRepository,
-} from "../data/inventorySiteRepository";
-
-import {
-    useInventoryMovementRows,
-    useInventoryStockRows,
-} from "../data/useInventory";
-
-import {
-    SiteStockTable,
-} from "../components/SiteStockTable";
-
-import {
-    InventoryMovementTable,
-} from "../components/InventoryMovementTable";
-
-type InventoryTab =
-    | "STOCK"
-    | "MOVEMENTS";
-
-export function InventoryPage() {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const stockRows =
-        useInventoryStockRows();
-
-    const movementRows =
-        useInventoryMovementRows();
-
-    const sites =
-        inventorySiteRepository.getActive();
-
-    const [tab, setTab] = useState<InventoryTab>(
-        searchParams.get("tab") === "movements" ? "MOVEMENTS" : "STOCK",
-    );
-    const selectTab = (nextTab: InventoryTab) => {
-        setTab(nextTab);
-        const next = new URLSearchParams(searchParams);
-        if (nextTab === "MOVEMENTS") next.set("tab", "movements");
-        else next.delete("tab");
-        setSearchParams(next, { replace: true });
-    };
-
-    const [
-        selectedSiteId,
-        setSelectedSiteId,
-    ] = useState(() => searchParams.get("site") ?? "ALL");
-
-    const filteredStock =
-        useMemo(
-            () =>
-                selectedSiteId ===
-                    "ALL"
-                    ? stockRows
-                    : stockRows.filter(
-                        (row) =>
-                            row.siteId ===
-                            selectedSiteId,
-                    ),
-            [
-                stockRows,
-                selectedSiteId,
-            ],
-        );
-
-    const filteredMovements =
-        useMemo(
-            () =>
-                selectedSiteId ===
-                    "ALL"
-                    ? movementRows
-                    : movementRows.filter(
-                        (row) =>
-                            row.siteId ===
-                            selectedSiteId,
-                    ),
-            [
-                movementRows,
-                selectedSiteId,
-            ],
-        );
-
-    const totalStockRecords =
-        filteredStock.length;
-
-    const totalMovements =
-        filteredMovements.length;
-
-    const goodsReceipts =
-        filteredMovements.filter(
-            (movement) =>
-                movement.movementType ===
-                "GOODS_RECEIPT",
-        ).length;
-
-    return (
-        <div className="pb-8"><CostingPolicyPanel/><Link className="mb-4 inline-block rounded-lg border px-4 py-2 text-sm" to="/inventory/sales-dispatch">Sales dispatch &amp; fulfilments</Link>
-            <div className="mb-7 flex items-start justify-between gap-5">
-                <div>
-                    <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
-                        Operations
-                    </p>
-
-                    <h1 className="font-display text-[34px] leading-tight">
-                        Inventory
-                    </h1>
-
-                    <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                        Review
-                        on-hand stock
-                        by site and
-                        trace every
-                        inventory
-                        movement.
-                    </p>
-                </div>
-
-                <div className="w-[260px]">
-                    <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-                        Site
-                    </div>
-
-                    <select
-                        value={
-                            selectedSiteId
-                        }
-                        onChange={(
-                            event,
-                        ) =>
-                            (() => {
-                                const value = event.target.value;
-                                setSelectedSiteId(value);
-                                const next = new URLSearchParams(searchParams);
-                                if (value === "ALL") next.delete("site");
-                                else next.set("site", value);
-                                setSearchParams(next, { replace: true });
-                            })()
-                        }
-                        className="h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm outline-none focus:border-[var(--color-primary)]"
-                    >
-                        <option value="ALL">
-                            All Sites
-                        </option>
-
-                        {sites.map(
-                            (site) => (
-                                <option
-                                    key={
-                                        site.id
-                                    }
-                                    value={
-                                        site.id
-                                    }
-                                >
-                                    {
-                                        site.code
-                                    }{" "}
-                                    —{" "}
-                                    {
-                                        site.name
-                                    }
-                                </option>
-                            ),
-                        )}
-                    </select>
-                </div>
-            </div>
-
-            <div className="mb-5 grid grid-cols-4 gap-4">
-                <SummaryCard
-                    icon={
-                        Warehouse
-                    }
-                    label="Active Sites"
-                    value={
-                        selectedSiteId ===
-                            "ALL"
-                            ? sites.length
-                            : 1
-                    }
-                />
-
-                <SummaryCard
-                    icon={Boxes}
-                    label="Stock Records"
-                    value={
-                        totalStockRecords
-                    }
-                />
-
-                <SummaryCard
-                    icon={
-                        History
-                    }
-                    label="Movements"
-                    value={
-                        totalMovements
-                    }
-                />
-
-                <SummaryCard
-                    icon={
-                        PackageCheck
-                    }
-                    label="Receipt Movements"
-                    value={
-                        goodsReceipts
-                    }
-                />
-            </div>
-
-            <div className="mb-5 flex gap-1 rounded-xl border border-[var(--color-border)] bg-white p-1 shadow-[var(--shadow-xs)]">
-                <TabButton
-                    active={
-                        tab ===
-                        "STOCK"
-                    }
-                    onClick={() =>
-                        selectTab(
-                            "STOCK",
-                        )
-                    }
-                >
-                    Site Stock
-                </TabButton>
-
-                <TabButton
-                    active={
-                        tab ===
-                        "MOVEMENTS"
-                    }
-                    onClick={() =>
-                        selectTab(
-                            "MOVEMENTS",
-                        )
-                    }
-                >
-                    Movement
-                    Ledger
-                </TabButton>
-            </div>
-
-            {tab ===
-                "STOCK" ? (
-                <div>
-                    <div className="mb-4">
-                        <h2 className="font-display text-2xl">
-                            Site Stock
-                        </h2>
-
-                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            Quantity on
-                            hand is held
-                            in each
-                            product's
-                            base
-                            inventory
-                            unit.
-                        </p>
-                    </div>
-
-                    {filteredStock.length >
-                        0 ? (
-                        <SiteStockTable
-                            rows={
-                                filteredStock
-                            }
-                        />
-                    ) : (
-                        <EmptyState
-                            title="No stock on hand"
-                            description="This site has no posted inventory movements yet."
-                        />
-                    )}
-                </div>
-            ) : (
-                <div>
-                    <div className="mb-4">
-                        <h2 className="font-display text-2xl">
-                            Movement
-                            Ledger
-                        </h2>
-
-                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            Audit trail
-                            of inventory
-                            increases and
-                            decreases.
-                            Select a
-                            Goods Receipt
-                            movement to
-                            open its
-                            source
-                            document.
-                        </p>
-                    </div>
-
-                    {filteredMovements.length >
-                        0 ? (
-                        <InventoryMovementTable
-                            rows={
-                                filteredMovements
-                            }
-                        />
-                    ) : (
-                        <EmptyState
-                            title="No inventory movements"
-                            description="Post a Goods Receipt to create the first inventory movement."
-                        />
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function SummaryCard({
-    icon: Icon,
-    label,
-    value,
-}: {
-    icon:
-    React.ComponentType<{
-        size?: number;
-    }>;
-
-    label: string;
-
-    value:
-    | string
-    | number;
-}) {
-    return (
-        <div className="rounded-xl border border-[var(--color-border)] bg-white px-5 py-4 shadow-[var(--shadow-xs)]">
-            <div className="flex items-center justify-between">
-                <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-                    {label}
-                </div>
-
-                <Icon
-                    size={16}
-                />
-            </div>
-
-            <div className="mt-3 font-display text-2xl">
-                {value}
-            </div>
-        </div>
-    );
-}
-
-function TabButton({
-    active,
-    onClick,
-    children,
-}: {
-    active: boolean;
-
-    onClick: () => void;
-
-    children:
-    React.ReactNode;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={
-                onClick
-            }
-            className={[
-                "flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition",
-
-                active
-                    ? "bg-[var(--color-primary)] text-white"
-                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)]",
-            ].join(" ")}
-        >
-            {children}
-        </button>
-    );
-}
-
-function EmptyState({
-    title,
-    description,
-}: {
-    title: string;
-    description: string;
-}) {
-    return (
-        <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-border)] bg-white px-6 py-14 text-center">
-            <div className="font-display text-xl">
-                {title}
-            </div>
-
-            <p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-text-muted)]">
-                {description}
-            </p>
-        </div>
-    );
+const qty=(n:number)=>n.toLocaleString('en-AU',{maximumFractionDigits:4});
+const displayUnit=(unit:string)=>({m2:'m²',M2:'m²',box:'box',boxes:'box',pcs:'Piece',piece:'Piece',PIECE:'Piece',bucket:'Bucket',BUCKET:'Bucket'}[unit]??unit);
+const money=(n:number)=>n.toLocaleString('en-AU',{style:'currency',currency:'AUD'});
+export function InventoryPage(){
+ const navigate=useNavigate();
+ const [params,setParams]=useSearchParams();const site=params.get('site')||'ALL';const ledger=params.get('tab')==='movements';
+ const stock=useInventoryStockRows(),movements=useInventoryMovementRows(),products=useProducts();
+ const costs=useSyncExternalStore(inventoryCostBalanceRepository.subscribe,inventoryCostBalanceRepository.getSnapshot);
+ const canCost=usePermission('inventory.cost.read'),canWrite=usePermission('inventory.adjust');
+ const sites=inventorySiteRepository.getActive();
+ const bills=useSupplierBills();
+ const [showValue,setShowValue]=useState(false),[showAverage,setShowAverage]=useState(false),[showLastPurchase,setShowLastPurchase]=useState(false);
+ const [sample,setSample]=useState(false),[search,setSearch]=useState(''),[kind,setKind]=useState('All Items'),[category,setCategory]=useState('All Categories'),[inactive,setInactive]=useState(false),[pricing,setPricing]=useState(true),[sort,setSort]=useState('Highest stock'),[selected,setSelected]=useState(''),[action,setAction]=useState('');
+ const change=(key:string,value:string)=>{const next=new URLSearchParams(params);value?next.set(key,value):next.delete(key);setParams(next,{replace:true});setSelected('');};
+ const balances=stock.filter(r=>site==='ALL'||r.siteId===site),filteredMovements=movements.filter(r=>site==='ALL'||r.siteId===site);
+ const real:Item[]=products.map(p=>{const unit=p.units.find(u=>u.id===p.baseUnitId);const metrics=inventoryItemMetrics(p,costs,bills,site);return {id:p.id,name:p.name,sku:p.sku,unit:unit?.symbol||'',category:p.category,onHand:balances.filter(r=>r.productId===p.id).reduce((n,r)=>n+r.quantityOnHand,0),cost:metrics.averageCost,currentValue:metrics.currentValue,lastPurchasePrice:metrics.lastPurchasePrice,sell:unit?.basePrice||0,active:p.status==='ACTIVE',sold:p.sellEnabled!==false,bought:p.buyEnabled!==false,stock:!p.itemType||p.itemType==='STOCK',low:p.reorderPoint||0};});
+ const all=sample?samples:real;
+ const rows=all.filter(r=>(inactive||r.active)&&(kind==='All Items'||kind==='Sold'&&r.sold||kind==='Bought'&&r.bought||kind==='Inventoried'&&r.stock)&&(category==='All Categories'||r.category===category)&&`${r.name} ${r.sku}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>sort==='Name A–Z'?a.name.localeCompare(b.name):sort==='Lowest stock'?a.onHand-b.onHand:b.onHand-a.onHand);
+ const item=rows.find(r=>r.id===selected);const value=sample?samples.reduce((n,r)=>n+r.onHand*(r.cost||0),0):costs.filter(c=>site==='ALL'||c.siteId===site).reduce((n,c)=>n+c.inventoryValue,0);
+ const today=new Date().toLocaleDateString('en-CA');
+ const metricColumns: {label:string;key:'currentValue'|'cost'|'lastPurchasePrice'}[]=canCost?[...(showValue?[{label:'Current Value',key:'currentValue' as const}]:[]),...(showAverage?[{label:'Average Cost',key:'cost' as const}]:[]),...(showLastPurchase?[{label:'Last Purchase Price',key:'lastPurchasePrice' as const}]:[])]:[];
+ function exportRows(){const data=[['Product','SKU','Unit','On Hand','Available',...(pricing&&canCost?['Cost']:[]),...(pricing?['Sell']:[]),...metricColumns.map(c=>c.label)],...rows.map(r=>[r.name,r.sku,r.unit,String(r.onHand),r.reserved===undefined?'Not tracked':String(r.onHand-r.reserved-(r.damage||0)),...(pricing&&canCost?[r.cost===undefined?'':String(r.cost)]:[]),...(pricing?[String(r.sell)]:[]),...metricColumns.map(c=>r[c.key]===undefined?'':String(r[c.key]))])];const csv=data.map(row=>row.map(v=>'"'+(/^[=+@-]/.test(v)?"'":'')+v.replaceAll('"','""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`${sample?'Sample-':''}inventory.csv`;a.click();URL.revokeObjectURL(url);}
+ return <div className="inventory-redesign">
+ <header className="inv-banner"><div className="inv-title"><span className="inv-logo"><Boxes size={24}/></span><div><small>HTT MANAGEMENT</small><h1>Inventory</h1></div></div><div className="inv-banner-actions"><Link to="/inventory/price-settings">Price Settings</Link>{canWrite&&<Link to="/inventory/products/new"><Plus size={16}/> New Item</Link>}</div><div className="inv-warehouse"><Warehouse size={17}/><select aria-label="Warehouse" value={site} onChange={e=>change('site',e.target.value==='ALL'?'':e.target.value)}><option value="ALL">All Warehouses</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><span>Active</span></div></header>
+ <div className="inv-content"><label className="inv-sample"><input type="checkbox" checked={sample} onChange={e=>{setSample(e.target.checked);setSelected('');setAction('');}}/> Sample · Populated inventory preview · Read-only, excluded from live stock and valuation</label>
+ <div className="inv-stats">{[{label:'Total Items',value:all.filter(r=>r.active).length,caption:'Inventory catalogue',icon:Package},{label:'Stock Value',value:canCost?money(value):'Restricted',caption:'Recorded inventory value · AUD',icon:Wallet},{label:'Low Stock',value:all.filter(r=>r.active&&r.stock&&r.onHand<=r.low).length,caption:'Require attention',icon:TriangleAlert},{label:'Movements Today',value:sample?28:filteredMovements.filter(m=>m.occurredAt.slice(0,10)===today).length,caption:'Stock transactions',icon:ArrowLeftRight}].map(c=><div className="inv-stat" key={c.label}><div><span>{c.label}</span><c.icon size={17}/></div><strong>{c.value}</strong><small>{sample?'Sample · ':''}{c.caption}</small></div>)}</div>
+ <section className="inv-panel"><div className="inv-panel-heading"><div><h2>{ledger?'Movement Ledger':'Inventory Items'}</h2><p>Manage products, pricing and stock levels</p></div><button onClick={()=>change('tab',ledger?'':'movements')}><History size={16}/>{ledger?'Items':'Ledger'}</button></div>
+ {ledger?<><InventoryMovementTable rows={sample?[]:filteredMovements}/>{sample&&<p className="inv-hint">Sample history: Receipt +600 · Dispatch −30.4674 · On hand 569.5326. No ledger entries are posted.</p>}</>:<><input className="inv-search" aria-label="Search inventory" placeholder="Search SKU, product or range…" value={search} onChange={e=>setSearch(e.target.value)}/><div className="inv-pills">{['All Items','Sold','Bought','Inventoried'].map(k=><button key={k} className={kind===k?'active':''} onClick={()=>setKind(k)}>{k}</button>)}</div><div className="inv-filter"><select aria-label="Category" value={category} onChange={e=>setCategory(e.target.value)}><option>All Categories</option>{[...new Set(all.map(r=>r.category))].map(c=><option key={c}>{c}</option>)}</select><button onClick={exportRows}><Download size={16}/>Export</button></div><div className="inv-checks"><div className="inv-checks-left"><label><input type="checkbox" checked={inactive} onChange={e=>setInactive(e.target.checked)}/> Show inactive</label>{canCost&&<>{[['Current Value',showValue,setShowValue],['Average Cost',showAverage,setShowAverage],['Last Purchase Price',showLastPurchase,setShowLastPurchase]].map(([label,checked,setter])=><label key={String(label)}><input type="checkbox" checked={Boolean(checked)} onChange={e=>(setter as (v:boolean)=>void)(e.target.checked)}/>{String(label)}</label>)}</>}</div><label><input type="checkbox" checked={pricing} onChange={e=>setPricing(e.target.checked)}/> Show pricing</label></div><div className="inv-sort"><span>{rows.length} {sample?'sample ':''}items</span><select aria-label="Sort items" value={sort} onChange={e=>setSort(e.target.value)}><option>Highest stock</option><option>Lowest stock</option><option>Name A–Z</option></select></div><div className="inv-table-scroll"><table><thead><tr><th>Product / SKU</th><th>On Hand</th><th>Available</th>{pricing&&canCost&&<th>Cost</th>}{pricing&&<th>Sell</th>}{metricColumns.map(c=><th key={c.label}>{c.label}</th>)}<th/></tr></thead><tbody>{rows.map(r=><tr key={r.id} className={selected===r.id?'selected':''} onClick={()=>navigate(`/inventory/products/${r.id}${site==='ALL'?'':`?site=${encodeURIComponent(site)}`}`)}><td><button className="inv-product" onClick={e=>{e.stopPropagation();navigate(`/inventory/products/${r.id}${site==='ALL'?'':`?site=${encodeURIComponent(site)}`}`);}}>{r.name}</button><small>{r.sku} · {r.unit}{sample?' · Sample':''}</small></td><td><span>{qty(r.onHand)}</span><small className="inv-quantity-unit">{displayUnit(r.unit)}</small></td><td className="inv-available"><span>{r.reserved===undefined?'—':qty(r.onHand-r.reserved-(r.damage||0))}</span><small className="inv-quantity-unit">{displayUnit(r.unit)}</small></td>{pricing&&canCost&&<td>{r.cost===undefined?'—':money(r.cost)}</td>}{pricing&&<td>{money(r.sell)}</td>}{metricColumns.map(c=><td key={c.label}>{r[c.key]===undefined?'—':money(r[c.key]!)}</td>)}<td><ChevronRight size={17}/></td></tr>)}</tbody></table></div>{!rows.length&&<p className="inv-hint">No matching inventory items.</p>}<p className="inv-hint">{metricColumns.length>0&&'Current Value and Average Cost use the selected warehouse balances. Last Purchase Price uses the latest non-void supplier bill across warehouses, excluding GST, per base unit in AUD. '}Click any product to view its inventory details and actions.{!sample&&' Available is not tracked until reservations and damage quantities are recorded.'}</p></>}
+ </section>
+ {item&&!ledger&&<section className="inv-panel inv-detail"><button className="inv-close" aria-label="Close product details" onClick={()=>setSelected('')}><X size={18}/></button><small>PRODUCT DETAILS {sample?'· Sample':''}</small><h2>{item.name}</h2><p>{item.sku} · {item.unit}</p><div className="inv-detail-stats">{[['On Hand',qty(item.onHand)],['Reserved',item.reserved===undefined?'Not recorded':qty(item.reserved)],['Damage',item.damage===undefined?'Not recorded':qty(item.damage)],['Available',item.reserved===undefined?'Not tracked':qty(item.onHand-item.reserved-(item.damage||0))]].map(([label,v])=><div key={label}><small>{label}</small><strong>{v}</strong><small className="inv-quantity-unit">{displayUnit(item.unit)}</small></div>)}</div><div className="inv-pills">{sample?<>{['Adjust Stock','Damage','History'].map(a=><button key={a} className={a==='Adjust Stock'?'active':''} onClick={()=>setAction(a)}>{a==='Adjust Stock'?<SlidersHorizontal size={16}/>:<History size={16}/>} {a}</button>)}</>:<><Link to={`/inventory/products/${item.id}`}>Product details</Link><button onClick={()=>change('tab','movements')}><History size={16}/> History</button><Link to="/inventory/sales-dispatch">Sales dispatch</Link></>}</div>{action&&sample&&<div className="inv-sample-result"><strong>Sample · {action} · Read-only</strong><p>{action==='History'?`Received ${qty(item.onHand+30)} → Dispatched 30 → On hand ${qty(item.onHand)}.`:action==='Damage'?'Pending: 2 units reported damaged → Completed: inspected and written off.': 'Pending: count variance +5 → Completed: reviewed and approved.'}</p><p>Preview only. No stock changes are saved.</p></div>}</section>}
+ <details className="inv-tools"><summary>Inventory tools &amp; costing policy</summary><Link to="/inventory/sales-dispatch">Sales dispatch &amp; fulfilments →</Link><CostingPolicyPanel/></details>
+ </div></div>;
 }

@@ -1,3 +1,4 @@
+import { BrandCustomerPriceEditor } from "./BrandCustomerPriceEditor";
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import { useMemo } from "react";
@@ -27,6 +28,7 @@ import type { CustomerPrice } from "../types/customerPricing";
 
 interface CustomerPriceFormProps {
     customerPrice?: CustomerPrice;
+    customerId?: string;
 
     onSubmit: (
         values: CustomerPriceFormValues,
@@ -37,6 +39,7 @@ interface CustomerPriceFormProps {
 
 export function CustomerPriceForm({
     customerPrice,
+    customerId,
     onSubmit,
     onCancel,
 }: CustomerPriceFormProps) {
@@ -200,6 +203,7 @@ export function CustomerPriceForm({
             onSubmit={handleSubmit(submit)}
             noValidate
         >
+            {(customerId||customerPrice?.customerId)&&<BrandCustomerPriceEditor customerId={customerId||customerPrice!.customerId} productId={productId} onSaved={onCancel}/>}
             <div className="space-y-6">
                 <section>
                     <h3 className="text-sm font-semibold">

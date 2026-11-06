@@ -58,6 +58,12 @@ class QuotePricing {
     private static String value(Object value) {
         if (value instanceof Map<?,?> map) return canonical((Map<String,Object>)map);
         if (value instanceof java.util.List<?> list) return list.stream().map(QuotePricing::value).collect(Collectors.joining(",","[","]"));
+        if (value instanceof java.time.OffsetDateTime time) {
+            String base=time.format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss"));
+            int ticks=time.getNano()/100;
+            String fraction=ticks==0?"":"."+String.format(java.util.Locale.ROOT,"%07d",ticks).replaceFirst("0+$","");
+            return "\""+base+fraction+(time.getOffset().equals(java.time.ZoneOffset.UTC)?"+00:00":time.getOffset().toString())+"\"";
+        }
         if (value instanceof java.time.LocalDate date) return CollaborationCreate.legacyString(date.toString());
         if (value==null) return "null";
         if (value instanceof BigDecimal n) return CollaborationCreate.legacyString(n.toPlainString());

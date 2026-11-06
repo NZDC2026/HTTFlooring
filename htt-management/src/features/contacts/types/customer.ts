@@ -11,6 +11,7 @@ export type BusinessType =
     | "Designer"
     | "Architect"
     | "Installer"
+    | "End Customer"
     | "Other";
 
 export interface CustomerLocation {
@@ -63,6 +64,7 @@ export interface CustomerNote {
     createdAt: string;
 }
 export interface Customer {
+    pricingTier?: import("../data/customerPriceGroups").PricingTier;
     creditHold?: boolean;
     internalNotes?: string;
     billingAddress?: import("../data/customerAddresses").CustomerAddress;

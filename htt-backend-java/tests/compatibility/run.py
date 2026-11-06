@@ -30,6 +30,7 @@ run = project/'target'/'compatibility'/uuid.uuid4().hex
 run.mkdir(parents=True)
 env.update(DOTNET_CLI_HOME=str(run/'dotnet-home'), NUGET_PACKAGES=str(run/'nuget'))
 container = 'htt-java-compat-'+uuid.uuid4().hex[:12]
+env['HTT_COMPAT_PG_CONTAINER'] = container
 
 def command(argv, **kwargs):
     print('Running', ' '.join(map(str,argv)), flush=True)

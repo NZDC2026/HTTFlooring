@@ -1,3 +1,7 @@
+import { brandPriceInput, brandPricePreview, shiftPricingDay } from "./brandCustomerPricing";
+import { mockProducts } from "../../inventory/data/mockProducts";
+import { customerRepository } from "./customerRepository";
+import { groupUnitPrice } from "./customerPriceGroups";
 import { promotionalPrice } from '../../business-workspace/configurationState';
 import { registerRepository } from "../../security/repositoryHost";
 import { loadCustomerPrices, persistCustomerPrices } from "./customerPricingStorage";
@@ -224,8 +228,8 @@ function resolveCustomerPriceRule(
         return undefined;
     }
 
-    const basePrice =
-        unit.basePrice;
+    const customer=customerRepository.getById(customerPrice.customerId);
+    const basePrice = groupUnitPrice(customer?{...customer,pricingTier:"STANDARD"}:customer,unit);
 
     let effectivePrice =
         basePrice;
@@ -308,6 +312,26 @@ export const customerPricingRepository = {
         );
     },
 
+    applyBrandPrice(customerId:string,raw:unknown) {
+        const input=brandPriceInput.parse(raw);
+        if(!customerRepository.getById(customerId))throw new Error("Customer not found.");
+        const preview=brandPricePreview(mockProducts,customerPrices,customerId,input);
+        if(preview.signature!==input.expectedSignature)throw new Error("Products or prices changed. Review the preview again before applying.");
+        if(!preview.rows.length)throw new Error("No active products match this brand and selling unit.");
+        const targets=preview.rows.filter(row=>input.replaceExisting||!row.existing.length);
+        if(!targets.length)throw new Error("All matching products already have customer prices. Select Replace existing prices to change them.");
+        const now=new Date().toISOString();let next=[...customerPrices];
+        for(const row of targets){
+            for(const old of row.existing){
+                next=next.filter(r=>r.id!==old.id);
+                if(old.effectiveFrom<input.effectiveFrom)next.push({...old,effectiveTo:shiftPricingDay(input.effectiveFrom,-1),updatedAt:now});
+                if(input.effectiveTo&&(!old.effectiveTo||old.effectiveTo>input.effectiveTo))next.push({...old,id:createId("cprice"),effectiveFrom:shiftPricingDay(input.effectiveTo,1),createdAt:now,updatedAt:now});
+            }
+            next.push({id:createId("cprice"),customerId,productId:row.productId,unitId:row.unitId,pricingMethod:"FIXED_PRICE",fixedPrice:input.price,effectiveFrom:input.effectiveFrom,effectiveTo:input.effectiveTo||undefined,active:true,createdAt:now,updatedAt:now});
+        }
+        persistCustomerPrices(next);customerPrices=next;emitChange();
+        return {applied:targets.length,skipped:preview.rows.length-targets.length};
+    },
     create(
         customerId: string,
         values: CustomerPriceFormValues,
@@ -535,6 +559,7 @@ export const customerPricingRepository = {
             );
 
         if (!customerPrice) {
+            const groupPrice=groupUnitPrice(customerRepository.getById(customerId),unit);
             return {
                 customerId,
                 productId,
@@ -545,10 +570,10 @@ export const customerPricingRepository = {
                     "STANDARD_PRICE",
 
                 basePrice:
-                    unit.basePrice,
+                    groupPrice,
 
                 effectivePrice:
-                    unit.basePrice,
+                    groupPrice,
 
                 discountAmount: 0,
                 discountPercent: 0,
@@ -621,7 +646,7 @@ function formatDateRange(
 }
 registerRepository("customerPrices", {
     repository: customerPricingRepository, read: "sales.read",
-    commands: {"if": null, "return": null, "create": "contacts.write", "update": "contacts.write"},
+    commands: {"if": null, "return": null, "create": "contacts.write", "update": "contacts.write", "applyBrandPrice":"contacts.write"},
     snapshot: () => ({ customerPrices }),
     restore: value => { customerPrices = value.customerPrices;  },
     publish: () => listeners.forEach(listener => listener()),

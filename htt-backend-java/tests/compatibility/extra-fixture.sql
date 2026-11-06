@@ -172,3 +172,68 @@ INSERT INTO identity.role_permissions(company_id,role_id,permission_code)
 SELECT '00000000-0000-0000-0000-000000000001',r,p FROM unnest(ARRAY['00000000-0000-0000-0000-000000000192'::uuid,'00000000-0000-0000-0000-000000000195'::uuid]) r CROSS JOIN unnest(ARRAY['sales.quotes.read','sales.quotes.write','customers.all','warehouses.all']) p;
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)
 SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000192',p FROM unnest(ARRAY['sales.quotes.manage.all','sales.quotes.price.override','pricing.write']) p;
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000195','sales.orders.create');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000192','pricing.floor.write');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000192',p FROM unnest(ARRAY['pricing.manage.read','pricing.floor.read']) p;
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000200','https://localhost:15443','test-pricing-scoped','Synthetic Assigned Customer Pricing');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000201','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000200');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000202','00000000-0000-0000-0000-000000000001','PRICING_SCOPED_TEST','Synthetic Assigned Customer Pricing');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000201','00000000-0000-0000-0000-000000000202');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000202',p FROM unnest(ARRAY['pricing.manage.read','pricing.write']) p;
+INSERT INTO identity.customer_assignments(company_id,membership_id,customer_id,created_by) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000201','00000000-0000-0000-0000-000000000011','00000000-0000-0000-0000-000000000002');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000192',p FROM unnest(ARRAY['catalog.read','catalog.write','warehouses.read','warehouses.write']) p;
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000210','https://localhost:15443','test-warehouse-scoped','Synthetic Assigned Warehouse');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000211','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000210');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000212','00000000-0000-0000-0000-000000000001','WAREHOUSE_SCOPED_TEST','Synthetic Assigned Warehouse');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000211','00000000-0000-0000-0000-000000000212');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000212',p FROM unnest(ARRAY['warehouses.read','warehouses.write']) p;
+INSERT INTO core.regions(id,company_id,code,name,active) VALUES
+ ('00000000-0000-0000-0000-000000000215','00000000-0000-0000-0000-000000000001','CATALOG_REGION_TEST','Synthetic region',true),
+ ('00000000-0000-0000-0000-000000000216','00000000-0000-0000-0000-000000000001','CATALOG_REGION_OFF','Synthetic inactive region',false);
+INSERT INTO catalog.product_categories(id,company_id,code,name,active) VALUES
+ ('00000000-0000-0000-0000-000000000217','00000000-0000-0000-0000-000000000001','CATALOG_CATEGORY_TEST','Synthetic category',true),
+ ('00000000-0000-0000-0000-000000000218','00000000-0000-0000-0000-000000000001','CATALOG_CATEGORY_OFF','Synthetic inactive category',false);
+INSERT INTO catalog.uoms(id,company_id,code,name,active) VALUES
+ ('00000000-0000-0000-0000-000000000219','00000000-0000-0000-0000-000000000001','CATALOG_UNIT_TEST','Synthetic alternate unit',true),
+ ('00000000-0000-0000-0000-000000000225','00000000-0000-0000-0000-000000000001','CATALOG_UNIT_OFF','Synthetic inactive unit',false);
+INSERT INTO catalog.warehouses(id,company_id,code,name,kind) VALUES ('00000000-0000-0000-0000-000000000220','00000000-0000-0000-0000-000000000001','CATALOG_SCOPE_TEST','Synthetic assigned warehouse','SELLABLE');
+INSERT INTO identity.warehouse_scopes(company_id,membership_id,warehouse_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000211','00000000-0000-0000-0000-000000000220');
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000230','https://localhost:15443','test-crm-office','Synthetic CRM fixture');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000231','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000230');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000232','00000000-0000-0000-0000-000000000001','CRM_TEST_230','Synthetic CRM fixture');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000231','00000000-0000-0000-0000-000000000232');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000232',p FROM unnest(ARRAY['customers.read','customers.write','customers.credit.write','customers.all','suppliers.read','suppliers.write']) p;
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000233','https://localhost:15443','test-crm-limited','Synthetic CRM fixture');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000234','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000233');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000235','00000000-0000-0000-0000-000000000001','CRM_TEST_233','Synthetic CRM fixture');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000234','00000000-0000-0000-0000-000000000235');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000235',p FROM unnest(ARRAY['customers.read','customers.write','customers.all']) p;
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000236','https://localhost:15443','test-supplier-only','Synthetic CRM fixture');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000237','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000236');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000238','00000000-0000-0000-0000-000000000001','CRM_TEST_236','Synthetic CRM fixture');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000237','00000000-0000-0000-0000-000000000238');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000238',p FROM unnest(ARRAY['suppliers.read','suppliers.write']) p;
+
+INSERT INTO identity.users(id,issuer,subject,display_name) VALUES ('00000000-0000-0000-0000-000000000239','https://localhost:15443','test-crm-scoped','Synthetic CRM fixture');
+INSERT INTO identity.memberships(id,company_id,user_id) VALUES ('00000000-0000-0000-0000-000000000240','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000239');
+INSERT INTO identity.roles(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000241','00000000-0000-0000-0000-000000000001','CRM_TEST_239','Synthetic CRM fixture');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000240','00000000-0000-0000-0000-000000000241');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT '00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000241',p FROM unnest(ARRAY['customers.read','customers.write','suppliers.read','suppliers.write']) p;
+
+INSERT INTO identity.customer_assignments(company_id,membership_id,customer_id,created_by) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000240','00000000-0000-0000-0000-000000000011','00000000-0000-0000-0000-000000000002');
+INSERT INTO crm.parties(id,company_id,legal_name) VALUES ('00000000-0000-0000-0000-000000000250','00000000-0000-0000-0000-000000000001','Synthetic shared CRM party');
+INSERT INTO crm.customers(id,company_id,party_id,code,status,credit_limit,payment_terms_days) VALUES ('00000000-0000-0000-0000-000000000251','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000250','SHARED_CRM_TEST','ON_HOLD',100,30);
+INSERT INTO crm.suppliers(id,company_id,party_id,code,status,payment_terms_days) VALUES ('00000000-0000-0000-0000-000000000252','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000250','SHARED_SUPPLIER_TEST','ACTIVE',30);
+
+INSERT INTO crm.customer_branches(id,company_id,customer_id,code,name,address_line1,state,postcode) VALUES
+ ('00000000-0000-0000-0000-000000000260','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000011','CONTACT_LINK_TEST','Synthetic contact branch','1 Synthetic Contact Street','NSW','2000'),
+ ('00000000-0000-0000-0000-000000000261','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000251','SHARED_CONTACT_LINK_TEST','Synthetic shared contact branch','2 Synthetic Contact Street','NSW','2000');

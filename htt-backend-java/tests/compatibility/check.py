@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import deque
 from zoneinfo import ZoneInfo
 import datetime, uuid, socketserver, struct, socket, select
+import re
 import base64, http.server, json, os, pathlib, ssl, subprocess, threading, time, urllib.error, urllib.request
 
 here = pathlib.Path(__file__).resolve().parent
@@ -111,6 +112,26 @@ def verify_rate_limits(legacy_url):
     for base in (url,legacy_url):
         assert raw_rate_status('/api/v1/me',expired,base)==401
     print('PASS: staff and portal 300/minute policy, independent subjects, 301st rejection and expired token')
+
+def isolated_quote_fixture(action, quote_id=None):
+    # Deliberately limited to this runner's disposable PostgreSQL and fixed synthetic company.
+    container=os.environ.get('HTT_COMPAT_PG_CONTAINER','')
+    assert re.fullmatch(r'htt-java-compat-[0-9a-f]{12}',container), 'Disposable fixture database required'
+    if action=='gaps':
+        q=str(uuid.UUID(quote_id))
+        mutation="UPDATE platform.document_lines l SET line_no=l.line_no*10 FROM sales.quotes q WHERE q.company_id=l.company_id AND q.id=l.document_id AND q.status='DRAFT' AND q.notes LIKE 'Conversion fixture café %' AND q.id='"+q+"'::uuid"
+    elif action=='west':
+        mutation="UPDATE core.companies SET timezone='Etc/GMT+12' WHERE id='00000000-0000-0000-0000-000000000001'"
+    elif action=='restore-timezone':
+        mutation="UPDATE core.companies SET timezone='Australia/Sydney' WHERE id='00000000-0000-0000-0000-000000000001'"
+    elif action in ('unit-change','unit-restore'):
+        conversion='2.5' if action=='unit-change' else '2.25'
+        mutation="UPDATE catalog.product_units SET conversion_to_base="+conversion+" WHERE company_id='00000000-0000-0000-0000-000000000001' AND id='00000000-0000-0000-0000-000000000184'"
+    else: raise AssertionError('Unknown synthetic quote fixture mutation')
+    sql="SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true),set_config('htt.actor_id','00000000-0000-0000-0000-000000000002',true); "+mutation+';'
+    result=subprocess.run(['docker','exec','-i',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-1'],input=sql,text=True,capture_output=True,timeout=20)
+    with (here/'quote-fixture-control.log').open('a') as evidence: evidence.write(action+'\n'+result.stdout+result.stderr+'\n')
+    assert result.returncode==0,(action,result.stdout,result.stderr)
 
 def request(path, jwt=None, company=None, grant=None, base=url, payload=None, key=None, version=None, content_type=None, method=None):
     if base.endswith((':15081',':15082')):
@@ -290,7 +311,8 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             def isolated_lookup(index):
                 scope = company if index % 2 == 0 else other
                 status, result = request(branches, employee, scope)
-                assert status == 200 and result['total'] == (2 if scope == company else 0)
+                expected_ids={'00000000-0000-0000-0000-000000000012','00000000-0000-0000-0000-000000000073','00000000-0000-0000-0000-000000000260','00000000-0000-0000-0000-000000000261'} if scope==company else set()
+                assert status==200 and result['total']==len(expected_ids) and {item['id'] for item in result['items']}==expected_ids,(status,result)
             with ThreadPoolExecutor(max_workers=8) as executor:
                 list(executor.map(isolated_lookup, range(32)))
             assert request(branches,employee)[0] == 400
@@ -396,7 +418,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert view[1]['status'] == 'DRAFT' and view[1]['version'] == returned[1]['version']
             print('PASS: bidirectional quote return-to-draft replay, number retention, stale/permission/state gates')
 
-            order = request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+            order = request('/api/v1/sales-orders',employee,company,base=url,payload={
                 'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
                 'warehouseId':'00000000-0000-0000-0000-000000000014',
                 'lines':[{'productUnitId':unit_id,'quantity':2}], 'reason':'Synthetic customer instruction'},
@@ -1703,7 +1725,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
 
             credit_path = '/api/v1/customers/00000000-0000-0000-0000-000000000011/credit'
             for first, second in ((legacy_url,url),(url,legacy_url)):
-                candidate = request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={
+                candidate = request('/api/v1/sales-orders',employee,company,base=first,payload={
                     'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
                     'warehouseId':'00000000-0000-0000-0000-000000000014',
                     'lines':[{'productUnitId':unit_id,'quantity':2}], 'reason':'Synthetic cancel fixture'},
@@ -2224,11 +2246,11 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             box_price_version=1
             for first,second in ((legacy_url,url),(url,legacy_url)):
                 for kind in ('area','override','service'):
-                    line=({'productUnitId':'00000000-0000-0000-0000-000000000077','quantity':1.234567} if kind=='service' else
+                    line=({'productUnitId':'00000000-0000-0000-0000-000000000077','quantity':1,'unitPrice':61.72835} if kind=='service' else
                         {'productUnitId':box_unit,'requestedArea':5,**({'unitPrice':50,'discountPercent':10} if kind=='override' else {})})
                     payload={'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
                         'warehouseId':'00000000-0000-0000-0000-000000000014','lines':[line],'notes':' Boundary '+kind+' café '}
-                    actor=office if kind=='override' else employee
+                    actor=office if kind in ('override','service') else employee
                     if kind=='area':
                         for invalid_line,status in (({'productUnitId':box_unit,'quantity':1.5},422),
                                 ({'productUnitId':metre_unit,'requestedArea':5},422),({'productUnitId':metre_unit,'quantity':1.5},422),
@@ -2265,7 +2287,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                     version=1
                     if kind=='area':
                         box_price+=1
-                        repriced=request('/api/v1/pricing/standard-prices/00000000-0000-0000-0000-000000000186',office,company,base=legacy_url,
+                        repriced=request('/api/v1/pricing/standard-prices/00000000-0000-0000-0000-000000000186',office,company,base=first,
                             payload={'productUnitId':box_unit,'amount':box_price,'effectiveFrom':'2026-01-01T00:00:00Z','active':True},method='PUT',version=box_price_version,key='reprice-box-'+uuid.uuid4().hex)
                         assert repriced[0]==200,repriced
                         box_price_version+=1
@@ -2286,6 +2308,605 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                     assert all(result==submitted for result in attempts),attempts
                     final=request(path,employee,company)
                     assert final==request(path,employee,company,base=legacy_url) and final[1]['status']=='SUBMITTED',final
+            direct_credit='/api/v1/customers/00000000-0000-0000-0000-000000000011/credit'
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                body={'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
+                    'warehouseId':'00000000-0000-0000-0000-000000000014','reason':' Synthetic aggregate direct café '+uuid.uuid4().hex+' ',
+                    'notes':' Synthetic order notes ','lines':[{'productUnitId':unit_id,'quantity':1},{'productUnitId':unit_id,'quantity':2}]}
+                args=dict(payload=body,key='aggregate-direct-'+uuid.uuid4().hex)
+                denied=[request('/api/v1/sales-orders',other_writer,company,base=target,**args) for target in (first,second)]
+                assert denied[0][0]==denied[1][0]==403 and normalize(denied[0][1])==normalize(denied[1][1]),denied
+                before_stock=request(warehouse_path,employee,company)
+                before_credit=request(direct_credit,employee,company)
+                for target in (first,second):
+                    assert request('/api/v1/sales-orders',None,company,base=target,**args)[0]==401
+                    for qty,code in ((1500,'insufficient_stock'),(3000,'credit_limit_exceeded')):
+                        invalid={**body,'lines':[{'productUnitId':unit_id,'quantity':qty}]}
+                        rejected=request('/api/v1/sales-orders',employee,company,base=target,payload=invalid,key='rejected-direct-'+uuid.uuid4().hex)
+                        assert rejected[0]==409 and json.loads(rejected[1])['code']==code,rejected
+                    invalid={**body,'lines':[{'productUnitId':unit_id,'quantity':0}]}
+                    assert request('/api/v1/sales-orders',employee,company,base=target,payload=invalid,key='zero-direct-'+uuid.uuid4().hex)[0]==422
+                assert normalize(request(warehouse_path,employee,company)[1])==normalize(before_stock[1])
+                assert request(direct_credit,employee,company)==before_credit
+                created=request('/api/v1/sales-orders',employee,company,base=first,**args)
+                assert created[0]==201 and created[1]['orderOrigin']=='DIRECT' and created[1]['sourceQuoteId'] is None,created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request('/api/v1/sales-orders',employee,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==created for result in attempts),attempts
+                detail='/api/v1/sales-orders/'+created[1]['orderId']
+                view=request(detail,employee,company)
+                assert view==request(detail,employee,company,base=legacy_url),view
+                assert len(view[1]['lines'])==2 and float(view[1]['gross'])==135,view
+                assert float(request(warehouse_path,employee,company)[1]['items'][0]['reserved'])==float(before_stock[1]['items'][0]['reserved'])+3
+                assert float(request(direct_credit,employee,company)[1]['unbilledOrders'])==float(before_credit[1]['unbilledOrders'])+135
+                assert request('/api/v1/sales-orders',employee,company,base=second,payload={**body,'reason':'Changed'},key=args['key'])[0]==409
+                cancel=dict(payload={'reason':'Synthetic aggregate cleanup'},key='aggregate-direct-cancel-'+uuid.uuid4().hex,version=created[1]['version'])
+                canceled=request(detail+'/cancel',employee,company,base=second,**cancel)
+                assert canceled[0]==200,canceled
+                assert request(detail+'/cancel',employee,company,base=first,**cancel)==canceled
+                assert normalize(request(warehouse_path,employee,company)[1])==normalize(before_stock[1])
+                assert request(direct_credit,employee,company)==before_credit
+            standard_version=1
+            standard_amount=50
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                before_stock=request(warehouse_path,employee,company)
+                before_credit=request(direct_credit,employee,company)
+                draft_args=dict(payload={'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
+                    'warehouseId':'00000000-0000-0000-0000-000000000014','lines':[{'productUnitId':unit_id,'quantity':1},{'productUnitId':unit_id,'quantity':2}],
+                    'notes':'Conversion fixture café '+uuid.uuid4().hex},key='conversion-quote-'+uuid.uuid4().hex)
+                draft=request('/api/v1/quotes',employee,company,base=first,**draft_args)
+                assert draft[0]==201,draft
+                quote_path='/api/v1/quotes/'+draft[1]['id']
+                isolated_quote_fixture('gaps',draft[1]['id'])
+                submitted=request(quote_path+'/submit',employee,company,base=second,payload={},key='conversion-submit-'+uuid.uuid4().hex,version=1)
+                assert submitted[0]==200 and submitted[1]['version']==2,submitted
+                frozen=request(quote_path,employee,company)
+                assert frozen==request(quote_path,employee,company,base=legacy_url),frozen
+                standard_amount+=1
+                price_changed=request('/api/v1/pricing/standard-prices/00000000-0000-0000-0000-000000000025',office,company,base=first,
+                    payload={'productUnitId':unit_id,'amount':standard_amount,'effectiveFrom':'2026-01-01T00:00:00Z','active':True},method='PUT',version=standard_version,key='conversion-price-'+uuid.uuid4().hex)
+                assert price_changed[0]==200,price_changed
+                standard_version+=1
+                path=quote_path+'/approve-and-convert'
+                args=dict(payload={'reason':' Synthetic frozen approval café '},key='convert-'+uuid.uuid4().hex,version=2)
+                for target in (first,second):
+                    assert request(path,None,company,base=target,**args)[0]==401
+                    assert request(path,token('test-purchase-reader'),company,base=target,**args)[0]==403
+                    assert request(path,employee,company,base=target,**{k:v for k,v in args.items() if k!='version'})[0]==428
+                converted=request(path,employee,company,base=first,**args)
+                assert converted[0]==201 and converted[1]['sourceQuoteId']==draft[1]['id'] and converted[1]['alreadyConverted'] is False,converted
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,employee,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==converted for result in attempts),attempts
+                detail='/api/v1/sales-orders/'+converted[1]['orderId']
+                order_view=request(detail,employee,company)
+                assert order_view==request(detail,employee,company,base=legacy_url),order_view
+                assert order_view[1]['orderOrigin']=='QUOTE' and order_view[1]['sourceQuoteId']==draft[1]['id'],order_view
+                assert order_view[1]['gross']==frozen[1]['gross'] and order_view[1]['customer']==frozen[1]['customer'],(frozen,order_view)
+                assert [line['snapshot'] for line in order_view[1]['lines']]==[line['snapshot'] for line in frozen[1]['lines']],(frozen,order_view)
+                assert [line['lineNo'] for line in order_view[1]['lines']]==[10,20],order_view
+                assert float(request(warehouse_path,employee,company)[1]['items'][0]['reserved'])==float(before_stock[1]['items'][0]['reserved'])+3
+                assert round(float(request(direct_credit,employee,company)[1]['unbilledOrders'])-float(before_credit[1]['unbilledOrders']),2)==float(frozen[1]['gross'])
+                already=request(path,employee,company,base=second,**{**args,'key':'already-convert-'+uuid.uuid4().hex})
+                assert already[0]==200 and already[1]['alreadyConverted'] is True and already[1]['orderId']==converted[1]['orderId'],already
+                for target in (first,second):
+                    rejected=request(path,employee,company,base=target,**{**args,'key':'wrong-convert-version-'+uuid.uuid4().hex,'version':1})
+                    assert rejected[0]==409 and json.loads(rejected[1])['code']=='version_conflict',rejected
+                canceled=request(detail+'/cancel',employee,company,base=second,payload={'reason':'Conversion cleanup'},key='convert-cancel-'+uuid.uuid4().hex,version=converted[1]['version'])
+                assert canceled[0]==200,canceled
+                assert normalize(request(warehouse_path,employee,company)[1])==normalize(before_stock[1])
+                assert request(direct_credit,employee,company)==before_credit
+            floor_version=1
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                for failure in ('expired','product','floor','stock','credit'):
+                    line={'productUnitId':box_unit if failure in ('product','floor') else unit_id,'quantity':1500 if failure=='stock' else 3000 if failure=='credit' else 1}
+                    body={'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
+                        'warehouseId':'00000000-0000-0000-0000-000000000014','lines':[line],
+                        'notes':'Failure conversion fixture '+failure+' '+uuid.uuid4().hex}
+                    if failure=='expired':
+                        isolated_quote_fixture('west')
+                        body['expiresOn']=datetime.datetime.now(ZoneInfo('Etc/GMT+12')).date().isoformat()
+                    try:
+                        draft=request('/api/v1/quotes',employee,company,base=first,payload=body,key='failure-convert-quote-'+uuid.uuid4().hex)
+                        assert draft[0]==201,draft
+                        quote_path='/api/v1/quotes/'+draft[1]['id']
+                        submitted=request(quote_path+'/submit',employee,company,base=second,payload={},version=1,key='failure-convert-submit-'+uuid.uuid4().hex)
+                        assert submitted[0]==200 and submitted[1]['version']==2,submitted
+                    finally:
+                        if failure=='expired':isolated_quote_fixture('restore-timezone')
+                    if failure=='product':isolated_quote_fixture('unit-change')
+                    if failure=='floor':
+                        changed=request('/api/v1/pricing/floors/00000000-0000-0000-0000-000000000187',office,company,base=first,
+                            payload={'productUnitId':box_unit,'amount':60,'active':True},method='PUT',version=floor_version,key='raise-floor-'+uuid.uuid4().hex)
+                        assert changed[0]==200,changed
+                        floor_version+=1
+                    before_quote=request(quote_path,employee,company)
+                    before_stock=request(warehouse_path,employee,company)
+                    before_credit=request(direct_credit,employee,company)
+                    code={'expired':'quote_expired','product':'product_changed','floor':'price_below_floor','stock':'insufficient_stock','credit':'credit_limit_exceeded'}[failure]
+                    try:
+                        failures=[request(quote_path+'/approve-and-convert',employee,company,base=target,payload={'reason':'Synthetic failing approval'},version=2,key='failure-convert-'+uuid.uuid4().hex) for target in (first,second)]
+                        assert failures[0][0]==failures[1][0]==409 and all(json.loads(result[1])['code']==code for result in failures),failures
+                        assert normalize(failures[0][1])==normalize(failures[1][1]),failures
+                        assert request(quote_path,employee,company)==before_quote
+                        assert normalize(request(warehouse_path,employee,company)[1])==normalize(before_stock[1])
+                        assert request(direct_credit,employee,company)==before_credit
+                    finally:
+                        if failure=='product':isolated_quote_fixture('unit-restore')
+                        if failure=='floor':
+                            restored=request('/api/v1/pricing/floors/00000000-0000-0000-0000-000000000187',office,company,base=second,
+                                payload={'productUnitId':box_unit,'amount':45,'active':True},method='PUT',version=floor_version,key='restore-floor-'+uuid.uuid4().hex)
+                            assert restored[0]==200,restored
+                            floor_version+=1
+                    returned=request(quote_path+'/return-to-draft',employee,company,base=second,payload={'reason':'Synthetic failure cleanup'},version=2,key='failure-return-'+uuid.uuid4().hex)
+                    assert returned[0]==200 and returned[1]['status']=='DRAFT',returned
+            print('PASS: quote conversion expiry/product/floor/stock/credit rejection preserves quote, approval and resources')
+            print('PASS: quote approval conversion, frozen prices after repricing, single approval/order/reservation and mixed replay')
+            for first,second,rule_unit,other_unit in ((legacy_url,url,unit_id,'00000000-0000-0000-0000-000000000077'),(url,legacy_url,'00000000-0000-0000-0000-000000000077',unit_id)):
+                for family in ('standard-prices','floors'):
+                    path='/api/v1/pricing/'+family
+                    body={'productUnitId':rule_unit,'amount':'50.00' if family=='standard-prices' else '10.00'}
+                    if family=='standard-prices':body.update(effectiveFrom='2026-01-01T10:00:00.1234567+10:00',active=False)
+                    args=dict(payload=body,key='pricing-create-'+uuid.uuid4().hex)
+                    for target in (first,second):
+                        assert request(path,None,company,base=target,**args)[0]==401
+                        assert request(path,employee,company,base=target,**args)[0]==403
+                        for change,status in (({'amount':None},400),({'active':None},400),({'productUnitId':None},400),({'amount':-1},422)):
+                            rejected=request(path,office,company,base=target,payload={**body,**change},key='invalid-pricing-'+uuid.uuid4().hex)
+                            assert rejected[0]==status,rejected
+                        rejected=request(path,office,company,base=target,payload={k:v for k,v in body.items() if k!='amount'},key='missing-pricing-amount-'+uuid.uuid4().hex)
+                        assert rejected[0]==400,rejected
+                    posted=request(path,office,company,base=first,**args)
+                    assert posted[0]==201 and posted[1]['version']==1,posted
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(path,office,company,base=first if n%2 else second,**args),range(6)))
+                    assert all(result==posted for result in attempts),attempts
+                    if family=='standard-prices':
+                        equivalent={**body,'effectiveFrom':'2026-01-01T00:00:00.1234567Z'}
+                        assert request(path,office,company,base=second,payload=equivalent,key=args['key'])==posted
+                    detail=path+'/'+posted[1]['id']
+                    view=request(detail,office,company)
+                    assert view==request(detail,office,company,base=legacy_url),view
+                    if family=='standard-prices':assert view[1]['effectiveFrom']=='2026-01-01T00:00:00.123456Z',view
+                    else:assert view[1]['active'] is True,view
+                    updated_body={**body,'amount':'51.00' if family=='standard-prices' else '11.00','active':False}
+                    update=dict(payload=updated_body,key='pricing-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                    for target in (first,second):
+                        missing=request(detail,office,company,base=target,**{k:v for k,v in update.items() if k!='version'})
+                        assert missing[0]==428 and json.loads(missing[1])['message']=='Supply If-Match with a positive current version.',missing
+                    changed=request(detail,office,company,base=second,**update)
+                    assert changed[0]==200 and changed[1]['version']==2,changed
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(detail,office,company,base=first if n%2 else second,**update),range(6)))
+                    assert all(result==changed for result in attempts),attempts
+                    for target in (first,second):
+                        stale=request(detail,office,company,base=target,**{**update,'key':'stale-price-'+uuid.uuid4().hex})
+                        assert stale[0]==409,stale
+                        immutable=request(detail,office,company,base=target,**{**update,'version':2,'key':'immutable-price-'+uuid.uuid4().hex,'payload':{**updated_body,'productUnitId':other_unit}})
+                        assert immutable[0]==422 and 'product_unit_id' in json.loads(immutable[1])['fieldErrors'],immutable
+                    final=request(detail,office,company)
+                    assert final==request(detail,office,company,base=legacy_url) and final[1]['active'] is False and final[1]['version']==2,final
+                    listed=request(path+'?pageSize=100',office,company)
+                    assert listed==request(path+'?pageSize=100',office,company,base=legacy_url) and posted[1]['id'] in [item['id'] for item in listed[1]['items']],listed
+            price_lists=request('/api/v1/pricing/price-lists',office,company)
+            assert price_lists==request('/api/v1/pricing/price-lists',office,company,base=legacy_url) and price_lists[0]==200,price_lists
+            pricing_scoped=token('test-pricing-scoped')
+            for first,second,rule_unit,other_unit in ((legacy_url,url,unit_id,'00000000-0000-0000-0000-000000000077'),(url,legacy_url,'00000000-0000-0000-0000-000000000077',unit_id)):
+                path='/api/v1/pricing/customer-prices'
+                body={'customerId':'00000000-0000-0000-0000-000000000072','productUnitId':rule_unit,'method':'FIXED_PRICE','fixedPrice':'12.34',
+                    'effectiveFrom':'2026-01-01T10:00:00.1234567+10:00','active':False}
+                args=dict(payload=body,key='customer-price-create-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    assert request(path,None,company,base=target,**args)[0]==401
+                    assert request(path,employee,company,base=target,**args)[0]==403
+                    assert request(path,pricing_scoped,company,base=target,**args)[0]==404
+                    for change,status in (({'method':'fixed_price'},422),({'fixedPrice':None},422),({'fixedPrice':-1},422),
+                            ({'discountPercent':1},422),({'method':'DISCOUNT_PERCENT','fixedPrice':None,'discountPercent':'100.000001'},422),
+                            ({'customerId':None},400),({'active':None},400),({'effectiveFrom':None},400)):
+                        rejected=request(path,office,company,base=target,payload={**body,**change},key='bad-customer-price-'+uuid.uuid4().hex)
+                        assert rejected[0]==status,rejected
+                created=request(path,office,company,base=first,**args)
+                assert created[0]==201 and created[1]['version']==1,created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,office,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==created for result in attempts),attempts
+                detail=path+'/'+created[1]['id']
+                view=request(detail,office,company)
+                assert view==request(detail,office,company,base=legacy_url),view
+                assert view[1]['fixedPrice']=='12.34000000' and view[1]['discountPercent'] is None and view[1]['effectiveFrom']=='2026-01-01T00:00:00.123456Z',view
+                for target in (first,second):assert request(detail,pricing_scoped,company,base=target)[0]==404
+                changed_body={**body,'method':'DISCOUNT_PERCENT','fixedPrice':None,'discountPercent':'12.345678'}
+                update=dict(payload=changed_body,key='customer-price-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                changed=request(detail,office,company,base=second,**update)
+                assert changed[0]==200 and changed[1]['version']==2,changed
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail,office,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==changed for result in attempts),attempts
+                for target in (first,second):
+                    assert request(detail,pricing_scoped,company,base=target,**update)[0]==404
+                    assert request(detail,office,company,base=target,**{**update,'key':'stale-customer-price-'+uuid.uuid4().hex})[0]==409
+                    immutable=request(detail,office,company,base=target,**{**update,'version':2,'key':'unit-customer-price-'+uuid.uuid4().hex,'payload':{**changed_body,'productUnitId':other_unit}})
+                    assert immutable[0]==422 and 'product_unit_id' in json.loads(immutable[1])['fieldErrors'],immutable
+                    wrong_customer=request(detail,office,company,base=target,**{**update,'version':2,'key':'owner-customer-price-'+uuid.uuid4().hex,'payload':{**changed_body,'customerId':'00000000-0000-0000-0000-000000000011'}})
+                    assert wrong_customer[0]==404,wrong_customer
+                final=request(detail,office,company)
+                assert final==request(detail,office,company,base=legacy_url) and final[1]['method']=='DISCOUNT_PERCENT' and final[1]['fixedPrice'] is None and final[1]['discountPercent']=='12.345678',final
+                listed=request(path+'?pageSize=100',pricing_scoped,company)
+                assert listed==request(path+'?pageSize=100',pricing_scoped,company,base=legacy_url),listed
+                assert all(row['customerId']=='00000000-0000-0000-0000-000000000011' for row in listed[1]['items']) and listed[1]['items'],listed
+                assert request(path+'/00000000-0000-0000-0000-000000000026',pricing_scoped,company)==request(path+'/00000000-0000-0000-0000-000000000026',pricing_scoped,company,base=legacy_url)
+            promo_items=[{'productUnitId':unit_id,'amount':'20.00'},{'productUnitId':'00000000-0000-0000-0000-000000000077','amount':'30.00'}]
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                path='/api/v1/pricing/promotions'
+                body={'name':' Promotion fixture café & + "two" '+uuid.uuid4().hex+' ',
+                    'startsAt':'2026-01-01T10:00:00.1234567+10:00','endsAt':'2030-01-01T00:00:00Z','items':promo_items}
+                args=dict(payload=body,key='promotion-create-'+uuid.uuid4().hex)
+                before_resolve={}
+                for item in promo_items:
+                    resolve='/api/v1/pricing/resolve?customerId=00000000-0000-0000-0000-000000000011&productUnitId='+item['productUnitId']
+                    before_resolve[item['productUnitId']]=normalize(request(resolve,employee,company)[1])
+                for target in (first,second):
+                    assert request(path,None,company,base=target,**args)[0]==401
+                    assert request(path,employee,company,base=target,**args)[0]==403
+                    for change,status in (({'items':[]},422),({'items':None},422),({'items':[promo_items[0],promo_items[0]]},422),
+                            ({'items':[{'productUnitId':unit_id}]},400),({'items':[{'productUnitId':unit_id,'amount':None}]},400),
+                            ({'items':[{'productUnitId':None,'amount':20}]},400),({'items':[{'productUnitId':unit_id,'amount':-1}]},422),
+                            ({'active':None},400),({'endsAt':'2025-01-01T00:00:00Z'},422),({'name':' '},422)):
+                        rejected=request(path,office,company,base=target,payload={**body,**change},key='bad-promotion-'+uuid.uuid4().hex)
+                        assert rejected[0]==status,rejected
+                created=request(path,office,company,base=first,**args)
+                assert created[0]==201 and created[1]['version']==1,created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,office,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==created for result in attempts),attempts
+                assert request(path,office,company,base=second,payload={**body,'items':list(reversed(promo_items))},key=args['key'])==created
+                detail=path+'/'+created[1]['id']
+                view=request(detail,office,company)
+                assert view==request(detail,office,company,base=legacy_url),view
+                assert view[1]['promotion']['name']==body['name'].strip() and view[1]['promotion']['active'] is True and len(view[1]['items'])==2,view
+                assert all(item['active'] is True and item['version']==1 for item in view[1]['items']),view
+                for item in promo_items:
+                    resolve='/api/v1/pricing/resolve?customerId=00000000-0000-0000-0000-000000000011&productUnitId='+item['productUnitId']
+                    price=request(resolve,employee,company)
+                    assert price[0]==200 and normalize(price[1])==normalize(request(resolve,employee,company,base=legacy_url)[1]),price
+                    assert price[1]['source']=='PROMOTION' and price[1]['ruleId']==created[1]['id'] and float(price[1]['unitPrice'])==float(item['amount']),price
+                update=dict(payload={**body,'name':'Closed promotion fixture café '+uuid.uuid4().hex,'active':False,'items':[]},key='promotion-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                changed=request(detail,office,company,base=second,**update)
+                assert changed[0]==200 and changed[1]['version']==2,changed
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail,office,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==changed for result in attempts),attempts
+                final=request(detail,office,company)
+                assert final==request(detail,office,company,base=legacy_url) and final[1]['promotion']['active'] is False,final
+                assert [item['id'] for item in final[1]['items']]==[item['id'] for item in view[1]['items']],final
+                assert all(item['active'] is False and item['version']==2 for item in final[1]['items']),final
+                for target in (first,second):
+                    stale=request(detail,office,company,base=target,**{**update,'key':'stale-promotion-'+uuid.uuid4().hex})
+                    assert stale[0]==409,stale
+                for item in promo_items:
+                    resolve='/api/v1/pricing/resolve?customerId=00000000-0000-0000-0000-000000000011&productUnitId='+item['productUnitId']
+                    assert normalize(request(resolve,employee,company)[1])==before_resolve[item['productUnitId']]
+                listed=request(path+'?pageSize=100',office,company)
+                assert listed==request(path+'?pageSize=100',office,company,base=legacy_url) and created[1]['id'] in [item['id'] for item in listed[1]['items']],listed
+            for lookup in ('uoms','product-categories','regions'):
+                path='/api/v1/'+lookup
+                for first,second in ((legacy_url,url),(url,legacy_url)):
+                    body={'code':'\u00a0 lk_'+uuid.uuid4().hex[:16]+'\u0085','name':'\u0085 Lookup café + "fixture" \u00a0'}
+                    args=dict(payload=body,key='lookup-create-'+uuid.uuid4().hex)
+                    for target in (first,second):
+                        assert request(path,pricing_scoped,company,base=target,**args)[0]==403
+                        for change,status in (({'code':'!'},422),({'code':'ß'},422),({'code':'ı'},422),({'code':'ﬀ'},422),({'code':'\u001cabc'},422),({'code':''},422),({'name':' '},422),({'name':'x'*201},422),({'active':None},400)):
+                            bad=request(path,office,company,base=target,payload={**body,**change},key='lookup-bad-'+uuid.uuid4().hex)
+                            assert bad[0]==status,bad
+                    created=request(path,office,company,base=first,**args)
+                    assert created[0]==201 and created[1]['version']==1,created
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(path,office,company,base=first if n%2 else second,**args),range(6)))
+                    assert all(result==created for result in attempts),attempts
+                    detail=path+'/'+created[1]['id']
+                    view=request(detail,office,company)
+                    assert view==request(detail,office,company,base=legacy_url) and view[1]['active'] is True,view
+                    assert view[1]['code']==body['code'].strip().upper() and view[1]['name']==body['name'].strip(),view
+                    canonical={**body,'code':body['code'].strip().upper(),'name':body['name'].strip(),'active':True}
+                    assert request(path,office,company,base=second,**{**args,'payload':canonical})==created
+                    changed_body={**canonical,'name':'Closed lookup fixture '+lookup+' '+uuid.uuid4().hex,'active':False}
+                    update=dict(payload=changed_body,key='lookup-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                    changed=request(detail,office,company,base=second,**update)
+                    assert changed[0]==200 and changed[1]['version']==2,changed
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(detail,office,company,base=first if n%2 else second,**update),range(6)))
+                    assert all(result==changed for result in attempts),attempts
+                    final=request(detail,office,company)
+                    assert final==request(detail,office,company,base=legacy_url) and final[1]['active'] is False and final[1]['version']==2,final
+                    for target in (first,second):
+                        for version,status in ((None,428),(1,409)):
+                            bad=request(detail,office,company,base=target,**{**update,'version':version,'key':'lookup-version-'+uuid.uuid4().hex})
+                            assert bad[0]==status,bad
+                        missing=request(path+'/'+str(uuid.uuid4()),office,company,base=target)
+                        assert missing[0]==404,missing
+                    listing=request(path+'?pageSize=100',office,company)
+                    assert listing==request(path+'?pageSize=100',office,company,base=legacy_url),listing
+                    assert created[1]['id'] in [item['id'] for item in listing[1]['items']],listing
+            for target in (url,legacy_url):
+                used=request('/api/v1/uoms/00000000-0000-0000-0000-000000000015',office,company,base=target,
+                    payload={'code':'EA','name':'Each','active':False},key='used-uom-'+uuid.uuid4().hex,version=1,method='PUT')
+                assert used[0]==409 and json.loads(used[1])['code']=='unit_in_use',used
+            warehouse_scoped=token('test-warehouse-scoped')
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                path='/api/v1/warehouses'
+                body={'code':' wh_'+uuid.uuid4().hex[:16]+' ','name':' Warehouse café & test ','regionId':'00000000-0000-0000-0000-000000000215'}
+                args=dict(payload=body,key='warehouse-create-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    assert request(path,warehouse_scoped,company,base=target,**args)[0]==403
+                    for change,status in (({'regionId':'00000000-0000-0000-0000-000000000216'},404),({'kind':'sellable'},422),({'active':None},400),({'name':' '},422)):
+                        bad=request(path,office,company,base=target,payload={**body,**change},key='warehouse-bad-'+uuid.uuid4().hex)
+                        assert bad[0]==status,bad
+                created=request(path,office,company,base=first,**args)
+                assert created[0]==201 and created[1]['version']==1,created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,office,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==created for result in attempts),attempts
+                detail=path+'/'+created[1]['id'];view=request(detail,office,company)
+                assert view==request(detail,office,company,base=legacy_url) and view[1]['kind']=='SELLABLE' and view[1]['active'] is True,view
+                for target in (first,second):
+                    assert request(detail,warehouse_scoped,company,base=target)[0]==404
+                    assert request(detail,warehouse_scoped,company,base=target,payload=body,key='warehouse-hidden-'+uuid.uuid4().hex,method='PUT')[0]==404
+                    invalid=request(detail,office,company,base=target,payload={**body,'kind':'TRANSIT'},key='warehouse-kind-'+uuid.uuid4().hex,version=1,method='PUT')
+                    assert invalid[0]==422,invalid
+                changed_body={**body,'name':'Closed warehouse fixture '+uuid.uuid4().hex,'active':False,'regionId':None}
+                update=dict(payload=changed_body,key='warehouse-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                changed=request(detail,office,company,base=second,**update)
+                assert changed[0]==200 and changed[1]['version']==2,changed
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail,office,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==changed for result in attempts),attempts
+                final=request(detail,office,company)
+                assert final==request(detail,office,company,base=legacy_url) and final[1]['regionId'] is None and final[1]['active'] is False,final
+                for target in (first,second):
+                    assert request(detail,office,company,base=target,**{**update,'key':'warehouse-stale-'+uuid.uuid4().hex})[0]==409
+                assert request(path+'?pageSize=100',office,company)==request(path+'?pageSize=100',office,company,base=legacy_url)
+            assigned='/api/v1/warehouses/00000000-0000-0000-0000-000000000220'
+            assigned_update=dict(payload={'code':'CATALOG_SCOPE_TEST','name':'Assigned warehouse updated'},key='warehouse-assigned-'+uuid.uuid4().hex,version=1,method='PUT')
+            changed=request(assigned,warehouse_scoped,company,**assigned_update)
+            assert changed[0]==200 and request(assigned,warehouse_scoped,company,base=legacy_url,**assigned_update)==changed,changed
+            listed=request('/api/v1/warehouses?pageSize=100',warehouse_scoped,company)
+            assert listed==request('/api/v1/warehouses?pageSize=100',warehouse_scoped,company,base=legacy_url) and [item['id'] for item in listed[1]['items']]==['00000000-0000-0000-0000-000000000220'],listed
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                product_body={'sku':'MAINT_'+uuid.uuid4().hex[:12],'name':'Synthetic maintenance product','baseUomId':'00000000-0000-0000-0000-000000000015','taxCodeId':'00000000-0000-0000-0000-000000000016','wholePacks':True,'units':[{'uomId':'00000000-0000-0000-0000-000000000015','conversionToBase':1}]}
+                created=request('/api/v1/products',employee,company,base=first,payload=product_body,key='maint-product-'+uuid.uuid4().hex)
+                assert created[0]==201,created
+                detail='/api/v1/products/'+created[1]['id']
+                assert request(detail,office,company)==request(detail,office,company,base=legacy_url)
+                body={'sku':' '+product_body['sku'].lower()+' ','name':' Closed product fixture '+uuid.uuid4().hex+' ','taxCodeId':product_body['taxCodeId'],'categoryId':'00000000-0000-0000-0000-000000000217','itemType':'SERVICE','status':'INACTIVE','reorderPoint':'12.345678'}
+                update=dict(payload=body,key='maint-product-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                for target in (first,second):
+                    assert request(detail,warehouse_scoped,company,base=target,**update)[0]==403
+                    for change,status in (({'categoryId':'00000000-0000-0000-0000-000000000218'},404),({'itemType':'service'},422),({'taxCodeId':None},400),({'reorderPoint':'0.0000001'},422),({'reorderPoint':-1},422)):
+                        bad=request(detail,office,company,base=target,**{**update,'payload':{**body,**change},'key':'maint-product-bad-'+uuid.uuid4().hex})
+                        assert bad[0]==status,bad
+                changed=request(detail,office,company,base=second,**update)
+                assert changed[0]==200 and changed[1]['version']==2,changed
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail,office,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==changed for result in attempts),attempts
+                final=request(detail,office,company)
+                assert final==request(detail,office,company,base=legacy_url) and final[1]['reorderPoint']=='12.345678' and final[1]['itemType']=='SERVICE' and final[1]['wholePacks'] is True and final[1]['buyEnabled'] is True and final[1]['sellEnabled'] is True,final
+                unitpath=detail+'/units';unitbody={'uomId':'00000000-0000-0000-0000-000000000219','conversionToBase':'2.500000','quantityStep':'0.250000'}
+                args=dict(payload=unitbody,key='maint-unit-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    for change,status in (({'uomId':'00000000-0000-0000-0000-000000000225','active':False},404),({'conversionToBase':0},422),({'quantityStep':0},422),({'quantityStep':'0.0000001'},422),({'uomId':None},400)):
+                        bad=request(unitpath,office,company,base=target,payload={**unitbody,**change},key='maint-unit-bad-'+uuid.uuid4().hex)
+                        assert bad[0]==status,bad
+                unit=request(unitpath,office,company,base=first,**args)
+                assert unit[0]==201,unit
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(unitpath,office,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==unit for result in attempts),attempts
+                unitdetail=unitpath+'/'+unit[1]['id'];changedbody={**unitbody,'conversionToBase':'3.000000','quantityStep':'0.500000','active':False}
+                update=dict(payload=changedbody,key='maint-unit-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                for target in (first,second):
+                    bad=request(unitdetail,office,company,base=target,**{**update,'payload':{**changedbody,'uomId':product_body['baseUomId']},'key':'maint-unit-identity-'+uuid.uuid4().hex})
+                    assert bad[0]==422,bad
+                    priced_units=request('/api/v1/products/00000000-0000-0000-0000-000000000182/units',office,company,base=target)
+                    assert priced_units[0]==200,priced_units
+                    priced_version=next(item['version'] for item in priced_units[1] if item['id']=='00000000-0000-0000-0000-000000000184')
+                    frozen=request('/api/v1/products/00000000-0000-0000-0000-000000000182/units/00000000-0000-0000-0000-000000000184',office,company,base=target,payload={'uomId':'00000000-0000-0000-0000-000000000181','conversionToBase':'2.5','quantityStep':1},key='maint-priced-unit-'+uuid.uuid4().hex,version=priced_version,method='PUT')
+                    assert frozen[0]==409 and json.loads(frozen[1])['code']=='unit_in_use',frozen
+                    hidden=request(unitpath+'/00000000-0000-0000-0000-000000000184',office,company,base=target,**{**update,'key':'maint-other-product-'+uuid.uuid4().hex})
+                    assert hidden[0]==404,hidden
+                changed=request(unitdetail,office,company,base=second,**update)
+                assert changed[0]==200 and changed[1]['version']==2,changed
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(unitdetail,office,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==changed for result in attempts),attempts
+            crm_office=token('test-crm-office');crm_limited=token('test-crm-limited');supplier_only=token('test-supplier-only');crm_scoped=token('test-crm-scoped')
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                body={'code':' su_'+uuid.uuid4().hex[:12]+' ','legalName':' Supplier café + fixture ','abn':'51 824 753 556'}
+                path='/api/v1/suppliers';args=dict(payload=body,key='supplier-create-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    assert request(path,crm_limited,company,base=target,**args)[0]==403
+                    for change in ({'paymentTermsDays':-1},{'paymentTermsDays':366},{'status':'active'},{'abn':'123'},{'legalName':' '}):
+                        bad=request(path,crm_office,company,base=target,payload={**body,**change},key='supplier-bad-'+uuid.uuid4().hex)
+                        assert bad[0]==422,bad
+                created=request(path,crm_office,company,base=first,**args)
+                assert created[0]==201 and created[1]['version']==1,created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,crm_office,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==created for result in attempts),attempts
+                assert request(path,crm_office,company,base=second,**{**args,'payload':{**body,'paymentTermsDays':None,'status':'ACTIVE'}})==created
+                detail=path+'/'+created[1]['id'];view=request(detail,crm_office,company)
+                assert view==request(detail,crm_office,company,base=legacy_url) and view[1]['paymentTermsDays']==30 and view[1]['abn']=='51824753556',view
+                for target in (first,second):
+                    conflict=request(path,crm_office,company,base=target,**{**args,'payload':{**body,'paymentTermsDays':30}})
+                    assert conflict[0]==409,conflict
+                changed_body={**body,'legalName':'Closed supplier fixture '+uuid.uuid4().hex,'abn':None,'status':'INACTIVE'}
+                update=dict(payload=changed_body,key='supplier-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                changed=request(detail,crm_office,company,base=second,**update)
+                assert changed[0]==200 and changed[1]['version']==2,changed
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail,crm_office,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==changed for result in attempts),attempts
+                final=request(detail,crm_office,company)
+                assert final==request(detail,crm_office,company,base=legacy_url) and final[1]['status']=='INACTIVE' and final[1]['abn'] is None and final[1]['paymentTermsDays']==30,final
+                assert request(path+'?pageSize=100',crm_office,company)==request(path+'?pageSize=100',crm_office,company,base=legacy_url)
+                for target in (first,second):
+                    assert request(detail,crm_office,company,base=target,**{**update,'key':'supplier-stale-'+uuid.uuid4().hex})[0]==409
+                draft={'code':'CM_'+uuid.uuid4().hex[:12],'legalName':'Synthetic CRM customer','abn':None,'creditLimit':10,'paymentTermsDays':30}
+                cust=request('/api/v1/customers',crm_office,company,base=first,payload=draft,key='crm-customer-'+uuid.uuid4().hex)
+                assert cust[0]==201,cust
+                detail='/api/v1/customers/'+cust[1]['id'];body={**draft,'legalName':' Hold customer fixture '+uuid.uuid4().hex+' ','status':'ON_HOLD','creditLimit':'10.00'}
+                update=dict(payload=body,key='crm-hold-'+uuid.uuid4().hex,version=1,method='PUT')
+                for target in (first,second):
+                    assert request(detail,crm_scoped,company,base=target)[0]==404
+                    assert request(detail,crm_scoped,company,base=target,**update)[0]==404
+                    for missing in ('creditLimit','paymentTermsDays'):
+                        incomplete={k:v for k,v in body.items() if k!=missing}
+                        bad=request(detail,crm_limited,company,base=target,**{**update,'payload':incomplete,'key':'crm-required-'+uuid.uuid4().hex})
+                        assert bad[0]==400,bad
+                held=request(detail,crm_limited,company,base=first,**update)
+                assert held[0]==200 and held[1]['version']==2,held
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail,crm_limited,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==held for result in attempts),attempts
+                for target in (first,second):
+                    for change in ({'creditLimit':11},{'paymentTermsDays':31},{'status':'ACTIVE'}):
+                        bad=request(detail,crm_limited,company,base=target,payload={**body,**change},key='crm-credit-denied-'+uuid.uuid4().hex,version=2,method='PUT')
+                        assert bad[0]==403,bad
+                finalbody={**body,'legalName':'Customer maintenance done '+uuid.uuid4().hex,'status':'ACTIVE','creditLimit':'11.00','paymentTermsDays':31,'abn':'51 824 753 556'}
+                update=dict(payload=finalbody,key='crm-release-'+uuid.uuid4().hex,version=2,method='PUT')
+                released=request(detail,crm_office,company,base=second,**update)
+                assert released[0]==200 and released[1]['version']==3,released
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail,crm_office,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==released for result in attempts),attempts
+                view=request(detail,crm_office,company)
+                assert view==request(detail,crm_office,company,base=legacy_url) and view[1]['creditLimit']=='11.00' and view[1]['paymentTermsDays']==31 and view[1]['status']=='ACTIVE' and view[1]['abn']=='51824753556',view
+            shared_customer='/api/v1/customers/00000000-0000-0000-0000-000000000251';shared_supplier='/api/v1/suppliers/00000000-0000-0000-0000-000000000252'
+            customerbody={'code':'SHARED_CRM_TEST','legalName':'Shared customer maintenance','status':'ON_HOLD','creditLimit':'100.00','paymentTermsDays':30}
+            supplierbody={'code':'SHARED_SUPPLIER_TEST','legalName':'Shared supplier maintenance'}
+            for target in (url,legacy_url):
+                for route,actor,body,status in ((shared_customer,crm_limited,customerbody,403),(shared_supplier,supplier_only,supplierbody,403),(shared_supplier,crm_scoped,supplierbody,404)):
+                    denied=request(route,actor,company,base=target,payload=body,key='crm-shared-denied-'+uuid.uuid4().hex,version=1,method='PUT')
+                    assert denied[0]==status,denied
+            supplier_update=dict(payload=supplierbody,key='crm-shared-supplier-'+uuid.uuid4().hex,version=1,method='PUT')
+            shared=request(shared_supplier,crm_office,company,**supplier_update)
+            assert shared[0]==200 and request(shared_supplier,crm_office,company,base=legacy_url,**supplier_update)==shared,shared
+            assert request(shared_customer,crm_office,company)[1]['legalName']==supplierbody['legalName']
+            customer_update=dict(payload={**customerbody,'legalName':'Shared customer maintenance done','status':'ACTIVE','creditLimit':'101.00','paymentTermsDays':31},key='crm-shared-customer-'+uuid.uuid4().hex,version=1,method='PUT')
+            shared=request(shared_customer,crm_office,company,base=legacy_url,**customer_update)
+            assert shared[0]==200 and request(shared_customer,crm_office,company,**customer_update)==shared,shared
+            assert request(shared_supplier,crm_office,company)[1]['legalName']=='Shared customer maintenance done'
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                path='/api/v1/customers/00000000-0000-0000-0000-000000000011/branches'
+                body={'code':' br_'+uuid.uuid4().hex[:12]+' ','name':' Branch café + fixture ','addressLine1':' 1 Synthetic & Test Street ','suburb':'  ','state':' nsw ','postcode':' 2000 '}
+                args=dict(payload=body,key='branch-create-'+uuid.uuid4().hex)
+                for target in (first,second):
+                    assert request(path,warehouse_scoped,company,base=target,**args)[0]==403
+                    hidden=request('/api/v1/customers/00000000-0000-0000-0000-000000000072/branches',crm_scoped,company,base=target,**args)
+                    assert hidden[0]==404,hidden
+                    for change,status in (({'country':None},422),({'country':'USA'},422),({'state':None},422),({'postcode':'200'},422),({'postcode':'２０００'},422),({'suburb':'x'*201},422),({'addressLine1':'x'*301},422),({'active':None},400),({'name':' '},422),({'code':'ß'},422)):
+                        bad=request(path,crm_scoped,company,base=target,payload={**body,**change},key='branch-bad-'+uuid.uuid4().hex)
+                        assert bad[0]==status,bad
+                created=request(path,crm_scoped,company,base=first,**args)
+                assert created[0]==201 and created[1]['version']==1,created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,crm_scoped,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==created for result in attempts),attempts
+                canonical={**body,'code':body['code'].strip().upper(),'name':body['name'].strip(),'addressLine1':body['addressLine1'].strip(),'suburb':None,'state':'NSW','postcode':'2000','country':'AU','active':True}
+                assert request(path,crm_scoped,company,base=second,**{**args,'payload':canonical})==created
+                detail=path+'/'+created[1]['id'];view=request(detail,crm_scoped,company)
+                assert view==request(detail,crm_scoped,company,base=legacy_url) and view[1]['country']=='AU' and view[1]['state']=='NSW' and view[1]['postcode']=='2000' and view[1]['suburb'] is None and view[1]['active'] is True,view
+                changedbody={**canonical,'name':'Closed branch fixture '+uuid.uuid4().hex,'addressLine1':' 2 Synthetic NZ Street ','country':' nz ','state':' ','postcode':'1010','active':False}
+                update=dict(payload=changedbody,key='branch-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                for target in (first,second):
+                    wrong='/api/v1/customers/00000000-0000-0000-0000-000000000072/branches/'+created[1]['id']
+                    assert request(wrong,crm_office,company,base=target)[0]==404
+                    assert request(wrong,crm_office,company,base=target,**{**update,'version':None})[0]==404
+                    assert request(detail,crm_scoped,company,base=target,**{**update,'version':None})[0]==428
+                changed=request(detail,crm_scoped,company,base=second,**update)
+                assert changed[0]==200 and changed[1]['version']==2,changed
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail,crm_scoped,company,base=first if n%2 else second,**update),range(6)))
+                assert all(result==changed for result in attempts),attempts
+                final=request(detail,crm_scoped,company)
+                assert final==request(detail,crm_scoped,company,base=legacy_url) and final[1]['country']=='NZ' and final[1]['state'] is None and final[1]['active'] is False and final[1]['version']==2,final
+                for target in (first,second):
+                    stale=request(detail,crm_scoped,company,base=target,**{**update,'key':'branch-stale-'+uuid.uuid4().hex})
+                    assert stale[0]==409,stale
+                listing=request(path+'?pageSize=100',crm_scoped,company)
+                assert listing==request(path+'?pageSize=100',crm_scoped,company,base=legacy_url),listing
+                assert created[1]['id'] in [item['id'] for item in listing[1]['items']],listing
+            contact_branch_ids=['00000000-0000-0000-0000-000000000260','00000000-0000-0000-0000-000000000012']
+            for kind,parent,actor in (('customers','00000000-0000-0000-0000-000000000011',crm_scoped),('suppliers','00000000-0000-0000-0000-000000000043',supplier_only)):
+                path='/api/v1/'+kind+'/'+parent+'/contacts'
+                for first,second in ((legacy_url,url),(url,legacy_url)):
+                    body={'name':' Contact café + '+uuid.uuid4().hex+' ','email':' "a b"@example.com ','phone':' +61 (2) 1234 xEXT#5 ','mobile':' 0400 000 000 ','jobTitle':' Accounts ','branchIds':contact_branch_ids if kind=='customers' else None}
+                    args=dict(payload=body,key='contact-create-'+uuid.uuid4().hex)
+                    for target in (first,second):
+                        assert request(path,warehouse_scoped,company,base=target,**args)[0]==403
+                        for change,status in (({'email':'Name <a@example.com>'},422),({'email':'a..b@example.com'},422),({'phone':'１２３'},422),({'phone':'abc'},422),({'mobile':'1\t2'},422),({'name':' '},422),({'jobTitle':'x'*101},422),({'branchIds':['00000000-0000-0000-0000-000000000000']},422),({'branchIds':contact_branch_ids*2},422),({'branchIds':[None]},400),({'active':None},400),({'isAccounting':None},400)):
+                            bad=request(path,actor,company,base=target,payload={**body,**change},key='contact-bad-'+uuid.uuid4().hex)
+                            assert bad[0]==status,bad
+                        invalid_branch={'branchIds':['00000000-0000-0000-0000-000000000073']}
+                        bad=request(path,actor,company,base=target,payload={**body,**invalid_branch},key='contact-parent-'+uuid.uuid4().hex)
+                        assert bad[0]==(404 if kind=='customers' else 422),bad
+                    created=request(path,actor,company,base=first,**args)
+                    assert created[0]==201 and created[1]['version']==1,created
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(path,actor,company,base=first if n%2 else second,**args),range(6)))
+                    assert all(result==created for result in attempts),attempts
+                    reversedbody={**body,'branchIds':list(reversed(contact_branch_ids)) if kind=='customers' else []}
+                    assert request(path,actor,company,base=second,**{**args,'payload':reversedbody})==created
+                    detail=path+'/'+created[1]['id'];view=request(detail,actor,company)
+                    assert view==request(detail,actor,company,base=legacy_url) and view[1]['email']=='"a b"@example.com' and view[1]['active'] is True and view[1]['isAccounting'] is False,view
+                    assert view[1]['branchIds']==sorted(contact_branch_ids if kind=='customers' else []),view
+                    changedbody={**body,'name':'Closed contact fixture '+kind+' '+uuid.uuid4().hex,'email':' 用户@例子.测试 ','phone':' ','mobile':None,'jobTitle':None,'isAccounting':True,'active':False,'branchIds':['00000000-0000-0000-0000-000000000012'] if kind=='customers' else []}
+                    update=dict(payload=changedbody,key='contact-update-'+uuid.uuid4().hex,version=1,method='PUT')
+                    for target in (first,second):
+                        wrong='/api/v1/'+kind+('/00000000-0000-0000-0000-000000000072' if kind=='customers' else '/00000000-0000-0000-0000-000000000252')+'/contacts/'+created[1]['id']
+                        assert request(wrong,crm_office,company,base=target)[0]==404
+                        assert request(wrong,crm_office,company,base=target,**{**update,'version':None})[0]==404
+                        assert request(detail,actor,company,base=target,**{**update,'version':None})[0]==428
+                    changed=request(detail,actor,company,base=second,**update)
+                    assert changed[0]==200 and changed[1]['version']==2,changed
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(detail,actor,company,base=first if n%2 else second,**update),range(6)))
+                    assert all(result==changed for result in attempts),attempts
+                    final=request(detail,actor,company)
+                    assert final==request(detail,actor,company,base=legacy_url) and final[1]['email']=='用户@例子.测试' and final[1]['phone'] is None and final[1]['mobile'] is None and final[1]['active'] is False and final[1]['isAccounting'] is True,final
+                    for target in (first,second):
+                        assert request(detail,actor,company,base=target,**{**update,'key':'contact-stale-'+uuid.uuid4().hex})[0]==409
+                    listing=request(path+'?pageSize=100',actor,company)
+                    assert listing==request(path+'?pageSize=100',actor,company,base=legacy_url) and created[1]['id'] in [item['id'] for item in listing[1]['items']],listing
+            shared_customer_contacts='/api/v1/customers/00000000-0000-0000-0000-000000000251/contacts';shared_supplier_contacts='/api/v1/suppliers/00000000-0000-0000-0000-000000000252/contacts'
+            shared_body={'name':'Shared contact fixture '+uuid.uuid4().hex,'email':'a@localhost','branchIds':['00000000-0000-0000-0000-000000000261']}
+            for target in (url,legacy_url):
+                for path,actor,body,status in ((shared_customer_contacts,crm_limited,shared_body,403),(shared_supplier_contacts,supplier_only,{'name':'Denied shared contact'},403),(shared_supplier_contacts,crm_scoped,{'name':'Denied hidden shared contact'},404)):
+                    bad=request(path,actor,company,base=target,payload=body,key='contact-shared-denied-'+uuid.uuid4().hex)
+                    assert bad[0]==status,bad
+            args=dict(payload=shared_body,key='contact-shared-'+uuid.uuid4().hex)
+            shared=request(shared_customer_contacts,crm_office,company,**args)
+            assert shared[0]==201 and request(shared_customer_contacts,crm_office,company,base=legacy_url,**args)==shared,shared
+            shared_id=shared[1]['id']
+            assert request(shared_supplier_contacts+'/'+shared_id,supplier_only,company)==request(shared_customer_contacts+'/'+shared_id,crm_office,company)
+            for target in (url,legacy_url):
+                blocked=request(shared_supplier_contacts+'/'+shared_id,crm_office,company,base=target,payload={'name':'Blocked linked shared contact'},key='contact-route-'+uuid.uuid4().hex,version=1,method='PUT')
+                assert blocked[0]==409 and json.loads(blocked[1])['code']=='customer_contact_route_required',blocked
+            clear=dict(payload={'name':'Shared contact links cleared','email':'a@b','branchIds':[]},key='contact-clear-'+uuid.uuid4().hex,version=1,method='PUT')
+            cleared=request(shared_customer_contacts+'/'+shared_id,crm_office,company,base=legacy_url,**clear)
+            assert cleared[0]==200 and request(shared_customer_contacts+'/'+shared_id,crm_office,company,**clear)==cleared,cleared
+            vendor_update=dict(payload={'name':'Shared supplier contact final','email':'a@b','branchIds':None,'active':False},key='contact-vendor-'+uuid.uuid4().hex,version=2,method='PUT')
+            updated=request(shared_supplier_contacts+'/'+shared_id,crm_office,company,**vendor_update)
+            assert updated[0]==200 and updated[1]['version']==3 and request(shared_supplier_contacts+'/'+shared_id,crm_office,company,base=legacy_url,**vendor_update)==updated,updated
+            print('PASS: customer/supplier contacts, shared party permissions, branch array/link replacement, route guard and mixed replay')
+            print('PASS: branch CRUD, assigned customer scope, normalized AU/NZ addresses, parent ownership and mixed replay')
+            print('PASS: customer/supplier maintenance, nullable requested terms, shared party scope, credit/hold permissions and mixed replay')
+            print('PASS: warehouse scope, immutable purpose, active references; product maintenance and unit ownership/pricing locks; shared retries')
+            print('PASS: catalog lookup CRUD, normalized shared replay, read ordering, permissions, versions and used-UOM protection')
+            print('PASS: promotions sorted replay, active price selection, empty inactive update, retained child versions and nested audit')
+            print('PASS: customer pricing fixed/discount switch, assignment scope, immutable ownership and shared replay')
+            print('PASS: standard/floor pricing maintenance, UTC tick canonical replay, required/default binding, immutable units and version audit')
+            print('PASS: direct order aggregate demand, atomic stock/credit failures, composite permissions and mixed replay')
             print('PASS: quote area/whole-pack/service GST/override/floor/ownership/manage-all and price-change refresh rollback')
             print('PASS: stock-source amount credits, frozen physical quantity, AP reduction, valuation audit and mixed replay')
             print('PASS: expense bills/credits, line/date binding, compound permissions, shared replay and zero stock movement')

@@ -1,3 +1,4 @@
+import { staffProfileSchema, type StaffProfile } from "../../src/features/security/staffProfile";
 import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, openSync, closeSync, fsyncSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -17,7 +18,7 @@ export function atomicJson(path: string, value: unknown): void {
         try { fsyncSync(directory); } finally { closeSync(directory); }
     }
 }
-const publicUser = ({ id, username, displayName, roles: userRoles, active }: StoredUser): PublicUser => ({ id, username, displayName, roles: [...userRoles], active });
+const publicUser = ({ id, username, displayName, roles: userRoles, active, staffProfile }: StoredUser): PublicUser => ({ id, username, displayName, roles: [...userRoles], active, ...(staffProfile?{staffProfile:structuredClone(staffProfile)}:{}) });
 function username(value: unknown): string {
     if (typeof value !== 'string' || !/^[a-z0-9][a-z0-9._-]{2,63}$/.test(value.trim().toLowerCase())) throw new Error('Username must contain 3–64 letters, numbers, dots, underscores or hyphens.');
     return value.trim().toLowerCase();
@@ -56,6 +57,7 @@ export class LocalSecurity {
             if (value?.schemaVersion !== 1 || !/^[a-f0-9]{64}$/.test(value.auditKey) || !Array.isArray(value.users) || !Array.isArray(value.audit)) throw new Error('Invalid local security database; access blocked.');
             const ids = new Set<string>(), names = new Set<string>();
             for (const user of value.users) {
+                if(user.staffProfile!==undefined)staffProfileSchema.parse(user.staffProfile);
                 if (!user.id || ids.has(user.id) || names.has(user.username) || username(user.username) !== user.username || typeof user.displayName !== 'string' || typeof user.active !== 'boolean' || !Number.isFinite(user.failures) || !Number.isFinite(user.lockedUntil) || !/^[a-f0-9]{32}$/.test(user.salt) || !/^[a-f0-9]{128}$/.test(user.passwordHash)) throw new Error('Invalid local user data; access blocked.');
                 roleList(user.roles); ids.add(user.id); names.add(user.username);
             }
@@ -105,12 +107,14 @@ export class LocalSecurity {
         this.addUser(input, ['ADMIN']);
         return this.login(input);
     }
-    private addUser(input: { username: string; displayName: string; password: string }, userRoles: Role[]): PublicUser {
+    private addUser(input: { username: string; displayName: string; password: string; staffProfile?:StaffProfile }, userRoles: Role[]): PublicUser {
         const name = username(input.username), secret = password(input.password);
         if (!input.displayName?.trim() || input.displayName.trim().length > 100) throw new Error('Display name is required (maximum 100 characters).');
         if (this.state.users.some(user => user.username === name)) throw new Error('Username already exists.');
+        const staffProfile=input.staffProfile===undefined?undefined:staffProfileSchema.parse(input.staffProfile);
+        if(staffProfile&&this.state.users.some(u=>u.staffProfile?.employeeCode.toLowerCase()===staffProfile.employeeCode.toLowerCase()))throw new Error("Employee code already exists.");
         const salt = randomBytes(16).toString('hex');
-        const user: StoredUser = { id: randomUUID(), username: name, displayName: input.displayName.trim(), roles: roleList(userRoles), active: true, salt, passwordHash: hashPassword(secret, salt), failures: 0, lockedUntil: 0 };
+        const user: StoredUser = { id: randomUUID(), username: name, displayName: input.displayName.trim(), roles: roleList(userRoles), active: true, ...(staffProfile?{staffProfile}:{}), salt, passwordHash: hashPassword(secret, salt), failures: 0, lockedUntil: 0 };
         this.commit({ ...this.state, users: [...this.state.users, user] });
         this.audit('user.created', user.id, 'SUCCESS', 'users.manage', undefined, this.principal()?.userId ?? user.id);
         return publicUser(user);
@@ -150,12 +154,15 @@ export class LocalSecurity {
         task.ownerName = assignee.displayName;
     }
     listUsers(): PublicUser[] { this.require('users.manage'); return this.state.users.map(publicUser); }
-    createUser(input: { username: string; displayName: string; password: string; roles: Role[] }): PublicUser { this.require('users.manage'); return this.addUser(input, input.roles); }
-    updateUser(input: { id: string; roles: Role[]; active: boolean }): void {
+    createUser(input: { username: string; displayName: string; password: string; roles: Role[];staffProfile?:StaffProfile }): PublicUser { this.require('users.manage'); return this.addUser(input, input.roles); }
+    updateUser(input: { id: string; roles: Role[]; active: boolean;displayName?:string;staffProfile?:StaffProfile }): void {
         const actor = this.require('users.manage');
         const userRoles = roleList(input.roles);
         if (typeof input.active !== 'boolean' || !this.state.users.some(user => user.id === input.id)) throw new Error('User was not found or active flag is invalid.');
-        const users = this.state.users.map(user => user.id === input.id ? { ...user, roles: userRoles, active: input.active } : user);
+        const staffProfile=input.staffProfile===undefined?undefined:staffProfileSchema.parse(input.staffProfile);
+        if(input.displayName!==undefined&&(typeof input.displayName!=='string'||!input.displayName.trim()||input.displayName.trim().length>100))throw new Error('Display name is required (maximum 100 characters).');
+        if(staffProfile&&this.state.users.some(u=>u.id!==input.id&&u.staffProfile?.employeeCode.toLowerCase()===staffProfile.employeeCode.toLowerCase()))throw new Error('Employee code already exists.');
+        const users = this.state.users.map(user => user.id === input.id ? { ...user, roles: userRoles, active: input.active,...(input.displayName===undefined?{}:{displayName:input.displayName.trim()}),...(staffProfile?{staffProfile}:{}) } : user);
         if (!users.some(user => user.active && user.roles.includes('ADMIN'))) throw new Error('The last active administrator cannot be disabled or demoted.');
         this.audit('user.updated', input.id, 'INTENT', 'users.manage');
         this.commit({ ...this.state, users });

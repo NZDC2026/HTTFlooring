@@ -23,7 +23,10 @@ class LegacyRows {
         var columns = row.getMetaData();
         for (int column = 1; column <= columns.getColumnCount(); column++) {
             Object value = row.getObject(column);
-            if (value instanceof BigDecimal decimal) {
+            if (value instanceof java.sql.Array array) {
+                value = array.getArray();
+                array.free();
+            } else if (value instanceof BigDecimal decimal) {
                 value = decimal.toPlainString();
             } else if (value instanceof java.sql.Timestamp timestamp) {
                 value = new java.time.format.DateTimeFormatterBuilder().appendInstant(-1).toFormatter()
