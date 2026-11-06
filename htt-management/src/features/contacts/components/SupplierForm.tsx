@@ -1,3 +1,4 @@
+import { FormHeaderSlot } from "./FormHeaderSlot";
 import { supplierContacts } from "../data/accountContacts";
 import { AccountContactsEditor } from "./AccountContactsEditor";
 import { CurrencySelect } from "../../currency/CurrencyFields";
@@ -42,6 +43,8 @@ import type {
 interface Props {
     supplier?: Supplier;
 
+    statusTarget?: string;
+
     submitLabel: string;
 
     onSubmit: (
@@ -76,6 +79,7 @@ const textareaClassName = `
 
 export function SupplierForm({
     supplier,
+    statusTarget,
     submitLabel,
     onSubmit,
     onCancel,
@@ -181,12 +185,61 @@ export function SupplierForm({
             className="space-y-4"
             noValidate
         >
+            <FormHeaderSlot targetId={statusTarget}>
+                        <div className="w-44 shrink-0">
+                        <FormField
+                            label="Status"
+                            required
+                            error={
+                                errors.status
+                                    ?.message
+                            }
+                        >
+                            <Controller
+                                control={
+                                    control
+                                }
+                                name="status"
+                                render={({
+                                    field,
+                                }) => (
+                                    <select
+                                        {...field}
+                                        className={
+                                            selectClassName
+                                        }
+                                    >
+                                        {supplierStatuses.map(
+                                            (
+                                                status,
+                                            ) => (
+                                                <option
+                                                    key={
+                                                        status
+                                                    }
+                                                    value={
+                                                        status
+                                                    }
+                                                >
+                                                    {status ===
+                                                        "ACTIVE"
+                                                        ? "Active"
+                                                        : "Inactive"}
+                                                </option>
+                                            ),
+                                        )}
+                                    </select>
+                                )}
+                            />
+                        </FormField>
+                        </div>
+            </FormHeaderSlot>
             <Card>
                 <CardContent>
-                    <SectionHeader
-                        title="Business Details"
-                        description="Basic supplier and trading information."
-                    />
+                    <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                    <div className="min-w-0"><h2 className="font-display text-xl">Business Details</h2><p className="mt-1 text-xs text-[var(--color-text-muted)]">Basic supplier and trading information.</p></div>
+
+                    </div>
 
                     <div className="grid grid-cols-2 gap-x-5 gap-y-5">
                         <FormField
@@ -237,51 +290,7 @@ export function SupplierForm({
                             />
                         </FormField>
 
-                        <FormField
-                            label="Status"
-                            required
-                            error={
-                                errors.status
-                                    ?.message
-                            }
-                        >
-                            <Controller
-                                control={
-                                    control
-                                }
-                                name="status"
-                                render={({
-                                    field,
-                                }) => (
-                                    <select
-                                        {...field}
-                                        className={
-                                            selectClassName
-                                        }
-                                    >
-                                        {supplierStatuses.map(
-                                            (
-                                                status,
-                                            ) => (
-                                                <option
-                                                    key={
-                                                        status
-                                                    }
-                                                    value={
-                                                        status
-                                                    }
-                                                >
-                                                    {status ===
-                                                        "ACTIVE"
-                                                        ? "Active"
-                                                        : "Inactive"}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                )}
-                            />
-                        </FormField>
+
                         <FormField label="Website" error={errors.website?.message}><Input {...register("website")} placeholder="https://example.com"/></FormField>
                         <FormField label="Business landline" error={errors.phone?.message}><Input {...register("phone")} type="tel" placeholder="03 9000 2100"/></FormField>
                         <FormField label="Business email" error={errors.email?.message}><Input {...register("email")} type="email" placeholder="accounts@example.com"/></FormField>

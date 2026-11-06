@@ -1,0 +1,4 @@
+import type { ReactNode } from "react";
+import { Building2 } from "lucide-react";
+export const customerField='h-10 w-full rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-800 shadow-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-50';
+export function CustomerFormSection({title,description,Icon,children}:{title:string;description:string;Icon:typeof Building2;children:ReactNode}){return <section className="rounded-2xl border border-stone-200 bg-white/95 p-5 shadow-sm sm:p-6"><header className="mb-4 flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-900"><Icon size={27}/></span><div><h2 className="font-display text-[23px] font-semibold leading-tight">{title}</h2><p className="mt-1 text-xs text-stone-500">{description}</p></div></header><div className="sm:ml-14">{children}</div></section>;}

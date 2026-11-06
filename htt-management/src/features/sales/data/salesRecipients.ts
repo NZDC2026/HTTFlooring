@@ -1,3 +1,4 @@
+import { formatCustomerAddress } from "../../contacts/data/customerAddresses";
 import { customerRepository } from '../../contacts/data/customerRepository';
 import type { SalesRecipientSnapshot } from '../types/salesDocument';
 export function salesRecipient(customerId: string, selection: {
@@ -16,14 +17,14 @@ export function salesRecipient(customerId: string, selection: {
     const contact = customer.contacts.find(c => c.id === contactId);
     if (contactId && (!contact || !contact.isAccounting || contact.locationId && contact.locationId !== locationId))
         throw new Error('Select an accounting contact for this customer and store.');
-    return { locationId, locationName: location?.name, deliveryAddress: location ? [location.addressLine1, location.addressLine2, location.suburb, location.state, location.postcode, location.country].filter(Boolean).join(', ') : undefined, accountingContactId: contact?.id, accountingContactName: contact ? `${contact.firstName} ${contact.lastName}` : undefined, accountingEmail: contact?.email };
+    return { billingAddress:formatCustomerAddress(customer.billingAddress)||undefined, locationId, locationName: location?.name, deliveryAddress: location ? [location.addressLine1, location.addressLine2, location.suburb, location.state, location.postcode, location.country].filter(Boolean).join(', ') : undefined, accountingContactId: contact?.id, accountingContactName: contact ? `${contact.firstName} ${contact.lastName}` : undefined, accountingEmail: contact?.email };
 }
 export function validateRecipientSnapshot(value: unknown): void {
     if (value === undefined)
         return;
     if (!value || typeof value !== 'object' || Array.isArray(value))
         throw new Error('Invalid recipient snapshot.');
-    const allowed = ['locationId', 'locationName', 'deliveryAddress', 'accountingContactId', 'accountingContactName', 'accountingEmail'];
+    const allowed = ['billingAddress', 'locationId', 'locationName', 'deliveryAddress', 'accountingContactId', 'accountingContactName', 'accountingEmail'];
     if (Object.entries(value).some(([k, v]) => !allowed.includes(k) || v !== undefined && (typeof v !== 'string' || v.length > 2000)))
         throw new Error('Invalid recipient snapshot.');
 }

@@ -1,3 +1,4 @@
+import { customerAddressSchema, deliveryAddressesSchema } from "../data/customerAddresses";
 import { accountContactsSchema } from "../data/accountContacts";
 import { paymentTermsTypeSchema, validatePaymentTerms } from "../../payment-terms/paymentTerms";
 import { z } from "zod";
@@ -49,6 +50,10 @@ const optionalAbn = z
     );
 
 export const customerFormSchema = z.object({
+    creditHold: z.boolean().optional(),
+    internalNotes: z.string().trim().max(500).optional(),
+    billingAddress: customerAddressSchema.optional(),
+    locations: deliveryAddressesSchema.optional(),
     contacts: accountContactsSchema.optional(),
     businessName: z
         .string()

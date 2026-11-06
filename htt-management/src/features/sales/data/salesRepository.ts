@@ -1,3 +1,4 @@
+import { isCustomerCreditHeld } from "../../credit-hold/creditHoldNotice";
 import { paymentDueDate, invoicePaymentTerms } from "../../payment-terms/paymentTerms";
 import { customerRepository } from "../../contacts/data/customerRepository";
 import { resolvePricingInstant, validatePricingSnapshot } from './pricingInstant';
@@ -143,6 +144,7 @@ function buildSnapshot():
 export const salesRepository = {
     createManagedOrder(input: {draftId:string;recipient?:import("../types/salesDocument").SalesRecipientSnapshot;customerId:string;documentDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):SalesOrder {
         const prior=salesOrders.find(o=>o.managedDraftId===input.draftId);if(prior)return prior;
+        if(isCustomerCreditHeld(customerRepository.getById(input.customerId)))throw Error("Customer is Credit On Hold. New orders are blocked.");
         const now=new Date().toISOString(),order:SalesOrder={id:createId('order'),managedDraftId:input.draftId,type:'SALES_ORDER',status:'CONFIRMED',documentNumber:getNextDocumentNumber('SO',salesOrders.map(o=>o.documentNumber)),customerId:input.customerId,recipient:structuredClone(input.recipient),documentDate:input.documentDate,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),invoiceIds:[],createdAt:now,updatedAt:now};
         commitOrderDocuments([order,...salesOrders]);return order;
     },
@@ -600,6 +602,7 @@ export const salesRepository = {
             );
         }
 
+        if(isCustomerCreditHeld(customerRepository.getById(quote.customerId)))throw Error("Customer is Credit On Hold. New orders are blocked.");
         const now =
             new Date().toISOString();
 

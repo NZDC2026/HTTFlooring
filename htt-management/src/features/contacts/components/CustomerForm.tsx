@@ -1,353 +1,47 @@
-import { AccountContactsEditor } from "./AccountContactsEditor";
-import { PaymentTermsFields } from "../../payment-terms/PaymentTermsFields";
+import { showCreditHoldNotice } from "../../credit-hold/creditHoldNotice";
+import { useCustomers } from "../data/useCustomers";
+import { nextCustomerCode } from "../data/customerCode";
+import { useState, type ReactNode } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
-import {
-    Controller,
-    useForm,
-} from "react-hook-form";
-
-import { Input } from "../../../components/ui/Input";
-import { Button } from "../../../components/ui/Button";
-
-import {
-    Card,
-    CardContent,
-} from "../../../components/ui/Card";
-
-import { FormField } from "./FormField";
-
-import {
-    businessTypes,
-    customerFormSchema,
-    customerStatuses,
-    type CustomerFormValues,
-} from "../schemas/customerSchemas";
-
+import { Building2, CreditCard, CalendarDays, FileText, LockKeyhole, Check, X } from "lucide-react";
+import { CustomerAddressesEditor } from "./CustomerAddressesEditor";
+import { CustomerContactsEditor } from "./CustomerContactsEditor";
+import { emptyCustomerAddress } from "../data/customerAddresses";
+import { FormHeaderSlot } from "./FormHeaderSlot";
+import { businessTypes, customerStatuses, customerFormSchema, type CustomerFormValues } from "../schemas/customerSchemas";
 import type { Customer } from "../types/customer";
-
-interface CustomerFormProps {
-    customer?: Customer;
-
-    submitLabel?: string;
-
-    onSubmit: (
-        values: CustomerFormValues,
-    ) => void | Promise<void>;
-
-    onCancel: () => void;
-}
-
-export function CustomerForm({
-    customer,
-    submitLabel,
-    onSubmit,
-    onCancel,
-}: CustomerFormProps) {
-    const {
-        register,
-        watch,
-        setValue,
-        control,
-        handleSubmit,
-        formState: {
-            errors,
-            isSubmitting,
-            isDirty,
-        },
-    } = useForm<CustomerFormValues>({
-        resolver: zodResolver(
-            customerFormSchema,
-        ),
-
-        defaultValues: {
-            contacts: customer?.contacts ?? [],
-            businessName:
-                customer?.businessName ?? "",
-
-            tradingName:
-                customer?.tradingName ?? "",
-
-            abn: customer?.abn ?? "",
-
-            businessType:
-                customer?.businessType ??
-                "Flooring Retailer",
-
-            status:
-                customer?.status ?? "ACTIVE",
-
-            email: customer?.email ?? "",
-
-            phone: customer?.phone ?? "",
-
-            website:
-                customer?.website ?? "",
-
-            creditLimit:
-                customer?.creditLimit ?? 0,
-
-            paymentTermsType: customer?.paymentTermsType ?? (customer ? undefined : "DAYS"),
-            paymentTermsDays:
-                customer?.paymentTermsDays ?? 30,
-        },
-    });
-
-    return (
-        <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="space-y-4"
-            noValidate
-        >
-            <Card>
-                <CardContent>
-                    <div className="mb-6">
-                        <h2 className="font-display text-xl">
-                            Business Details
-                        </h2>
-
-                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            Basic customer and trading
-                            information.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-x-5 gap-y-5">
-                        <FormField
-                            label="Business Name"
-                            required
-                            error={
-                                errors.businessName?.message
-                            }
-                        >
-                            <Input
-                                {...register(
-                                    "businessName",
-                                )}
-                                placeholder="ABC Flooring Pty Ltd"
-                                autoFocus
-                            />
-                        </FormField>
-
-                        <FormField
-                            label="Trading Name"
-                            error={
-                                errors.tradingName?.message
-                            }
-                        >
-                            <Input
-                                {...register(
-                                    "tradingName",
-                                )}
-                                placeholder="ABC Flooring"
-                            />
-                        </FormField>
-
-                        <FormField
-                            label="ABN"
-                            error={errors.abn?.message}
-                            description="Australian Business Number — 11 digits."
-                        >
-                            <Input
-                                {...register("abn")}
-                                placeholder="12 345 678 901"
-                            />
-                        </FormField>
-
-                        <FormField
-                            label="Business Type"
-                            required
-                            error={
-                                errors.businessType?.message
-                            }
-                        >
-                            <Controller
-                                control={control}
-                                name="businessType"
-                                render={({ field }) => (
-                                    <select
-                                        {...field}
-                                        className={selectClassName}
-                                    >
-                                        {businessTypes.map(
-                                            (businessType) => (
-                                                <option
-                                                    key={businessType}
-                                                    value={businessType}
-                                                >
-                                                    {businessType}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                )}
-                            />
-                        </FormField>
-
-                        <FormField
-                            label="Status"
-                            required
-                            error={
-                                errors.status?.message
-                            }
-                        >
-                            <Controller
-                                control={control}
-                                name="status"
-                                render={({ field }) => (
-                                    <select
-                                        {...field}
-                                        className={selectClassName}
-                                    >
-                                        {customerStatuses.map(
-                                            (status) => (
-                                                <option
-                                                    key={status}
-                                                    value={status}
-                                                >
-                                                    {getStatusLabel(
-                                                        status,
-                                                    )}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                )}
-                            />
-                        </FormField>
-                        <FormField label="Website" error={errors.website?.message}><Input {...register("website")} placeholder="https://example.com"/></FormField>
-                        <FormField label="Business landline" error={errors.phone?.message}><Input {...register("phone")} type="tel" placeholder="03 9000 2100"/></FormField>
-                        <FormField label="Business email" error={errors.email?.message}><Input {...register("email")} type="email" placeholder="accounts@example.com"/></FormField>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Controller name="contacts" control={control} render={({field})=><AccountContactsEditor value={field.value??[]} onChange={field.onChange} error={errors.contacts ? "Check contact names and email addresses; choose only one primary and one accountant contact." : undefined}/>}/>
-
-
-            <Card>
-                <CardContent>
-                    <div className="mb-6">
-                        <h2 className="font-display text-xl">
-                            Account &amp; Trading
-                        </h2>
-
-                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            Credit and payment settings for
-                            this customer.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-x-5 gap-y-5">
-                        <FormField
-                            label="Credit Limit"
-                            required
-                            error={
-                                errors.creditLimit?.message
-                            }
-                            description="Maximum approved customer credit."
-                        >
-                            <div className="relative">
-                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-text-muted)]">
-                                    $
-                                </span>
-
-                                <Input
-                                    {...register(
-                                        "creditLimit",
-                                        {
-                                            valueAsNumber: true,
-                                        },
-                                    )}
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    className="pl-7"
-                                />
-                            </div>
-                        </FormField>
-
-                        <FormField
-                            label="Payment Terms"
-                            required
-                            error={
-                                errors.paymentTermsDays
-                                    ?.message
-                            }
-                        >
-                            <PaymentTermsFields value={{paymentTermsDays: watch("paymentTermsDays"), paymentTermsType: watch("paymentTermsType")}}
-                                onChange={value => {
-                                    setValue("paymentTermsType", value.paymentTermsType, {shouldDirty: true});
-                                    setValue("paymentTermsDays", value.paymentTermsDays, {shouldDirty: true, shouldValidate: true});
-                                }}/>
-                        </FormField>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-5">
-                <div className="text-[11px] text-[var(--color-text-muted)]">
-                    {isDirty
-                        ? "You have unsaved changes."
-                        : customer
-                            ? `Editing ${customer.code}`
-                            : "Complete the required fields to create the customer."}
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="secondary"
-                        type="button"
-                        onClick={onCancel}
-                        disabled={isSubmitting}
-                    >
-                        Cancel
-                    </Button>
-
-                    <Button
-                        variant="accent"
-                        type="submit"
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting
-                            ? "Saving..."
-                            : submitLabel ??
-                            (customer
-                                ? "Save changes"
-                                : "Create customer")}
-                    </Button>
-                </div>
-            </div>
-        </form>
-    );
-}
-
-const selectClassName = [
-    "h-10 w-full rounded-lg",
-    "border border-[var(--color-border)]",
-    "bg-white px-3",
-    "text-sm text-[var(--color-text-primary)]",
-    "outline-none transition",
-    "hover:border-[var(--color-border-strong)]",
-    "focus:border-[var(--color-primary)]",
-    "focus:ring-2",
-    "focus:ring-[var(--color-primary-soft)]",
-].join(" ");
-
-function getStatusLabel(
-    status:
-        | "ACTIVE"
-        | "ON_HOLD"
-        | "INACTIVE",
-) {
-    switch (status) {
-        case "ACTIVE":
-            return "Active";
-
-        case "ON_HOLD":
-            return "On hold";
-
-        case "INACTIVE":
-            return "Inactive";
-    }
+import { paymentDueDate, paymentTermsLabel, type PaymentTermsType } from "../../payment-terms/paymentTerms";
+import { businessDateKey } from "../../../lib/businessDate";
+import { businessSettings } from "../../business-workspace/configurationState";
+import { CustomerFormSection, customerField } from "./CustomerFormSection";
+interface CustomerFormProps{customer?:Customer;statusTarget?:string;submitLabel?:string;onSubmit:(values:CustomerFormValues)=>void|Promise<void>;onCancel:()=>void;}
+export function CustomerForm({customer,statusTarget,submitLabel,onSubmit,onCancel}:CustomerFormProps){
+ const customers=useCustomers();
+ const {register,watch,setValue,control,handleSubmit,formState:{errors,isSubmitting,isDirty}}=useForm<CustomerFormValues>({resolver:zodResolver(customerFormSchema),defaultValues:{businessName:customer?.businessName??'',tradingName:customer?.tradingName??'',abn:customer?.abn??'',businessType:customer?.businessType??'Flooring Retailer',status:customer?.status??'ACTIVE',website:customer?.website??'',phone:customer?.phone??'',email:customer?.email??'',creditLimit:customer?.creditLimit??0,paymentTermsType:customer?.paymentTermsType??(customer?.paymentTermsDays===0?'COD':'DAYS'),paymentTermsDays:customer?.paymentTermsDays??30,contacts:customer?.contacts??[{id:crypto.randomUUID(),firstName:'',lastName:'',phone:'',mobile:'',email:'',isPrimary:true}],billingAddress:customer?.billingAddress??emptyCustomerAddress(),locations:customer?.locations??[],creditHold:customer?.creditHold??false,internalNotes:customer?.internalNotes??''}});
+ const [saveError,setSaveError]=useState('');
+ const terms={paymentTermsDays:watch('paymentTermsDays'),paymentTermsType:watch('paymentTermsType')};
+ const today=businessDateKey(new Date().toISOString());let due='—';try{due=paymentDueDate(today,terms);}catch{/* Invalid field is reported on submit. */}
+ const label=(text:string,content:ReactNode,error?:string)=> <label className="grid gap-1.5 text-xs font-semibold">{text}{content}{error&&<span className="text-[11px] font-normal text-red-700">{error}</span>}</label>;
+ const status=watch('status'),hold=watch('creditHold');
+ return <form className="space-y-4" noValidate onSubmit={handleSubmit(async values=>{try{setSaveError('');await onSubmit(values);}catch(e){setSaveError(e instanceof Error?e.message:'Could not save customer');}})}>
+  <FormHeaderSlot targetId={statusTarget}><div className="flex flex-wrap items-end gap-4"><label className="grid w-40 gap-1.5 text-xs font-semibold">Status *<select {...register('status')} className={`${customerField} ${status==='ACTIVE'?'text-emerald-800':status==='ON_HOLD'?'text-amber-800':'text-stone-500'}`}>{customerStatuses.map(s=><option key={s} value={s}>{s==='ACTIVE'?'● Active':s==='ON_HOLD'?'● Credit On Hold':'● Inactive'}</option>)}</select></label><label className="flex min-h-10 items-center gap-3 rounded-xl border border-stone-200 bg-white/80 px-3 py-2"><span className="text-xs"><strong>Credit Hold</strong><span className="mt-1 block text-[10px] text-stone-500">Prevent new orders when enabled.</span></span><input type="checkbox" role="switch" aria-label="Credit Hold" checked={hold} onChange={e=>setValue('creditHold',e.target.checked,{shouldDirty:true})} className="peer sr-only"/><span aria-hidden="true" className="relative h-6 w-11 rounded-full bg-stone-300 transition after:absolute after:left-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:bg-emerald-800 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-700"/></label></div></FormHeaderSlot>
+  <CustomerFormSection title="Business Details" description="Basic customer and trading information." Icon={Building2}><div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+   {label('Customer Code',<div className="relative"><input className={`${customerField} bg-stone-100 pr-9`} value={customer?.code??nextCustomerCode(customers)} title="Preview of the next customer code; confirmed by the server when saved." readOnly/><LockKeyhole size={16} className="absolute right-3 top-3 text-stone-400"/></div>)}
+   {label('Business Type *',<select {...register('businessType')} className={customerField}>{businessTypes.map(t=><option key={t}>{t}</option>)}</select>,errors.businessType?.message)}
+   {label('Business Name *',<input {...register('businessName')} className={customerField} placeholder="ABC Flooring Pty Ltd" autoFocus/>,errors.businessName?.message)}
+   {label('Trading Name',<input {...register('tradingName')} className={customerField} placeholder="ABC Flooring"/>,errors.tradingName?.message)}
+   {label('ABN',<input {...register('abn')} className={customerField} placeholder="12 345 678 901"/>,errors.abn?.message)}
+   {label('Website',<input {...register('website')} className={customerField} placeholder="https://example.com"/>,errors.website?.message)}
+   {label('Business landline',<input {...register('phone')} className={customerField} type="tel" placeholder="03 9000 2100"/>,errors.phone?.message)}
+   {label('Business email',<input {...register('email')} className={customerField} type="email" placeholder="info@example.com"/>,errors.email?.message)}
+  </div></CustomerFormSection>
+  <Controller name="contacts" control={control} render={({field})=><CustomerContactsEditor value={field.value??[]} onChange={field.onChange} error={errors.contacts?'Check contact names, phone lengths and email addresses.':undefined}/>}/>
+  <CustomerAddressesEditor billing={watch('billingAddress')??emptyCustomerAddress()} deliveries={watch('locations')??[]} onBillingChange={value=>setValue('billingAddress',value,{shouldDirty:true})} onDeliveriesChange={value=>setValue('locations',value,{shouldDirty:true})} error={errors.billingAddress||errors.locations?'Complete address fields and choose one default delivery address.':undefined}/>
+  <CustomerFormSection title="Account & Trading" description="Credit, payment and trading settings." Icon={CreditCard}><div className="grid gap-6 sm:grid-cols-2">{label(`Credit Limit (${businessSettings().currency})`,<div className="relative"><span className="absolute left-3 top-2.5 text-sm">$</span><input {...register('creditLimit',{valueAsNumber:true})} className={`${customerField} pl-7`} type="number" min="0" step="0.01"/></div>,errors.creditLimit?.message)}{label('Payment Terms *',<div className="flex gap-2"><select aria-label="Payment terms type" className={customerField} value={terms.paymentTermsType} onChange={e=>{const type=e.target.value as PaymentTermsType;setValue('paymentTermsType',type,{shouldDirty:true});setValue('paymentTermsDays',type==='COD'?0:type==='DAY_OF_MONTH'?Math.min(31,Math.max(1,terms.paymentTermsDays)):Math.max(1,terms.paymentTermsDays),{shouldDirty:true});}}><option value="COD">COD</option><option value="DAYS">No. xxx Of Day</option><option value="DAY_OF_MONTH">No. xxx End Of Month</option></select>{terms.paymentTermsType!=='COD'&&<input aria-label={terms.paymentTermsType==='DAYS'?'Number of days':'Day of next month'} className={`${customerField} max-w-24`} type="number" min={terms.paymentTermsType==='DAY_OF_MONTH'?1:0} max={terms.paymentTermsType==='DAY_OF_MONTH'?31:365} {...register('paymentTermsDays',{valueAsNumber:true})}/>}</div>,errors.paymentTermsDays?.message)}</div><div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl bg-emerald-50 px-4 py-3 text-xs"><CalendarDays size={26} className="text-emerald-800"/><div><strong>Payment Due Date Example</strong><p className="mt-1">Invoice Date: {today}</p></div><div className="border-l border-emerald-200 pl-4"><strong>Due Date: {due}</strong><p className="mt-1">{due==='—'?'Enter valid payment terms':paymentTermsLabel(terms)}</p></div></div></CustomerFormSection>
+  <CustomerFormSection title="Notes" description="Internal notes (not visible to the customer)." Icon={FileText}><textarea {...register('internalNotes')} maxLength={500} rows={3} className={`${customerField} h-auto resize-y py-3`} placeholder="Add notes about this customer (e.g. trading agreement, special terms, etc.)"/><p className="mt-1 text-right text-[10px] text-stone-400">{watch('internalNotes')?.length??0} / 500</p></CustomerFormSection>
+  {saveError&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
+  <footer className="flex flex-wrap items-center justify-between gap-3 py-3"><p className="text-[11px] text-stone-500">{isDirty?'You have unsaved changes.':customer?`Editing ${customer.code}`:'Complete the required fields to create the customer.'}</p><div className="flex gap-3"><button type="button" className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-6 py-3 text-sm font-semibold" disabled={isSubmitting} onClick={onCancel}><X size={15}/>Cancel</button><button type="submit" className="inline-flex items-center gap-2 rounded-xl bg-emerald-900 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800" disabled={isSubmitting}><Check size={17}/>{isSubmitting?'Saving…':submitLabel??(customer?'Save Changes':'Create Customer')}</button></div></footer>
+  <details className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs"><summary className="cursor-pointer font-semibold text-amber-900">Sample · Customer account settings · Read-only</summary><div className="mt-3 space-y-2"><button type="button" className="mb-2 rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs" onClick={()=>showCreditHoldNotice({id:'sample-credit-hold',code:'CUST-SAMPLE-001',businessName:'Sample Flooring Pty Ltd',status:'ON_HOLD'},'Sample · Open / convert / print document')}>Preview Sample · Credit On Hold reminder</button><p>Sample numbering: latest customer code CUST-0005 → next code CUST-0006. Final code is assigned when saved.</p><p>Sample Flooring Pty Ltd · Active · Credit Hold off → New orders allowed.</p><p>Sample Trade Account · Credit On Hold · Credit Hold on → New orders blocked; existing documents remain available.</p><p>Sample internal note: Confirm delivery access with the store manager. Not printed on sales documents.</p></div></details>
+ </form>;
 }

@@ -1,3 +1,4 @@
+import { DocumentTrashLink } from "../../document-recycle/DocumentTrashLink";
 import { PricingTimeSummary } from '../components/PricingTimeFields';
 import { ItemTypeSummary } from '../components/ItemTypeSummary';
 import { Link } from 'react-router-dom';
@@ -224,6 +225,7 @@ export function QuoteDetailPage() {
                     </p>
                 </div>
 
+                <div className="flex flex-wrap items-center gap-2"><DocumentTrashLink recordId={quote.id} status={quote.status}/>
                 <QuoteActions
                     status={
                         quote.status
@@ -248,7 +250,7 @@ export function QuoteDetailPage() {
                     onConvert={
                         handleConvert
                     }
-                />
+                /></div>
             </div>
 
             {actionError && (

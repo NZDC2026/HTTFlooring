@@ -21,4 +21,4 @@ export function SalesDeliveryFields({ customerId, locationId, accountingContactI
 }
 export function SalesDeliverySummary({ recipient }: {
     recipient?: SalesRecipientSnapshot;
-}) { return <div className="my-4 rounded border p-3 text-sm"><p>Store: {recipient?.locationName ?? 'Not recorded'}</p><p>Delivery: {recipient?.deliveryAddress ?? 'Not recorded'}</p><p>Accounting recipient: {[recipient?.accountingContactName, recipient?.accountingEmail].filter(Boolean).join(' · ') || 'Not recorded'}</p></div>; }
+}) { return <div className="my-4 rounded border p-3 text-sm"><p>Billing: {recipient?.billingAddress ?? 'Not recorded'}</p><p>Store: {recipient?.locationName ?? 'Not recorded'}</p><p>Delivery: {recipient?.deliveryAddress ?? 'Not recorded'}</p><p>Accounting recipient: {[recipient?.accountingContactName, recipient?.accountingEmail].filter(Boolean).join(' · ') || 'Not recorded'}</p></div>; }

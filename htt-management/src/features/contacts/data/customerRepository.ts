@@ -1,3 +1,5 @@
+import { nextCustomerCode } from "./customerCode";
+import { normalizeBillingAddress, normalizeDeliveryAddresses, customerAddressSchema, deliveryAddressesSchema } from "./customerAddresses";
 import { normalizeAccountContacts, accountContactsSchema } from "./accountContacts";
 import { validatePaymentTerms } from "../../payment-terms/paymentTerms";
 import { z } from 'zod';
@@ -51,23 +53,7 @@ function createId(prefix: string) {
 }
 
 function createCustomerCode() {
-    const numbers = customers
-        .map((customer) => {
-            const match =
-                customer.code.match(/(\d+)$/);
-
-            return match
-                ? Number.parseInt(match[1], 10)
-                : 0;
-        })
-        .filter(Number.isFinite);
-
-    const nextNumber =
-        Math.max(0, ...numbers) + 1;
-
-    return `CUST-${nextNumber
-        .toString()
-        .padStart(4, "0")}`;
+    return nextCustomerCode(customers);
 }
 
 function normalizeOptional(
@@ -180,6 +166,8 @@ export const customerRepository = {
             id: createId("cus"),
 
             code: createCustomerCode(),
+            creditHold: values.creditHold??false,
+            internalNotes: values.internalNotes?.trim(),
 
             businessName:
                 values.businessName.trim(),
@@ -212,7 +200,9 @@ export const customerRepository = {
                 values.paymentTermsDays,
             paymentTermsType: values.paymentTermsType,
 
-            locations: [],
+            billingAddress: values.billingAddress===undefined?undefined:normalizeBillingAddress(values.billingAddress),
+            locations: values.locations===undefined?[]:normalizeDeliveryAddresses(values.locations),
+            primaryLocationId: values.locations===undefined?undefined:normalizeDeliveryAddresses(values.locations).find(a=>a.isPrimary)?.id,
 
             contacts: values.contacts===undefined?[]:normalizeAccountContacts(values.contacts),
             primaryContactId: values.contacts===undefined?undefined:normalizeAccountContacts(values.contacts).find(c=>c.isPrimary)?.id,
@@ -255,6 +245,10 @@ export const customerRepository = {
             (customer) => {
                 updatedCustomer = {
                     ...customer,
+                    ...(values.creditHold===undefined?{}:{creditHold:values.creditHold}),
+                    ...(values.internalNotes===undefined?{}:{internalNotes:values.internalNotes.trim()}),
+                    ...(values.billingAddress===undefined?{}:{billingAddress:normalizeBillingAddress(values.billingAddress)}),
+                    ...(values.locations===undefined?{}:{locations:normalizeDeliveryAddresses(values.locations),primaryLocationId:normalizeDeliveryAddresses(values.locations).find(a=>a.isPrimary)?.id}),
                     ...(values.contacts===undefined?{}:{contacts:normalizeAccountContacts(values.contacts),primaryContactId:normalizeAccountContacts(values.contacts).find(c=>c.isPrimary)?.id}),
 
                     businessName:
@@ -294,6 +288,7 @@ export const customerRepository = {
                         new Date().toISOString(),
                 };
 
+                if(values.locations!==undefined)updatedCustomer.contacts=updatedCustomer.contacts.map(contact=>contact.locationId&&!updatedCustomer!.locations.some(location=>location.id===contact.locationId)?{...contact,locationId:undefined}:contact);
                 return updatedCustomer;
             },
         );
@@ -706,7 +701,7 @@ registerRepository("customers", {
     commands: {"addNote": "contacts.write", "if": null, "emitChange": null, "create": "contacts.write", "update": "contacts.write", "setStatus": "contacts.write", "addLocation": "contacts.write", "updateLocation": "contacts.write", "addContact": "contacts.write", "updateContact": "contacts.write"},
     validate: value => {
         const ids=new Set<string>(), operations=new Set<string>(),sources=new Set<string>();
-        for(const c of (value as {customers:Customer[]}).customers){accountContactsSchema.parse(c.contacts);if(c.paymentTermsType!==undefined)validatePaymentTerms(c);if(c.notes===undefined)continue;if(!Array.isArray(c.notes))throw Error('Invalid customer notes.');for(const n of c.notes){
+        for(const c of (value as {customers:Customer[]}).customers){if(c.creditHold!==undefined&&typeof c.creditHold!=='boolean')throw Error('Invalid credit hold');if(c.internalNotes!==undefined&&(typeof c.internalNotes!=='string'||c.internalNotes.length>500))throw Error('Invalid internal notes');accountContactsSchema.parse(c.contacts);if(c.billingAddress!==undefined)customerAddressSchema.parse(c.billingAddress);deliveryAddressesSchema.parse(c.locations);if(c.primaryLocationId&&!c.locations.some(a=>a.id===c.primaryLocationId))throw Error("Invalid default delivery address");if(c.paymentTermsType!==undefined)validatePaymentTerms(c);if(c.notes===undefined)continue;if(!Array.isArray(c.notes))throw Error('Invalid customer notes.');for(const n of c.notes){
             const parsed=noteInput.extend({id:z.string().min(1),actorId:z.string().min(1),actorName:z.string().min(1).optional(),createdAt:z.iso.datetime()}).parse(n);
             if(parsed.customerId!==c.id || ids.has(n.id)||operations.has(n.operationId)||(n.source==='Sales import')!==!!n.externalId)throw Error('Invalid customer note provenance.');
             if (Boolean(parsed.action) !== Boolean(parsed.threadId) || (parsed.action && parsed.source !== 'Desktop') ||

@@ -379,6 +379,10 @@ export const appRoutes:RouteObject[] = [
                 ),
             },
             {
+                path: "sales/recycle-bin",
+                element: <Navigate to="/settings/trash" replace />,
+            },
+            {
                 path: "contacts",
                 element: <CustomerDashboardPage />,
             },

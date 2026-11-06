@@ -164,7 +164,7 @@ const allflowPages = [
  ['supplier-refunds', '/purchases/refunds', 'Supplier refunds', 'Sales & purchases', 'purchases.read'],
  ['supplier-refund-new', '/purchases/refunds/new', 'New supplier refund', 'Sales & purchases', 'purchases.read'],
  ['supplier-refund-detail', '/purchases/refunds/:previewId', 'Supplier refund detail', 'Sales & purchases', 'purchases.read'],
- ['recycle-bin', '/sales/recycle-bin', 'Document recycle bin', 'Sales & purchases', 'inventory.read'],
+ ['recycle-bin', '/settings/trash', 'Trash', 'System', 'users.manage'],
  ['bank-import', '/banking/import', 'Import bank statement', 'Banking', 'banking.read'],
  ['bank-instructions', '/banking/instruction-files', 'Bank instruction files', 'Banking', 'banking.read'],
  ['bank-workbench', '/banking/workbench', 'Categorise, match & split', 'Banking', 'banking.read'],

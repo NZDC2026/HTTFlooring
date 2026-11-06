@@ -44,7 +44,7 @@ function list(principal: VerifiedPrincipal, snapshots = snapshotRepositories()) 
     return kinds.filter(k => hasPermission(principal, readPermission(k))).flatMap(kind => records(kind, snapshots).map((r: any) => {
         const last = recycleHistory().findLast(e => e.recordId === r.id);
         const supplier = kind === 'Purchase order' || kind === 'Expense bill draft', partyId = supplier ? r.supplierId ?? r.payload?.supplierId : r.customerId ?? r.payload?.customerId, party = (supplier ? (snapshots as any).suppliers?.suppliers : (snapshots as any).customers?.customers)?.find((p: any) => p.id === partyId)?.businessName ?? partyId ?? '';
-        return { kind, party, reference: r.customerReference ?? r.payload?.customerReference ?? r.payload?.supplierInvoiceNumber ?? r.supplierReference ?? '', recordId: r.id, label: r.documentNumber ?? r.purchaseOrderNumber ?? `${r.kind} · ${r.id}`, date: r.documentDate ?? r.orderDate ?? r.payload?.documentDate ?? '', status: r.status, total: r.totals.total, token: hash({ record: r, lifecycle: last?.id ?? '' }), deleted: last?.action === 'Trashed', last, canWrite: hasPermission(principal, writePermission(kind)), issues: issues(kind, r, snapshots) };
+        return { kind, party, reference: r.customerReference ?? r.payload?.customerReference ?? r.payload?.supplierInvoiceNumber ?? r.supplierReference ?? '', recordId: r.id, label: r.documentNumber ?? r.purchaseOrderNumber ?? `${r.kind} · ${r.id}`, date: r.documentDate ?? r.orderDate ?? r.payload?.documentDate ?? '', status: r.status, total: r.totals.total, token: hash({ record: r, lifecycle: last?.id ?? '' }), deleted: last?.action === 'Trashed', last, canWrite: principal.roles.includes('ADMIN') && hasPermission(principal, writePermission(kind)), issues: issues(kind, r, snapshots) };
     }));
 }
 const request = z.object({ operationId: id, action: z.enum(['Trashed', 'Recovered']), reason: z.string().trim().min(3).max(2000), records: z.array(z.object({ kind: z.enum(kinds), recordId: id, token }).strict()).min(1).max(100) }).strict();
@@ -57,7 +57,7 @@ const eventSchema=baseEventSchema.extend({purge:purgeSchema.optional()});
 const prepared = new Map<string,{actor:string;expires:number;evidence:string}>();
 function requireAdmin() {
     const p=trustedAuthorization.require('users.manage');
-    if(!p.roles.includes('ADMIN')) throw new Error('Only an ADMIN may permanently purge documents.');
+    if(!p.roles.includes('ADMIN')) throw new Error('Only an ADMIN may delete, recover or permanently purge documents.');
     return p;
 }
 function containsReference(value:unknown, recordId:string):boolean {
@@ -131,7 +131,7 @@ export const documentRecycleRepository = {
     list() { const p = trustedAuthorization.require('inventory.read'); return list(p); },
     detail(kind: RecycleKind, recordId: string) { kind = z.enum(kinds).parse(kind); trustedAuthorization.require('inventory.read'); trustedAuthorization.require(readPermission(kind)); return structuredClone(requireRecord(kind, id.parse(recordId), snapshotRepositories())); },
     change(raw: unknown) {
-        const input = request.parse(raw), principal = trustedAuthorization.require('inventory.read');
+        const input = request.parse(raw), principal = requireAdmin();
         input.records.forEach(r => { trustedAuthorization.require(readPermission(r.kind)); trustedAuthorization.require(writePermission(r.kind)); });
         const fingerprint = hash({ input, actorId: principal.userId }), previous = recycleHistory().filter(e => e.operationId === input.operationId);
         if (previous.length) {
@@ -158,7 +158,7 @@ export const documentRecycleRepository = {
         return structuredClone(events);
     }
 };
-registerRepository('documentRecycle', { repository: documentRecycleRepository, read: 'inventory.read', commands: { list: 'inventory.read', detail: 'inventory.read', change: 'inventory.read', preparePurge:'users.manage', purge:'users.manage' }, snapshot: () => ({ history: recycleHistory() }), restore: v => restoreRecycleHistory(v.history), publish: () => { }, view: p => ({ history: recycleHistory().filter(e => hasPermission(p, readPermission(e.kind))) }), validate: (value, snapshots) => {
+registerRepository('documentRecycle', { repository: documentRecycleRepository, read: 'inventory.read', commands: { list: 'inventory.read', detail: 'inventory.read', change: 'users.manage', preparePurge:'users.manage', purge:'users.manage' }, snapshot: () => ({ history: recycleHistory() }), restore: v => restoreRecycleHistory(v.history), publish: () => { }, view: p => ({ history: recycleHistory().filter(e => hasPermission(p, readPermission(e.kind))) }), validate: (value, snapshots) => {
         const { history } = z.object({ history: z.array(eventSchema) }).strict().parse(value), ids = new Set<string>(), states = new Map<string, string>(), operations = new Map<string, RecycleEvent[]>();
         for (const event of history) {
             if (ids.has(event.id))

@@ -1,3 +1,4 @@
+import { commandCustomerId, noticeCustomer, showCreditHoldNotice, documentActionLabel } from "../credit-hold/creditHoldNotice";
 import { assertNotRecycled } from '../document-recycle/recycleState';
 import { hasPermission, type Permission, type VerifiedPrincipal } from './rbac';
 import type { BusinessView, SecurityBridge } from './securityContract';
@@ -39,6 +40,12 @@ export function registerRepository(name: string, entry: Entry): void {
             // Resolve ownership at call time too; a main service must never call renderer IPC.
             if (mainHost()) return original.apply(entry.repository, args);
             if (!permission) throw new Error(`Internal repository method is not a desktop command: ${name}.${method}`);
+            const customerId=commandCustomerId(name,method,args,snapshotRepositories());
+            if(customerId){
+                const latest=nativeRequest<BusinessView>('business.view');
+                hydrateBusiness(latest);
+                showCreditHoldNotice(noticeCustomer(customerId,latest.repositories),documentActionLabel(name,method));
+            }
             const reply = nativeRequest<{ result: unknown; view: BusinessView }>('business.command', { repository: name, method, args });
             hydrateBusiness(reply.view);
             return reply.result;

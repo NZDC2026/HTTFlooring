@@ -21,6 +21,7 @@ import {
     ShoppingCart,
     Ship,
     UsersRound,
+    Trash2,
 } from "lucide-react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 
@@ -140,11 +141,6 @@ const sections = [
                 path: "/contacts/supplier-dashboard",
                 icon: PackageCheck,
             },
-            {
-                label: "Documents",
-                path: "/documents",
-                icon: FileText,
-            },
         ],
     },
 
@@ -160,6 +156,7 @@ const sections = [
     {
         label: "System",
         items: [
+            { label: "Trash", path: "/settings/trash", icon: Trash2 },
             { label: "Personal preferences", path: "/settings/preferences", icon: Settings },
             {
                 label: "Settings",
@@ -182,6 +179,7 @@ export function Sidebar() {
     const permissionForPath = (path: string): Permission | undefined => {
         if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
         if(path==='/tasks')return 'sales.read';
+        if(path==='/settings/trash')return 'users.manage';
         if(path==='/reports/library')return 'inventory.read';
         if (path.startsWith('/reports/purchase') || path.startsWith('/reports/grni') || path.startsWith('/purchases')) return 'purchases.read';
         if (path === '/payroll') return 'payroll.read';

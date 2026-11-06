@@ -19,9 +19,9 @@ import org.springframework.web.bind.annotation.*;
 @ConditionalOnProperty("htt.staff.database.url")
 class QuoteDrafts {
     private final StaffScope staff;private final JdbcClient jdbc;private final QuotePricing pricing;private final LegacyRows rows;
-    private final IdempotentWrite writes;private final StaffAudit audit;
-    QuoteDrafts(StaffScope staff,JdbcClient jdbc,QuotePricing pricing,LegacyRows rows,IdempotentWrite writes,StaffAudit audit) {
-        this.staff=staff;this.jdbc=jdbc;this.pricing=pricing;this.rows=rows;this.writes=writes;this.audit=audit;
+    private final IdempotentWrite writes;private final StaffAudit audit;private final tools.jackson.databind.json.JsonMapper json;
+    QuoteDrafts(StaffScope staff,JdbcClient jdbc,QuotePricing pricing,LegacyRows rows,IdempotentWrite writes,StaffAudit audit,tools.jackson.databind.json.JsonMapper json) {
+        this.staff=staff;this.jdbc=jdbc;this.pricing=pricing;this.rows=rows;this.writes=writes;this.audit=audit;this.json=json;
     }
     @PostMapping("/api/v1/quotes")
     ResponseEntity<String> create(@AuthenticationPrincipal Jwt token,HttpServletRequest request,@RequestBody Input input) {
@@ -37,6 +37,68 @@ class QuoteDrafts {
                 return new IdempotentWrite.StoredResponse(201,"{\"id\":\""+id+"\",\"number\":null,\"status\":\"DRAFT\",\"version\":1}");
             });
         });return ResponseEntity.status(response.status()).contentType(MediaType.APPLICATION_JSON).body(response.body());
+    }
+    @PutMapping("/api/v1/quotes/{id}")
+    ResponseEntity<String> update(@AuthenticationPrincipal Jwt token,HttpServletRequest request,@PathVariable UUID id,@RequestBody Input input) {
+        var scope=staff.require(token,request.getHeader("X-Company-Id"),"sales.quotes.write");String rid=(String)request.getAttribute(ApiResponseHeaders.REQUEST_ID);
+        var response=staff.inCompany(scope,rid,()->{
+            long expected=OrderWrites.version(request.getHeader("If-Match"));owner(scope,quote(scope,id,false));customer(scope,input.customerId);
+            return writes.execute(scope,"PUT /quotes/"+id,request.getHeader("Idempotency-Key"),"{\"expected\":"+expected+",\"d\":"+canonical(input)+"}",()->{
+                var q=quote(scope,id,true);match(q,expected);owner(scope,q);
+                if(!"DRAFT".equals(q.get("status")))throw new StaffScope.Failure(409,"quote_frozen","Office must return a submitted quote to draft before changes.");
+                var built=build(scope,input);save(scope,id,built,false);
+                long version=jdbc.sql("UPDATE platform.documents SET business_date=:today WHERE company_id=:company AND id=:id RETURNING version")
+                    .param("today",built.today).param("company",scope.companyId()).param("id",id).query(Long.class).single();
+                audit.record(scope,"sales.quote_drafted","quote",id,rid,Map.of("previousVersion",expected,"version",version));
+                return new IdempotentWrite.StoredResponse(200,json.writeValueAsString(map("id",id,"version",version,"status","DRAFT")));
+            });
+        });return ResponseEntity.status(response.status()).contentType(MediaType.APPLICATION_JSON).body(response.body());
+    }
+    @PostMapping("/api/v1/quotes/{id}/submit")
+    ResponseEntity<String> submit(@AuthenticationPrincipal Jwt token,HttpServletRequest request,@PathVariable UUID id) {
+        var scope=staff.require(token,request.getHeader("X-Company-Id"),"sales.quotes.write");String rid=(String)request.getAttribute(ApiResponseHeaders.REQUEST_ID);
+        var response=staff.inCompany(scope,rid,()->{
+            long expected=OrderWrites.version(request.getHeader("If-Match"));owner(scope,quote(scope,id,false));
+            return writes.execute(scope,"POST /quotes/"+id+"/submit",request.getHeader("Idempotency-Key"),"{\"expected\":"+expected+"}",()->{
+                var q=quote(scope,id,true);match(q,expected);owner(scope,q);
+                if(!"DRAFT".equals(q.get("status")))throw new StaffScope.Failure(409,"quote_not_draft","Only draft quotes can be submitted.");
+                var stored=jdbc.sql("SELECT l.* FROM sales.quote_lines l JOIN platform.document_lines dl ON dl.company_id=l.company_id AND dl.id=l.id WHERE l.company_id=:company AND l.quote_id=:id ORDER BY dl.line_no")
+                    .param("company",scope.companyId()).param("id",id).query(rows::row).list();
+                Input input=new Input();input.customerId=(UUID)q.get("customerId");input.customerBranchId=(UUID)q.get("customerBranchId");input.warehouseId=(UUID)q.get("warehouseId");
+                input.lines=stored.stream().map(l->json.readValue(l.get("input").toString(),Line.class)).toList();input.expiresOn=LocalDate.parse(q.get("expiresOn").toString());input.notes=(String)q.get("notes");
+                var built=build(scope,input);
+                boolean changed=stored.size()!=built.lines.size();
+                for(int i=0;!changed && i<stored.size();i++)changed=!Objects.equals(stored.get(i).get("pricingSignature"),built.lines.get(i).signature);
+                if(changed)throw new StaffScope.Failure(409,"price_changed","Pricing or product data changed; refresh the draft with PUT before submission.");
+                var doc=jdbc.sql("UPDATE platform.documents SET number=COALESCE(number,sales.next_number('QUOTE')),state='CONFIRMED',business_date=:today WHERE company_id=:company AND id=:id RETURNING number,version")
+                    .param("today",built.today).param("company",scope.companyId()).param("id",id).query(rows::row).single();
+                jdbc.sql("UPDATE sales.quotes SET customer_snapshot=CAST(:snapshot AS jsonb),status='SUBMITTED',submitted_by=:actor WHERE company_id=:company AND id=:id")
+                    .param("snapshot",QuotePricing.canonical(built.snapshot)).param("actor",scope.actorId()).param("company",scope.companyId()).param("id",id).update();
+                String snapshot=json.writeValueAsString(view(scope,quote(scope,id,false)));
+                jdbc.sql("INSERT INTO sales.quote_submissions(company_id,quote_id,document_version,snapshot,created_by) VALUES(:company,:id,:version,CAST(:snapshot AS jsonb),:actor)")
+                    .param("company",scope.companyId()).param("id",id).param("version",doc.get("version")).param("snapshot",snapshot).param("actor",scope.actorId()).update();
+                jdbc.sql("INSERT INTO platform.approval_requests(company_id,document_id,document_version,requested_by,reason,created_by) VALUES(:company,:id,:version,:actor,'Quote submitted for office review',:actor)")
+                    .param("company",scope.companyId()).param("id",id).param("version",doc.get("version")).param("actor",scope.actorId()).update();
+                audit.record(scope,"sales.quote_submitted","quote",id,rid,Map.of("number",doc.get("number"),"version",doc.get("version")));
+                return new IdempotentWrite.StoredResponse(200,json.writeValueAsString(map("id",id,"number",doc.get("number"),"version",doc.get("version"),"status","SUBMITTED")));
+            });
+        });return ResponseEntity.status(response.status()).contentType(MediaType.APPLICATION_JSON).body(response.body());
+    }
+    private Map<String,Object> quote(StaffScope.CompanyAccess scope,UUID id,boolean lock) {
+        var q=jdbc.sql("SELECT d.number,d.state,d.version,d.created_by AS owner_id,q.*,q.expires_on::text AS expires_on FROM sales.quotes q JOIN platform.documents d ON d.company_id=q.company_id AND d.id=q.id WHERE q.company_id=:company AND q.id=:id"+(lock?" FOR UPDATE OF d,q":""))
+            .param("company",scope.companyId()).param("id",id).query(rows::row).optional().orElseThrow(QuoteDrafts::notFound);
+        customer(scope,(UUID)q.get("customerId"));return q;
+    }
+    private static void owner(StaffScope.CompanyAccess scope,Map<String,Object> q) {
+        if(!scope.actorId().equals(q.get("ownerId")) && !has(scope,"sales.quotes.manage.all"))throw new StaffScope.Failure(403,"permission_denied","Only the draft owner or office operations may modify this quote.");
+    }
+    private static void match(Map<String,Object> q,long expected) {
+        if(((Number)q.get("version")).longValue()!=expected)throw new StaffScope.Failure(409,"version_conflict","Document changed; refresh before retrying.");
+    }
+    private Map<String,Object> view(StaffScope.CompanyAccess scope,Map<String,Object> q) {
+        var lines=jdbc.sql("SELECT l.id,dl.line_no,l.snapshot,l.net,l.tax,l.gross FROM sales.quote_lines l JOIN platform.document_lines dl ON dl.company_id=l.company_id AND dl.id=l.id WHERE l.company_id=:company AND l.quote_id=:id ORDER BY dl.line_no")
+            .param("company",scope.companyId()).param("id",q.get("id")).query(rows::row).list();
+        return map("id",q.get("id"),"number",q.get("number"),"status",q.get("status"),"version",q.get("version"),"customerId",q.get("customerId"),"customerBranchId",q.get("customerBranchId"),"warehouseId",q.get("warehouseId"),"expiresOn",q.get("expiresOn"),"notes",q.get("notes"),"customer",q.get("customerSnapshot"),"net",q.get("net"),"tax",q.get("tax"),"gross",q.get("gross"),"pricingAt",q.get("pricingAt"),"lines",lines);
     }
     void customer(StaffScope.CompanyAccess scope,UUID customer) {
         jdbc.sql("SELECT c.id FROM crm.customers c WHERE c.company_id=:company AND c.id=:id AND (:all OR EXISTS(SELECT 1 FROM identity.customer_assignments a WHERE a.company_id=c.company_id AND a.customer_id=c.id AND a.membership_id=:membership))")
@@ -94,9 +156,14 @@ class QuoteDrafts {
         var snapshot=map("customerId",input.customerId,"legalName",c.get("legalName"),"abn",c.get("abn"),"branchId",input.customerBranchId,"branchName",branch.get("name"),"addressLine1",branch.get("addressLine1"),"suburb",branch.get("suburb"),"state",state,"postcode",postcode,"country",country);
         return new Built(input,today,expiry,notes,snapshot,lines,net,tax,net.add(tax),at);
     }
-    void save(StaffScope.CompanyAccess scope,UUID id,Built b) {
-        jdbc.sql("INSERT INTO sales.quotes(id,company_id,customer_id,customer_branch_id,warehouse_id,expires_on,notes,customer_snapshot,net,tax,gross,pricing_at,created_by) VALUES(:id,:company,:customer,:branch,:warehouse,:expiry,:notes,CAST(:snapshot AS jsonb),:net,:tax,:gross,:at,:actor)")
+    void save(StaffScope.CompanyAccess scope,UUID id,Built b) {save(scope,id,b,true);}
+    void save(StaffScope.CompanyAccess scope,UUID id,Built b,boolean create) {
+        jdbc.sql(create?"INSERT INTO sales.quotes(id,company_id,customer_id,customer_branch_id,warehouse_id,expires_on,notes,customer_snapshot,net,tax,gross,pricing_at,created_by) VALUES(:id,:company,:customer,:branch,:warehouse,:expiry,:notes,CAST(:snapshot AS jsonb),:net,:tax,:gross,:at,:actor)":"UPDATE sales.quotes SET customer_id=:customer,customer_branch_id=:branch,warehouse_id=:warehouse,expires_on=:expiry,notes=:notes,customer_snapshot=CAST(:snapshot AS jsonb),net=:net,tax=:tax,gross=:gross,pricing_at=:at,submitted_by=NULL WHERE company_id=:company AND id=:id")
             .param("id",id).param("company",scope.companyId()).param("customer",b.input.customerId).param("branch",b.input.customerBranchId).param("warehouse",b.input.warehouseId).param("expiry",b.expiry).param("notes",b.notes).param("snapshot",QuotePricing.canonical(b.snapshot)).param("net",b.net).param("tax",b.tax).param("gross",b.gross).param("at",b.at).param("actor",scope.actorId()).update();
+        if(!create) {
+            jdbc.sql("DELETE FROM sales.quote_lines WHERE company_id=:company AND quote_id=:id").param("company",scope.companyId()).param("id",id).update();
+            jdbc.sql("DELETE FROM platform.document_lines WHERE company_id=:company AND document_id=:id").param("company",scope.companyId()).param("id",id).update();
+        }
         int no=0;for(var l:b.lines) {
             UUID line=UUID.randomUUID();jdbc.sql("INSERT INTO platform.document_lines(id,company_id,document_id,line_no,created_by) VALUES(:line,:company,:id,:no,:actor)").param("line",line).param("company",scope.companyId()).param("id",id).param("no",++no).param("actor",scope.actorId()).update();
             jdbc.sql("INSERT INTO sales.quote_lines(id,company_id,quote_id,product_id,product_unit_id,item_type,quantity,base_quantity,unit_price,tax_rate,inclusive,net,tax,gross,input,snapshot,pricing_signature,created_by) VALUES(:line,:company,:id,:product,:unit,:type,:qty,:base,:price,:rate,:inclusive,:net,:tax,:gross,CAST(:input AS jsonb),CAST(:snapshot AS jsonb),:signature,:actor)")

@@ -1,6 +1,5 @@
 import {
     ArrowLeft,
-    Building2,
 } from "lucide-react";
 
 import {
@@ -114,51 +113,15 @@ export function CustomerFormPage({
                     : "Back to customer"}
             </button>
 
-            <div className="mb-7 flex items-start gap-4">
-                <div
-                    className="
-            flex h-11 w-11 items-center
-            justify-center rounded-xl
-            bg-[var(--color-primary-soft)]
-            text-[var(--color-primary)]
-          "
-                >
-                    <Building2 size={20} />
-                </div>
-
-                <div>
-                    <p
-                        className="
-              mb-1 text-xs font-medium
-              uppercase tracking-[0.14em]
-              text-[var(--color-accent)]
-            "
-                    >
-                        {isCreate
-                            ? "New Customer"
-                            : customer?.code}
-                    </p>
-
-                    <h1 className="font-display text-[34px] leading-tight">
-                        {isCreate
-                            ? "Create Customer"
-                            : "Edit Customer"}
-                    </h1>
-
-                    <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                        {isCreate
-                            ? "Create a new customer account and configure their trading details."
-                            : `Update the account and trading details for ${customer?.businessName}.`}
-                    </p>
-                </div>
-            </div>
+            <header className="mb-5 flex max-w-[1200px] flex-wrap items-start justify-between gap-5 rounded-2xl px-1 py-3" style={{background:'linear-gradient(115deg, transparent 45%, #efe5d850 100%)'}}><div className="min-w-0 flex-1"><h1 className="font-display text-[36px] font-semibold leading-tight">{isCreate?"Create Customer":"Edit Customer"}</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">{isCreate?"Create a new customer account and configure their trading details.":`Update the account and trading details for ${customer?.businessName}.`}</p></div><div id="customer-form-status" className="ml-auto shrink-0"/></header>
 
             {mode === "edit" && customer && <Link
                 to={`/contacts/customers/${customer.id}?editAccountant=1`}
                 className="mb-4 inline-flex rounded-lg border border-[var(--color-border)] bg-white px-4 py-2 text-sm"
             >Edit accountant contact</Link>}
-            <div className="max-w-[980px]">
+            <div className="max-w-[1200px]">
                 <CustomerForm
+                    statusTarget="customer-form-status"
                     customer={customer}
                     submitLabel={
                         isCreate

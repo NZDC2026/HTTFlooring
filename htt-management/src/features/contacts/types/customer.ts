@@ -63,6 +63,9 @@ export interface CustomerNote {
     createdAt: string;
 }
 export interface Customer {
+    creditHold?: boolean;
+    internalNotes?: string;
+    billingAddress?: import("../data/customerAddresses").CustomerAddress;
     notes?: CustomerNote[];
     id: string;
 

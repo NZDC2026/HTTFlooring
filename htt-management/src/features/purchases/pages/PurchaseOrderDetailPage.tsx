@@ -1,3 +1,4 @@
+import { DocumentTrashLink } from "../../document-recycle/DocumentTrashLink";
 import { CurrencySummary } from "../../currency/CurrencyFields";
 import { paymentTermsLabel } from "../../payment-terms/paymentTerms";
 import {Link} from 'react-router-dom';
@@ -186,7 +187,7 @@ export function PurchaseOrderDetailPage() {
                     </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2"><DocumentTrashLink recordId={purchaseOrder.id} status={purchaseOrder.status}/>
                     {purchaseOrder.status ===
                         "DRAFT" && (
                             <>

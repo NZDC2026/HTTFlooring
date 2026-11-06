@@ -1,3 +1,4 @@
+import { formatCustomerAddress } from "../data/customerAddresses";
 import { paymentTermsLabel } from "../../payment-terms/paymentTerms";
 import { DeliveryTasks } from "../../delivery-tasks/DeliveryTasks";
 import { CustomerOverviewSales } from "../components/CustomerOverviewSales";
@@ -561,6 +562,7 @@ function OverviewTab({
                             Business Details
                         </h2>
 
+                        <div className="mt-4 rounded-lg bg-[var(--color-surface-muted)] p-3"><p className="text-xs text-[var(--color-text-muted)]">Billing Address</p><p className="mt-1 text-sm">{formatCustomerAddress(customer.billingAddress)||"Not recorded"}</p></div>
                         <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5">
                             <Detail
                                 label="Business name"
@@ -755,7 +757,7 @@ function OverviewTab({
                             />
 
                             <h2 className="font-display text-xl">
-                                Primary Location
+                                Default Delivery Address
                             </h2>
                         </div>
 

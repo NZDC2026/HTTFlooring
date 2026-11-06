@@ -44,6 +44,7 @@ export type SalesPriceSource =
     | "PROMOTIONAL_PRICE";
 
 export interface SalesRecipientSnapshot {
+    billingAddress?: string;
     locationId?: string;
     locationName?: string;
     deliveryAddress?: string;

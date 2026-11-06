@@ -268,7 +268,7 @@ function CustomerStatusCell({ customer }: { customer: Customer }) {
         aria-label={`Status for ${customer.businessName}`}
         value={customer.status}
         onClick={event => event.stopPropagation()}
-        className={`h-6 w-24 cursor-pointer appearance-none rounded-full border-0 pl-3 pr-7 text-xs font-medium ${statusColor}`}
+        className={`h-6 w-40 cursor-pointer appearance-none rounded-full border-0 pl-3 pr-7 text-xs font-medium ${statusColor}`}
         onChange={event => {
             try {
                 customerRepository.setStatus(customer.id, event.target.value);

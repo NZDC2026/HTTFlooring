@@ -106,3 +106,13 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM accounting.supplier_payment_reversals r JOIN accounting.supplier_payments p ON p.company_id=r.company_id AND p.id=r.payment_id WHERE p.reference LIKE 'Stock amount GST %')<>2 THEN
  RAISE EXCEPTION 'Taxable stock amount payments/reversals must execute once'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='sales.quote_drafted')<>13
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='sales.quote_submitted')<>8
+ OR (SELECT count(*) FROM sales.quote_submissions)<>8
+ OR EXISTS(SELECT 1 FROM sales.quote_submissions ss JOIN sales.quotes q ON q.company_id=ss.company_id AND q.id=ss.quote_id WHERE q.notes='Updated café quote' AND (ss.document_version<>3 OR ss.snapshot->>'status'<>'SUBMITTED' OR (ss.snapshot->>'gross')::numeric<>135))
+ OR EXISTS(SELECT quote_id,document_version FROM sales.quote_submissions GROUP BY company_id,quote_id,document_version HAVING count(*)<>1)
+ OR (SELECT count(*) FROM platform.approval_requests a JOIN sales.quotes q ON q.company_id=a.company_id AND q.id=a.document_id WHERE a.document_version=3 AND a.state='STALE')<>2 THEN
+ RAISE EXCEPTION 'Quote update/submit must create one matching submission and stale approval per version'; END IF;
+END $$;

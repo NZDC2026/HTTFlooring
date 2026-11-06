@@ -350,9 +350,29 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 changed={**quote_args['payload'],'notes':'Changed quote'}
                 assert request('/api/v1/quotes',employee,company,base=second,payload=changed,key=quote_args['key'])[0]==409
                 path = '/api/v1/quotes/'+draft[1]['id']
-                submitted = request(path+'/submit',employee,company,base=legacy_url,
-                    payload={},key='submit-'+draft[1]['id'],version=1)
-                assert submitted[0] == 200 and submitted[1]['status'] == 'SUBMITTED', submitted
+                update_args=dict(payload={**quote_args['payload'],'lines':[{'productUnitId':unit_id,'quantity':3}],'notes':' Updated café quote '},key='quote-update-'+draft[1]['id'],version=1,method='PUT')
+                for target in (first,second):
+                    assert request(path,None,company,base=target,**update_args)[0]==401
+                    assert request(path,employee,company,base=target,**{k:v for k,v in update_args.items() if k!='version'})[0]==428
+                updated=request(path,employee,company,base=first,**update_args)
+                assert updated[0]==200 and updated[1]['status']=='DRAFT' and updated[1]['version']==2,updated
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,employee,company,base=first if n%2 else second,**update_args),range(6)))
+                assert all(result==updated for result in attempts),attempts
+                refreshed=request(path,employee,company)
+                assert refreshed==request(path,employee,company,base=legacy_url) and float(refreshed[1]['gross'])==135,refreshed
+                assert request(path,employee,company,base=second,**{**update_args,'key':'stale-update-'+uuid.uuid4().hex})[0]==409
+                submit_args=dict(payload={},key='submit-'+draft[1]['id'],version=updated[1]['version'])
+                submitted=request(path+'/submit',employee,company,base=second,**submit_args)
+                assert submitted[0]==200 and submitted[1]['status']=='SUBMITTED',submitted
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path+'/submit',employee,company,base=first if n%2 else second,**submit_args),range(6)))
+                assert all(result==submitted for result in attempts),attempts
+                for target in (first,second):
+                    frozen=request(path,employee,company,base=target,**{**update_args,'version':submitted[1]['version'],'key':'frozen-update-'+uuid.uuid4().hex})
+                    assert frozen[0]==409 and json.loads(frozen[1])['code']=='quote_frozen',frozen
+                    duplicate=request(path+'/submit',employee,company,base=target,**{**submit_args,'version':submitted[1]['version'],'key':'resubmit-'+uuid.uuid4().hex})
+                    assert duplicate[0]==409 and json.loads(duplicate[1])['code']=='quote_not_draft',duplicate
                 args = dict(payload={'reason':'  Synthetic café & office review  '},
                     key='return-'+draft[1]['id'],version=submitted[1]['version'])
                 assert request(path+'/return-to-draft',token('test-purchase-reader'),company,base=first,**args)[0] == 403
@@ -2196,6 +2216,77 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                     assert float(final_line['outstandingAmount'])==0 and float(final_line['creditedQuantity'])==0 and float(final_line['quantity'])==1,final_line
                     final_stock=request(warehouse_path,employee,company)
                     assert normalize(final_stock[1])==normalize(before_stock[1]),(before_stock,final_stock)
+            office=token('test-quote-office')
+            other_writer=token('test-quote-other')
+            box_unit='00000000-0000-0000-0000-000000000184'
+            metre_unit='00000000-0000-0000-0000-000000000183'
+            box_price=50
+            box_price_version=1
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                for kind in ('area','override','service'):
+                    line=({'productUnitId':'00000000-0000-0000-0000-000000000077','quantity':1.234567} if kind=='service' else
+                        {'productUnitId':box_unit,'requestedArea':5,**({'unitPrice':50,'discountPercent':10} if kind=='override' else {})})
+                    payload={'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,
+                        'warehouseId':'00000000-0000-0000-0000-000000000014','lines':[line],'notes':' Boundary '+kind+' café '}
+                    actor=office if kind=='override' else employee
+                    if kind=='area':
+                        for invalid_line,status in (({'productUnitId':box_unit,'quantity':1.5},422),
+                                ({'productUnitId':metre_unit,'requestedArea':5},422),({'productUnitId':metre_unit,'quantity':1.5},422),
+                                ({'productUnitId':box_unit,'quantity':1,'requestedArea':5},422),({'productUnitId':box_unit,'quantity':None},422),
+                                ({'productUnitId':None,'quantity':1},400),({'productUnitId':box_unit,'quantity':1,'discountPercent':None},400)):
+                            rejected=[request('/api/v1/quotes',employee,company,base=target,payload={**payload,'lines':[invalid_line]},key='invalid-quote-boundary-'+uuid.uuid4().hex) for target in (first,second)]
+                            assert rejected[0][0]==rejected[1][0]==status,rejected
+                            if status==422: assert normalize(rejected[0][1])==normalize(rejected[1][1]),rejected
+                    if kind=='override':
+                        for target in (first,second):
+                            assert request('/api/v1/quotes',employee,company,base=target,payload=payload,key='no-override-'+uuid.uuid4().hex)[0]==403
+                            below=request('/api/v1/quotes',office,company,base=target,payload={**payload,'lines':[{**line,'unitPrice':40,'discountPercent':0}]},key='below-floor-'+uuid.uuid4().hex)
+                            assert below[0]==422 and json.loads(below[1])['code']=='price_below_floor',below
+                    args=dict(payload=payload,key='boundary-quote-'+uuid.uuid4().hex)
+                    draft=request('/api/v1/quotes',actor,company,base=first,**args)
+                    assert draft[0]==201,draft
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request('/api/v1/quotes',actor,company,base=first if n%2 else second,**args),range(6)))
+                    assert all(result==draft for result in attempts),attempts
+                    path='/api/v1/quotes/'+draft[1]['id']
+                    view=request(path,employee,company)
+                    assert view==request(path,employee,company,base=legacy_url),view
+                    snap=view[1]['lines'][0]['snapshot']
+                    if kind=='service':
+                        assert float(view[1]['net'])==61.73 and float(view[1]['tax'])==6.17 and float(view[1]['gross'])==67.9,view
+                    else:
+                        assert float(snap['quantity'])==3 and float(snap['baseQuantity'])==6.75 and float(snap['requestedArea'])==5,snap
+                        assert float(view[1]['gross'])==(148.5 if kind=='override' else round(box_price*3*1.1,2)),view
+                        assert snap['priceSource']==('MANUAL' if kind=='override' else 'STANDARD'),snap
+                    for target in (first,second):
+                        for endpoint,body,method in ((path,payload,'PUT'),(path+'/submit',{},'POST')):
+                            denied=request(endpoint,other_writer,company,base=target,payload=body,method=method,version=1,key='other-owner-'+uuid.uuid4().hex)
+                            assert denied[0]==403 and json.loads(denied[1])['message']=='Only the draft owner or office operations may modify this quote.',denied
+                    version=1
+                    if kind=='area':
+                        box_price+=1
+                        repriced=request('/api/v1/pricing/standard-prices/00000000-0000-0000-0000-000000000186',office,company,base=legacy_url,
+                            payload={'productUnitId':box_unit,'amount':box_price,'effectiveFrom':'2026-01-01T00:00:00Z','active':True},method='PUT',version=box_price_version,key='reprice-box-'+uuid.uuid4().hex)
+                        assert repriced[0]==200,repriced
+                        box_price_version+=1
+                        for target in (first,second):
+                            rejected=request(path+'/submit',office,company,base=target,payload={},version=1,key='price-changed-'+uuid.uuid4().hex)
+                            assert rejected[0]==409 and json.loads(rejected[1])['code']=='price_changed',rejected
+                        assert request(path,employee,company)==view
+                        refresh=dict(payload=payload,key='refresh-box-'+uuid.uuid4().hex,method='PUT',version=1)
+                        updated=request(path,office,company,base=first,**refresh)
+                        assert updated[0]==200 and updated[1]['version']==2,updated
+                        assert request(path,office,company,base=second,**refresh)==updated
+                        version=2
+                    submit=dict(payload={},key='boundary-submit-'+uuid.uuid4().hex,version=version)
+                    submitted=request(path+'/submit',office,company,base=second,**submit)
+                    assert submitted[0]==200 and submitted[1]['version']==version+1,submitted
+                    with ThreadPoolExecutor(max_workers=6) as pool:
+                        attempts=list(pool.map(lambda n:request(path+'/submit',office,company,base=first if n%2 else second,**submit),range(6)))
+                    assert all(result==submitted for result in attempts),attempts
+                    final=request(path,employee,company)
+                    assert final==request(path,employee,company,base=legacy_url) and final[1]['status']=='SUBMITTED',final
+            print('PASS: quote area/whole-pack/service GST/override/floor/ownership/manage-all and price-change refresh rollback')
             print('PASS: stock-source amount credits, frozen physical quantity, AP reduction, valuation audit and mixed replay')
             print('PASS: expense bills/credits, line/date binding, compound permissions, shared replay and zero stock movement')
             print('PASS: bidirectional sales order cancellation, single stock and credit release')

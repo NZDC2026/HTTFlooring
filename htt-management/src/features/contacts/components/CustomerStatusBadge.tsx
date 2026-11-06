@@ -8,7 +8,7 @@ interface CustomerStatusBadgeProps {
 
 export const customerStatusLabels: Record<CustomerStatus, string> = {
     ACTIVE: "Active",
-    ON_HOLD: "On hold",
+    ON_HOLD: "Credit On Hold",
     INACTIVE: "Inactive",
 };
 

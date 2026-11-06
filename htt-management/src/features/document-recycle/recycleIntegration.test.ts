@@ -105,11 +105,11 @@ it('enforces sales, purchasing and read-only role boundaries on list, details an
     await role('SALES');
     expect(list().some(r => r.recordId === po.id)).toBe(false);
     expect(() => cmd('documentRecycle', 'detail', 'Purchase order', po.id)).toThrow(/Permission denied/);
-    change(q.id);
+    expect(() => change(q.id)).toThrow(/Permission denied|ADMIN/);
     expect(() => cmd('documentRecycle', 'change', { operationId: 'forbidden-po', action: 'Trashed', reason: 'Forbidden purchase recycle', records: [{ kind: 'Purchase order', recordId: po.id, token: '0'.repeat(64) }] })).toThrow(/Permission denied/);
     await role('PURCHASING');
     expect(JSON.stringify(state('documentRecycle'))).not.toContain(q.id);
-    change(po.id);
+    expect(() => change(po.id)).toThrow(/Permission denied|ADMIN/);
     await role('AUDITOR');
     expect(list().every(r => !r.canWrite)).toBe(true);
     expect(() => change(q.id, 'Recovered')).toThrow(/Permission denied/);
@@ -181,4 +181,11 @@ it('commits a mixed-dataset batch atomically with one consistent audit operation
     expect(next.documentNumber).not.toBe(q.documentNumber);
     change(q.id, 'Recovered', { records: [q, po, d].map(r => choice(r.id)) });
     expect(records.every(r => !list().find(v => v.recordId === r.recordId).deleted)).toBe(true);
+});
+it.each(['SALES','WAREHOUSE','PURCHASING','ACCOUNTANT','FINANCE_ADMIN','AUDITOR'] as const)('denies %s deletion and recovery even with an exact current document token',async name=>{
+ const q=draft('Quote'),selected=choice(q.id);change(q.id);
+ const trashed=choice(q.id);await role(name);
+ expect(()=>cmd('documentRecycle','change',{operationId:crypto.randomUUID(),action:'Trashed',reason:'Unauthorized delete attempt',records:[selected]})).toThrow(/Permission denied|ADMIN/);
+ expect(()=>cmd('documentRecycle','change',{operationId:crypto.randomUUID(),action:'Recovered',reason:'Unauthorized recovery attempt',records:[trashed]})).toThrow(/Permission denied|ADMIN/);
+ security.login(admin);expect(list().find(r=>r.recordId===q.id).deleted).toBe(true);
 });

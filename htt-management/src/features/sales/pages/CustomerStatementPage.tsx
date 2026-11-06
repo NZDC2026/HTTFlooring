@@ -1,3 +1,4 @@
+import { warnCreditHold } from "../../credit-hold/warnCreditHold";
 import { ReportContext } from '../../report-settings/ReportContext';
 import { reportMoney } from '../../report-settings/reportPresentation';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -100,6 +101,7 @@ export function CustomerStatementPage() {
                 return;
             }
 
+            warnCreditHold(customer.id,'Export customer statement PDF');
             if (!window.desktop) { window.print(); return; }
 
             setExportingPdf(
@@ -277,9 +279,7 @@ export function CustomerStatementPage() {
 
                     <Button
                         variant="secondary"
-                        onClick={() =>
-                            window.print()
-                        }
+                        onClick={() => {warnCreditHold(customer.id,'Print customer statement');window.print();}}
                     >
                         <Printer
                             size={15}
@@ -356,9 +356,7 @@ export function CustomerStatementPage() {
                             <div className="mt-5 print:hidden">
                                 <Button
                                     variant="secondary"
-                                    onClick={() =>
-                                        window.print()
-                                    }
+                                    onClick={() => {warnCreditHold(customer.id,'Print customer statement');window.print();}}
                                 >
                                     <Printer
                                         size={15}

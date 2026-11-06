@@ -140,7 +140,7 @@ export function SupplierFormPage({
                     : "Back to supplier"}
             </button>
 
-            <div className="mb-7 flex items-start gap-4">
+            <div className="mb-7 flex max-w-[980px] flex-wrap items-start gap-4">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
                     <Truck
                         size={
@@ -149,7 +149,7 @@ export function SupplierFormPage({
                     />
                 </div>
 
-                <div>
+                <div className="min-w-0 flex-1">
                     <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
                         {isCreate
                             ? "New Supplier"
@@ -168,10 +168,12 @@ export function SupplierFormPage({
                             : `Update supplier details for ${supplier?.businessName}.`}
                     </p>
                 </div>
+                <div id="supplier-form-status" className="ml-auto w-44 shrink-0"/>
             </div>
 
             <div className="max-w-[980px]">
                 <SupplierForm
+                    statusTarget="supplier-form-status"
                     supplier={
                         supplier
                     }
