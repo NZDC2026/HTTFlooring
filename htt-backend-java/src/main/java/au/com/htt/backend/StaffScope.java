@@ -64,6 +64,7 @@ class StaffScope {
                     SELECT set_config('htt.company_id', :company, true),
                            set_config('htt.actor_id', :actor, true),
                            set_config('htt.request_id', :request, true),
+                           set_config('TimeZone', 'UTC', true),
                            set_config('lock_timeout', '3s', true),
                            set_config('statement_timeout', '10s', true)
                     """)

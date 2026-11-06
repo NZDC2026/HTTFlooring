@@ -1,0 +1,90 @@
+package au.com.htt.backend;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.math.BigDecimal;
+import java.util.*;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.*;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.json.JsonMapper;
+import static au.com.htt.backend.MasterDataChecks.*;
+
+@RestController
+@ConditionalOnProperty("htt.staff.database.url")
+class WarehouseDetails {
+    private final StaffScope staff;private final JdbcClient jdbc;private final LegacyRows rows;private final JsonMapper json;private final IdempotentWrite writes;private final StaffAudit audit;
+    WarehouseDetails(StaffScope staff,JdbcClient jdbc,LegacyRows rows,JsonMapper json,IdempotentWrite writes,StaffAudit audit){this.staff=staff;this.jdbc=jdbc;this.rows=rows;this.json=json;this.writes=writes;this.audit=audit;}
+    @GetMapping("/api/v1/warehouse/bins")
+    ResponseEntity<String> bins(@RequestParam UUID warehouseId,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=access(token,request,false);return read(scope,request,()->{scope(warehouseId,false);return QuoteDrafts.map("items",list("SELECT id,warehouse_id,code,name,active,version,'BIN:'||id::text AS scan_value FROM inventory.bins WHERE company_id=:company AND warehouse_id=:warehouse ORDER BY code,id",scope,QuoteDrafts.map("warehouse",warehouseId)));});}
+    @PostMapping("/api/v1/warehouse/bins")
+    ResponseEntity<String> create(@RequestBody BinInput input,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=access(token,request,true);return response(staff.inCompany(scope,rid(request),()->{
+        scope(input.warehouseId,true);String code=code(input.code,"code"),name=text(input.name,"name",200);check(!code.equals("UNASSIGNED"),"code","UNASSIGNED is managed automatically.");
+        return write(scope,request,"POST /warehouse/bins",QuoteDrafts.map("warehouseId",input.warehouseId,"code",code,"name",name),()->{
+            var row=one("INSERT INTO inventory.bins(company_id,warehouse_id,code,name)VALUES(:company,:warehouse,:code,:name)RETURNING *",scope,QuoteDrafts.map("warehouse",input.warehouseId,"code",code,"name",name));audit.record(scope,"inventory.bin_created","warehouse_bin",UUID.fromString(row.get("id").toString()),rid(request),QuoteDrafts.map("WarehouseId",input.warehouseId,"code",code,"name",name));return stored(201,row);
+        });}));}
+    @PutMapping("/api/v1/warehouse/bins/{id}")
+    ResponseEntity<String> update(@PathVariable UUID id,@RequestBody BinUpdate input,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=access(token,request,true);return response(staff.inCompany(scope,rid(request),()->{
+        var before=one("SELECT warehouse_id FROM inventory.bins WHERE company_id=:company AND id=:id",scope,QuoteDrafts.map("id",id));scope(UUID.fromString(before.get("warehouseId").toString()),true);long version=version(request.getHeader("If-Match"));String name=text(input.name,"name",200);
+        return write(scope,request,"PUT /warehouse/bins/"+id,QuoteDrafts.map("id",id,"version",version,"name",name,"active",input.active),()->{
+            query("SELECT inventory.configure_bin(:id,:version,:name,:active)",scope,QuoteDrafts.map("id",id,"version",version,"name",name,"active",input.active)).query((row,n)->0).single();audit.record(scope,"inventory.bin_changed","warehouse_bin",id,rid(request),QuoteDrafts.map("name",name,"Active",input.active));return stored(200,one("SELECT * FROM inventory.bins WHERE company_id=:company AND id=:id",scope,QuoteDrafts.map("id",id)));
+        });}));}
+    @GetMapping("/api/v1/warehouse/positions")
+    ResponseEntity<String> positions(@RequestParam UUID warehouseId,@RequestParam(required=false) UUID productId,@RequestParam(required=false) UUID binId,@RequestParam(required=false) UUID lotId,@RequestParam(required=false) Integer page,@RequestParam(required=false) Integer pageSize,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=access(token,request,false);return read(scope,request,()->{
+        scope(warehouseId,false);var args=paging(page,pageSize);args.put("warehouse",warehouseId);args.put("product",productId);args.put("bin",binId);args.put("lot",lotId);
+        var items=list("SELECT p.id,b.product_id,pr.sku,p.bin_id,bn.code AS bin_code,bn.active AS bin_active,p.lot_id,l.code AS lot_code,l.received_on,p.quantity,inventory.position_reserved(p.id) AS picked_reserved,p.quantity-inventory.position_reserved(p.id) AS available_for_pick,p.version FROM inventory.positions p JOIN inventory.stock_balances b ON b.company_id=p.company_id AND b.id=p.stock_balance_id JOIN catalog.products pr ON pr.company_id=b.company_id AND pr.id=b.product_id JOIN inventory.bins bn ON bn.company_id=p.company_id AND bn.id=p.bin_id JOIN inventory.lots l ON l.company_id=p.company_id AND l.id=p.lot_id WHERE p.company_id=:company AND b.warehouse_id=:warehouse AND(CAST(:product AS uuid) IS NULL OR b.product_id=:product)AND(CAST(:bin AS uuid) IS NULL OR p.bin_id=:bin)AND(CAST(:lot AS uuid) IS NULL OR p.lot_id=:lot)ORDER BY pr.sku,bn.code,l.received_on,p.id LIMIT :size OFFSET :offset",scope,args);return QuoteDrafts.map("items",items,"page",page==null?1:page,"pageSize",args.get("size"));});}
+    @PostMapping("/api/v1/warehouse/location-moves")
+    ResponseEntity<String> move(@RequestBody Move input,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=access(token,request,true);return response(staff.inCompany(scope,rid(request),()->{
+        var source=one("SELECT b.warehouse_id FROM inventory.positions p JOIN inventory.stock_balances b ON b.company_id=p.company_id AND b.id=p.stock_balance_id WHERE p.company_id=:company AND p.id=:id",scope,QuoteDrafts.map("id",input.sourcePositionId));scope(UUID.fromString(source.get("warehouseId").toString()),true);SupplierBills.amount(input.baseQuantity,"baseQuantity",6,"99999999999999.999999");check(input.baseQuantity.signum()>0,"baseQuantity","Positive base quantity required.");String lot=text(input.lotCode,"lotCode",80),reference=text(input.reference,"reference",200),reason=text(input.reason,"reason",2000);
+        var body=QuoteDrafts.map("sourcePositionId",input.sourcePositionId,"targetBinId",input.targetBinId,"baseQuantity",input.baseQuantity,"lot",lot,"reference",reference,"reason",reason,"countId",input.countId);
+        return write(scope,request,"POST /warehouse/location-moves",body,()->{
+            UUID id=query("SELECT inventory.move_position(:source,:bin,:lot,:qty,:reference,:reason,CAST(:count AS uuid))",scope,QuoteDrafts.map("source",input.sourcePositionId,"bin",input.targetBinId,"lot",lot,"qty",input.baseQuantity,"reference",reference,"reason",reason,"count",input.countId)).query(UUID.class).single();audit.record(scope,"inventory.location_moved","location_move",id,rid(request),QuoteDrafts.map("SourcePositionId",input.sourcePositionId,"TargetBinId",input.targetBinId,"BaseQuantity",input.baseQuantity,"lot",lot,"reference",reference,"reason",reason,"CountId",input.countId));return stored(201,one("SELECT m.*,d.number FROM inventory.location_moves m JOIN platform.documents d ON d.company_id=m.company_id AND d.id=m.id WHERE m.company_id=:company AND m.id=:id",scope,QuoteDrafts.map("id",id)));
+        });}));}
+    @GetMapping("/api/v1/warehouse/lot-trace")
+    ResponseEntity<String> trace(@RequestParam UUID warehouseId,@RequestParam UUID lotId,@RequestParam(required=false) Integer page,@RequestParam(required=false) Integer pageSize,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=access(token,request,false);return read(scope,request,()->{
+        scope(warehouseId,false);var args=paging(page,pageSize);args.put("warehouse",warehouseId);args.put("lot",lotId);return QuoteDrafts.map("items",list("SELECT m.id,m.document_id,m.quantity,m.reason,m.request_id,m.created_at,bn.code AS bin_code,l.code AS lot_code,b.product_id FROM inventory.position_movements m JOIN inventory.positions p ON p.company_id=m.company_id AND p.id=m.position_id JOIN inventory.stock_balances b ON b.company_id=p.company_id AND b.id=p.stock_balance_id JOIN inventory.bins bn ON bn.company_id=p.company_id AND bn.id=p.bin_id JOIN inventory.lots l ON l.company_id=p.company_id AND l.id=p.lot_id WHERE m.company_id=:company AND b.warehouse_id=:warehouse AND p.lot_id=:lot ORDER BY m.created_at,m.id LIMIT :size OFFSET :offset",scope,args),"page",page==null?1:page,"pageSize",args.get("size"));});}
+    @GetMapping("/api/v1/warehouse/scan")
+    ResponseEntity<String> scan(@RequestParam UUID warehouseId,@RequestParam String code,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=access(token,request,false);return read(scope,request,()->{
+        scope(warehouseId,false);String value=text(code,"code",100);UUID id=value.length()>4?scanId(value.substring(4)):null;
+        if(value.startsWith("BIN:")&&id!=null)return QuoteDrafts.map("kind","BIN","item",one("SELECT id,code,name,active FROM inventory.bins WHERE company_id=:company AND warehouse_id=:warehouse AND id=:id",scope,QuoteDrafts.map("warehouse",warehouseId,"id",id)));
+        if(value.startsWith("LOT:")&&id!=null)return QuoteDrafts.map("kind","LOT","items",list("SELECT p.id,p.quantity,b.product_id,p.bin_id,p.lot_id FROM inventory.positions p JOIN inventory.stock_balances b ON b.company_id=p.company_id AND b.id=p.stock_balance_id WHERE p.company_id=:company AND b.warehouse_id=:warehouse AND p.lot_id=:lot ORDER BY p.id",scope,QuoteDrafts.map("warehouse",warehouseId,"lot",id)));
+        var found=list("SELECT p.id AS product_id,p.sku,p.name,p.status,p.item_type,u.id AS product_unit_id,u.conversion_to_base,u.quantity_step,u.active AS unit_active FROM catalog.products p JOIN catalog.product_units u ON u.company_id=p.company_id AND u.product_id=p.id WHERE p.company_id=:company AND(EXISTS(SELECT 1 FROM catalog.unit_barcodes bc WHERE bc.company_id=u.company_id AND bc.product_unit_id=u.id AND bc.active AND bc.barcode=:code)OR(u.uom_id=p.base_uom_id AND(p.sku=:code OR EXISTS(SELECT 1 FROM catalog.product_barcodes bc WHERE bc.company_id=p.company_id AND bc.product_id=p.id AND bc.barcode=:code))))ORDER BY p.sku,u.id",scope,QuoteDrafts.map("code",value));if(found.isEmpty())throw new StaffScope.Failure(404,"not_found","Barcode/SKU is unavailable.");return QuoteDrafts.map("kind","PRODUCT","items",found);
+    });}
+    @PostMapping("/api/v1/warehouse/picks/{id}/short-pick-reasons")
+    ResponseEntity<String> shortage(@PathVariable UUID id,@RequestBody Shortage input,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=staff.require(token,request.getHeader("X-Company-Id"),"inventory.picks.write");return response(staff.inCompany(scope,rid(request),()->{
+        var pick=one("SELECT p.order_id,o.warehouse_id FROM inventory.picks p JOIN sales.orders o ON o.company_id=p.company_id AND o.id=p.order_id WHERE p.company_id=:company AND p.id=:id",scope,QuoteDrafts.map("id",id));query("SELECT inventory.require_access('inventory.picks.write',:warehouse)",scope,QuoteDrafts.map("warehouse",pick.get("warehouseId"))).query((row,n)->0).single();String reason=text(input.reason,"reason",500);
+        return write(scope,request,"POST /warehouse/picks/"+id+"/short-pick-reasons",QuoteDrafts.map("id",id,"orderLineId",input.orderLineId,"reason",reason),()->{
+            var missing=query("SELECT l.quantity-coalesce((SELECT sum(pl.quantity)FROM inventory.pick_lines pl JOIN inventory.picks pk ON pk.company_id=pl.company_id AND pk.id=pl.pick_id WHERE pl.company_id=l.company_id AND pl.order_line_id=l.id AND pk.state IN('PICKED','DISPATCHED')),0)AS missing FROM sales.order_lines l WHERE l.company_id=:company AND l.order_id=:order AND l.id=:line FOR UPDATE",scope,QuoteDrafts.map("order",pick.get("orderId"),"line",input.orderLineId)).query(BigDecimal.class).optional().orElseThrow(WarehouseDetails::missing);check(missing.signum()>0,"orderLineId","No shortage remains on this order line.");
+            var row=one("INSERT INTO inventory.pick_shortages(company_id,pick_id,order_line_id,missing_quantity,reason,created_by)VALUES(:company,:id,:line,:missing,:reason,:actor)RETURNING *",scope,QuoteDrafts.map("id",id,"line",input.orderLineId,"missing",missing,"reason",reason,"actor",scope.actorId()));audit.record(scope,"inventory.short_pick_recorded","pick_shortage",UUID.fromString(row.get("id").toString()),rid(request),QuoteDrafts.map("pickId",id,"OrderLineId",input.orderLineId,"reason",reason));return stored(201,row);
+        });}));}
+    private StaffScope.CompanyAccess access(Jwt token,HttpServletRequest request,boolean write){return staff.require(token,request.getHeader("X-Company-Id"),"inventory.locations."+(write?"write":"read"));}
+    private void scope(UUID warehouse,boolean write){jdbc.sql("SELECT inventory.require_access(:permission,:warehouse)").param("permission","inventory.locations."+(write?"write":"read")).param("warehouse",warehouse).query((row,n)->0).single();}
+    private JdbcClient.StatementSpec query(String sql,StaffScope.CompanyAccess scope,Map<String,Object> args){return jdbc.sql(sql).param("company",scope.companyId()).params(args);}
+    private List<Map<String,Object>> list(String sql,StaffScope.CompanyAccess scope,Map<String,Object> args){return query(sql,scope,args).query(rows::row).list();}
+    private Map<String,Object> one(String sql,StaffScope.CompanyAccess scope,Map<String,Object> args){return query(sql,scope,args).query(rows::row).optional().orElseThrow(WarehouseDetails::missing);}
+    private static StaffScope.Failure missing(){return new StaffScope.Failure(404,"not_found","Resource is unavailable in this scope.");}
+    private static Map<String,Object> paging(Integer page,Integer size){int p=page==null?1:page,s=size==null?25:size;check(p>=1&&p<=100000&&s>=1&&s<=100,"page","page must be 1..100000 and pageSize 1..100.");return QuoteDrafts.map("size",s,"offset",(p-1)*s);}
+    private IdempotentWrite.StoredResponse write(StaffScope.CompanyAccess scope,HttpServletRequest request,String route,Map<String,Object> body,java.util.function.Supplier<IdempotentWrite.StoredResponse> work){return writes.execute(scope,route,request.getHeader("Idempotency-Key"),QuotePricing.canonical(body),work);}
+    private IdempotentWrite.StoredResponse stored(int status,Object value){return new IdempotentWrite.StoredResponse(status,json.writeValueAsString(value));}
+    private ResponseEntity<String> read(StaffScope.CompanyAccess scope,HttpServletRequest request,java.util.function.Supplier<Object> work){return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(staff.inCompany(scope,rid(request),()->json.writeValueAsString(work.get())));}
+    private static ResponseEntity<String> response(IdempotentWrite.StoredResponse value){return ResponseEntity.status(value.status()).contentType(MediaType.APPLICATION_JSON).body(value.body());}
+    private static String rid(HttpServletRequest request){return (String)request.getAttribute(ApiResponseHeaders.REQUEST_ID);}
+    static long version(String raw){String v=raw==null?"":raw.replaceAll("^\"+|\"+$","");v=v.replaceAll("^[\\x09-\\x0D ]+|[\\x09-\\x0D ]+$","");try{if(!v.matches("[+]?0*[0-9]+"))throw new NumberFormatException();long n=Long.parseLong(v);if(n<1)throw new NumberFormatException();return n;}catch(NumberFormatException e){throw new StaffScope.Failure(428,"version_required","Current If-Match required.");}}
+    static UUID scanId(String raw){
+        String v=trim(raw);boolean wrapped=v.startsWith("{")&&v.endsWith("}")||v.startsWith("(")&&v.endsWith(")");
+        if(v.startsWith("{")&&v.contains(",")){
+            String compact=v.codePoints().filter(c->!(c>=9&&c<=13||c==0x85||Character.isSpaceChar(c))).collect(StringBuilder::new,StringBuilder::appendCodePoint,StringBuilder::append).toString();
+            var match=java.util.regex.Pattern.compile("(?i)\\{0x([0-9a-f]{1,8}),0x([0-9a-f]{1,4}),0x([0-9a-f]{1,4}),\\{0x([0-9a-f]{1,2}),0x([0-9a-f]{1,2}),0x([0-9a-f]{1,2}),0x([0-9a-f]{1,2}),0x([0-9a-f]{1,2}),0x([0-9a-f]{1,2}),0x([0-9a-f]{1,2}),0x([0-9a-f]{1,2})\\}\\}").matcher(compact);
+            if(!match.matches())return null;var hex=new StringBuilder();for(int i=1;i<=11;i++){int size=i==1?8:i<=3?4:2;String part=match.group(i);hex.append("0".repeat(size-part.length())).append(part);}v=hex.toString();wrapped=false;
+        }else if(wrapped)v=v.substring(1,v.length()-1);
+        if(!wrapped&&v.matches("[0-9a-fA-F]{32}"))v=v.substring(0,8)+"-"+v.substring(8,12)+"-"+v.substring(12,16)+"-"+v.substring(16,20)+"-"+v.substring(20);
+        if(!v.matches("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"))return null;try{return UUID.fromString(v);}catch(IllegalArgumentException e){return null;}
+    }
+    private static final UUID ZERO=new UUID(0,0);
+    static final class BinInput {@com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public UUID warehouseId=ZERO;public String code;public String name;}
+    static final class BinUpdate {public String name;@com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public boolean active;}
+    static final class Move {@com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public UUID sourcePositionId=ZERO;@com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public UUID targetBinId=ZERO;public String lotCode;@com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public BigDecimal baseQuantity=BigDecimal.ZERO;public String reference;public String reason;public UUID countId;}
+    static final class Shortage {@com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public UUID orderLineId=ZERO;public String reason;}
+}

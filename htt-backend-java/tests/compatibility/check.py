@@ -63,7 +63,7 @@ def scan_with_legacy(job, employee, company, legacy_url, db_port):
             worker.wait(timeout=15)
             scanner.shutdown()
 
-def token(subject, audience='staff', lifetime=900):
+def token(subject, audience='staff', lifetime=3600):
     head = b64(json.dumps({'alg':'RS256','kid':'fixture'}).encode())
     claims = b64(json.dumps({'iss':issuer,'sub':subject,'aud':[audience],'exp':int(time.time())+lifetime}).encode())
     content = f'{head}.{claims}'
@@ -122,6 +122,8 @@ def isolated_quote_fixture(action, quote_id=None):
         mutation="UPDATE platform.document_lines l SET line_no=l.line_no*10 FROM sales.quotes q WHERE q.company_id=l.company_id AND q.id=l.document_id AND q.status='DRAFT' AND q.notes LIKE 'Conversion fixture café %' AND q.id='"+q+"'::uuid"
     elif action=='west':
         mutation="UPDATE core.companies SET timezone='Etc/GMT+12' WHERE id='00000000-0000-0000-0000-000000000001'"
+    elif action=='east':
+        mutation="UPDATE core.companies SET timezone='Pacific/Kiritimati' WHERE id='00000000-0000-0000-0000-000000000001'"
     elif action=='restore-timezone':
         mutation="UPDATE core.companies SET timezone='Australia/Sydney' WHERE id='00000000-0000-0000-0000-000000000001'"
     elif action in ('unit-change','unit-restore'):
@@ -2413,7 +2415,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                         submitted=request(quote_path+'/submit',employee,company,base=second,payload={},version=1,key='failure-convert-submit-'+uuid.uuid4().hex)
                         assert submitted[0]==200 and submitted[1]['version']==2,submitted
                     finally:
-                        if failure=='expired':isolated_quote_fixture('restore-timezone')
+                        if failure=='expired':isolated_quote_fixture('east')
                     if failure=='product':isolated_quote_fixture('unit-change')
                     if failure=='floor':
                         changed=request('/api/v1/pricing/floors/00000000-0000-0000-0000-000000000187',office,company,base=first,
@@ -2432,6 +2434,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                         assert normalize(request(warehouse_path,employee,company)[1])==normalize(before_stock[1])
                         assert request(direct_credit,employee,company)==before_credit
                     finally:
+                        if failure=='expired':isolated_quote_fixture('restore-timezone')
                         if failure=='product':isolated_quote_fixture('unit-restore')
                         if failure=='floor':
                             restored=request('/api/v1/pricing/floors/00000000-0000-0000-0000-000000000187',office,company,base=second,
@@ -2953,6 +2956,909 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                     wrong=request('/api/v1/inventory/transfers/'+written[1]['operation']['id'],inv_operator,company,base=target)
                     assert wrong[0]==422,wrong
                     assert request('/api/v1/accounting/inventory-operations?kind=transfer',inv_finance,company,base=target)[0]==422
+            count_products=['00000000-0000-0000-0000-000000000274','00000000-0000-0000-0000-000000000270']
+            count_path='/api/v1/inventory/stock-counts'
+            def count_start(first,second,reference):
+                payload={'warehouseId':inv_source,'reference':' '+reference+' ','reason':' Synthetic physical count ','productIds':count_products}
+                args=dict(payload=payload,key='count-start-'+uuid.uuid4().hex)
+                created=request(count_path,inv_operator,company,base=first,**args)
+                assert created[0]==201 and created[1]['count']['state']=='OPEN' and created[1]['count']['version']==1,created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(count_path,inv_operator,company,base=first if n%2 else second,**args),range(6)))
+                assert all(result==created for result in attempts),attempts
+                assert request(count_path,inv_operator,company,base=second,**{**args,'payload':{**payload,'productIds':list(reversed(count_products))}})==created
+                assert all('snapshotValue' not in line and 'gainValue' not in line for line in created[1]['lines']),created
+                detail=count_path+'/'+created[1]['count']['id']
+                assert request(detail,inv_operator,company)[1]==created[1] and request(detail,inv_operator,company,base=legacy_url)[1]==created[1]
+                return created[1]
+            def count_submit(sheet,lines,first,second):
+                args=dict(payload={'lines':lines},key='count-submit-'+uuid.uuid4().hex,version=1)
+                detail=count_path+'/'+sheet['count']['id']
+                result=request(detail+'/submit',inv_operator,company,base=first,**args)
+                assert result[0]==200 and result[1]['count']['state']=='SUBMITTED' and result[1]['count']['version']==2,result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail+'/submit',inv_operator,company,base=first if n%2 else second,**args),range(6)))
+                assert all(value==result for value in attempts),attempts
+                assert request(detail+'/submit',inv_operator,company,base=second,**{**args,'payload':{'lines':list(reversed(lines))}})==result
+                return result[1]
+            def count_post(sheet,first,second):
+                args=dict(payload={},key='count-post-'+uuid.uuid4().hex,version=2);detail=count_path+'/'+sheet['count']['id']
+                for target in (first,second):assert request(detail+'/post',inv_operator,company,base=target,**args)[0]==403
+                result=request(detail+'/post',inv_finance,company,base=first,**args)
+                assert result[0]==200 and result[1]['count']['state']=='POSTED' and result[1]['count']['version']==3,result
+                assert all('snapshotValue' in line and 'gainValue' in line for line in result[1]['lines']),result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail+'/post',inv_finance,company,base=first if n%2 else second,**args),range(6)))
+                assert all(value==result for value in attempts),attempts
+                financial='/api/v1/accounting/stock-counts/'+sheet['count']['id']
+                assert request(financial,inv_finance,company)[1]==result[1] and request(financial,inv_finance,company,base=legacy_url)[1]==result[1]
+                for target in (first,second):
+                    assert request(financial,inv_operator,company,base=target)[0]==403
+                    assert request(detail+'/post',inv_finance,company,base=target,**{**args,'key':'count-post-stale-'+uuid.uuid4().hex})[0]==409
+                    assert request(detail+'/cancel',inv_operator,company,base=target,payload={},key='count-posted-cancel-'+uuid.uuid4().hex,version=3)[0]==409
+                return result[1]
+            def count_cancel(sheet,version,first,second):
+                detail=count_path+'/'+sheet['count']['id'];args=dict(payload={},key='count-cancel-'+uuid.uuid4().hex,version=version)
+                result=request(detail+'/cancel',inv_operator,company,base=first,**args)
+                assert result[0]==200 and result[1]['count']['state']=='CANCELLED' and result[1]['count']['version']==version+1,result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(detail+'/cancel',inv_operator,company,base=first if n%2 else second,**args),range(6)))
+                assert all(value==result for value in attempts),attempts
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                valid={'warehouseId':inv_source,'reference':'Invalid count fixture '+uuid.uuid4().hex,'reason':'Synthetic','productIds':count_products}
+                for target in (first,second):
+                    assert request(count_path,employee,company,base=target,payload=valid,key='count-permission-'+uuid.uuid4().hex)[0]==403
+                    assert request(count_path,inv_one,company,base=target,payload={**valid,'warehouseId':inv_destination},key='count-scope-'+uuid.uuid4().hex)[0]==403
+                    for change,status in (({'warehouseId':None},400),({'warehouseId':'00000000-0000-0000-0000-000000000000'},422),({'productIds':[]},422),({'productIds':[None]},400),({'productIds':count_products*2},422),({'reason':' '},422)):
+                        bad=request(count_path,inv_operator,company,base=target,payload={**valid,**change},key='count-bad-'+uuid.uuid4().hex)
+                        assert bad[0]==status,bad
+                sheet=count_start(first,second,'Count difference '+uuid.uuid4().hex);detail=count_path+'/'+sheet['count']['id']
+                quantities={line['productId']:float(line['snapshotQuantity']) for line in sheet['lines']}
+                assert quantities[count_products[0]]==50 and quantities[count_products[1]]==98,quantities
+                lines=[{'productId':count_products[0],'countedQuantity':'51.000000','gainValue':None},{'productId':count_products[1],'countedQuantity':'97.000000','gainValue':None}]
+                for target in (first,second):
+                    for version,status in ((None,428),(0,428),(' 1 ',428),(2,409)):
+                        bad=request(detail+'/submit',inv_operator,company,base=target,payload={'lines':lines},key='count-version-'+uuid.uuid4().hex,version=version)
+                        assert bad[0]==status,bad
+                    for change in ({'countedQuantity':None},{'countedQuantity':-1},{'countedQuantity':'0.0000001'},{'gainValue':'0.001'},{'gainValue':-1}):
+                        bad=request(detail+'/submit',inv_operator,company,base=target,payload={'lines':[{**lines[0],**change},lines[1]]},key='count-line-bad-'+uuid.uuid4().hex,version=1)
+                        assert bad[0]==422,bad
+                    incomplete=request(detail+'/submit',inv_operator,company,base=target,payload={'lines':lines[:1]},key='count-incomplete-'+uuid.uuid4().hex,version=1)
+                    assert incomplete[0]==422,incomplete
+                submitted=count_submit(sheet,lines,second,first);count_post(submitted,first,second)
+                restore=count_start(second,first,'Count restore '+uuid.uuid4().hex)
+                restore_lines=[{'productId':count_products[0],'countedQuantity':'50.000000'},{'productId':count_products[1],'countedQuantity':'98.000000'}]
+                count_post(count_submit(restore,restore_lines,first,second),second,first)
+                count_cancel(count_start(first,second,'Count cancelled open '+uuid.uuid4().hex),1,second,first)
+                aba=count_start(second,first,'Count stale ABA '+uuid.uuid4().hex);count_submit(aba,restore_lines,first,second)
+                for origin,destination in ((inv_source,inv_destination),(inv_destination,inv_source)):
+                    moved=request('/api/v1/inventory/transfers',inv_operator,company,base=first,payload={'sourceWarehouseId':origin,'destinationWarehouseId':destination,'reference':'Count ABA movement '+uuid.uuid4().hex,'reason':'Synthetic revision guard proof','lines':[{'productId':count_products[1],'quantity':'1.000000'}]},key='count-aba-move-'+uuid.uuid4().hex)
+                    assert moved[0]==201,moved
+                    # A committed movement and return restore quantity/value but advance the balance revision.
+                aba_detail=count_path+'/'+aba['count']['id']
+                for target in (first,second):
+                    blocked=request(aba_detail+'/post',inv_finance,company,base=target,payload={},key='count-aba-post-'+uuid.uuid4().hex,version=2)
+                    assert blocked[0]==409 and json.loads(blocked[1])['code']=='inventory_control_conflict' and 'Stock changed after snapshot' in json.loads(blocked[1])['message'],blocked
+                count_cancel(aba,2,first,second)
+                listing='/api/v1/accounting/stock-counts?state=POSTED&pageSize=100'
+                assert request(listing,inv_finance,company)==request(listing,inv_finance,company,base=legacy_url)
+            bin_counter=token('test-bin-counter');bin_recounter=token('test-bin-recounter');bin_reviewer=token('test-bin-reviewer');bin_incomplete=token('test-bin-incomplete-reviewer')
+            bin_path='/api/v1/warehouse/bin-counts';bin_fin='/api/v1/accounting/bin-counts'
+            def bin_retry(path,actor,payload,version,first,second,key=None):
+                args=dict(payload=payload,key=key or 'bin-command-'+uuid.uuid4().hex,version=version)
+                result=request(path,actor,company,base=first,**args)
+                assert result[0] in (200,201),result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,actor,company,base=first if n%2 else second,**args),range(6)))
+                assert all(value==result for value in attempts),attempts
+                return result[1]
+            def blind(view):
+                assert view['blind'] is True and view['financial'] is None and view['valuation'] is None and view['decisions']==[],view
+                assert all('expectedQuantity' not in line and 'pickedReserved' not in line for line in view['lines']),view
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                payload={'warehouseId':inv_source,'reference':' Blind variance fixture '+uuid.uuid4().hex+' ','reason':' Synthetic blind counter ','productIds':count_products}
+                for target in (first,second):
+                    assert request(bin_path,inv_operator,company,base=target,payload=payload,key='bin-perm-'+uuid.uuid4().hex)[0]==403
+                    assert request(bin_path,bin_counter,company,base=target,payload={**payload,'warehouseId':inv_destination},key='bin-warehouse-'+uuid.uuid4().hex)[0]==403
+                    assert request(bin_path+'?warehouseId='+inv_destination,bin_recounter,company,base=target)[0]==403
+                    assert request(bin_path+'?warehouseId='+inv_source+'&state=invalid',bin_recounter,company,base=target)[0]==422
+                sheet=bin_retry(bin_path,bin_counter,payload,None,first,second);blind(sheet)
+                assert sheet['state']=='OPEN' and sheet['version']==1,sheet
+                root=bin_path+'/'+sheet['id'];financial=bin_fin+'/'+sheet['id']
+                discovery={'productId':count_products[1],'binId':'00000000-0000-0000-0000-000000000350','lotCode':' Synthetic discovered lot '+uuid.uuid4().hex+' '}
+                found=bin_retry(root+'/positions',bin_counter,discovery,1,second,first);blind(found)
+                assert found['version']==2 and len(found['lines'])==len(sheet['lines'])+1,found
+                review=request(financial,bin_reviewer,company)
+                assert review==request(financial,bin_reviewer,company,base=legacy_url) and review[0]==200 and review[1]['blind'] is False and len(review[1]['financial'])==2,review
+                assert request('/api/v1/inventory/stock-counts/'+sheet['id'],bin_counter,company)[1]==found
+                assert request('/api/v1/accounting/stock-counts/'+sheet['id'],bin_reviewer,company)[1]==review[1]
+                for target in (first,second):
+                    assert request(financial,bin_counter,company,base=target)[0]==403
+                expected_lines=review[1]['lines'];physical=[{'lineId':line['id'],'quantity':line['expectedQuantity']} for line in expected_lines]
+                changed_line=next(n for n,line in enumerate(expected_lines) if line['productId']==count_products[1] and float(line['expectedQuantity'])>0)
+                physical[changed_line]['quantity']=format(float(physical[changed_line]['quantity'])-1,'.6f')
+                for target in (first,second):
+                    for bad_lines in ([],physical*2,[{**physical[0],'quantity':None}]+physical[1:],[{**physical[0],'quantity':'0.0000001'}]+physical[1:]):
+                        bad=request(root+'/submit',bin_counter,company,base=target,payload={'lines':bad_lines},key='bin-read-bad-'+uuid.uuid4().hex,version=2)
+                        assert bad[0]==422,bad
+                submitted=bin_retry(root+'/submit',bin_counter,{'lines':list(reversed(physical))},2,first,second);blind(submitted)
+                assert submitted['state']=='SUBMITTED' and submitted['version']==3,submitted
+                for target in (first,second):
+                    denied=request(financial+'/approve',bin_counter,company,base=target,payload={'reason':'Counter cannot review own count'},key='bin-self-'+uuid.uuid4().hex)
+                    assert denied[0]==403,denied
+                    rejected=request(financial+'/approve',bin_reviewer,company,base=target,payload={'reason':'Requires independent recount'},key='bin-variance-'+uuid.uuid4().hex,version=3)
+                    assert rejected[0]==409 and 'independent blind recount' in json.loads(rejected[1])['message'],rejected
+                    bypass=request('/api/v1/inventory/stock-counts/'+sheet['id']+'/submit',bin_counter,company,base=target,payload={'lines':[{'productId':p,'countedQuantity':98 if p==count_products[1] else 50} for p in count_products]},key='bin-bypass-'+uuid.uuid4().hex,version=1)
+                    assert bypass[0]==403,bypass
+                reassigned=bin_retry(financial+'/recount',bin_reviewer,{'counterId':'00000000-0000-0000-0000-000000000303','reason':' Independent synthetic recount '},3,second,first)
+                assert reassigned['state']=='RECOUNT' and reassigned['version']==4 and reassigned['currentRound']==2,reassigned
+                counter_view=request(root,bin_recounter,company)
+                assert counter_view==request(root,bin_recounter,company,base=legacy_url) and counter_view[0]==200,counter_view
+                blind(counter_view[1]);assert all(line['readings']==[] for line in counter_view[1]['lines']),counter_view
+                for target in (first,second):
+                    wrong_counter=request(root+'/submit',bin_counter,company,base=target,payload={'lines':physical},key='bin-old-counter-'+uuid.uuid4().hex)
+                    assert wrong_counter[0]==403,wrong_counter
+                truthful=[{'lineId':line['id'],'quantity':line['expectedQuantity']} for line in expected_lines]
+                second_round=bin_retry(root+'/submit',bin_recounter,{'lines':list(reversed(truthful))},4,first,second);blind(second_round)
+                assert second_round['state']=='RECOUNT_SUBMITTED' and second_round['version']==5,second_round
+                approved=bin_retry(financial+'/approve',bin_reviewer,{'reason':'Approve independent exact physical recount'},5,second,first)
+                assert approved['state']=='APPROVED' and approved['version']==6 and approved['valuation'] is not None,approved
+                for target in (first,second):
+                    incomplete=request(financial+'/post',bin_incomplete,company,base=target,payload={'reason':'Missing base count post permission'},key='bin-incomplete-'+uuid.uuid4().hex)
+                    assert incomplete[0]==403,incomplete
+                    bad=request(financial+'/post',bin_reviewer,company,base=target,payload={'reason':'Values cannot change at posting','gainValues':[{'productId':count_products[0],'gainValue':1}]},key='bin-post-values-'+uuid.uuid4().hex,version=6)
+                    assert bad[0]==422,bad
+                posted=bin_retry(financial+'/post',bin_reviewer,{'reason':'Post independently verified count'},6,first,second)
+                assert posted['state']=='POSTED' and posted['version']==7,posted
+                readonly=request(root,bin_counter,company);blind(readonly[1])
+                assert readonly==request(root,bin_counter,company,base=legacy_url) and readonly[1]['state']=='POSTED',readonly
+                canceled=bin_retry(bin_path,bin_counter,{**payload,'reference':'Blind cancelled fixture '+uuid.uuid4().hex},None,second,first)
+                cancel_path=bin_path+'/'+canceled['id']+'/cancel'
+                for target in (first,second):
+                    denied=request(cancel_path,bin_recounter,company,base=target,payload={'reason':'Not original creator'},key='bin-wrong-cancel-'+uuid.uuid4().hex)
+                    assert denied[0]==403,denied
+                final=bin_retry(cancel_path,bin_reviewer,{'reason':'Cancel unused synthetic count'},1,first,second)
+                assert final['state']=='CANCELLED' and final['version']==2,final
+                listing=bin_path+'?warehouseId='+inv_source+'&pageSize=100'
+                assert request(listing,bin_recounter,company)==request(listing,bin_recounter,company,base=legacy_url)
+            economic_product='00000000-0000-0000-0000-000000000360'
+            def economic_start(reference,first,second,discover=False):
+                sheet=bin_retry(bin_path,bin_counter,{'warehouseId':inv_source,'reference':reference+' '+uuid.uuid4().hex,'reason':'Synthetic physical economic count','productIds':[economic_product]},None,first,second)
+                blind(sheet)
+                old_positions={line['positionId'] for line in sheet['lines']}
+                if discover:
+                    sheet=bin_retry(bin_path+'/'+sheet['id']+'/positions',bin_counter,{'productId':economic_product,'binId':'00000000-0000-0000-0000-000000000350','lotCode':'Economic discovered lot '+uuid.uuid4().hex},1,second,first)
+                root=bin_path+'/'+sheet['id'];financial=bin_fin+'/'+sheet['id']
+                review=request(financial,bin_reviewer,company,base=first)
+                assert review==request(financial,bin_reviewer,company,base=second) and review[0]==200,review
+                selected=next((line['id'] for line in review[1]['lines'] if line['positionId'] not in old_positions),None) if discover else None
+                assert not discover or selected is not None,review
+                return sheet,root,financial,review[1],selected
+            def economic_rounds(sheet,root,financial,physical,first,second):
+                version=sheet['version']
+                submitted=bin_retry(root+'/submit',bin_counter,{'lines':physical},version,first,second)
+                for target in (first,second):
+                    blocked=request(financial+'/approve',bin_reviewer,company,base=target,payload={'reason':'Variance must be independently recounted'},key='economic-first-approve-'+uuid.uuid4().hex,version=submitted['version'])
+                    assert blocked[0]==409,blocked
+                reassigned=bin_retry(financial+'/recount',bin_reviewer,{'counterId':'00000000-0000-0000-0000-000000000303','reason':'Independent physical economic recount'},submitted['version'],second,first)
+                captured=bin_retry(root+'/submit',bin_recounter,{'lines':list(reversed(physical))},reassigned['version'],first,second)
+                blind(captured)
+                return captured
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                gain,root,financial,review,selected=economic_start('Blind economic gain',first,second,True)
+                physical=[{'lineId':line['id'],'quantity':'2.000000' if line['id']==selected else '0.000000'} for line in review['lines']]
+                captured=economic_rounds(gain,root,financial,physical,first,second)
+                for target in (first,second):
+                    missing_value=request(financial+'/approve',bin_reviewer,company,base=target,payload={'reason':'Empty SKU must have explicit cents valuation'},key='economic-no-gain-'+uuid.uuid4().hex,version=captured['version'])
+                    assert missing_value[0]==422 and 'empty-SKU gains require explicit cents valuation' in json.loads(missing_value[1])['message'],missing_value
+                    invalid_value=request(financial+'/approve',bin_reviewer,company,base=target,payload={'reason':'Reject subcent valuation','gainValues':[{'productId':economic_product,'gainValue':'12.345'}]},key='economic-scale-'+uuid.uuid4().hex,version=captured['version'])
+                    assert invalid_value[0]==422,invalid_value
+                approved=bin_retry(financial+'/approve',bin_reviewer,{'reason':'Approve explicit empty SKU gain','gainValues':[{'productId':economic_product,'gainValue':'12.34'}]},captured['version'],second,first)
+                posted=bin_retry(financial+'/post',bin_reviewer,{'reason':'Post independently observed two units'},approved['version'],first,second)
+                assert posted['state']=='POSTED' and posted['valuation'][0]['gainValue']=='12.34',posted
+                economic_op=request('/api/v1/accounting/inventory-operations/'+gain['id'],bin_reviewer,company)
+                assert economic_op==request('/api/v1/accounting/inventory-operations/'+gain['id'],bin_reviewer,company,base=legacy_url),economic_op
+                assert economic_op[0]==200 and float(economic_op[1]['lines'][0]['quantityDelta'])==2 and float(economic_op[1]['lines'][0]['valueDelta'])==12.34 and economic_op[1]['operation']['journalEntryId'] is not None,economic_op
+                order_body={'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,'warehouseId':inv_source,'reason':'Reserved blind inventory guard '+uuid.uuid4().hex,'lines':[{'productUnitId':'00000000-0000-0000-0000-000000000363','quantity':1}]}
+                order=request('/api/v1/sales-orders',employee,company,base=first,payload=order_body,key='economic-reservation-'+uuid.uuid4().hex)
+                assert order[0]==201,order
+                reserved,resroot,resfinancial,resview,_=economic_start('Blind reserved guard',second,first)
+                zero=[{'lineId':line['id'],'quantity':'0.000000'} for line in resview['lines']]
+                reserved_round=economic_rounds(reserved,resroot,resfinancial,zero,first,second)
+                for target in (first,second):
+                    blocked=request(resfinancial+'/approve',bin_reviewer,company,base=target,payload={'reason':'Cannot count below active reserved stock'},key='economic-reserved-'+uuid.uuid4().hex,version=reserved_round['version'])
+                    assert blocked[0]==422 and 'Cannot consume reserved stock' in json.loads(blocked[1])['message'],blocked
+                canceled=bin_retry(resroot+'/cancel',bin_reviewer,{'reason':'Cancel reservation-protected count'},reserved_round['version'],second,first)
+                assert canceled['state']=='CANCELLED',canceled
+                released=request('/api/v1/sales-orders/'+order[1]['orderId']+'/cancel',employee,company,base=second,payload={'reason':'Release synthetic blind-count reservation'},key='economic-release-'+uuid.uuid4().hex,version=order[1]['version'])
+                assert released[0]==200,released
+                loss,root,financial,review,_=economic_start('Blind economic restore',first,second)
+                zero=[{'lineId':line['id'],'quantity':'0.000000'} for line in review['lines']]
+                captured=economic_rounds(loss,root,financial,zero,second,first)
+                approved=bin_retry(financial+'/approve',bin_reviewer,{'reason':'Approve physical loss without value override'},captured['version'],first,second)
+                posted=bin_retry(financial+'/post',bin_reviewer,{'reason':'Post zero quantity and drain full carrying value'},approved['version'],second,first)
+                assert posted['state']=='POSTED',posted
+                economic_op=request('/api/v1/accounting/inventory-operations/'+loss['id'],bin_reviewer,company)
+                assert economic_op==request('/api/v1/accounting/inventory-operations/'+loss['id'],bin_reviewer,company,base=legacy_url) and float(economic_op[1]['lines'][0]['quantityDelta'])==-2 and float(economic_op[1]['lines'][0]['valueDelta'])==-12.34,economic_op
+            location_writer=token('test-location-writer');location_reader=token('test-location-reader')
+            bins_path='/api/v1/warehouse/bins';positions_path='/api/v1/warehouse/positions'
+            def location_retry(path,actor,body,first,second,version=None,method=None):
+                args=dict(payload=body,key='locations-'+uuid.uuid4().hex,version=version,method=method)
+                result=request(path,actor,company,base=first,**args)
+                assert result[0] in (200,201),result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,actor,company,base=first if n%2 else second,**args),range(6)))
+                assert all(attempt==result for attempt in attempts),attempts
+                assert request(path,actor,company,base=second,**{**args,'payload':{**body,'reason':'Changed location reason'} if 'reason' in body else {**body,'name':'Changed location name'}})[0]==409
+                return result[1]
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                body={'warehouseId':inv_source,'code':' loc_'+uuid.uuid4().hex[:12]+' ','name':' Synthetic location café '}
+                for target in (first,second):
+                    assert request(bins_path,employee,company,base=target,payload=body,key='location-no-permission-'+uuid.uuid4().hex)[0]==403
+                    assert request(bins_path,location_reader,company,base=target,payload=body,key='location-readonly-'+uuid.uuid4().hex)[0]==403
+                    assert request(bins_path+'?warehouseId='+inv_destination,location_writer,company,base=target)[0]==403
+                    assert request(positions_path+'?warehouseId='+inv_destination,location_reader,company,base=target)[0]==403
+                    for patch,status in (({'code':'UNASSIGNED'},422),({'code':'bad space'},422),({'name':' '},422),({'warehouseId':None},400),({'warehouseId':inv_destination},403)):
+                        denied=request(bins_path,location_writer,company,base=target,payload={**body,**patch},key='location-invalid-'+uuid.uuid4().hex)
+                        assert denied[0]==status,denied
+                created=location_retry(bins_path,location_writer,body,first,second)
+                assert created['version']==1 and created['active'] is True and created['code']==body['code'].strip().upper(),created
+                listing=request(bins_path+'?warehouseId='+inv_source,location_reader,company,base=first)
+                assert listing==request(bins_path+'?warehouseId='+inv_source,location_reader,company,base=second) and created['id'] in [item['id'] for item in listing[1]['items']],listing
+                scan='/api/v1/warehouse/scan?warehouseId='+inv_source+'&code='
+                guid=uuid.UUID(created['id']);hexid=guid.hex
+                x='{0x'+hexid[:8]+',0x'+hexid[8:12]+',0x'+hexid[12:16]+',{'+','.join('0x'+hexid[n:n+2] for n in range(16,32,2))+'}}'
+                for value in (created['id'],hexid,'{'+created['id']+'}','('+created['id']+')',x,x.replace('{0x','{ 0x'),x.replace(',',', ')):
+                    path=scan+urllib.parse.quote('BIN:'+value)
+                    found=request(path,location_reader,company,base=first)
+                    assert found==request(path,location_reader,company,base=second) and found[0]==200 and found[1]['item']['id']==created['id'],found
+                for value in ('BIN:{'+hexid+'}','BIN:1-1-1-1-1','bin:'+created['id'],'not-a-fixture-barcode'):
+                    for target in (first,second):
+                        assert request(scan+urllib.parse.quote(value),location_reader,company,base=target)[0]==404
+                # Resolve by the actual fixture SKU instead of relying on a display name.
+                source_path=positions_path+'?warehouseId='+inv_source+'&productId=00000000-0000-0000-0000-000000000270&pageSize=100'
+                source=request(source_path,location_reader,company,base=first)
+                assert source==request(source_path,location_reader,company,base=second) and source[0]==200,source
+                origin=next(item for item in source[1]['items'] if float(item['availableForPick'])>=2)
+                product_scan=request(scan+urllib.parse.quote(origin['sku']),location_reader,company,base=first)
+                assert product_scan==request(scan+urllib.parse.quote(origin['sku']),location_reader,company,base=second) and product_scan[0]==200 and product_scan[1]['kind']=='PRODUCT',product_scan
+                lot_scan=request(scan+urllib.parse.quote('LOT:'+origin['lotId']),location_reader,company,base=first)
+                assert lot_scan==request(scan+urllib.parse.quote('LOT:'+origin['lotId']),location_reader,company,base=second) and origin['id'] in [item['id'] for item in lot_scan[1]['items']],lot_scan
+                movebody={'sourcePositionId':origin['id'],'targetBinId':created['id'],'lotCode':' Location new lot '+uuid.uuid4().hex+' ','baseQuantity':'2.000000','reference':'Location transfer '+uuid.uuid4().hex,'reason':' Synthetic physical allocation '}
+                for target in (first,second):
+                    for patch,status in (({'baseQuantity':0},422),({'baseQuantity':'0.0000001'},422),({'lotCode':' '},422),({'reference':' '},422),({'countId':'00000000-0000-0000-0000-000000000001'},409),({'baseQuantity':10000},409)):
+                        bad=request('/api/v1/warehouse/location-moves',location_writer,company,base=target,payload={**movebody,**patch},key='location-move-invalid-'+uuid.uuid4().hex)
+                        assert bad[0]==status,bad
+                moved=location_retry('/api/v1/warehouse/location-moves',location_writer,movebody,first,second)
+                assert float(moved['quantity'])==2 and moved['sourcePositionId']==origin['id'] and moved['countId'] is None,moved
+                target_path=source_path+'&binId='+created['id']
+                positions=request(target_path,location_reader,company,base=first)
+                assert positions==request(target_path,location_reader,company,base=second) and len(positions[1]['items'])==1 and float(positions[1]['items'][0]['quantity'])==2,positions
+                position=positions[1]['items'][0]
+                detail=bins_path+'/'+created['id']
+                for target in (first,second):
+                    assert request(detail,location_writer,company,base=target,payload={'name':'Occupied','active':False},method='PUT',key='location-occupied-'+uuid.uuid4().hex,version=1)[0]==409
+                    assert request(detail,location_writer,company,base=target,payload={'name':'Required version','active':True},method='PUT',key='location-version-'+uuid.uuid4().hex)[0]==428
+                    assert request(detail,location_writer,company,base=target,payload={'name':'Null status','active':None},method='PUT',key='location-null-'+uuid.uuid4().hex,version=1)[0]==400
+                trace='/api/v1/warehouse/lot-trace?warehouseId='+inv_source+'&lotId='+position['lotId']+'&pageSize=100'
+                traced=request(trace,location_reader,company,base=first)
+                assert traced==request(trace,location_reader,company,base=second) and len(traced[1]['items'])==1 and traced[1]['items'][0]['documentId']==moved['id'] and float(traced[1]['items'][0]['quantity'])==2,traced
+                restored=location_retry('/api/v1/warehouse/location-moves',location_writer,{'sourcePositionId':position['id'],'targetBinId':origin['binId'],'lotCode':origin['lotCode'],'baseQuantity':'2.000000','reference':'Location restoration '+uuid.uuid4().hex,'reason':'Synthetic restore original position','countId':None},second,first)
+                changed=location_retry(detail,location_writer,{'name':' Closed synthetic bin ','active':False},second,first,version=' +001 ',method='PUT')
+                assert changed['version']==2 and changed['active'] is False and changed['name']=='Closed synthetic bin',changed
+                for target in (first,second):
+                    assert request(detail,location_writer,company,base=target,payload={'name':'Stale','active':True},method='PUT',key='location-stale-'+uuid.uuid4().hex,version=1)[0]==409
+                    assert request(positions_path+'?warehouseId='+inv_source+'&pageSize=101',location_reader,company,base=target)[0]==422
+                # A real partial pick supplies a one-unit shortage without dispatching or changing value.
+                order=request('/api/v1/sales-orders',employee,company,base=first,payload={'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,'warehouseId':inv_source,'reason':'Warehouse details partial pick '+uuid.uuid4().hex,'lines':[{'productUnitId':'00000000-0000-0000-0000-000000000273','quantity':2}]},key='location-order-'+uuid.uuid4().hex)
+                assert order[0]==201,order
+                orderpath='/api/v1/warehouse/orders/'+order[1]['orderId'];orderdetail=request(orderpath,employee,company,base=first)
+                assert orderdetail[0]==200,orderdetail
+                line=orderdetail[1]['lines'][0]['id']
+                picked=request(orderpath+'/picks',employee,company,base=first,payload={'lines':[{'orderLineId':line,'quantity':1}]},key='location-pick-'+uuid.uuid4().hex,version=order[1]['version'])
+                assert picked[0]==201,picked
+                pickpath='/api/v1/warehouse/picks/'+picked[1]['id']
+                for target in (first,second):
+                    for patch,status in (({'reason':' '},422),({'reason':'x'*501},422),({'orderLineId':None},400)):
+                        denied=request(pickpath+'/short-pick-reasons',employee,company,base=target,payload={'orderLineId':line,'reason':'Invalid synthetic shortage',**patch},key='shortpick-invalid-'+uuid.uuid4().hex)
+                        assert denied[0]==status,denied
+                shortage=location_retry(pickpath+'/short-pick-reasons',employee,{'orderLineId':line,'reason':' Synthetic one unit shortage '},second,first)
+                assert float(shortage['missingQuantity'])==1 and shortage['reason']=='Synthetic one unit shortage',shortage
+                for target in (first,second):
+                    assert request(pickpath+'/short-pick-reasons',location_writer,company,base=target,payload={'orderLineId':line,'reason':'Forbidden'},key='shortpick-denied-'+uuid.uuid4().hex)[0]==403
+                    assert request(pickpath+'/short-pick-reasons',employee,company,base=target,payload={'orderLineId':'00000000-0000-0000-0000-000000000001','reason':'Wrong parent line'},key='shortpick-wrong-line-'+uuid.uuid4().hex)[0]==404
+                canceled=request(pickpath+'/cancel',employee,company,base=second,payload={},key='location-pick-cancel-'+uuid.uuid4().hex,version=picked[1]['version'])
+                assert canceled[0]==200,canceled
+                released=request('/api/v1/sales-orders/'+order[1]['orderId']+'/cancel',employee,company,base=first,payload={'reason':'Release synthetic warehouse detail order'},key='location-order-cancel-'+uuid.uuid4().hex,version=order[1]['version'])
+                assert released[0]==200,released
+            transit_source=token('test-transit-source');transit_destination=token('test-transit-destination');transit_cost=token('test-transit-cost');transit_finance=token('test-transit-finance');transit_outsider=token('test-transit-outsider');transit_dispatch_only=token('test-transit-dispatch-only')
+            transit_path='/api/v1/inventory/transit-transfers';transit_fin='/api/v1/accounting/transit-transfers'
+            transit_products=['00000000-0000-0000-0000-000000000380','00000000-0000-0000-0000-000000000384']
+            def transit_retry(path,actor,body,first,second):
+                args=dict(payload=body,key='transit-'+uuid.uuid4().hex)
+                result=request(path,actor,company,base=first,**args)
+                assert result[0]==201,result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,actor,company,base=first if n%2 else second,**{**args,'payload':{**body,'lines':list(reversed(body['lines']))}}),range(6)))
+                assert all(attempt==result for attempt in attempts),attempts
+                changed=request(path,actor,company,base=second,**{**args,'payload':{**body,'reason':'Changed frozen transit reason'}})
+                assert changed[0]==409,changed
+                return result[1]
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                body={'sourceWarehouseId':inv_source,'destinationWarehouseId':inv_destination,'reference':' Transit dispatch '+uuid.uuid4().hex+' ','reason':' Synthetic frozen café shipment ','lines':[{'productId':product,'quantity':'3.000000'} for product in reversed(transit_products)]}
+                for target in (first,second):
+                    for actor in (employee,transit_outsider):
+                        denied=request(transit_path,actor,company,base=target,payload=body,key='transit-denied-'+uuid.uuid4().hex)
+                        assert denied[0]==403,denied
+                    for patch,status in (({'destinationWarehouseId':inv_source},422),({'sourceWarehouseId':None},400),({'reference':' '},422),({'lines':[]},422),({'lines':body['lines']*2},422),({'lines':[{'productId':transit_products[0],'quantity':0}]},422),({'lines':[{'productId':transit_products[0],'quantity':'0.0000001'}]},422),({'lines':[{'productId':transit_products[0],'quantity':1000}]},409)):
+                        bad=request(transit_path,transit_source,company,base=target,payload={**body,**patch},key='transit-invalid-'+uuid.uuid4().hex)
+                        assert bad[0]==status,bad
+                dispatched=transit_retry(transit_path,transit_source,body,first,second)
+                tid=dispatched['transfer']['id'];detail=transit_path+'/'+tid;financial=transit_fin+'/'+tid
+                assert dispatched['transfer']['state']=='IN_TRANSIT' and len(dispatched['lines'])==2 and 'shippedCost' not in dispatched['transfer'] and 'cost' not in dispatched['lines'][0] and 'stockBalanceId' not in dispatched['lines'][0],dispatched
+                for actor in (transit_source,transit_destination,transit_cost):
+                    view=request(detail,actor,company,base=first)
+                    assert view==request(detail,actor,company,base=second) and view[0]==200,view
+                    assert 'stockBalanceId' not in view[1]['lines'][0] and 'quantityBefore' not in view[1]['lines'][0],view
+                    assert ('cost' in view[1]['lines'][0])==(actor==transit_cost),view
+                for target in (first,second):
+                    assert request(detail,transit_outsider,company,base=target)[0]==403
+                    assert request(financial,transit_cost,company,base=target)[0]==403
+                    assert request(transit_path,transit_source,company,base=target)[0]==400
+                    assert request(transit_path+'?warehouseId='+inv_destination,transit_source,company,base=target)[0]==403
+                    assert request(transit_path+'?warehouseId='+inv_source+'&state=closed',transit_source,company,base=target)[0]==422
+                full=request(financial,transit_finance,company,base=first)
+                assert full==request(financial,transit_finance,company,base=second) and full[0]==200 and float(full[1]['transfer']['shippedCost'])==20.02 and all(float(line['cost'])==10.01 and 'stockBalanceId' in line for line in full[1]['lines']),full
+                operational_list=request(transit_path+'?warehouseId='+inv_source+'&pageSize=100',transit_cost,company,base=first)
+                assert operational_list==request(transit_path+'?warehouseId='+inv_source+'&pageSize=100',transit_cost,company,base=second) and operational_list[1]['remainingCost'] is None and all('remainingCost' not in item and 'shippedCost' not in item for item in operational_list[1]['items']),operational_list
+                event_lines=[{'transferLineId':line['id'],'quantity':'1.000000'} for line in reversed(full[1]['lines'])]
+                stages=[('receipts',transit_destination,3.34,'PARTIAL',13.34),('returns',transit_source,3.33,'PARTIAL',6.68),('shortages',transit_finance,3.34,'CLOSED',0)]
+                for action,actor,cost,state,remaining in stages:
+                    eventpath=detail+'/'+action;eventbody={'reference':'Transit '+action+' '+uuid.uuid4().hex,'reason':' Synthetic '+action+' at frozen cost ','lines':event_lines}
+                    for target in (first,second):
+                        wrong_actor=transit_outsider if action!='shortages' else transit_source
+                        assert request(eventpath,wrong_actor,company,base=target,payload=eventbody,key='transit-event-denied-'+uuid.uuid4().hex)[0]==403
+                        for patch,status in (({'lines':[]},422),({'lines':event_lines*2},422),({'lines':[{'transferLineId':None,'quantity':1}]},400),({'lines':[{'transferLineId':'00000000-0000-0000-0000-000000000001','quantity':1}]},404),({'lines':[{'transferLineId':event_lines[0]['transferLineId'],'quantity':100}]},409)):
+                            bad=request(eventpath,actor,company,base=target,payload={**eventbody,**patch},key='transit-event-invalid-'+uuid.uuid4().hex)
+                            assert bad[0]==status,bad
+                    posted=transit_retry(eventpath,actor,eventbody,second,first)
+                    eid=posted['event']['id'];eventdetail='/api/v1/inventory/transit-events/'+eid;eventfinancial='/api/v1/accounting/transit-events/'+eid
+                    if action=='shortages':
+                        assert posted['event']['warehouseId'] is None and posted['event']['journalEntryId'] is not None and all(float(line['cost'])==cost and line['stockBalanceId'] is None for line in posted['lines']),posted
+                    else:assert 'journalEntryId' not in posted['event'] and all('cost' not in line and 'stockBalanceId' not in line for line in posted['lines']),posted
+                    view=request(eventfinancial,transit_finance,company,base=first)
+                    assert view==request(eventfinancial,transit_finance,company,base=second) and all(float(line['cost'])==cost for line in view[1]['lines']),view
+                    for viewer in (transit_source,transit_destination,transit_cost):
+                        operational=request(eventdetail,viewer,company,base=first)
+                        assert operational==request(eventdetail,viewer,company,base=second) and operational[0]==200 and all('stockBalanceId' not in line for line in operational[1]['lines']),operational
+                        assert all(('cost' in line)==(viewer==transit_cost) for line in operational[1]['lines']),operational
+                    for target in (first,second):assert request(eventdetail,transit_outsider,company,base=target)[0]==403
+                    after=request(financial,transit_finance,company,base=first)
+                    assert after==request(financial,transit_finance,company,base=second) and after[1]['transfer']['state']==state and float(after[1]['transfer']['remainingCost'])==remaining,after
+                    listing=request(transit_fin+'?state='+state+'&pageSize=100',transit_finance,company,base=first)
+                    assert listing==request(transit_fin+'?state='+state+'&pageSize=100',transit_finance,company,base=second) and float(listing[1]['remainingCost'])==remaining,listing
+                for target in (first,second):
+                    exhausted=request(detail+'/receipts',transit_destination,company,base=target,payload={'reference':'Transit exhausted '+uuid.uuid4().hex,'reason':'Closed shipment cannot be consumed twice','lines':event_lines},key='transit-exhausted-'+uuid.uuid4().hex)
+                    assert exhausted[0]==409,exhausted
+                    duplicate=request(transit_path,transit_source,company,base=target,payload={**body,'reference':body['reference'].strip().upper()},key='transit-duplicate-reference-'+uuid.uuid4().hex)
+                    assert duplicate[0]==409,duplicate
+            zero=transit_retry(transit_path,transit_dispatch_only,{'sourceWarehouseId':inv_source,'destinationWarehouseId':inv_destination,'reference':'Transit zero-value '+uuid.uuid4().hex,'reason':'Dispatch-only source role needs no transit read permission','lines':[{'productId':'00000000-0000-0000-0000-000000000388','quantity':1}]},url,legacy_url)
+            zid=zero['transfer']['id']
+            for target in (url,legacy_url):assert request(transit_path+'/'+zid,transit_dispatch_only,company,base=target)[0]==403
+            arrival=transit_retry(transit_path+'/'+zid+'/receipts',transit_destination,{'reference':'Transit zero arrival '+uuid.uuid4().hex,'reason':'Zero carrying value must not create journal','lines':[{'transferLineId':zero['lines'][0]['id'],'quantity':1}]},legacy_url,url)
+            zero_financial=request('/api/v1/accounting/transit-events/'+arrival['event']['id'],transit_finance,company)
+            assert zero_financial==request('/api/v1/accounting/transit-events/'+arrival['event']['id'],transit_finance,company,base=legacy_url) and zero_financial[1]['event']['journalEntryId'] is None and float(zero_financial[1]['lines'][0]['cost'])==0,zero_financial
+            bank_maintainer=token('test-bank-maintainer');bank_reader=token('test-bank-reader');bank_write_only=token('test-bank-write-only')
+            banks='/api/v1/bank-accounts'
+            original_banks=request(banks,bank_reader,company)
+            assert original_banks==request(banks,bank_reader,company,base=legacy_url) and original_banks[0]==200,original_banks
+            original_default=next(item for item in original_banks[1]['items'] if item['isDefault'])
+            assert original_default['id']=='00000000-0000-0000-0000-000000000038' and original_default['defaultMappingVersion']==1,original_default
+            def bank_retry(path,body,first,second,version=None,method=None,normalized=None,status=201):
+                args=dict(payload=body,key='bank-maintenance-'+uuid.uuid4().hex,version=version,method=method)
+                result=request(path,bank_maintainer,company,base=first,**args)
+                assert result[0]==status,result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,bank_maintainer,company,base=first if n%2 else second,**{**args,'payload':body if normalized is None else normalized}),range(6)))
+                assert all(attempt==result for attempt in attempts),attempts
+                changed={**body,'bankAccountId':'00000000-0000-0000-0000-000000000001'} if 'bankAccountId' in body else {**body,'name':'Changed valid bank name'}
+                conflict=request(path,bank_maintainer,company,base=second,**{**args,'payload':changed})
+                assert conflict[0]==409,conflict
+                return result[1]
+            for target in (url,legacy_url):
+                assert request(banks,employee,company,base=target)[0]==403
+                assert request(banks+'/options',bank_maintainer,company,base=target)[0]==403
+                assert request(banks+'/options',bank_write_only,company,base=target)[0]==403
+                body={'code':'PERMISSION_BANK','name':'Valid synthetic account','kind':'CASH'}
+                for actor in (employee,bank_reader,bank_write_only):
+                    denied=request(banks,actor,company,base=target,payload=body,key='bank-denied-'+uuid.uuid4().hex)
+                    assert denied[0]==403,denied
+                denied=request(banks+'/default',bank_write_only,company,base=target,payload={'bankAccountId':original_default['id']},method='PUT',key='bank-default-no-read-'+uuid.uuid4().hex)
+                assert denied[0]==403 and json.loads(denied[1])['message']=='Bank maintenance also requires directory read permission.',denied
+                for patch in ({'bankAccountId':None},):
+                    assert request(banks+'/default',bank_maintainer,company,base=target,payload=patch,method='PUT',key='bank-default-null-'+uuid.uuid4().hex,version=1)[0]==400
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                for kind in ('BANK','CASH','CARD_CLEARING'):
+                    code='ZZBK_'+uuid.uuid4().hex[:12].upper();number=str(uuid.uuid4().int%10**12).zfill(12)
+                    body={'code':' '+code.lower()+' ','name':' Synthetic bank café '+kind+' ','kind':kind}
+                    if kind=='BANK':body.update(bsb=' 123-456 ',accountNumber=number[:4]+' '+number[4:],accountHolder=' Synthetic Holder café ')
+                    for target in (first,second):
+                        invalid=[({'code':'bad space'},422),({'name':' '},422),({'kind':'LEGACY'},422),({'kind':'UNKNOWN'},422),({'active':None},400)]
+                        if kind=='BANK':invalid += [({'bsb':'１２３４５６'},422),({'bsb':'123	456'},422),({'accountNumber':'123	456'},422),({'accountNumber':'1'*21},422),({'accountHolder':' '},422)]
+                        else:invalid += [({'bsb':''},422),({'accountNumber':''},422),({'accountHolder':'Non-null forbidden holder'},422)]
+                        for patch,status in invalid:
+                            bad=request(banks,bank_maintainer,company,base=target,payload={**body,**patch},key='bank-invalid-'+uuid.uuid4().hex)
+                            assert bad[0]==status,bad
+                    normalized={**body,'code':code,'name':body['name'].strip(),'active':True}
+                    if kind=='BANK':normalized.update(bsb='123456',accountNumber=number,accountHolder='Synthetic Holder café')
+                    else:normalized.update(bsb=None,accountNumber=None,accountHolder=' ')
+                    created=bank_retry(banks,body,first,second,normalized=normalized)
+                    assert created['version']==2 and created['active'] is True and created['glActive'] is True and created['kind']==kind and created['code']==code and float(created['signedBalance'])==0,created
+                    detail=banks+'/'+created['id']
+                    readbank=request(detail,bank_reader,company,base=first)
+                    assert readbank==request(detail,bank_reader,company,base=second) and readbank[1]['version']==2,readbank
+                    options=request(banks+'/options',employee,company,base=first)
+                    assert options==request(banks+'/options',employee,company,base=second),options
+                    option=next(item for item in options[1]['items'] if item['id']==created['id'])
+                    assert option['accountNumberMasked']==('****'+number[-4:] if kind=='BANK' else None) and 'accountNumber' not in option and 'bsb' not in option and 'accountHolder' not in option,option
+                    for target in (first,second):
+                        for patch in ({'code':code+'_NEW'},{'kind':'CARD_CLEARING' if kind!='CARD_CLEARING' else 'CASH','bsb':None,'accountNumber':None,'accountHolder':None}):
+                            bad=request(detail,bank_maintainer,company,base=target,payload={**normalized,**patch},method='PUT',key='bank-immutable-'+uuid.uuid4().hex,version=2)
+                            assert bad[0]==409,bad
+                        assert request(detail,bank_maintainer,company,base=target,payload=normalized,method='PUT',key='bank-missing-version-'+uuid.uuid4().hex)[0]==428
+                        assert request(banks+'/'+str(uuid.uuid4()),bank_reader,company,base=target)[0]==404
+                    if kind=='BANK':
+                        for target in (first,second):
+                            duplicate=request(banks,bank_maintainer,company,base=target,payload={**normalized,'code':code+'_DUP'},key='bank-duplicate-identity-'+uuid.uuid4().hex)
+                            assert duplicate[0]==409,duplicate
+                        current=request(detail,bank_reader,company,base=first)[1]['defaultMappingVersion']
+                        selected=bank_retry(banks+'/default',{'bankAccountId':created['id']},second,first,version=current,method='PUT',status=200)
+                        assert selected['bankAccountId']==created['id'] and selected['version']==current+1,selected
+                        for target in (first,second):
+                            stale=request(banks+'/default',bank_maintainer,company,base=target,payload={'bankAccountId':original_default['id']},method='PUT',key='bank-default-stale-'+uuid.uuid4().hex,version=current)
+                            assert stale[0]==409,stale
+                        restored=bank_retry(banks+'/default',{'bankAccountId':original_default['id']},first,second,version=selected['version'],method='PUT',status=200)
+                        assert restored['version']==current+2,restored
+                    closedbody={**normalized,'name':' Closed synthetic bank '+kind+' ','active':False}
+                    closed=bank_retry(detail,closedbody,second,first,version=' +002 ',method='PUT',status=200)
+                    assert closed['version']==3 and closed['active'] is False and closed['glActive'] is True and closed['name']=='Closed synthetic bank '+kind,closed
+                    after=request(detail,bank_reader,company,base=first)
+                    assert after==request(detail,bank_reader,company,base=second) and after[1]['active'] is False,after
+                    options=request(banks+'/options',employee,company,base=first)
+                    assert options==request(banks+'/options',employee,company,base=second) and created['id'] not in [item['id'] for item in options[1]['items']],options
+                    for target in (first,second):
+                        assert request(detail,bank_maintainer,company,base=target,payload=closedbody,method='PUT',key='bank-stale-'+uuid.uuid4().hex,version=2)[0]==409
+                        rejected=request(banks+'/default',bank_maintainer,company,base=target,payload={'bankAccountId':created['id']},method='PUT',key='bank-inactive-default-'+uuid.uuid4().hex,version=closed['defaultMappingVersion'])
+                        assert rejected[0]==422,rejected
+            legacy_id='00000000-0000-0000-0000-000000000410';legacy_path=banks+'/'+legacy_id
+            initial=request(legacy_path,bank_reader,company)
+            assert initial==request(legacy_path,bank_reader,company,base=legacy_url) and initial[1]['kind']=='LEGACY' and initial[1]['version']==1,initial
+            upgrade={'code':' zz_bank_legacy ','name':' Upgrade legacy synthetic bank ','kind':'BANK','bsb':'123-457','accountNumber':'0000000000410','accountHolder':' Legacy Holder café '}
+            upgraded=bank_retry(legacy_path,upgrade,url,legacy_url,version=1,method='PUT',status=200)
+            assert upgraded['kind']=='BANK' and upgraded['version']==2 and upgraded['bsb']=='123457',upgraded
+            for target in (url,legacy_url):
+                denied=request(legacy_path,bank_maintainer,company,base=target,payload={**upgrade,'bsb':'123458'},method='PUT',key='bank-legacy-identity-'+uuid.uuid4().hex,version=2)
+                assert denied[0]==409,denied
+            closed=bank_retry(legacy_path,{**upgrade,'active':False,'name':'Closed upgraded legacy bank'},legacy_url,url,version=2,method='PUT',status=200)
+            assert closed['version']==3 and closed['active'] is False,closed
+            final=request(banks,bank_reader,company)
+            assert final==request(banks,bank_reader,company,base=legacy_url) and final[1]['currency']=='AUD',final
+            default=next(item for item in final[1]['items'] if item['isDefault'])
+            assert default['id']==original_default['id'] and default['defaultMappingVersion']==5,default
+            existing_balance=request(banks+'/00000000-0000-0000-0000-000000000160',bank_reader,company)
+            assert existing_balance==request(banks+'/00000000-0000-0000-0000-000000000160',bank_reader,company,base=legacy_url) and float(existing_balance[1]['signedBalance'])==43.5,existing_balance
+            from decimal import Decimal
+            ledger_reader=token('test-ledger-reader');ledger_path='/api/v1/accounting/general-ledger';trial_path='/api/v1/accounting/trial-balance'
+            ledger_from='2026-11-01';ledger_to='2026-12-01'
+            def ledger_url(path,**filters):
+                return path+'?'+urllib.parse.urlencode({'from':ledger_from,'to':ledger_to,**filters})
+            def ledger_parity(path,selected_company=company):
+                left=request(path,ledger_reader,selected_company);right=request(path,ledger_reader,selected_company,base=legacy_url)
+                assert left[0]==right[0]==200,(left,right)
+                for result in (left,right):
+                    snapshot=result[1].get('snapshotAt')
+                    if snapshot is not None:
+                        stamp=snapshot.replace('Z','+00:00')
+                        timestamp=datetime.datetime.strptime(stamp,'%Y-%m-%dT%H:%M:%S.%f%z' if '.' in stamp else '%Y-%m-%dT%H:%M:%S%z')
+                        assert timestamp.utcoffset()==datetime.timedelta(0),snapshot
+                    assert result[1].get('companyId',selected_company)==selected_company,result
+                a={key:value for key,value in left[1].items() if key!='snapshotAt'};b={key:value for key,value in right[1].items() if key!='snapshotAt'}
+                assert a==b,(a,b)
+                return a
+            for target in (url,legacy_url):
+                for path in (ledger_url(ledger_path),ledger_url(trial_path),'/api/v1/accounting/journals/'+str(uuid.uuid4())):
+                    assert request(path,employee,company,base=target)[0]==403
+                    assert request(path,bank_reader,company,base=target)[0]==403
+                assert request(ledger_path,ledger_reader,company,base=target)[0]==400
+                for patch,status in (({'from':''},400),({'from':'2026-02-29'},400),({'from':'0000-01-01'},400),({'to':ledger_from},422),({'to':'2026-10-31'},422),({'from':'0001-01-01','to':'0001-01-02'},422),({'from':'2026-01-01','to':'2027-01-03'},422),({'page':0},422),({'pageSize':101},422),({'page':'2147483648'},400),({'page':''},400),({'accountId':''},400),({'partyId':'not-a-guid'},400)):
+                    denied=request(ledger_url(ledger_path,**patch),ledger_reader,company,base=target)
+                    assert denied[0]==status,denied
+                for field in ('accountId','partyId','documentId'):
+                    denied=request(ledger_url(ledger_path,**{field:str(uuid.uuid4())}),ledger_reader,company,base=target)
+                    assert denied[0]==404,denied
+                assert request('/api/v1/accounting/journals/'+str(uuid.uuid4()),ledger_reader,company,base=target)[0]==404
+                assert request(ledger_url(ledger_path,accountId='00000000-0000-0000-0000-000000000423'),ledger_reader,company,base=target)[0]==404
+                assert request(ledger_url(ledger_path,accountId='00000000-0000-0000-0000-000000000160'),ledger_reader,'00000000-0000-0000-0000-000000000021',base=target)[0]==404
+            account_ledger=ledger_parity(ledger_url(ledger_path,accountId='00000000-0000-0000-0000-000000000160',pageSize=100))
+            assert account_ledger['totalCount']>0 and account_ledger['totalCount']==len(account_ledger['items']) and Decimal(account_ledger['closingSigned'])==Decimal('43.5'),account_ledger
+            running=Decimal(account_ledger['openingSigned'])
+            for item in account_ledger['items']:
+                running+=Decimal(item['debit'])-Decimal(item['credit'])
+                assert Decimal(item['runningSigned'])==running,item
+                assert ledger_from<=item['postingDate']<ledger_to,item
+            assert running==Decimal(account_ledger['closingSigned']),account_ledger
+            all_ledger=ledger_parity(ledger_url(ledger_path,pageSize=100))
+            first_page=ledger_parity(ledger_url(ledger_path,page=1,pageSize=2))
+            second_page=ledger_parity(ledger_url(ledger_path,page=2,pageSize=2))
+            assert first_page['items']+second_page['items']==all_ledger['items'][:4] and len(second_page['items'])==2 and first_page['totalCount']==second_page['totalCount'],(first_page,second_page)
+            expected=Decimal(first_page['items'][-1]['runningSigned'])
+            for item in second_page['items']:
+                expected+=Decimal(item['debit'])-Decimal(item['credit'])
+                assert Decimal(item['runningSigned'])==expected,item
+            decimal_page=ledger_parity(ledger_url(ledger_path,page=' +001 ',pageSize=' +002 '))
+            assert decimal_page==first_page,decimal_page
+            next_period=ledger_parity(ledger_url(ledger_path,**{'from':'2026-12-01','to':'2027-01-01','accountId':'00000000-0000-0000-0000-000000000160'}))
+            assert next_period['totalCount']==0 and Decimal(next_period['openingSigned'])==Decimal('43.5') and Decimal(next_period['closingSigned'])==Decimal('43.5') and not next_period['items'],next_period
+            # Adjacent intervals preserve the half-open balance identity for every posted bank line.
+            cut=account_ledger['items'][0]['postingDate']
+            if cut>ledger_from:
+                before=ledger_parity(ledger_url(ledger_path,**{'from':ledger_from,'to':cut,'accountId':'00000000-0000-0000-0000-000000000160'}))
+                after=ledger_parity(ledger_url(ledger_path,**{'from':cut,'to':ledger_to,'accountId':'00000000-0000-0000-0000-000000000160'}))
+                assert Decimal(before['closingSigned'])==Decimal(after['openingSigned']) and all(item['postingDate']<cut for item in before['items']) and all(item['postingDate']>=cut for item in after['items']),(before,after)
+            journal=ledger_parity('/api/v1/accounting/journals/'+all_ledger['items'][0]['journalId'])
+            assert len(journal['lines'])>=2 and sum(Decimal(line['debit']) for line in journal['lines'])==sum(Decimal(line['credit']) for line in journal['lines']),journal
+            doc=journal['journal']['sourceDocumentId'];document_ledger=ledger_parity(ledger_url(ledger_path,documentId=doc,pageSize=100))
+            assert document_ledger['items'] and all(item['sourceDocumentId']==doc for item in document_ledger['items']),document_ledger
+            party='00000000-0000-0000-0000-000000000010'
+            party_ledger=ledger_parity(ledger_url(ledger_path,partyId=party,pageSize=100))
+            assert party_ledger['items'] and all(item['partyId']==party for item in party_ledger['items']),party_ledger
+            trial=ledger_parity(ledger_url(trial_path))
+            zeros=ledger_parity(ledger_url(trial_path,includeZero='TRUE'))
+            assert trial['status']==zeros['status']=='BALANCED' and trial['totals']==zeros['totals'] and Decimal(trial['totals']['difference'])==0,(trial,zeros)
+            totals=trial['totals']
+            for prefix in ('opening','period','closing'):assert Decimal(totals[prefix+'Debit'])==Decimal(totals[prefix+'Credit']),totals
+            assert not any(item['code'].startswith('ZZBK_') for item in trial['items']) and len([item for item in zeros['items'] if item['code'].startswith('ZZBK_')])==6,(trial,zeros)
+            for field_case in json.loads((here/'ledger-fields-oracle.json').read_text()):
+                value=field_case['input']
+                if field_case['kind']=='bool':
+                    if '\x00' in value:continue # Native-parser oracle only; HTTP servers have separate URI rejection rules.
+                    path=ledger_url(trial_path,includeZero=value)
+                    if field_case['valid']:
+                        parsed=ledger_parity(path);assert parsed==(zeros if field_case['value'] else trial),parsed
+                    else:
+                        for target in (url,legacy_url):assert request(path,ledger_reader,company,base=target)[0]==400
+                else:
+                    if field_case['valid']:
+                        start=datetime.date.fromisoformat(field_case['value'])
+                        if start in (datetime.date.min,datetime.date.max):continue
+                        parsed=ledger_parity(ledger_url(trial_path,**{'from':value,'to':(start+datetime.timedelta(days=1)).isoformat()}))
+                        assert parsed['from']==start.isoformat() and parsed['status']=='BALANCED',parsed
+                    else:
+                        for target in (url,legacy_url):assert request(ledger_url(trial_path,**{'from':value}),ledger_reader,company,base=target)[0]==400
+            annual=ledger_parity(ledger_url(trial_path,**{'from':'2026-01-01','to':'2027-01-02'}))
+            assert annual['status']=='BALANCED',annual
+            other_company='00000000-0000-0000-0000-000000000021'
+            other=ledger_parity(ledger_url(trial_path,includeZero='true'),other_company)
+            assert {item['accountId'] for item in other['items']}=={'00000000-0000-0000-0000-000000000423'} and other['status']=='BALANCED',other
+            def isolated_ledger_read(n):
+                selected=company if n%2 else other_company
+                result=request(ledger_url(trial_path,includeZero='true'),ledger_reader,selected,base=url if n%3 else legacy_url)
+                assert result[0]==200 and result[1]['companyId']==selected,result
+                ids={item['accountId'] for item in result[1]['items']}
+                assert ('00000000-0000-0000-0000-000000000423' in ids)==(selected==other_company),result
+                if selected==other_company:assert len(ids)==1,result
+                return True
+            with ThreadPoolExecutor(max_workers=8) as pool:assert all(pool.map(isolated_ledger_read,range(32)))
+            for target in (url,legacy_url):
+                assert request('/api/v1/accounting/journals/'+journal['journal']['id'],ledger_reader,other_company,base=target)[0]==404
+            general_finance=token('test-general-finance');general_reader=token('test-general-reader');general_no_reports=token('test-general-no-reports');general_no_ledger=token('test-general-no-ledger')
+            general='/api/v1/bank-transactions';bank_a='00000000-0000-0000-0000-000000000430';bank_b='00000000-0000-0000-0000-000000000431';bank_c='00000000-0000-0000-0000-000000000432'
+            general_today=datetime.datetime.now(ZoneInfo('Australia/Sydney')).date().isoformat()
+            def clearing_retry(path,body,first,second,version,status):
+                key='clearing-shared-'+uuid.uuid4().hex
+                args={'payload':body,'key':key,'version':version}
+                result=request(path,general_finance,company,base=first,**args)
+                assert result[0]==status,(path,result)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,general_finance,company,base=first if n%2 else second,**args),range(6)))
+                assert all(x==result for x in attempts),(path,result,attempts)
+                changed=request(path,general_finance,company,base=second,**{**args,'payload':{**body,'reason':'Changed clearing reason'}})
+                assert changed[0]==409,(path,changed)
+                return result
+            def general_retry(path,body,first,second,version=None,status=201):
+                args=dict(payload=body,key='general-bank-'+uuid.uuid4().hex,version=version)
+                result=request(path,general_finance,company,base=first,**args)
+                assert result[0]==status,result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,general_finance,company,base=first if n%2 else second,**args),range(6)))
+                assert all(attempt==result for attempt in attempts),attempts
+                changed=request(path,general_finance,company,base=second,**{**args,'payload':{**body,'reason':'Different valid general bank reason'}})
+                assert changed[0]==409,changed
+                if len(body.get('lines',[]))>1:
+                    reordered=request(path,general_finance,company,base=second,**{**args,'payload':{**body,'lines':list(reversed(body['lines']))}})
+                    assert reordered[0]==409,reordered # Unlike sorted inventory commands, line order is financial source identity.
+                detail=general+'/'+result[1]['transaction']['id']
+                left=request(detail,general_reader,company,base=first);right=request(detail,general_reader,company,base=second)
+                assert left==right and left[0]==200 and left[1]==result[1],(left,right,result)
+                return result[1]
+            def general_reverse(posted,first,second):
+                path=general+'/'+posted['transaction']['id']+'/reverse';version=posted['transaction']['version']
+                body={'reference':'General reversal '+uuid.uuid4().hex,'reason':' Synthetic original-date reversal '}
+                for target in (first,second):
+                    assert request(path,general_finance,company,base=target,payload=body,key='general-version-'+uuid.uuid4().hex)[0]==428
+                    assert request(path,general_no_reports,company,base=target,payload=body,key='general-authority-'+uuid.uuid4().hex,version=version)[0]==403
+                result=general_retry(path,body,first,second,version,status=200)
+                assert result['transaction']['state']=='REVERSED' and result['reversal']['originalId']==posted['transaction']['id'] and not result['activeMatches'],result
+                for target in (first,second):
+                    again=request(path,general_finance,company,base=target,payload=body,key='general-already-reversed-'+uuid.uuid4().hex,version=version)
+                    assert again[0]==409,again
+                return result
+            for first,second in ((legacy_url,url),(url,legacy_url)):
+                posted_sources=[]
+                for kind,account,bas in [('RECEIVE','00000000-0000-0000-0000-000000000433','TAXABLE'),('PAY','00000000-0000-0000-0000-000000000434','NON_CAPITAL')]:
+                    lines=[{'accountId':account,'description':' Synthetic taxable café purpose ','net':'100.00','tax':'10.00','taxCodeId':'00000000-0000-0000-0000-000000000053','basClass':bas},
+                        {'accountId':account,'description':' Synthetic GST-free second source line ','net':'20.00','tax':'0.00','taxCodeId':'00000000-0000-0000-0000-000000000016','basClass':'OTHER_GST_FREE' if kind=='RECEIVE' else 'NON_CAPITAL','cashFlowCategory':'INVESTING'}]
+                    if kind=='PAY':lines[0].update(recoverableTax='7.50',inputTaxedPercent='25.0000')
+                    body={'kind':kind,'bankAccountId':bank_a,'occurredOn':general_today,'reference':'General '+kind+' '+uuid.uuid4().hex,'reason':' Synthetic settled '+kind+' café ','noPriorPostingConfirmed':True,'lines':lines}
+                    if kind=='PAY':body.update(taxInvoiceReference=' Synthetic tax invoice proof ',taxInvoiceHeldOn=general_today)
+                    for target in (first,second):
+                        for actor in (employee,general_reader,general_no_reports,general_no_ledger):
+                            denied=request(general,actor,company,base=target,payload=body,key='general-denied-'+uuid.uuid4().hex)
+                            assert denied[0]==403,denied
+                        for patch,status in (({'noPriorPostingConfirmed':False},422),({'noPriorPostingConfirmed':None},400),({'bankAccountId':None},400),({'occurredOn':None},400),({'occurredOn':'0001-01-01'},422),({'reference':' '},422),({'lines':[]},422),({'lines':[None]},422),({'lines':[{**lines[0],'net':'1.001'}]},422),({'lines':[{**lines[0],'inputTaxedPercent':'100.0001'}]},422),({'lines':[{**lines[0],'recoverableTax':'10.01'}]},422),({'lines':[{**lines[0],'cashFlowCategory':'INTERNAL'}]},422),({'lines':[{**lines[0],'accountId':'00000000-0000-0000-0000-000000000054'}]},422),({'lines':[{**lines[0],'tax':'9.99'}]},422),({'occurredOn':(datetime.date.fromisoformat(general_today)+datetime.timedelta(days=1)).isoformat()},422)):
+                            bad=request(general,general_finance,company,base=target,payload={**body,**patch},key='general-invalid-'+uuid.uuid4().hex)
+                            assert bad[0]==status,bad
+                        if kind=='PAY':
+                            for patch in ({'taxInvoiceReference':None},{'taxInvoiceHeldOn':None}):
+                                assert request(general,general_finance,company,base=target,payload={**body,**patch},key='general-evidence-'+uuid.uuid4().hex)[0]==422
+                    posted=general_retry(general,body,first,second)
+                    header=posted['transaction']
+                    assert header['kind']==kind and header['state']=='POSTED' and header['gstBasis']==os.environ.get('HTT_COMPAT_GST_BASIS','NON_CASH') and header['gstRegistered'] is True and float(header['gross'])==130 and header['journalEntryId'] is not None and len(posted['lines'])==2,posted
+                    assert [line['lineNo'] for line in posted['lines']]==[1,2] and posted['lines'][0]['description']=='Synthetic taxable café purpose' and posted['lines'][1]['cashFlowCategory']=='INVESTING',posted
+                    assert float(posted['lines'][0]['recoverableTax'])==(7.5 if kind=='PAY' else 0) and float(posted['lines'][0]['inputTaxedPercent'])==(25 if kind=='PAY' else 0),posted
+                    for target in (first,second):
+                        duplicate=request(general,general_finance,company,base=target,payload=body,key='general-duplicate-ref-'+uuid.uuid4().hex)
+                        assert duplicate[0]==409,duplicate
+                    posted_sources.append(posted)
+                for other,amount,boundary in ((bank_b,'12.34',None),(bank_c,'5.00','FINANCING')):
+                    body={'fromBankAccountId':bank_a,'toBankAccountId':other,'transferredOn':general_today,'amount':amount,'reference':'General transfer '+uuid.uuid4().hex,'reason':' Synthetic cash boundary movement ','boundaryActivity':boundary}
+                    for target in (first,second):
+                        for patch,status in (({'toBankAccountId':bank_a},422),({'amount':0},422),({'amount':'0.001'},422),({'boundaryActivity':'INVALID'},422),({'boundaryActivity':'OPERATING' if boundary is None else None},422)):
+                            bad=request('/api/v1/bank-transfers',general_finance,company,base=target,payload={**body,**patch},key='general-transfer-invalid-'+uuid.uuid4().hex)
+                            assert bad[0]==status,bad
+                    moved=general_retry('/api/v1/bank-transfers',body,second,first)
+                    assert moved['transaction']['kind']=='TRANSFER' and moved['transaction']['counterBankAccountId']==other and float(moved['transaction']['gross'])==float(amount) and moved['lines']==[],moved
+                    posted_sources.append(moved)
+                for posted in reversed(posted_sources):general_reverse(posted,second,first)
+                # Until statement endpoints are ported, prepare and release matches through the unchanged local .NET host only.
+                import_path='/api/v1/bank-accounts/'+bank_b+'/statements/import'
+                import_body={'reference':'General classification statement '+uuid.uuid4().hex,'fromDate':general_today,'toDate':general_today,'openingBalance':0,'closingBalance':55,'lines':[{'date':general_today,'amount':55,'description':'Synthetic statement café <&> arrival','reference':'General external '+uuid.uuid4().hex,'externalId':'general-external-'+uuid.uuid4().hex}]}
+                import_key='shared-statement-import-'+uuid.uuid4().hex
+                for target in (first,second):
+                    for patch,status in (({'closingBalance':54},422),({'lines':None},422),({'lines':[None]},422),({'openingBalance':None},400),({'fromDate':'0001-01-01'},422)):
+                        bad=request(import_path,general_finance,company,base=target,payload={**import_body,**patch},key='statement-invalid-'+uuid.uuid4().hex)
+                        assert bad[0]==status,bad
+                    omitted={k:v for k,v in import_body.items() if k!='openingBalance'}
+                    assert request(import_path,general_finance,company,base=target,payload=omitted,key='statement-required-'+uuid.uuid4().hex)[0]==400
+                    assert request(import_path,general_reader,company,base=target,payload=import_body,key='statement-denied-'+uuid.uuid4().hex)[0]==403
+                imported=request(import_path,general_finance,company,base=first,payload=import_body,key=import_key)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda n:request(import_path,general_finance,company,base=first if n%2 else second,payload=import_body,key=import_key),range(6)))
+                assert all(x==imported for x in retries),(imported,retries)
+                changed=request(import_path,general_finance,company,base=second,payload={**import_body,'reference':'Different valid statement reference'},key=import_key)
+                assert changed[0]==409,changed
+                assert imported[0]==201 and len(imported[1]['lines'])==1,imported
+                statement=imported[1]['statement'];sid=imported[1]['lines'][0]['id'];classify='/api/v1/bank-statement-lines/'+sid+'/classify'
+                classification={'reference':'General classified '+uuid.uuid4().hex,'reason':' Synthetic reconciled revenue classification ','noPriorPostingConfirmed':True,'lines':[{'accountId':'00000000-0000-0000-0000-000000000433','description':'Synthetic statement taxable receipt','net':'50.00','tax':'5.00','taxCodeId':'00000000-0000-0000-0000-000000000053','basClass':'TAXABLE'}]}
+                for target in (first,second):
+                    assert request(classify,general_finance,company,base=target,payload=classification,key='general-classify-version-'+uuid.uuid4().hex)[0]==428
+                    assert request('/api/v1/bank-statement-lines/'+str(uuid.uuid4())+'/classify',general_finance,company,base=target,payload=classification,key='general-classify-missing-'+uuid.uuid4().hex)[0]==404
+                classified=general_retry(classify,classification,first,second,statement['version'])
+                assert classified['transaction']['statementLineId']==sid and len(classified['activeMatches'])==1 and float(classified['transaction']['gross'])==55,classified
+                reverse_path=general+'/'+classified['transaction']['id']+'/reverse'
+                for target in (first,second):
+                    blocked=request(reverse_path,general_finance,company,base=target,payload={'reference':'Blocked matched '+uuid.uuid4().hex,'reason':'Matched cash cannot be reversed'},key='general-match-blocked-'+uuid.uuid4().hex,version=classified['transaction']['version'])
+                    assert blocked[0]==409,blocked
+                live_statement=request('/api/v1/bank-statements/'+statement['id'],general_finance,company,base=legacy_url)
+                assert live_statement[0]==200 and live_statement[1]['unmatchedCount']==0,live_statement
+
+                # Reconciliation commands remain local .NET setup; Java read projections must match.
+                reconciled=clearing_retry('/api/v1/bank-statements/'+statement['id']+'/reconcile',{'reference':'Read fixture reconcile '+uuid.uuid4().hex,'reason':'Synthetic reconciliation read fixture','openingAllocations':[]},first,second,live_statement[1]['statement']['version'],201)
+                assert reconciled[0]==201,reconciled
+                recon_path='/api/v1/bank-reconciliations/'+reconciled[1]['id']
+                for page_query in ('','?pageSize=1','?page=2&pageSize=1'):
+                    a=request(recon_path+page_query,general_finance,company)
+                    b=request(recon_path+page_query,general_finance,company,base=legacy_url)
+                    assert a==b and a[0]==200,(a,b)
+                    assert a[1]['reconciliation']['reopenId'] is None,a
+                reopened=clearing_retry(recon_path+'/reopen',{'reference':'Read fixture reopen '+uuid.uuid4().hex,'reason':'Restore synthetic match release'},second,first,reconciled[1]['statement']['statement']['version'],200)
+                assert reopened[0]==200,reopened
+                a=request(recon_path,general_finance,company)
+                assert a==request(recon_path,general_finance,company,base=legacy_url) and a[1]['reconciliation']['reopenId']==reopened[1]['id'],a
+                live_statement=request('/api/v1/bank-statements/'+statement['id'],general_finance,company,base=legacy_url)
+                released=clearing_retry('/api/v1/bank-matches/'+classified['activeMatches'][0]+'/release',{'reference':'General release '+uuid.uuid4().hex,'reason':'Release synthetic classification for reversal'},first,second,live_statement[1]['statement']['version'],200)
+                assert released[0]==200 and released[1]['statement']['unmatchedCount']==1,released
+
+                journal=request('/api/v1/accounting/journals/'+classified['transaction']['journalEntryId'],general_finance,company,base=legacy_url)
+                assert journal[0]==200,journal
+                cash_lines=[x for x in journal[1]['lines'] if x['accountId']==bank_b]
+                assert len(cash_lines)==1,cash_lines
+                match_body={'reference':'Manual rematch '+uuid.uuid4().hex,'reason':'Synthetic original journal cash allocation','allocations':[{'journalLineId':cash_lines[0]['id'],'amount':'55.00'}]}
+
+                for target in (first,second):
+                    matching='/api/v1/bank-statement-lines/'+sid+'/matches'
+                    assert request(matching,general_finance,company,base=target,payload=match_body,key='match-version-'+uuid.uuid4().hex)[0]==428
+                    assert request(matching,general_reader,company,base=target,payload=match_body,key='match-permission-'+uuid.uuid4().hex,version=released[1]['statement']['statement']['version'])[0]==403
+                    for items in ([],None,[None],[{'journalLineId':cash_lines[0]['id'],'amount':0}],[{'journalLineId':cash_lines[0]['id'],'amount':'0.001'}],match_body['allocations']*2):
+                        bad=request(matching,general_finance,company,base=target,payload={**match_body,'allocations':items},key='match-invalid-'+uuid.uuid4().hex,version=released[1]['statement']['statement']['version'])
+                        assert bad[0]==422,bad
+                matched=clearing_retry('/api/v1/bank-statement-lines/'+sid+'/matches',match_body,second,first,released[1]['statement']['statement']['version'],201)
+                assert matched[1]['statement']['unmatchedCount']==0,matched
+                released=clearing_retry('/api/v1/bank-matches/'+matched[1]['id']+'/release',{'reference':'Manual release '+uuid.uuid4().hex,'reason':'Restore unmatched synthetic statement'},second,first,matched[1]['statement']['statement']['version'],200)
+                assert released[1]['statement']['unmatchedCount']==1,released
+                general_reverse(classified,second,first)
+
+                # Statement reads retain native row decimals and arrays; only snapshotAt varies.
+                def statement_read_parity(path, status=200):
+                    actual=request(path,general_finance,company)
+                    expected=request(path,general_finance,company,base=legacy_url)
+                    assert actual[0]==expected[0]==status,(path,actual,expected)
+                    if status==200:
+                        left,right=actual[1],expected[1]
+                        if isinstance(left,dict):
+                            left={k:v for k,v in left.items() if k!='snapshotAt'}
+                            right={k:v for k,v in right.items() if k!='snapshotAt'}
+                        assert left==right,(path,left,right)
+                    return actual
+                statement_read_parity('/api/v1/bank-accounts/'+bank_b+'/statements?page=1&pageSize=1')
+                detail=statement_read_parity('/api/v1/bank-statements/'+statement['id'])
+                assert detail[1]['unmatchedCount']==1 and detail[1]['lines'][0]['status']=='UNMATCHED'
+                statement_read_parity('/api/v1/bank-statements/'+statement['id']+'/source')
+                source_path='/api/v1/bank-statements/'+statement['id']+'/source'
+                downloads=[]
+                for target in (url,legacy_url):
+                    pace_backend(target)
+                    with urllib.request.urlopen(urllib.request.Request(target+source_path,headers={'Authorization':'Bearer '+general_finance,'X-Company-Id':company}),timeout=5) as response:
+                        downloads.append((response.read(),response.headers.get_content_type(),response.headers.get_filename()))
+                assert downloads[0]==downloads[1] and downloads[0][1]=='application/json' and downloads[0][2]=='statement-'+statement['id']+'.json',downloads
+
+                statement_read_parity('/api/v1/bank-statement-lines/'+sid+'/candidates?q=Synthetic&pageSize=100')
+                statement_read_parity('/api/v1/bank-accounts/'+bank_b+'/cash-clearing?pageSize=100')
+                for suffix in ('bank-statements/','bank-statement-lines/','bank-reconciliations/'):
+                    path='/api/v1/'+suffix+str(uuid.uuid4())+('/candidates' if suffix=='bank-statement-lines/' else '')
+                    statement_read_parity(path,404)
+                for target in (url,legacy_url):
+                    for actor in (general_reader,general_no_ledger):
+                        assert request('/api/v1/bank-statements/'+statement['id'],actor,company,base=target)[0]==403
+                    assert request('/api/v1/bank-statements/'+statement['id']+'?page=0',general_finance,company,base=target)[0]==422
+                    assert request('/api/v1/bank-statements/'+statement['id']+'?pageSize=101',general_finance,company,base=target)[0]==422
+
+                void_path='/api/v1/bank-statements/'+statement['id']+'/void'
+                void_body={'reference':'Void classified fixture '+uuid.uuid4().hex,'reason':'Synthetic unmatched import cleanup'}
+                current=detail[1]['statement']['version']
+                for target in (first,second):
+                    assert request(void_path,general_finance,company,base=target,payload=void_body,key='void-version-'+uuid.uuid4().hex)[0]==428
+                    assert request(void_path,general_reader,company,base=target,payload=void_body,key='void-denied-'+uuid.uuid4().hex,version=current)[0]==403
+                    assert request(void_path,general_finance,company,base=target,payload=void_body,key='void-stale-'+uuid.uuid4().hex,version=current-1)[0]==409
+                    assert request('/api/v1/bank-statements/'+str(uuid.uuid4())+'/void',general_finance,company,base=target,payload=void_body,key='void-missing-'+uuid.uuid4().hex)[0]==404
+                voided=clearing_retry(void_path,void_body,first,second,current,200)
+                assert voided[1]['id']==statement['id'] and voided[1]['statement']['statement']['state']=='VOID',voided
+                statement_read_parity('/api/v1/bank-statements/'+statement['id'])
+            listing=request(general+'?bankAccountId='+bank_c+'&pageSize=100',general_reader,company)
+            assert listing==request(general+'?bankAccountId='+bank_c+'&pageSize=100',general_reader,company,base=legacy_url) and len(listing[1]['items'])==2 and all(item['reversed'] for item in listing[1]['items']),listing
+            for target in (url,legacy_url):
+                assert request(general,general_no_ledger,company,base=target)[0]==403
+                assert request(general+'/'+str(uuid.uuid4()),general_reader,company,base=target)[0]==404
+
+            # Raw UTF-8 CSV content is a shared idempotent import, not multipart.
+            import urllib.parse
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                csv_reference='CSV compatibility '+uuid.uuid4().hex
+                csv_query=urllib.parse.urlencode({'reference':csv_reference,'fromDate':general_today,'toDate':general_today,'openingBalance':'0.00','closingBalance':'0.00'})
+                csv_path='/api/v1/bank-accounts/'+bank_a+'/statements/import-csv?'+csv_query
+                au_date=datetime.date.fromisoformat(general_today).strftime('%d/%m/%Y')
+                external='csv-'+uuid.uuid4().hex
+                csv_bytes=('\ufeffDATE,amount,description,reference,externalId\r\n'+general_today+',+1.25000000000000000000000000000001,"café, quoted ""receipt""\ncontinued",CSV in,'+external+'-in\r\n'+au_date+',-1.25000000000000000000000000000001,Payment,CSV out,'+external+'-out\r\n').encode('utf-8')
+                csv_key='csv-shared-'+uuid.uuid4().hex
+                for target in (first,second):
+                    for content,status in ((b'',422),(b'\xff',422),(b'date,amount,description\n\x00',422),(b'date,amount,date\n',422),(b'date,amount,description\n"unclosed',422),(b'date,amount,description\n2026-99-01,1,Invalid',422),(b'date,amount,description\n2026-01-01,$1,Invalid',422),(b'date,amount,description\n2026-01-01,1,"closed" suffix',422)):
+                        invalid=request(csv_path,general_finance,company,base=target,payload=content,key='csv-invalid-'+uuid.uuid4().hex,content_type='text/csv')
+                        assert invalid[0]==status,(invalid,status)
+                    # Read early Content-Length rejection without a client sendall broken pipe.
+                    import http.client
+                    parsed=urllib.parse.urlsplit(target)
+                    connection=http.client.HTTPConnection(parsed.hostname,parsed.port,timeout=5)
+                    pace_backend(target)
+                    try:
+                        connection.putrequest('POST',csv_path)
+                        for name,value in {'Authorization':'Bearer '+general_finance,'X-Company-Id':company,'Content-Type':'text/csv','Content-Length':'2097153','Idempotency-Key':'csv-oversize-'+uuid.uuid4().hex}.items():
+                            connection.putheader(name,value)
+                        connection.endheaders()
+                        response=connection.getresponse()
+                        assert response.status==413,(target,response.status,response.read())
+                        response.read()
+                    finally:connection.close()
+                    assert request(csv_path,general_finance,company,base=target,payload=csv_bytes,key='csv-media-'+uuid.uuid4().hex,content_type='application/json')[0]==422
+                    assert request(csv_path,general_reader,company,base=target,payload=csv_bytes,key='csv-denied-'+uuid.uuid4().hex,content_type='text/csv')[0]==403
+                imported_csv=request(csv_path,general_finance,company,base=first,payload=csv_bytes,key=csv_key,content_type='text/csv')
+                assert imported_csv[0]==201 and imported_csv[1]['statement']['sourceFormat']=='CSV' and imported_csv[1]['statement']['lineCount']==2 and imported_csv[1]['lines'][0]['description']=='café, quoted "receipt"\ncontinued',imported_csv
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda n:request(csv_path,general_finance,company,base=first if n%2 else second,payload=csv_bytes,key=csv_key,content_type='text/csv'),range(6)))
+                assert all(x==imported_csv for x in retries),(imported_csv,retries)
+                changed_path=csv_path.replace(csv_reference.replace(' ','+'),'Changed+CSV+reference')
+                assert request(changed_path,general_finance,company,base=second,payload=csv_bytes,key=csv_key,content_type='text/csv')[0]==409
+                csv_id=imported_csv[1]['statement']['id']
+                import hashlib
+                assert imported_csv[1]['statement']['sourceHash']==hashlib.sha256(csv_bytes).hexdigest()
+                for target in (first,second):
+                    pace_backend(target)
+                    with urllib.request.urlopen(urllib.request.Request(target+'/api/v1/bank-statements/'+csv_id+'/source',headers={'Authorization':'Bearer '+general_finance,'X-Company-Id':company}),timeout=5) as response:
+                        assert response.read()==csv_bytes and response.headers.get_content_type()=='text/csv' and response.headers.get_filename()=='statement-'+csv_id+'.csv'
+
+            # Local legacy rule commands prepare read fixtures; Java rule commands are not accepted here.
+            def rule_read_parity(path,status=200):
+                a=request(path,general_finance,company)
+                b=request(path,general_finance,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a[1]==b[1],(path,a,b)
+                return a
+            def rule_write_retry(path,body,first,second,changed,version=None,method='POST',status=201):
+                key='rule-write-shared-'+uuid.uuid4().hex
+                args={'payload':body,'key':key,'method':method,'version':version}
+                result=request(path,general_finance,company,base=first,**args)
+                assert result[0]==status,(path,result)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,general_finance,company,base=first if n%2 else second,**args),range(6)))
+                assert all(x==result for x in attempts),(path,result,attempts)
+                assert request(path,general_finance,company,base=second,**{**args,'payload':{**body,**changed}})[0]==409
+                return result
+            for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
+                rule_body={'name':'Synthetic read rule '+uuid.uuid4().hex,'bankAccountId':bank_a,'kind':'RECEIVE','priority':100+n,'enabled':True,'executionMode':'SUGGEST','condition':{'field':'REFERENCE','operator':'CONTAINS','value':'CSV in'},'lines':[{'accountId':'00000000-0000-0000-0000-000000000433','taxCodeId':'00000000-0000-0000-0000-000000000016','description':'Synthetic receipt allocation','basClass':'OTHER_GST_FREE'}]}
+                for target in (first,second):
+                    for patch in ({'priority':0},{'condition':None},{'lines':[]},{'kind':'OTHER'},{'executionMode':'OTHER'}):
+                        assert request('/api/v1/bank-rules',general_finance,company,base=target,payload={**rule_body,**patch},key='rule-invalid-'+uuid.uuid4().hex)[0]==422
+                    assert request('/api/v1/bank-rules',general_finance,company,base=target,payload={**rule_body,'executionMode':'AUTO'},key='rule-auto-denied-'+uuid.uuid4().hex)[0]==403
+                    assert request('/api/v1/bank-rules',general_reader,company,base=target,payload=rule_body,key='rule-denied-'+uuid.uuid4().hex)[0]==403
+                saved=rule_write_retry('/api/v1/bank-rules',rule_body,first,second,{'name':'Changed valid rule name'})
+                assert saved[0]==201,saved
+                rule_id=saved[1]['id']
+                assert rule_read_parity('/api/v1/bank-rules/'+rule_id)[1]==saved[1]
+                preview=rule_write_retry('/api/v1/bank-statement-lines/'+imported_csv[1]['lines'][0]['id']+'/rule-preview',{},second,first,{'taxInvoiceReference':'Changed evidence'})
+                assert preview[0]==201,preview
+                assert rule_read_parity('/api/v1/bank-rule-previews/'+preview[1]['id'])[1]==preview[1]
+                for target in (first,second):
+                    assert request('/api/v1/bank-rules/'+rule_id,general_finance,company,base=target,payload={**rule_body,'enabled':False},key='rule-version-'+uuid.uuid4().hex,method='PUT')[0]==428
+                disabled=rule_write_retry('/api/v1/bank-rules/'+rule_id,{**rule_body,'enabled':False},first,second,{'name':'Changed valid revision name'},saved[1]['version'],method='PUT',status=200)
+                assert disabled[0]==200 and disabled[1]['version']==2,disabled
+                for target in (first,second):
+                    execute_path='/api/v1/bank-rule-previews/'+preview[1]['id']+'/execute'
+                    assert request(execute_path,general_finance,company,base=target,payload={'noPriorPostingConfirmed':False,'reason':'Synthetic stale rule test'},key='rule-confirm-'+uuid.uuid4().hex)[0]==422
+                    assert request(execute_path,general_finance,company,base=target,payload={'noPriorPostingConfirmed':True,'reason':'Synthetic stale rule test'},key='rule-stale-'+uuid.uuid4().hex)[0]==409
+                revisions=rule_read_parity('/api/v1/bank-rules/'+rule_id+'/revisions')
+                assert [x['version'] for x in revisions[1]['items']]==[2,1],revisions
+                rule_read_parity('/api/v1/bank-rules/'+rule_id+'/revisions?page=2&pageSize=1')
+            rule_list=rule_read_parity('/api/v1/bank-rules?bankAccountId='+bank_a)
+            assert len(rule_list[1]['items'])==2 and all(not x['enabled'] for x in rule_list[1]['items']),rule_list
+            exception_query=urllib.parse.urlencode({'bankAccountId':bank_a,'from':general_today,'to':(datetime.date.fromisoformat(general_today)+datetime.timedelta(days=1)).isoformat(),'status':'NO_RULE','pageSize':1,'includeClosed':'true'})
+            exceptions=rule_read_parity('/api/v1/bank-rule-exceptions?'+exception_query)
+            assert len(exceptions[1]['items'])==1 and exceptions[1]['hasMore'] is True,exceptions
+            rule_read_parity('/api/v1/bank-rule-exceptions?'+exception_query.replace('pageSize=1','pageSize=26'),422)
+            rule_read_parity('/api/v1/bank-rule-exceptions?'+exception_query.replace('status=NO_RULE','status=INVALID'),422)
+            for suffix in ('bank-rules/','bank-rule-previews/'):
+                rule_read_parity('/api/v1/'+suffix+str(uuid.uuid4()),404)
+            for target in (url,legacy_url):
+                assert request('/api/v1/bank-rules',general_reader,company,base=target)[0]==403
+                assert request('/api/v1/bank-rules?page=0',general_finance,company,base=target)[0]==422
+            print('PASS: ordered bank rule details/list/revisions, frozen previews and paged exception projections with composite access guards')
+            print('PASS: raw UTF-8 CSV source, BOM, quoted multiline Unicode, Australian dates, file/header guards, source hash/download and cross-backend import replay')
+            print('PASS: settled general income/expense positive GST, input-tax apportionment, internal/boundary transfers, statement classification, matched reversal guard and shared ordered replay')
+            print('PASS: ordered general ledger, cumulative page balances, half-open dates, trial balance zero rows, journal links, legacy parameter oracle and dual-tenant concurrent isolation')
+            print('PASS: bank directory/options, BANK/CASH/card maintenance, masked identity, legacy upgrade, immutable GL/identity and optimistic default restoration with mixed replay')
+            print('PASS: transit source/destination scope, frozen cumulative cents, receipt/return/shortage closure, redaction, zero valuation and sorted mixed replay')
+            print('PASS: warehouse bin create/configure, occupied guard, position moves/restoration, scan formats, lot trace and partial-pick shortage with mixed replay')
+            print('PASS: blind discovered-position gains with explicit cents, reserved-stock rejection, full carrying-value loss, journals and mixed retries')
+            print('PASS: blind bin count discover/capture/recount/review/post/cancel, counter isolation, generic route guard and shared retries')
+            print('PASS: stock count loss/gain/restoration/cancel, redaction, strict bindings, shared retries and ABA snapshot revision guard')
             print('PASS: stock transfers/write-offs, dual warehouse scope, read-after-write rollback, cost redaction, valuation journals and mixed replay')
             print('PASS: customer/supplier contacts, shared party permissions, branch array/link replacement, route guard and mixed replay')
             print('PASS: branch CRUD, assigned customer scope, normalized AU/NZ addresses, parent ownership and mixed replay')

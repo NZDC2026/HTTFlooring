@@ -58,9 +58,12 @@ with (run/'run.log').open('w') as log:
         for migration in sorted((args.legacy/'src/Htt.Infrastructure/Database/Migrations').glob('*.sql')):
             sql(migration)
         fixtures = ['base','branches','product-and-second-company','pricing','order-stock','invoice-fixture',
-            'receipt-fixture','dispatch-fixture','purchase-fixture','supplier-settlement-fixture','supplier-corrections-fixture','extra-fixture']
+            'receipt-fixture','dispatch-fixture','purchase-fixture','supplier-settlement-fixture','supplier-corrections-fixture','extra-fixture','ledger-other-company-fixture']
         for fixture in fixtures:
             sql(source/(fixture+'.sql'))
+        sql(source/'legacy-short-pick-lock.sql')
+        for migration in sorted((project/'src/main/resources/db/compatibility').glob('*.sql')):
+            sql(migration)
         command(['docker','exec',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-c',
             f"BEGIN; SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true); UPDATE core.companies SET gst_basis='{args.gst_basis}' WHERE id='00000000-0000-0000-0000-000000000001'; COMMIT"],stdout=log,stderr=log)
         legacy = run/'dotnet-baseline'
@@ -83,7 +86,7 @@ with (run/'run.log').open('w') as log:
             'stock-valuation','--company','00000000-0000-0000-0000-000000000001','--warehouse','00000000-0000-0000-0000-000000000014',
             '--product','00000000-0000-0000-0000-000000000017','--value','10000','--reference','Synthetic valuation',
             '--issuer','https://localhost:15443','--subject','test-employee'],stdout=log,stderr=log)
-        for product,value in [('00000000-0000-0000-0000-000000000270','1000'),('00000000-0000-0000-0000-000000000274','500')]:
+        for product,value in [('00000000-0000-0000-0000-000000000270','1000'),('00000000-0000-0000-0000-000000000274','500'),('00000000-0000-0000-0000-000000000380','20.02'),('00000000-0000-0000-0000-000000000384','20.02'),('00000000-0000-0000-0000-000000000388','0')]:
             command([env['HTT_COMPAT_DOTNET'],legacy/'src/Htt.Host.Migrations/bin/Debug/net10.0/Htt.Host.Migrations.dll',
                 'stock-valuation','--company','00000000-0000-0000-0000-000000000001','--warehouse','00000000-0000-0000-0000-000000000271',
                 '--product',product,'--value',value,'--reference','Synthetic control valuation '+product,
@@ -97,13 +100,26 @@ with (run/'run.log').open('w') as log:
         check = run/'htt-me-http'
         check.mkdir()
         shutil.copy2(source/'check.py',check/'check.py')
+        shutil.copy2(project/'src/test/resources/ledger-fields-oracle.json',check/'ledger-fields-oracle.json')
         with (check/'parity.log').open('w') as parity:
-            command(['python3',check/'check.py'],stdout=parity,stderr=parity)
+            try:
+                command(['python3',check/'check.py'],stdout=parity,stderr=parity)
+            except subprocess.CalledProcessError:
+                # Synthetic state and exact executable remain inspectable even if an HTTP assertion fails.
+                try:
+                    with (run/'failure-http.synthetic.pgdump').open('wb') as snapshot:
+                        command(['docker','exec',container,'pg_dump','-U','htt_owner','-d','htt_java_test','--format=custom'],stdout=snapshot,stderr=log)
+                    shutil.copyfile(env['HTT_COMPAT_JAR'],run/'failed-http-app.jar')
+                except Exception as snapshot_error:
+                    (run/'failure-snapshot-error.txt').write_text(str(snapshot_error)+'\n')
+                raise
         command(['docker','exec',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-c',
             "DO $$ BEGIN IF EXISTS (SELECT 1 FROM platform.idempotency_requests WHERE key IN ('stalled-body-fixture','deadline-body-fixture')) THEN RAISE EXCEPTION 'Rejected upload persisted idempotency'; END IF; END $$"])
         if args.uploads_only:
             (run/'UPLOAD_PASSED').write_text('Attachment checks only; full acceptance not run.\n')
         else:
+            with (run/'post-http.synthetic.pgdump').open('wb') as snapshot:
+                command(['docker','exec',container,'pg_dump','-U','htt_owner','-d','htt_java_test','--format=custom'],stdout=snapshot,stderr=log)
             sql(source/'verify-ledgers.sql')
             (run/'PASSED').write_text('Synthetic compatibility suite passed. This does not constitute phases 0–4 acceptance.\n')
     finally:

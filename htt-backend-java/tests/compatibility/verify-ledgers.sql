@@ -232,15 +232,165 @@ DO $$ BEGIN
 END $$;
 
 DO $$ BEGIN
- IF (SELECT count(*) FROM platform.audit_events WHERE action='inventory.transferred')<>4
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='inventory.transferred')<>8
  OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.written_off')<>2
  OR (SELECT count(*) FROM inventory.operations WHERE reference LIKE 'Denied control transfer %' OR reference LIKE 'Insufficient control stock %')<>0
- OR (SELECT count(*) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='TRANSFER')<>16
+ OR (SELECT count(*) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='TRANSFER')<>24
  OR (SELECT coalesce(sum(l.value_delta),0) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='TRANSFER')<>0
  OR (SELECT coalesce(sum(l.quantity_delta),0) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='TRANSFER')<>0
  OR (SELECT sum(l.value_delta) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='WRITE_OFF')<>-20
  OR (SELECT sum(l.quantity_delta) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='WRITE_OFF')<>-2
  OR (SELECT count(*) FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.warehouse_id='00000000-0000-0000-0000-000000000271' AND ((b.product_id='00000000-0000-0000-0000-000000000270' AND b.on_hand=98 AND v.value=980) OR (b.product_id='00000000-0000-0000-0000-000000000274' AND b.on_hand=50 AND v.value=500)))<>2
- OR EXISTS(SELECT 1 FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.warehouse_id='00000000-0000-0000-0000-000000000272' AND (b.on_hand<>0 OR v.value<>0))
+ OR EXISTS(SELECT 1 FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.warehouse_id='00000000-0000-0000-0000-000000000272' AND b.product_id IN('00000000-0000-0000-0000-000000000270','00000000-0000-0000-0000-000000000274') AND (b.on_hand<>0 OR v.value<>0))
  OR (SELECT sum(l.debit-l.credit) FROM accounting.journal_lines l JOIN accounting.account_mappings m ON m.company_id=l.company_id AND m.account_id=l.account_id WHERE m.purpose='STOCK_WRITEOFF')<>20 THEN RAISE EXCEPTION 'Inventory control exactly-once quantity/valuation/journal mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='inventory.count_started')<>8
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.count_submitted')<>6
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.count_posted')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.count_cancelled')<>4
+ OR (SELECT count(*) FROM inventory.counts c WHERE state='POSTED' AND NOT EXISTS(SELECT 1 FROM inventory.bin_counts b WHERE b.company_id=c.company_id AND b.id=c.id))<>4
+ OR (SELECT count(*) FROM inventory.counts c WHERE state='CANCELLED' AND NOT EXISTS(SELECT 1 FROM inventory.bin_counts b WHERE b.company_id=c.company_id AND b.id=c.id))<>4
+ OR (SELECT count(*) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='COUNT' AND NOT EXISTS(SELECT 1 FROM inventory.bin_counts b WHERE b.company_id=o.company_id AND b.id=o.id))<>8
+ OR (SELECT sum(l.value_delta) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='COUNT' AND NOT EXISTS(SELECT 1 FROM inventory.bin_counts b WHERE b.company_id=o.company_id AND b.id=o.id))<>0
+ OR (SELECT sum(l.quantity_delta) FROM inventory.operation_lines l JOIN inventory.operations o ON o.company_id=l.company_id AND o.id=l.operation_id WHERE o.kind='COUNT' AND NOT EXISTS(SELECT 1 FROM inventory.bin_counts b WHERE b.company_id=o.company_id AND b.id=o.id))<>0
+ OR EXISTS(SELECT 1 FROM inventory.operations o JOIN inventory.counts c ON c.company_id=o.company_id AND c.id=o.id WHERE c.reference LIKE 'Count stale ABA %')
+ OR (SELECT sum(l.debit-l.credit) FROM accounting.journal_lines l JOIN accounting.account_mappings m ON m.company_id=l.company_id AND m.account_id=l.account_id WHERE m.purpose='STOCK_LOSS')<>64.68
+ OR (SELECT sum(l.credit-l.debit) FROM accounting.journal_lines l JOIN accounting.account_mappings m ON m.company_id=l.company_id AND m.account_id=l.account_id WHERE m.purpose='STOCK_GAIN')<>64.68 THEN RAISE EXCEPTION 'Stock count exactly-once snapshot, quantity, valuation or journals mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_count_started')<>10
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_count_discover')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_count_submit')<>16
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_count_recount')<>8
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_count_approve')<>6
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_count_post')<>6
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_count_cancel')<>4
+ OR (SELECT count(*) FROM inventory.bin_counts b JOIN inventory.counts c ON c.company_id=b.company_id AND c.id=b.id WHERE b.state='POSTED' AND b.version=7 AND b.current_round=2 AND b.approved_by='00000000-0000-0000-0000-000000000306' AND c.reference LIKE 'Blind variance fixture %')<>2
+ OR (SELECT count(*) FROM inventory.bin_counts WHERE state='CANCELLED' AND version=2)<>2
+ OR (SELECT count(*) FROM inventory.bin_count_rounds)<>18
+ OR (SELECT count(*) FROM inventory.bin_count_decisions)<>24
+ OR (SELECT count(*) FROM inventory.bin_count_readings)<>44
+ OR EXISTS(SELECT 1 FROM inventory.bin_counts s JOIN inventory.operations o ON o.company_id=s.company_id AND o.id=s.id WHERE s.state='CANCELLED')
+ OR (SELECT count(*) FROM inventory.operation_lines l JOIN inventory.bin_counts b ON b.company_id=l.company_id AND b.id=l.operation_id WHERE b.state='POSTED' AND l.product_id<>'00000000-0000-0000-0000-000000000360' AND l.quantity_delta=0 AND l.value_delta=0)<>4
+ OR EXISTS(SELECT 1 FROM inventory.bin_counts b JOIN inventory.operations o ON o.company_id=b.company_id AND o.id=b.id JOIN inventory.counts c ON c.company_id=b.company_id AND c.id=b.id WHERE b.state='POSTED' AND c.reference LIKE 'Blind variance fixture %' AND o.journal_entry_id IS NOT NULL)
+ OR EXISTS(SELECT 1 FROM inventory.stock_balances b WHERE b.warehouse_id='00000000-0000-0000-0000-000000000271' AND b.product_id IN('00000000-0000-0000-0000-000000000270','00000000-0000-0000-0000-000000000274') AND b.on_hand<>(SELECT sum(p.quantity) FROM inventory.positions p WHERE p.company_id=b.company_id AND p.stock_balance_id=b.id)) THEN RAISE EXCEPTION 'Blind bin count independent review, readings, position or economic proof mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM inventory.bin_counts b JOIN inventory.counts c ON c.company_id=b.company_id AND c.id=b.id WHERE c.reference LIKE 'Blind economic %' AND b.state='POSTED' AND b.current_round=2)<>4
+ OR (SELECT count(*) FROM inventory.bin_counts b JOIN inventory.counts c ON c.company_id=b.company_id AND c.id=b.id WHERE c.reference LIKE 'Blind reserved guard %' AND b.state='CANCELLED')<>2
+ OR (SELECT count(*) FROM inventory.operation_lines l JOIN inventory.bin_counts b ON b.company_id=l.company_id AND b.id=l.operation_id WHERE l.product_id='00000000-0000-0000-0000-000000000360' AND abs(l.quantity_delta)=2 AND abs(l.value_delta)=12.34)<>4
+ OR (SELECT count(*) FROM inventory.operations o JOIN inventory.counts c ON c.company_id=o.company_id AND c.id=o.id WHERE c.reference LIKE 'Blind economic %' AND o.journal_entry_id IS NOT NULL)<>4
+ OR (SELECT count(*) FROM inventory.position_movements m JOIN inventory.counts c ON c.company_id=m.company_id AND c.id=m.document_id WHERE c.reference LIKE 'Blind economic gain %' AND m.reason='BIN_COUNT_APPLIED' AND abs(m.quantity)=2)<>4
+ OR EXISTS(SELECT 1 FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.product_id='00000000-0000-0000-0000-000000000360' AND (b.on_hand<>0 OR b.reserved<>0 OR v.value<>0))
+ OR EXISTS(SELECT 1 FROM inventory.positions p JOIN inventory.stock_balances b ON b.company_id=p.company_id AND b.id=p.stock_balance_id WHERE b.product_id='00000000-0000-0000-0000-000000000360' AND p.quantity<>0)
+ OR (SELECT count(*) FROM inventory.stock_reservations r JOIN sales.order_lines l ON l.company_id=r.company_id AND l.id=r.order_line_id JOIN sales.orders o ON o.company_id=l.company_id AND o.id=l.order_id WHERE o.creation_reason LIKE 'Reserved blind inventory guard %' AND r.quantity=1 AND r.released_quantity=1 AND r.consumed_quantity=0)<>2 THEN RAISE EXCEPTION 'Blind economic cents, reservation, carrying value or position ledger mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_created')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_changed')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.location_moved')<>4
+ OR (SELECT count(*) FROM inventory.location_moves WHERE reference LIKE 'Location %')<>4
+ OR (SELECT count(*) FROM inventory.position_movements m JOIN inventory.location_moves l ON l.company_id=m.company_id AND l.id=m.document_id WHERE l.reference LIKE 'Location %' AND abs(m.quantity)=2)<>8
+ OR (SELECT count(*) FROM inventory.bins WHERE code LIKE 'LOC_%' AND NOT active AND version=2 AND name='Closed synthetic bin')<>2
+ OR EXISTS(SELECT 1 FROM inventory.positions p JOIN inventory.bins b ON b.company_id=p.company_id AND b.id=p.bin_id WHERE b.code LIKE 'LOC_%' AND p.quantity<>0)
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.short_pick_recorded')<>2
+ OR (SELECT count(*) FROM inventory.pick_shortages s JOIN inventory.picks p ON p.company_id=s.company_id AND p.id=s.pick_id JOIN sales.orders o ON o.company_id=p.company_id AND o.id=p.order_id WHERE o.creation_reason LIKE 'Warehouse details partial pick %' AND s.missing_quantity=1 AND s.reason='Synthetic one unit shortage' AND p.state='CANCELLED')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.location_moved' AND jsonb_typeof(details->'BaseQuantity')='number' AND details->'CountId'='null'::jsonb)<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_created' AND details->>'WarehouseId'='00000000-0000-0000-0000-000000000271')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.bin_changed' AND details->'Active'='false'::jsonb)<>2
+ THEN RAISE EXCEPTION 'Warehouse location conservation, exactly-once audit or short-pick reason mismatch'; END IF;
+END $$;
+
+-- Narrow locking privilege must not make immutable order lines editable.
+SET LOCAL ROLE htt_app;
+SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true);
+DO $$ DECLARE line_id uuid; rejected boolean:=false; BEGIN
+ IF NOT has_column_privilege(current_user,'sales.order_lines','id','UPDATE')
+ OR has_table_privilege(current_user,'sales.order_lines','UPDATE')
+ OR has_column_privilege(current_user,'sales.order_lines','quantity','UPDATE')
+ OR has_table_privilege(current_user,'sales.order_lines','DELETE') THEN RAISE EXCEPTION 'Short-pick lock privilege is broader than the immutable id column'; END IF;
+ SELECT l.id INTO STRICT line_id FROM sales.order_lines l JOIN sales.orders o ON o.company_id=l.company_id AND o.id=l.order_id WHERE o.creation_reason LIKE 'Warehouse details partial pick %' LIMIT 1 FOR UPDATE OF l;
+ BEGIN UPDATE sales.order_lines SET id=id WHERE id=line_id;
+ EXCEPTION WHEN check_violation THEN
+  IF SQLERRM<>'Append-only record; post a reversal instead' THEN RAISE; END IF; rejected:=true;
+ END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Order lines became mutable after row-lock grant'; END IF;
+ RAISE NOTICE 'Short-pick row lock allowed; actual UPDATE still rejected by unchanged append_only trigger';
+END $$;
+RESET ROLE;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='inventory.transit_dispatched')<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.transit_received')<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.transit_returned')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.transit_shortage_posted')<>2
+ OR (SELECT count(*) FROM inventory.transit_transfer_balances WHERE state='CLOSED' AND remaining_cost=0 AND remaining_line_count=0)<>3
+ OR (SELECT count(*) FROM inventory.transit_transfer_lines)<>5
+ OR (SELECT count(*) FROM inventory.transit_events)<>7
+ OR (SELECT count(*) FROM inventory.transit_event_lines)<>13
+ OR (SELECT count(*) FROM inventory.transit_transfer_lines WHERE quantity=3 AND cost=10.01)<>4
+ OR (SELECT count(*) FROM inventory.transit_event_lines l JOIN inventory.transit_events e ON e.company_id=l.company_id AND e.id=l.event_id WHERE e.kind='RECEIPT' AND l.quantity=1 AND l.cost=3.34)<>4
+ OR (SELECT count(*) FROM inventory.transit_event_lines l JOIN inventory.transit_events e ON e.company_id=l.company_id AND e.id=l.event_id WHERE e.kind='RETURN' AND l.quantity=1 AND l.cost=3.33)<>4
+ OR (SELECT count(*) FROM inventory.transit_event_lines l JOIN inventory.transit_events e ON e.company_id=l.company_id AND e.id=l.event_id WHERE e.kind='SHORTAGE' AND l.quantity=1 AND l.cost=3.34 AND l.stock_balance_id IS NULL)<>4
+ OR (SELECT count(*) FROM inventory.transit_transfers WHERE journal_entry_id IS NOT NULL)<>2
+ OR (SELECT count(*) FROM inventory.transit_events WHERE journal_entry_id IS NOT NULL)<>6
+ OR (SELECT sum(l.debit-l.credit) FROM accounting.journal_lines l JOIN accounting.account_mappings m ON m.company_id=l.company_id AND m.account_id=l.account_id WHERE m.purpose='INVENTORY_TRANSIT')<>0
+ OR (SELECT sum(l.debit-l.credit) FROM accounting.journal_lines l JOIN accounting.account_mappings m ON m.company_id=l.company_id AND m.account_id=l.account_id WHERE m.purpose='TRANSIT_LOSS')<>13.36
+ OR (SELECT count(*) FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.product_id IN('00000000-0000-0000-0000-000000000380','00000000-0000-0000-0000-000000000384') AND b.warehouse_id='00000000-0000-0000-0000-000000000271' AND b.on_hand=2 AND b.reserved=0 AND v.value=6.66)<>2
+ OR (SELECT count(*) FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.product_id IN('00000000-0000-0000-0000-000000000380','00000000-0000-0000-0000-000000000384') AND b.warehouse_id='00000000-0000-0000-0000-000000000272' AND b.on_hand=2 AND b.reserved=0 AND v.value=6.68)<>2
+ OR (SELECT count(*) FROM inventory.stock_balances b JOIN inventory.stock_values v ON v.company_id=b.company_id AND v.stock_balance_id=b.id WHERE b.product_id='00000000-0000-0000-0000-000000000388' AND b.warehouse_id='00000000-0000-0000-0000-000000000272' AND b.on_hand=1 AND v.value=0)<>1
+ OR EXISTS(SELECT 1 FROM inventory.stock_balances b WHERE b.product_id IN('00000000-0000-0000-0000-000000000380','00000000-0000-0000-0000-000000000384','00000000-0000-0000-0000-000000000388') AND b.on_hand<>(SELECT sum(p.quantity) FROM inventory.positions p WHERE p.company_id=b.company_id AND p.stock_balance_id=b.id))
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='inventory.transit_dispatched' AND details->>'SourceWarehouseId'='00000000-0000-0000-0000-000000000271' AND details->>'DestinationWarehouseId'='00000000-0000-0000-0000-000000000272')<>3
+ THEN RAISE EXCEPTION 'Transit frozen cost, warehouse valuation, exactly-once journals or position conservation mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_created')<>6
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_changed')<>8
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_default_changed')<>4
+ OR (SELECT count(*) FROM accounting.bank_accounts b JOIN accounting.accounts a ON a.company_id=b.company_id AND a.id=b.id WHERE a.code LIKE 'ZZBK_%' AND NOT b.active AND b.version=3 AND a.active AND a.kind='ASSET' AND a.control_kind='BANK')<>6
+ OR (SELECT count(*) FROM accounting.bank_accounts WHERE id='00000000-0000-0000-0000-000000000410' AND kind='BANK' AND NOT active AND version=3 AND bsb='123457' AND account_number='0000000000410')<>1
+ OR (SELECT count(*) FROM accounting.account_mappings WHERE company_id='00000000-0000-0000-0000-000000000001' AND purpose='BANK' AND account_id='00000000-0000-0000-0000-000000000038' AND version=5)<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action IN('accounting.bank_created','accounting.bank_changed') AND details ? 'Active' AND details ? 'accountHolder' AND NOT details ? 'bsb' AND NOT details ? 'accountNumber')<>14
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_default_changed' AND details ? 'BankAccountId')<>4
+ OR EXISTS(SELECT 1 FROM accounting.journal_lines l JOIN accounting.accounts a ON a.company_id=l.company_id AND a.id=l.account_id WHERE a.code LIKE 'ZZBK_%' OR a.code='ZZ_BANK_LEGACY')
+ THEN RAISE EXCEPTION 'Bank directory identity/version/default/audit or unchanged GL mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action LIKE 'accounting.ledger%' OR action LIKE 'accounting.trial%' OR action LIKE 'accounting.journal_read%')<>0
+ OR EXISTS(SELECT 1 FROM accounting.journal_lines WHERE company_id='00000000-0000-0000-0000-000000000021')
+ OR (SELECT count(*) FROM accounting.accounts WHERE id='00000000-0000-0000-0000-000000000423' AND company_id='00000000-0000-0000-0000-000000000021' AND code='OTHER_LEDGER_TEST')<>1
+ THEN RAISE EXCEPTION 'Ledger reads unexpectedly wrote data or crossed company scope'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM accounting.bank_transactions WHERE reference LIKE 'General %')<>10
+ OR (SELECT count(*) FROM accounting.bank_transaction_reversals v JOIN accounting.bank_transactions h ON h.company_id=v.company_id AND h.id=v.original_id WHERE h.reference LIKE 'General %')<>10
+ OR (SELECT count(*) FROM accounting.bank_transaction_lines l JOIN accounting.bank_transactions h ON h.company_id=l.company_id AND h.id=l.transaction_id WHERE h.reference LIKE 'General %')<>10
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_posted')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_transferred')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_line_classified')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_reversed')<>10
+ OR (SELECT count(*) FROM accounting.bank_transaction_lines l JOIN accounting.bank_transactions h ON h.company_id=l.company_id AND h.id=l.transaction_id WHERE h.kind='PAY' AND h.reference LIKE 'General %' AND l.net=100 AND l.tax=10 AND l.recoverable_tax=7.5 AND l.input_taxed_percent=25)<>2
+ OR EXISTS(SELECT 1 FROM accounting.journal_lines l WHERE l.account_id IN('00000000-0000-0000-0000-000000000430','00000000-0000-0000-0000-000000000431','00000000-0000-0000-0000-000000000432','00000000-0000-0000-0000-000000000433','00000000-0000-0000-0000-000000000434') GROUP BY l.account_id HAVING sum(l.debit)<>sum(l.credit))
+ OR EXISTS(SELECT 1 FROM accounting.bank_transaction_events e JOIN accounting.bank_transactions h ON h.company_id=e.company_id AND h.id=e.original_id WHERE h.reference LIKE 'General %' GROUP BY e.kind HAVING sum(e.net)<>0 OR sum(e.tax)<>0 OR sum(e.recoverable_tax)<>0)
+ OR (SELECT count(*) FROM accounting.bank_statements WHERE reference LIKE 'General classification statement %')<>2
+ OR EXISTS(SELECT 1 FROM accounting.active_bank_matches m JOIN accounting.bank_statement_lines l ON l.company_id=m.company_id AND l.id=m.statement_line_id JOIN accounting.bank_statements s ON s.company_id=l.company_id AND s.id=l.statement_id WHERE s.reference LIKE 'General classification statement %')
+ THEN RAISE EXCEPTION 'General banking source, reversal, GST, exactly-once or released match mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_matched')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_match_released')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_reconciled')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_reconciliation_reopened')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_statement_voided')<>2
+ OR (SELECT count(*) FROM accounting.bank_statements s JOIN accounting.bank_statement_controls c ON c.company_id=s.company_id AND c.id=s.id WHERE s.reference LIKE 'General classification statement %' AND c.state='VOID')<>2
+ THEN RAISE EXCEPTION 'Bank clearing exactly-once audits or void state mismatch'; END IF;
 END $$;

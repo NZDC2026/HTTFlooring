@@ -1,0 +1,9 @@
+package au.com.htt.backend;
+import java.time.LocalDate;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+class LedgerFieldsTest {
+ @Test void parameterParsingMatchesIndependentDotnetOracle()throws Exception{try(var stream=getClass().getResourceAsStream("/ledger-fields-oracle.json")){var cases=tools.jackson.databind.json.JsonMapper.builder().build().readTree(stream);assertTrue(cases.size()>50);for(var item:cases){String input=item.get("input").asText();if(item.get("kind").asText().equals("date")){if(item.get("valid").asBoolean())assertEquals(LocalDate.parse(item.get("value").asText()),LedgerFields.date(input),item.toString());else assertEquals(400,assertThrows(StaffScope.Failure.class,()->LedgerFields.date(input),item.toString()).status);}else{if(item.get("valid").asBoolean())assertEquals(item.get("value").asBoolean(),LedgerFields.bool(input),item.toString());else assertEquals(400,assertThrows(StaffScope.Failure.class,()->LedgerFields.bool(input),item.toString()).status);}}}}
+ @Test void intervalsAreHalfOpenAndBounded(){LocalDate from=LocalDate.of(2026,1,1);assertDoesNotThrow(()->LedgerReads.dates(from,from.plusDays(366)));for(LocalDate to:new LocalDate[]{from,from.minusDays(1),from.plusDays(367)})assertThrows(BranchQuery.InvalidFilter.class,()->LedgerReads.dates(from,to));assertThrows(BranchQuery.InvalidFilter.class,()->LedgerReads.dates(LocalDate.of(1,1,1),LocalDate.of(1,1,2)));}
+ @Test void nullableAndIntegerBindingsMatchLegacy(){assertFalse(LedgerFields.bool(null));assertNull(LedgerFields.integer(null));assertEquals(1,LedgerFields.integer(" +001 "));assertEquals(-1,LedgerFields.integer("-1"));for(String input:new String[]{"","1.0","2147483648","\u00a01\u00a0"})assertEquals(400,assertThrows(StaffScope.Failure.class,()->LedgerFields.integer(input)).status);assertNull(LedgerFields.uuid(null));assertEquals(400,assertThrows(StaffScope.Failure.class,()->LedgerFields.uuid("")).status);}
+}
