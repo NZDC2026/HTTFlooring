@@ -1,0 +1,13 @@
+# Explicit opt-in to the authorized HTT main database. No credentials in source control.
+spring:
+  datasource:
+    url: ${HTT_DB_URL:jdbc:postgresql://192.168.10.174:5432/htt_management?sslmode=prefer&connectTimeout=5&socketTimeout=30&ApplicationName=htt-management-api}
+    username: ${HTT_DB_USERNAME:htt_management_app}
+    password: ${HTT_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 5000
+      validation-timeout: 2000
+      idle-timeout: 600000
+      max-lifetime: 1800000
