@@ -376,7 +376,7 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_posted')<>4
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_transferred')<>4
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_line_classified')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_reversed')<>10
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_reversed')<>12
  OR (SELECT count(*) FROM accounting.bank_transaction_lines l JOIN accounting.bank_transactions h ON h.company_id=l.company_id AND h.id=l.transaction_id WHERE h.kind='PAY' AND h.reference LIKE 'General %' AND l.net=100 AND l.tax=10 AND l.recoverable_tax=7.5 AND l.input_taxed_percent=25)<>2
  OR EXISTS(SELECT 1 FROM accounting.journal_lines l WHERE l.account_id IN('00000000-0000-0000-0000-000000000430','00000000-0000-0000-0000-000000000431','00000000-0000-0000-0000-000000000432','00000000-0000-0000-0000-000000000433','00000000-0000-0000-0000-000000000434') GROUP BY l.account_id HAVING sum(l.debit)<>sum(l.credit))
  OR EXISTS(SELECT 1 FROM accounting.bank_transaction_events e JOIN accounting.bank_transactions h ON h.company_id=e.company_id AND h.id=e.original_id WHERE h.reference LIKE 'General %' GROUP BY e.kind HAVING sum(e.net)<>0 OR sum(e.tax)<>0 OR sum(e.recoverable_tax)<>0)
@@ -387,10 +387,20 @@ END $$;
 
 DO $$ BEGIN
  IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_matched')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_match_released')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_match_released')<>6
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_reconciled')<>2
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_reconciliation_reopened')<>2
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_statement_voided')<>2
  OR (SELECT count(*) FROM accounting.bank_statements s JOIN accounting.bank_statement_controls c ON c.company_id=s.company_id AND c.id=s.id WHERE s.reference LIKE 'General classification statement %' AND c.state='VOID')<>2
  THEN RAISE EXCEPTION 'Bank clearing exactly-once audits or void state mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_rule_saved')<>8
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_rule_previewed')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_rule_executed')<>2
+ OR (SELECT count(*) FROM accounting.bank_rule_executions)<>2
+ OR (SELECT count(*) FROM accounting.bank_rule_revisions)<>8
+ OR EXISTS(SELECT 1 FROM accounting.bank_rule_executions e LEFT JOIN accounting.bank_transaction_reversals v ON v.company_id=e.company_id AND v.original_id=e.source_document_id WHERE v.id IS NULL)
+ THEN RAISE EXCEPTION 'Bank rule execution/source/revision exactly-once mismatch'; END IF;
 END $$;

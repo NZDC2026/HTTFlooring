@@ -135,10 +135,22 @@ def isolated_quote_fixture(action, quote_id=None):
     with (here/'quote-fixture-control.log').open('a') as evidence: evidence.write(action+'\n'+result.stdout+result.stderr+'\n')
     assert result.returncode==0,(action,result.stdout,result.stderr)
 
+def expired_rule_fixture(preview_id):
+    container=os.environ.get('HTT_COMPAT_PG_CONTAINER','')
+    assert re.fullmatch(r'htt-java-compat-[0-9a-f]{12}',container), 'Disposable synthetic database required'
+    source=str(uuid.UUID(preview_id));expired=str(uuid.uuid4())
+    sql="SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true),set_config('htt.actor_id','00000000-0000-0000-0000-000000000002',true); INSERT INTO accounting.bank_rule_previews(id,company_id,statement_line_id,snapshot,tax_invoice_reference,tax_invoice_held_on,created_at,expires_at,created_by) SELECT '"+expired+"'::uuid,company_id,statement_line_id,snapshot,tax_invoice_reference,tax_invoice_held_on,now()-interval '30 minutes',now()-interval '1 minute',created_by FROM accounting.bank_rule_previews WHERE company_id='00000000-0000-0000-0000-000000000001' AND id='"+source+"'::uuid AND snapshot->>'status'='READY' RETURNING id;"
+    result=subprocess.run(['docker','exec','-i',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-1','-At'],input=sql,text=True,capture_output=True,timeout=20)
+    with (here/'rule-expiry-fixture.log').open('a') as evidence:evidence.write(result.stdout+result.stderr+'\\n')
+    assert result.returncode==0 and expired in result.stdout.splitlines(),result
+    return expired
+
 def request(path, jwt=None, company=None, grant=None, base=url, payload=None, key=None, version=None, content_type=None, method=None):
     if base.endswith((':15081',':15082')):
         pace_backend(base)
     headers = {} if jwt is None else {'Authorization':'Bearer '+jwt}
+    if key is not None:
+        headers['Idempotency-Key'] = key
     if company is not None:
         headers['X-Company-Id'] = company
     if grant is not None:
@@ -3802,15 +3814,16 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert a[0]==b[0]==status,(path,a,b)
                 if status==200:assert a[1]==b[1],(path,a,b)
                 return a
-            def rule_write_retry(path,body,first,second,changed,version=None,method='POST',status=201):
+            def rule_write_retry(path,body,first,second,changed,version=None,method='POST',status=201,actor=None):
+                actor=actor or general_finance
                 key='rule-write-shared-'+uuid.uuid4().hex
                 args={'payload':body,'key':key,'method':method,'version':version}
-                result=request(path,general_finance,company,base=first,**args)
+                result=request(path,actor,company,base=first,**args)
                 assert result[0]==status,(path,result)
                 with ThreadPoolExecutor(max_workers=6) as pool:
-                    attempts=list(pool.map(lambda n:request(path,general_finance,company,base=first if n%2 else second,**args),range(6)))
+                    attempts=list(pool.map(lambda n:request(path,actor,company,base=first if n%2 else second,**args),range(6)))
                 assert all(x==result for x in attempts),(path,result,attempts)
-                assert request(path,general_finance,company,base=second,**{**args,'payload':{**body,**changed}})[0]==409
+                assert request(path,actor,company,base=second,**{**args,'payload':{**body,**changed}})[0]==409
                 return result
             for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
                 rule_body={'name':'Synthetic read rule '+uuid.uuid4().hex,'bankAccountId':bank_a,'kind':'RECEIVE','priority':100+n,'enabled':True,'executionMode':'SUGGEST','condition':{'field':'REFERENCE','operator':'CONTAINS','value':'CSV in'},'lines':[{'accountId':'00000000-0000-0000-0000-000000000433','taxCodeId':'00000000-0000-0000-0000-000000000016','description':'Synthetic receipt allocation','basClass':'OTHER_GST_FREE'}]}
@@ -3849,6 +3862,92 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             for target in (url,legacy_url):
                 assert request('/api/v1/bank-rules',general_reader,company,base=target)[0]==403
                 assert request('/api/v1/bank-rules?page=0',general_finance,company,base=target)[0]==422
+
+            for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
+                rule_actor=general_finance if n==0 else token('test-rule-auto')
+                execute_rule={'name':'Synthetic executable rule '+uuid.uuid4().hex,'bankAccountId':bank_a,'kind':'RECEIVE','priority':50+n,'enabled':True,'executionMode':'SUGGEST' if n==0 else 'AUTO','condition':{'field':'REFERENCE','operator':'EQUALS','value':'CSV in'},'lines':[{'accountId':'00000000-0000-0000-0000-000000000433','taxCodeId':'00000000-0000-0000-0000-000000000016','description':'Synthetic rule execution GST free income','basClass':'OTHER_GST_FREE'}]}
+                saved=rule_write_retry('/api/v1/bank-rules',execute_rule,first,second,{'name':'Different executable name'},actor=rule_actor)
+                line_id=imported_csv[1]['lines'][0]['id']
+                preview=rule_write_retry('/api/v1/bank-statement-lines/'+line_id+'/rule-preview',{},second,first,{'taxInvoiceReference':'Changed execution evidence'},actor=rule_actor)
+                assert preview[1]['snapshot']['status']=='READY' and preview[1]['snapshot']['selectedRuleId']==saved[1]['id'] and float(preview[1]['snapshot']['gross'])==1.25,preview
+                execute_path='/api/v1/bank-rule-previews/'+preview[1]['id']+'/execute'
+                execute_body={'noPriorPostingConfirmed':True,'reason':' Synthetic rule execution settlement '}
+                expired_id=expired_rule_fixture(preview[1]['id'])
+                for target in (first,second):
+                    expired_result=request('/api/v1/bank-rule-previews/'+expired_id+'/execute',rule_actor,company,base=target,payload=execute_body,key='rule-expired-'+uuid.uuid4().hex)
+                    assert expired_result[0]==409,expired_result
+                    if n==1:
+                        assert request(execute_path,general_finance,company,base=target,payload=execute_body,key='rule-auto-exec-denied-'+uuid.uuid4().hex)[0]==403
+                        assert request('/api/v1/bank-rules/'+saved[1]['id'],general_finance,company,base=target,payload={**execute_rule,'executionMode':'SUGGEST'},key='rule-old-auto-denied-'+uuid.uuid4().hex,version=saved[1]['version'],method='PUT')[0]==403
+                for target in (first,second):
+                    assert request(execute_path,general_reader,company,base=target,payload=execute_body,key='rule-exec-denied-'+uuid.uuid4().hex)[0]==403
+                    assert request(execute_path,rule_actor,company,base=target,payload={**execute_body,'noPriorPostingConfirmed':False},key='rule-exec-confirm-'+uuid.uuid4().hex)[0]==422
+                    assert request('/api/v1/bank-rule-previews/'+str(uuid.uuid4())+'/execute',rule_actor,company,base=target,payload=execute_body,key='rule-exec-missing-'+uuid.uuid4().hex)[0]==404
+                executed=rule_write_retry(execute_path,execute_body,first,second,{'reason':'Different execution reason'},actor=rule_actor)
+                assert executed[1]['previewId']==preview[1]['id'] and executed[1]['reason']=='Synthetic rule execution settlement',executed
+                for target in (first,second):
+                    assert request(execute_path,rule_actor,company,base=target,payload=execute_body,key='rule-exec-again-'+uuid.uuid4().hex)[0]==409
+                recorded=rule_read_parity('/api/v1/bank-rule-previews/'+preview[1]['id'])
+                assert recorded[1]['executionId']==executed[1]['id'],recorded
+                posted=request('/api/v1/bank-transactions/'+executed[1]['sourceDocumentId'],general_finance,company)
+                assert posted[0]==200 and posted[1]['transaction']['reference']=='RULE-'+preview[1]['id'] and float(posted[1]['transaction']['gross'])==1.25 and len(posted[1]['activeMatches'])==1,posted
+                current_statement=request('/api/v1/bank-statements/'+csv_id,general_finance,company)
+                released=clearing_retry('/api/v1/bank-matches/'+posted[1]['activeMatches'][0]+'/release',{'reference':'Rule execution release '+uuid.uuid4().hex,'reason':'Restore synthetic rule execution source'},second,first,current_statement[1]['statement']['version'],200)
+                assert released[0]==200,released
+                general_reverse(posted[1],second,first)
+                rule_write_retry('/api/v1/bank-rules/'+saved[1]['id'],{**execute_rule,'enabled':False,'executionMode':'SUGGEST'},second,first,{'name':'Different disabled execution rule'},saved[1]['version'],method='PUT',status=200,actor=rule_actor)
+
+            # These feed APIs queue only disposable DB jobs. No gateway/worker is started.
+            feed_manager=token('test-feed-manager')
+            def feed_read(path):
+                a=request(path,feed_manager,company)
+                b=request(path,feed_manager,company,base=legacy_url)
+                assert a==b and a[0]==200,(path,a,b)
+                return a
+            for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
+                feed_bank='00000000-0000-0000-0000-'+str(470+n).zfill(12)
+                path='/api/v1/bank-accounts/'+feed_bank+'/feed-connections'
+                body={'grantReference':'SYNTHETIC_'+uuid.uuid4().hex,'startDate':general_today,'autoSync':False}
+                key='feed-create-'+uuid.uuid4().hex
+                for target in (first,second):
+                    assert request(path,general_finance,company,base=target,payload=body,key='feed-denied-'+uuid.uuid4().hex)[0]==403
+                    for patch in ({'grantReference':'bad!'}, {'startDate':'1999-12-31'}):
+                        assert request(path,feed_manager,company,base=target,payload={**body,**patch},key='feed-invalid-'+uuid.uuid4().hex)[0]==422
+                created=request(path,feed_manager,company,base=first,payload=body,key=key)
+                assert created[0]==201 and created[1]['environment']=='SANDBOX' and created[1]['liveConnection'] is False and created[1]['state']=='PENDING',created
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda i:request(path,feed_manager,company,base=first if i%2 else second,payload=body,key=key),range(6)))
+                assert all(x==created for x in retries),(created,retries)
+                assert request(path,feed_manager,company,base=second,payload={**body,'autoSync':True},key=key)[0]==409
+                feed_id=created[1]['id'];feed_path='/api/v1/bank-feed-connections/'+feed_id
+                view=feed_read(feed_path)
+                assert view[1]['state']=='PENDING' and len(view[1]['jobs'])==1 and view[1]['jobs'][0]['kind']=='VERIFY',view
+                feed_read(path);feed_read(feed_path+'/jobs?pageSize=1')
+                for target in (first,second):
+                    for op in ('verify','sync'):
+                        blocked=request(feed_path+'/'+op,feed_manager,company,base=target,method='POST',key='feed-blocked-'+uuid.uuid4().hex,version=view[1]['version'])
+                        assert blocked[0]==409,(op,target,blocked)
+                    assert request(feed_path+'/revoke',feed_manager,company,base=target,method='POST')[0]==428
+                # Bodyless commands still carry an idempotency key; request helper only attaches it to a body.
+                revoke_key='feed-revoke-'+uuid.uuid4().hex
+                def revoke(target,version):
+                    pace_backend(target)
+                    req=urllib.request.Request(target+feed_path+'/revoke',method='POST',headers={'Authorization':'Bearer '+feed_manager,'X-Company-Id':company,'If-Match':'"'+str(version)+'"','Idempotency-Key':revoke_key})
+                    try:
+                        with urllib.request.urlopen(req,timeout=5) as res:return res.status,json.load(res)
+                    except urllib.error.HTTPError as error:return error.code,error.read().decode()
+                revoked=revoke(first,view[1]['version'])
+                assert revoked[0]==202 and revoked[1]['kind']=='REVOKE' and revoked[1]['connectionId']==feed_id,revoked
+                with ThreadPoolExecutor(max_workers=6) as pool:retries=list(pool.map(lambda i:revoke(first if i%2 else second,view[1]['version']),range(6)))
+                assert all(x==revoked for x in retries),(revoked,retries)
+                assert revoke(second,view[1]['version']+1)[0]==409
+                view=feed_read(feed_path)
+                assert view[1]['state']=='REVOKING' and {x['state'] for x in view[1]['jobs']}=={'PENDING','CANCELLED'},view
+                feed_read(feed_path+'/jobs')
+                for target in (first,second):
+                    assert request(feed_path+'/retry',feed_manager,company,base=target,payload={'jobId':revoked[1]['id'],'reason':'Not eligible synthetic pending job'},key='feed-retry-ineligible-'+uuid.uuid4().hex,version=view[1]['version'])[0]==409
+            print('PASS: sandbox-only feed connection and queued revocation, composite access, raw projections, shared replay and ineligible operation guards; gateway workers remain disabled')
+            print('PASS: ready rule execution, exactly-once shared replay, frozen source links, permission/confirmation/double-execution guards and released-source reversal')
             print('PASS: ordered bank rule details/list/revisions, frozen previews and paged exception projections with composite access guards')
             print('PASS: raw UTF-8 CSV source, BOM, quoted multiline Unicode, Australian dates, file/header guards, source hash/download and cross-backend import replay')
             print('PASS: settled general income/expense positive GST, input-tax apportionment, internal/boundary transfers, statement classification, matched reversal guard and shared ordered replay')

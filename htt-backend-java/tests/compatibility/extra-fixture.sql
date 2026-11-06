@@ -438,3 +438,23 @@ INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES(
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bank_rules.preview');
 
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bank_rules.execute');
+
+INSERT INTO identity.users(id,issuer,subject,display_name)VALUES('00000000-0000-0000-0000-000000000462','https://localhost:15443','test-rule-auto','Synthetic rule auto authority');
+INSERT INTO identity.memberships(id,company_id,user_id)VALUES('00000000-0000-0000-0000-000000000463','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000462');
+INSERT INTO identity.roles(id,company_id,code,name)VALUES('00000000-0000-0000-0000-000000000464','00000000-0000-0000-0000-000000000001','RULE_AUTO_TEST','Synthetic automatic rule role');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000463','00000000-0000-0000-0000-000000000464');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT company_id,'00000000-0000-0000-0000-000000000464'::uuid,permission_code FROM identity.role_permissions WHERE company_id='00000000-0000-0000-0000-000000000001' AND role_id='00000000-0000-0000-0000-000000000452';
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000464','accounting.bank_rules.auto_execute');
+
+INSERT INTO accounting.accounts(id,company_id,code,name,kind,control_kind)VALUES('00000000-0000-0000-0000-000000000470','00000000-0000-0000-0000-000000000001','FEED_470','Synthetic feed BANK','ASSET','BANK');
+UPDATE accounting.bank_accounts SET kind='BANK',bsb='123456',account_number='47000000',account_holder='Synthetic feed fixture' WHERE company_id='00000000-0000-0000-0000-000000000001' AND id='00000000-0000-0000-0000-000000000470';
+
+INSERT INTO accounting.accounts(id,company_id,code,name,kind,control_kind)VALUES('00000000-0000-0000-0000-000000000471','00000000-0000-0000-0000-000000000001','FEED_471','Synthetic feed BANK','ASSET','BANK');
+UPDATE accounting.bank_accounts SET kind='BANK',bsb='123456',account_number='47100000',account_holder='Synthetic feed fixture' WHERE company_id='00000000-0000-0000-0000-000000000001' AND id='00000000-0000-0000-0000-000000000471';
+
+INSERT INTO identity.users(id,issuer,subject,display_name)VALUES('00000000-0000-0000-0000-000000000480','https://localhost:15443','test-feed-manager','Synthetic feed manager');
+INSERT INTO identity.memberships(id,company_id,user_id)VALUES('00000000-0000-0000-0000-000000000481','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000480');
+INSERT INTO identity.roles(id,company_id,code,name)VALUES('00000000-0000-0000-0000-000000000482','00000000-0000-0000-0000-000000000001','FEED_TEST','Synthetic feed role');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000481','00000000-0000-0000-0000-000000000482');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT company_id,'00000000-0000-0000-0000-000000000482'::uuid,permission_code FROM identity.role_permissions WHERE company_id='00000000-0000-0000-0000-000000000001' AND role_id='00000000-0000-0000-0000-000000000452';
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT '00000000-0000-0000-0000-000000000001'::uuid,'00000000-0000-0000-0000-000000000482'::uuid,code FROM identity.permissions WHERE code IN('accounting.bank_feeds.read','accounting.bank_feeds.manage','accounting.bank_feeds.sync');
