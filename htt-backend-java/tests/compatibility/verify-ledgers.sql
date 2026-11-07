@@ -443,3 +443,17 @@ DO $$ DECLARE mismatches jsonb; prior_actor uuid:=core.current_actor(); BEGIN
  IF mismatches IS NOT NULL THEN RAISE EXCEPTION 'Global current reconciliation mismatch: %',mismatches; END IF;
  PERFORM set_config('htt.actor_id',prior_actor::text,true);
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.fiscal_year_created')<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.retained_earnings_configured')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.period_close')<>13
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.period_reopen')<>13
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.year_close')<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.year_reopen')<>1
+ OR (SELECT count(*) FROM accounting.year_end_closings WHERE profit=0 AND journal_entry_id IS NULL)<>1
+ OR (SELECT count(*) FROM accounting.year_end_reversals WHERE journal_entry_id IS NULL)<>1
+ OR (SELECT count(*) FROM accounting.period_close_snapshots)<>13
+ OR (SELECT count(*) FROM accounting.period_close_events)<>26
+ THEN RAISE EXCEPTION 'Period/fiscal close exactly-once or zero-nominal evidence mismatch'; END IF;
+END $$;

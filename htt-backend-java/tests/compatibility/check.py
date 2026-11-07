@@ -4188,7 +4188,8 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                         return body
                     assert stable(a[1])==stable(b[1]),(path,a,b)
                 return a
-            year=request(bas+'fiscal-years',general_finance,company,base=legacy_url,payload={'label':'Synthetic empty historical FY '+uuid.uuid4().hex,'from':'2023-07-01','to':'2024-07-01'},key='period-read-year-'+uuid.uuid4().hex)
+            year_body={'label':'Synthetic empty historical FY '+uuid.uuid4().hex,'from':'2023-07-01','to':'2024-07-01'}
+            year=rule_write_retry(bas+'fiscal-years',year_body,url,legacy_url,{'label':'Different historical FY label'})
             assert year[0]==201,year
             year_id=year[1]['id']
             close_read(bas+'fiscal-years');close_read(bas+'periods')
@@ -4199,13 +4200,13 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             assert preflight[1]['status']=='READY',preflight
             close_read(bas+'fiscal-years/'+year_id+'/preflight',live=True,year_plan=True)
             close_read(bas+'fiscal-years/'+year_id+'/history');close_read(bas+'retained-earnings')
-            closed=request(period_path+'/close',general_finance,company,base=legacy_url,payload={'reference':'Synthetic empty period close '+uuid.uuid4().hex,'reason':'Historical close evidence read fixture','basNotApplicableConfirmed':True},key='period-read-close-'+uuid.uuid4().hex,version=periods[0]['version'])
+            closed=rule_write_retry(period_path+'/close',{'reference':'Synthetic empty period close '+uuid.uuid4().hex,'reason':'Historical close evidence write fixture','basNotApplicableConfirmed':True},legacy_url,url,{'reason':'Different period closing reason'},periods[0]['version'],status=200)
             assert closed[0]==200,closed
             frozen=close_read(bas+'period-close-snapshots/'+closed[1]['evidenceId'])[1]
             assert frozen['period_id']==pid and len(frozen['financial_hash'])==64,frozen
             history=close_read(period_path+'/history')[1]
             assert len(history['snapshots'])==1 and history['events'][0]['action']=='CLOSED',history
-            opened=request(period_path+'/reopen',general_finance,company,base=legacy_url,payload={'reference':'Synthetic empty period reopen '+uuid.uuid4().hex,'reason':'Restore historical read fixture'},key='period-read-reopen-'+uuid.uuid4().hex,version=closed[1]['entity']['version'])
+            opened=rule_write_retry(period_path+'/reopen',{'reference':'Synthetic empty period reopen '+uuid.uuid4().hex,'reason':'Restore historical write fixture'},url,legacy_url,{'reason':'Different period reopening reason'},closed[1]['entity']['version'],status=200)
             assert opened[0]==200 and opened[1]['entity']['state']=='OPEN',opened
             close_read(period_path+'/history')
             assert close_read(bas+'period-close-snapshots/'+closed[1]['evidenceId'])[1]==frozen
@@ -4214,6 +4215,44 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             close_read(period_path+'/preflight?basNotApplicableConfirmed=1',400)
             for backend in (url,legacy_url):
                 assert request(bas+'fiscal-years',general_reader,company,base=backend)[0]==403
+
+            retained_path=bas+'retained-earnings'
+            mapping=close_read(retained_path)[1]
+            assert mapping['version']==0,mapping
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                configured=rule_write_retry(retained_path,{'accountId':'00000000-0000-0000-0000-000000000041','reason':'Synthetic retained earnings configuration'},first,second,{'reason':'Different retained configuration'},mapping['version'],method='PUT',status=200)
+                mapping=close_read(retained_path)[1]
+                assert configured[1]==mapping,configured
+            closed_periods=[]
+            for n,entry in enumerate(close_read(bas+'periods?fiscalYearId='+year_id)[1]['items']):
+                first,second=(url,legacy_url) if n%2==0 else (legacy_url,url)
+                body={'reference':'Sequential period close '+uuid.uuid4().hex,'reason':'Synthetic zero-activity fiscal close','basNotApplicableConfirmed':True}
+                result=rule_write_retry(bas+'periods/'+entry['id']+'/close',body,first,second,{'reason':'Different sequential closing'},entry['version'],status=200)
+                closed_periods.append(result[1]['entity'])
+            plan=close_read(bas+'fiscal-years/'+year_id+'/preflight',live=True,year_plan=True)
+            assert plan[1]['status']=='READY' and Decimal(plan[1]['profit'])==0,plan
+            year_path=bas+'fiscal-years/'+year_id
+            closed_year=rule_write_retry(year_path+'/close',{'reference':'Synthetic year closing '+uuid.uuid4().hex,'reason':'Zero nominal balances, no journal expected'},url,legacy_url,{'reason':'Different year closing'},year[1]['version'],status=200)
+            assert closed_year[1]['entity']['state']=='CLOSED',closed_year
+            first_period=closed_periods[0]
+            for backend in (url,legacy_url):
+                blocked=request(bas+'periods/'+first_period['id']+'/reopen',general_finance,company,base=backend,payload={'reference':'Blocked while year closed '+uuid.uuid4().hex,'reason':'Fiscal year must reopen first'},key='period-year-closed-'+uuid.uuid4().hex,version=first_period['version'])
+                assert blocked[0]==409,blocked
+            history=close_read(year_path+'/history')[1]
+            assert len(history['closings'])==1 and Decimal(history['closings'][0]['profit'])==0 and history['closings'][0]['journal_entry_id'] is None,history
+            opened_year=rule_write_retry(year_path+'/reopen',{'reference':'Synthetic year reopening '+uuid.uuid4().hex,'reason':'Restore zero-activity fiscal year'},legacy_url,url,{'reason':'Different year reopening'},closed_year[1]['entity']['version'],status=200)
+            assert opened_year[1]['entity']['state']=='OPEN',opened_year
+            history=close_read(year_path+'/history')[1]
+            assert len(history['reversals'])==1 and history['reversals'][0]['journal_entry_id'] is None,history
+            for backend in (url,legacy_url):
+                blocked=request(bas+'periods/'+first_period['id']+'/reopen',general_finance,company,base=backend,payload={'reference':'Blocked earlier period '+uuid.uuid4().hex,'reason':'Later closed periods must reopen first'},key='period-later-closed-'+uuid.uuid4().hex,version=first_period['version'])
+                assert blocked[0]==409,blocked
+            for n,entry in enumerate(reversed(closed_periods)):
+                first,second=(legacy_url,url) if n%2==0 else (url,legacy_url)
+                result=rule_write_retry(bas+'periods/'+entry['id']+'/reopen',{'reference':'Sequential period reopening '+uuid.uuid4().hex,'reason':'Restore all historical periods'},first,second,{'reason':'Different sequential reopening'},entry['version'],status=200)
+                assert result[1]['entity']['state']=='OPEN'
+            assert all(x['state']=='OPEN' for x in close_read(bas+'periods?fiscalYearId='+year_id)[1]['items'])
+            print('PASS: retained mapping at revision zero, certified sequential period close, zero-profit year close/reversal and reverse-order period reopening with shared replay')
             print('PASS: fiscal calendar, period and year preflight, frozen close evidence/history, retained mapping and compound read permissions; local legacy commands only')
             print('PASS: BAS methods and raw report paging, owned period/history, frozen snapshot hashes and ordered classification history; commands prepared through local .NET')
             print('PASS: cash-flow ordered reporting, unused scope changes/restoration, used scope guard, AUTO/custom classification and reversal inheritance')

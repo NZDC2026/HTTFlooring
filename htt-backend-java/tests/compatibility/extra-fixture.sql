@@ -483,3 +483,7 @@ INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES(
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.periods.reopen');
 
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.reconciliation.read');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.years.close');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.years.reopen');
