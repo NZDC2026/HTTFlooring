@@ -7,8 +7,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.TransactionException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -31,7 +33,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .distinct().toList();
         ApiError body = new ApiError("VALIDATION_FAILED", "Request validation failed.",
                 RequestIdFilter.requestId(servletRequest(request)), false, fields);
-        return new ResponseEntity<>(body, headers, HttpStatus.UNPROCESSABLE_CONTENT);
+        return new ResponseEntity<>(body, jsonHeaders(headers), HttpStatus.UNPROCESSABLE_CONTENT);
     }
 
     @Override
@@ -51,18 +53,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             logFailure(exception, servletRequest(request));
         }
         return new ResponseEntity<>(ApiError.of(code, "The request could not be processed.",
-                servletRequest(request)), headers, status);
+                servletRequest(request)), jsonHeaders(headers), status);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ApiError> accessDenied(AccessDeniedException exception, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiError.of("ACCESS_DENIED", "Access is denied.", request));
     }
 
     @ExceptionHandler(AuthenticationException.class)
     ResponseEntity<ApiError> authenticationRequired(AuthenticationException exception, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiError.of("AUTHENTICATION_REQUIRED", "Authentication is required.", request));
     }
 
@@ -70,19 +74,25 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ApiError> unexpectedFailure(Exception exception, HttpServletRequest request) {
         logFailure(exception, request);
         return ResponseEntity.internalServerError()
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiError.of("INTERNAL_ERROR", "An unexpected error occurred.", request));
     }
 
-    @ExceptionHandler(DataAccessException.class)
-    ResponseEntity<ApiError> storageUnavailable(DataAccessException exception, HttpServletRequest request) {
+    @ExceptionHandler({DataAccessException.class, TransactionException.class})
+    ResponseEntity<ApiError> storageUnavailable(RuntimeException exception, HttpServletRequest request) {
         LOG.error("Storage unavailable; requestId={}, failure={}", RequestIdFilter.requestId(request),
                 exception.getClass().getSimpleName());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiError.of("SERVICE_UNAVAILABLE", "The service is temporarily unavailable.", request));
     }
 
     private static HttpServletRequest servletRequest(WebRequest request) {
         return ((ServletWebRequest) request).getRequest();
+    }
+
+    private static HttpHeaders jsonHeaders(HttpHeaders original) {
+        HttpHeaders headers=new HttpHeaders(); headers.putAll(original); headers.setContentType(MediaType.APPLICATION_JSON); return headers;
     }
 
     private static void logFailure(Exception exception, HttpServletRequest request) {

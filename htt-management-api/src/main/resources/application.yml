@@ -68,6 +68,21 @@ springdoc:
     enabled: false
 
 htt:
+  portal:
+    branches-enabled: ${HTT_PORTAL_BRANCHES_ENABLED:false}
+  notification:
+    enabled: ${HTT_NOTIFICATION_ENABLED:false}
+    workers-enabled: ${HTT_NOTIFICATION_WORKERS_ENABLED:false}
+    max-attempts: 5
+    lease-seconds: 60
+    confirm-timeout-ms: 5000
+    poll-ms: 1000
+    sse-max-connections: 1000
+    sse-max-per-user: 2
+    heartbeat-ms: 15000
+    write-timeout-ms: 5000
+    # Only reviewed event types with static, non-sensitive text are enabled. No inferred business rules.
+    templates: {}
   auth:
     enabled: ${HTT_AUTH_ENABLED:false}
     staff:

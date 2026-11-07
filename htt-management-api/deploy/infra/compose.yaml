@@ -1,0 +1,103 @@
+services:
+  rabbitmq:
+    image: ${RABBITMQ_IMAGE:?Run manage.py init first}
+    hostname: htt-rabbitmq
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/opt/htt/rabbitmq-entrypoint.sh"]
+    environment:
+      HTT_INFRA_MODE: ${HTT_INFRA_MODE:?}
+      RABBITMQ_NODENAME: rabbit@htt-rabbitmq
+    labels:
+      com.htt.managed-by: htt-management-api
+      com.htt.environment: ${HTT_INFRA_MODE}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ${HTT_STATE_DIR}/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ${HTT_STATE_DIR}/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./container:/opt/htt:ro
+    secrets:
+      - rabbitmq-admin-password
+      - rabbitmq-app-password
+    read_only: true
+    tmpfs: [/tmp, /run]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [NET_RAW]
+    restart: unless-stopped
+    stop_grace_period: 120s
+    mem_limit: ${RABBITMQ_MEMORY_LIMIT}
+    cpus: ${RABBITMQ_CPUS}
+    ulimits:
+      nofile: {soft: 65536, hard: 65536}
+    logging:
+      driver: json-file
+      options: {max-size: 20m, max-file: "5"}
+    healthcheck:
+      test: [CMD-SHELL, "rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+    networks:
+      htt-infra:
+        aliases: [htt-rabbitmq]
+
+  redis:
+    image: ${REDIS_IMAGE:?Run manage.py init first}
+    hostname: htt-redis
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/opt/htt/redis-entrypoint.sh"]
+    environment:
+      HTT_INFRA_MODE: ${HTT_INFRA_MODE:?}
+      HTT_TLS_SERVER_NAME: ${REDIS_TLS_NAME:-htt-redis}
+    labels:
+      com.htt.managed-by: htt-management-api
+      com.htt.environment: ${HTT_INFRA_MODE}
+    volumes:
+      - redis-data:/data
+      - ${HTT_STATE_DIR}/redis.conf:/etc/redis/redis.conf:ro
+      - ${HTT_STATE_DIR}/users.acl:/etc/redis/users.acl:ro
+      - ./container:/opt/htt:ro
+    secrets:
+      - redis-admin-password
+      - redis-app-password
+      - redis-health-password
+    read_only: true
+    tmpfs: [/tmp, /run]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [NET_RAW]
+    restart: unless-stopped
+    stop_grace_period: 60s
+    mem_limit: ${REDIS_MEMORY_LIMIT}
+    cpus: ${REDIS_CPUS}
+    logging:
+      driver: json-file
+      options: {max-size: 20m, max-file: "5"}
+    healthcheck:
+      test: [CMD, /bin/sh, /opt/htt/redis-cli.sh, health, PING]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    networks:
+      htt-infra:
+        aliases: [htt-redis]
+
+secrets:
+  rabbitmq-admin-password: {file: "${HTT_STATE_DIR}/secrets/rabbitmq-admin-password"}
+  rabbitmq-app-password: {file: "${HTT_STATE_DIR}/secrets/rabbitmq-app-password"}
+  redis-admin-password: {file: "${HTT_STATE_DIR}/secrets/redis-admin-password"}
+  redis-app-password: {file: "${HTT_STATE_DIR}/secrets/redis-app-password"}
+  redis-health-password: {file: "${HTT_STATE_DIR}/secrets/redis-health-password"}
+
+volumes:
+  rabbitmq-data:
+    name: ${HTT_PROJECT}_rabbitmq-data
+    labels: {com.htt.managed-by: htt-management-api}
+  redis-data:
+    name: ${HTT_PROJECT}_redis-data
+    labels: {com.htt.managed-by: htt-management-api}
+
+networks:
+  htt-infra:
+    name: ${HTT_PROJECT}_network
+    labels: {com.htt.managed-by: htt-management-api}

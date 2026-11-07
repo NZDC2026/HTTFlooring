@@ -1,5 +1,68 @@
 # 数据库连接与迁移
 
+换Windows用户或电脑时，请按 [开发环境与换机手册](development-setup.md) 恢复现有数据库角色凭据；包含与Use-DatabaseEnvironment.ps1一致的安全输入/Export-Clixml格式，不重新生成服务器密码或重建已有数据库。
+
+**最新开发登录**：Main已V6并绑定4个真实Keycloak测试身份。需要Swagger/邮箱密码登录时，按 [开发登录](development-login.md) 运行 `scripts/Start-Development.ps1`，它组合database,development并使用专用Java CA truststore；支持8080/8081，开启认证和门店，关闭通知。仅database profile仍不开放Swagger；默认/生产配置保持原策略。下方“身份绑定未完成”属于此前阶段。
+
+## 当前约定：日常开发使用一个业务库（2026-11-07）
+
+按用户最新要求，应用和人工验收统一使用 **`htt_management`**，目前是开发/测试环境，不是生产。已从空的V1/V2升级至V6，保留两家演示公司、两个客户、三个门店和四个内部账户及授权。Validation的人工演示数据已定向清理；该库仅用于自动化迁移/故障测试，不作为生产运行依赖，不需要人工切换过去查看业务数据。下方各阶段“主库尚未迁移”是历史状态，已由本节更新。
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+. ./scripts/database/Use-DatabaseEnvironment.ps1 -Target Main
+java -jar target/htt-management-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=database
+```
+
+默认本机8080。业务身份绑定未完成，认证/门店/通知开关继续默认关闭；数据库连接成功不代表可以登录。不要用 `local` profile连接业务库，它是无数据库冒烟模式。数据库profile默认不开放Swagger。
+
+本轮验证：92项普通、15项真实PG全部通过（仅Validation）；Main显式迁移V3～V6/validate成功，演示种子及重新连接权限核对成功；运行账号实际启动、Flyway/JPA校验及readiness UP，临时进程已停止。Main只读盘点确认V1～V6、28张业务/安全表；无外部身份绑定、库存或财务交易。日志 `.cache/main-development-verify.log`、`.cache/development-main-migrate.log`、`.cache/main-development-startup.log`。
+
+## 生产空库建表与后续升级
+
+生产只需一个HTT业务库，表由仓库 `src/main/resources/db/migration/V1__*.sql` ～ `V6__*.sql` 及后续版本维护，不需要复制开发库。自动化Validation/Testcontainers部署在开发或CI环境；Keycloak独立身份存储不属于第二套HTT业务数据。
+
+1. 在专用PostgreSQL实例/数据库中由环境管理员准备两个独立LOGIN角色（例如 `htt_management_migrator` 和 `htt_management_app`），密码由秘密管理服务配置；二者均不授予SUPERUSER/CREATEDB/CREATEROLE/BYPASSRLS。创建 `htt_management`，所有者为迁移角色。撤销PUBLIC的CONNECT/TEMP，给应用角色CONNECT；不要在共享的其他系统库内运行这些操作。已有数据升级前先做备份及恢复验证。
+2. 用迁移角色连接该库，执行 `scripts/database/prepare-schema.sql` 准备platform schema。例如在已安全配置 `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSFILE` 的环境执行 `psql -X -v ON_ERROR_STOP=1 -f scripts/database/prepare-schema.sql`。密码文件权限和服务器证书由环境配置，不将密码放进命令或URL。
+3. 由秘密管理服务注入 `HTT_DB_URL`、`HTT_DB_USERNAME`（应用角色）、`HTT_DB_MIGRATION_USERNAME`、`HTT_DB_MIGRATION_PASSWORD`。URL必须含目标库及连接选项，生产采用服务器证书校验，例如 `jdbc:postgresql://db.example.internal:5432/htt_management?sslmode=verify-full&connectTimeout=5&socketTimeout=30`，并准备客户端信任根。Windows可用 `./scripts/database/Invoke-DatabaseMigration.ps1`；Linux在仓库根目录执行 `./mvnw -B -ntp flyway:info flyway:migrate flyway:validate`。Flyway插件从环境读取凭据、运行角色占位符、schema和不可变脚本，不依赖开发机器的DPAPI文件。
+4. 迁移成功后移除迁移凭据，应用只注入 `HTT_DB_URL/HTT_DB_USERNAME/HTT_DB_PASSWORD` 和实际业务身份等配置，以database profile启动。新库从V1顺序建表，已有库只应用未执行版本；应用只validate，不自动建表。禁止clean、自动baseline或改写已应用脚本。
+
+开发机已有凭据，可显式升级：
+
+```powershell
+. ./scripts/database/Use-DatabaseEnvironment.ps1 -Target Main -Migration
+./scripts/database/Invoke-DatabaseMigration.ps1 -Offline
+. ./scripts/database/Use-DatabaseEnvironment.ps1 -Target Main
+```
+
+本轮在已有schema的Validation实际执行过prepare-schema.sql，并通过V2→V6升级；未在全新生产环境重建或做生产备份恢复演练。首次生产上线仍需以临时空库完成全量V1→最新版本验收。演示数据不进入生产，生产账户/角色/业务初始数据应另行审核导入。参考 [ADR-0010](adr/0010-development-business-database.md) 和 [本轮计划/回退](plans/development-database.md)。
+
+## 开发演示数据（2026-11-07）
+
+用户授权后已在 `htt_management_validation` 持久化一组明确标记的公司/客户/门店及内部身份权限数据，不导入主库，不作为Flyway种子，不含真实身份凭据或财务库存交易。此前“测试数据清理”记录指各轮自动化测试，当前演示数据单独保留。写入前事务演练及92项普通/15项PG测试和构建通过，写入后重新连接授权检查通过。查看、回退和后续登录边界见 [开发演示数据](demo-data.md)。
+
+## 最新门户门店迁移（2026-11-07）
+
+V6已在htt_management_validation应用并通过15项真实PG测试，连同92项普通测试/JAR构建全部通过。仅增加crm.customer_branch.code/公司客户内唯一约束，以及identity.portal_branch_scope限定元数据函数；既有V1～V5不改。函数归迁移账号，固定search_path，PUBLIC无执行权限，运行账号仅被显式授予该函数执行。
+
+本次身份/客户/Grant/门店及访问审计合成数据已清理，事后计数均0；没有迁移主库或访问ERPNext。旧接口必需code/address/country需实际导入，V6不伪造值。门店功能默认关闭，开启/兼容及回退见 [CTX-002计划](plans/customer-portal-branches.md)。V6已应用后不可改写。
+
+## 最新共享库存验收（2026-11-06）
+
+用户已确认 HTT 业务库为三端及后续 ERP 库存唯一来源。V5 已在专用 `htt_management_validation` 应用，新增 catalog.product_unit、product_barcode、inventory.stock_balance、stock_movement，并补 product 分类/颜色/品牌/尺寸字段。单位、数量、流水及边界详见 [ADR-0008](adr/0008-shared-postgresql-inventory.md)。
+
+实际验证：68项普通 + 14项真实PostgreSQL测试通过；之后仅补部署配置检查，最终69项普通测试及JAR构建通过。事后只读核对 V1～V5成功、28张业务/安全表全部RLS、四张新表均0行。应用仍无库存写权限；未发布库存HTTP接口，主库未迁移或试验。V5现已不可改写。
+
+另按用户授权，Keycloak使用新建的独立PostgreSQL容器/htt_keycloak身份库，无宿主机发布端口，未复用本页5432业务服务；详见 [身份部署记录](../deploy/keycloak/DEPLOYMENT.md)。
+
+## 最新通知迁移验收（2026-11-06）
+
+V4 已在 `htt_management_validation` 成功应用，V1～V3 保持原校验和；后续不可改写 V4。新增 platform.domain_outbox 及 notification.inbox、recipient_cursor、message、device、delivery、audit，共 7 表，连同原表共 24 张业务/安全表（不含迁移历史）；权限目录增加 notification:read 与 notification:device，未自动授予任何用户。
+
+执行 `mvnw.cmd -o -B -ntp -Dmaven.repo.local=.cache/repository -Ppostgres-it -Dhtt.test.database=dedicated verify`：56 项普通测试、11 项真实 PostgreSQL 测试通过。新测试验证事务回滚不留 Outbox、租约与重放去重、并发游标和历史分页、本人/Grant 数据隔离、渠道状态及永久错误停用设备。临时 API 随测试关闭。日志 `.cache/notification-postgres-final.log`。
+
+通知功能默认关闭。后续用户授权 SSH/Docker 后，已部署独立 HTT RabbitMQ/Redis，6 项真实 broker 测试在临时容器中通过；没有连接现有 PostgreSQL 或访问主库/ERPNext，Firebase 真机仍未验证。详见 [通知运行说明](notification.md)。原有 V1～V3 记录保留在下方作为历史。
+
 ## 最新认证迁移验收（2026-11-05）
 
 用户在认证实现完成后明确授权使用专门准备的测试 PostgreSQL。已使用既有 `192.168.10.174:5432/htt_management_validation` 服务执行 dedicated 模式，没有安装/部署容器，也没有修改服务器服务。仅访问验证库；主库和 ERPNext 未访问。

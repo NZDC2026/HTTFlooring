@@ -4,6 +4,36 @@ import com.htt.management.identity.AccessRepository;
 import com.htt.management.identity.AccessSnapshot;
 import com.htt.management.identity.AccessAudit;
 import com.htt.management.platform.web.RequestIdFilter;
+import com.htt.management.platform.events.DomainEvent;
+import com.htt.management.platform.events.DomainEvents;
+import com.htt.management.notification.OutboxStore;
+import com.htt.management.notification.NotificationStore;
+import com.htt.management.notification.NotificationModels;
+import com.htt.management.notification.NotificationSettings;
+import com.htt.management.inventory.contract.InventoryAvailability;
+import com.htt.management.inventory.contract.InventorySource;
+import com.htt.management.inventory.infrastructure.PostgresInventorySource;
+import java.time.Clock;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Date;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import java.util.Set;
+import java.time.Instant;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -68,7 +98,7 @@ class PostgresBaselineIT {
     void migrationsAreRepeatableAndRuntimeValidationRejectsPendingChanges() {
         var flyway = migrations(migrationUser, migrationPassword);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
-        assertThat(flyway.info().applied()).hasSize(3);
+        assertThat(flyway.info().applied()).hasSize(6);
         assertThat(flyway.info().pending()).isEmpty();
         assertThat(migrations(appUser, appPassword).validateWithResult().validationSuccessful).isTrue();
         var pending = Flyway.configure().dataSource(url, appUser, appPassword)
@@ -242,6 +272,110 @@ class PostgresBaselineIT {
     static class AuditTransactions {}
 
     @Test
+    void outboxJoinsBusinessRollbackAndLeasesPreventStaleCompletion() throws Exception {
+        try (var fixture=new Fixture(); var migration=migrationConnection()) {
+            var source=new DriverManagerDataSource(url,appUser,appPassword);
+            var jdbc=new JdbcTemplate(source);
+            var tx=new TransactionTemplate(new JdbcTransactionManager(source));
+            var publisher=new DomainEvents(jdbc,new JsonMapper());
+            var outbox=new OutboxStore(jdbc,tx);
+            var event=notificationEvent(fixture,UUID.randomUUID());
+            tx.executeWithoutResult(status -> {
+                jdbc.queryForObject("select set_config('htt.company_id',?,true)",String.class,fixture.company[0].toString());
+                jdbc.queryForObject("select set_config('htt.actor_id',?,true)",String.class,fixture.actor[0].toString());
+                publisher.publish(event); status.setRollbackOnly();
+            });
+            assertThat(count(migration,"platform.domain_outbox")).isZero();
+            tx.executeWithoutResult(status -> {
+                jdbc.queryForObject("select set_config('htt.company_id',?,true)",String.class,fixture.company[0].toString());
+                jdbc.queryForObject("select set_config('htt.actor_id',?,true)",String.class,fixture.actor[0].toString()); publisher.publish(event);
+            });
+            var first=outbox.claim(10,60).getFirst(); assertThat(outbox.claim(10,60)).isEmpty();
+            execute(migration,"update platform.domain_outbox set lease_until=now()-interval '1 second' where id=?",event.id());
+            var second=outbox.claim(10,60).getFirst();
+            assertThat(second.attempt()).isEqualTo(2);
+            outbox.published(first);
+            assertThat(scalar(migration,"select count(*) from platform.domain_outbox where state='IN_FLIGHT'")).isEqualTo(1);
+            outbox.published(second); assertThat(outbox.claim(10,60)).isEmpty();
+        }
+    }
+
+    @Test
+    void notificationInboxScopesHistoryAndDeliveryStatesUseRealDatabase() throws Exception {
+        try (var fixture=new Fixture(); var migration=migrationConnection()) {
+            UUID grant=notificationGrants(fixture,migration);
+            var source=new DriverManagerDataSource(url,appUser,appPassword);
+            var store=new NotificationStore(new JdbcTemplate(source),new TransactionTemplate(new JdbcTransactionManager(source)));
+            var session=new NotificationModels.Session(fixture.company[0],fixture.actor[0],grant,AccessSnapshot.Realm.CUSTOMER,null);
+            UUID device=store.registerDevice(session,"ANDROID","test-only-not-a-real-device");
+            assertThat(device).isNotNull();
+            var event=notificationEvent(fixture,UUID.randomUUID());
+            var template=new NotificationSettings.Template("Test notice","Test only.");
+            assertThat(store.consume(event,"first",template)).isTrue();
+            assertThat(store.consume(event,"first",template)).isFalse();
+            assertThatThrownBy(() -> store.consume(event,"different",template)).isInstanceOf(IllegalArgumentException.class);
+            var history=store.history(session,0,100);
+            assertThat(history.items()).hasSize(1); assertThat(history.nextCursor()).isEqualTo(1);
+            assertThat(store.markRead(session,history.items().getFirst().id())).isTrue();
+            var other=new NotificationModels.Session(fixture.company[1],fixture.actor[1],null,AccessSnapshot.Realm.STAFF,null);
+            assertThat(store.history(other,0,100).items()).isEmpty();
+            assertThat(store.markRead(other,history.items().getFirst().id())).isFalse();
+            var wrongGrant=new NotificationModels.Session(fixture.company[0],fixture.actor[0],UUID.randomUUID(),AccessSnapshot.Realm.CUSTOMER,null);
+            assertThat(store.history(wrongGrant,0,100).items()).isEmpty();
+            var deliveries=store.claimDeliveries(10,60); assertThat(deliveries).hasSize(2);
+            for (var delivery : deliveries) store.finish(delivery,delivery.channel().equals("FCM") ? "SIMULATED" : "SENT",Instant.now(),null);
+            assertThat(store.claimDeliveries(10,60)).isEmpty();
+            assertThat(scalar(migration,"select count(*) from notification.delivery where state='SIMULATED'")).isEqualTo(1);
+            store.consume(notificationEvent(fixture,UUID.randomUUID()),"next",template);
+            for (var delivery : store.claimDeliveries(10,60)) {
+                if (delivery.channel().equals("FCM")) {
+                    assertThat(store.stillEligible(delivery)).isTrue();
+                    store.permanentFailure(delivery,com.htt.management.notification.NotificationChannel.PermanentReason.INVALID_DEVICE);
+                    assertThat(store.stillEligible(delivery)).isFalse();
+                } else store.finish(delivery,"SENT",Instant.now(),null);
+            }
+            assertThat(scalar(migration,"select count(*) from notification.device where enabled")).isZero();
+            execute(migration,"update identity.resource_grant set enabled=false where id=?",grant);
+            assertThat(store.history(session,0,100).items()).isEmpty();
+        }
+    }
+
+    @Test
+    void concurrentRecipientsGetCommitOrderedCursorsAndCompensationPages() throws Exception {
+        try (var fixture=new Fixture(); var migration=migrationConnection()) {
+            UUID grant=notificationGrants(fixture,migration);
+            var source=new DriverManagerDataSource(url,appUser,appPassword);
+            var store=new NotificationStore(new JdbcTemplate(source),new TransactionTemplate(new JdbcTransactionManager(source)));
+            var template=new NotificationSettings.Template("Test notice","Test only.");
+            try (var executor=java.util.concurrent.Executors.newFixedThreadPool(2)) {
+                var first=executor.submit(() -> store.consume(notificationEvent(fixture,UUID.randomUUID()),"one",template));
+                var second=executor.submit(() -> store.consume(notificationEvent(fixture,UUID.randomUUID()),"two",template));
+                assertThat(first.get(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                assertThat(second.get(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            }
+            var session=new NotificationModels.Session(fixture.company[0],fixture.actor[0],grant,AccessSnapshot.Realm.CUSTOMER,null);
+            var page=store.history(session,0,1); assertThat(page.hasMore()).isTrue(); assertThat(page.nextCursor()).isEqualTo(1);
+            var next=store.history(session,page.nextCursor(),1); assertThat(next.hasMore()).isFalse(); assertThat(next.items().getFirst().cursor()).isEqualTo(2);
+            assertThat(next.nextCursor()).isEqualTo(2);
+        }
+    }
+
+    private static DomainEvent notificationEvent(Fixture fixture,UUID id) {
+        return new DomainEvent(id,1,"test.activity",fixture.company[0],UUID.randomUUID(),fixture.customer[0],fixture.branch[0],
+                List.of(fixture.actor[0],fixture.actor[1]),Map.of(),Instant.now());
+    }
+    private static UUID notificationGrants(Fixture fixture,Connection migration) throws SQLException {
+        UUID role=UUID.randomUUID(),grant=UUID.randomUUID();
+        execute(migration,"update identity.company_member set member_kind='CUSTOMER' where company_id=? and user_id=?",fixture.company[0],fixture.actor[0]);
+        execute(migration,"insert into identity.role(company_id,id,code) values (?,?,'NOTIFICATION TEST ONLY')",fixture.company[0],role);
+        execute(migration,"insert into identity.role_permission(company_id,role_id,permission_code) values (?,?,'notification:read'),(?,?,'notification:device')",fixture.company[0],role,fixture.company[0],role);
+        execute(migration,"insert into identity.member_role(company_id,user_id,role_id) values (?,?,?)",fixture.company[0],fixture.actor[0],role);
+        execute(migration,"insert into identity.resource_grant(id,company_id,user_id,scope,customer_id) values (?,?,?,'BRANCH',?)",grant,fixture.company[0],fixture.actor[0],fixture.customer[0]);
+        execute(migration,"insert into identity.grant_branch(grant_id,company_id,customer_id,branch_id) values (?,?,?,?)",grant,fixture.company[0],fixture.customer[0],fixture.branch[0]);
+        return grant;
+    }
+
+    @Test
     void applicationStartsWithReadOnlyRoleAndDatabaseReadiness() throws Exception {
         try (var context = new SpringApplicationBuilder(HttManagementApiApplication.class).run(
                 "--spring.profiles.active=database", "--server.address=127.0.0.1", "--server.port=0",
@@ -358,12 +492,235 @@ class PostgresBaselineIT {
         return value;
     }
 
+    @Test
+    void sharedInventoryReadersSeeTheSameCommittedWarehouseBalance() throws Exception {
+        try (var fixture = new Fixture(); var writer = migrationConnection()) {
+            execute(writer, "INSERT INTO inventory.stock_balance(company_id,product_id,warehouse_id,base_unit_id,on_hand,reserved,damaged) VALUES (?,?,?,?,12,2,1)",
+                    fixture.company[0], fixture.product[0], fixture.warehouse[0], fixture.unit[0]);
+            var jdbc = new JdbcTemplate(new DriverManagerDataSource(url, appUser, appPassword));
+            var query = new InventorySource.Query(fixture.company[0], fixture.product[0], Set.of(fixture.warehouse[0]));
+            // Three consumers of the same source, not an assertion that the three frontend apps are connected.
+            var readers = List.of(new PostgresInventorySource(jdbc, Clock.systemUTC()),
+                    new PostgresInventorySource(jdbc, Clock.systemUTC()), new PostgresInventorySource(jdbc, Clock.systemUTC()));
+            for (var reader : readers) assertThat(readStock(jdbc, reader, fixture, query).warehouses().getFirst().available()).isEqualByComparingTo("9");
+            writer.setAutoCommit(false);
+            execute(writer, """
+                    WITH changed AS (
+                      UPDATE inventory.stock_balance SET on_hand=on_hand-2 WHERE company_id=? AND product_id=? AND warehouse_id=? AND version=1
+                      RETURNING *)
+                    INSERT INTO inventory.stock_movement(company_id,product_id,warehouse_id,base_unit_id,base_unit_code,movement_type,
+                      on_hand_delta,on_hand_after,reserved_after,damaged_after,balance_version,source_type,source_id,source_line_id,idempotency_key,actor_id,reason)
+                    SELECT company_id,product_id,warehouse_id,base_unit_id,'TEST','ISSUE',-2,on_hand,reserved,damaged,version,
+                      'TEST_ONLY',gen_random_uuid(),gen_random_uuid(),'test-issue',?,'Synthetic posting transaction' FROM changed
+                    """, fixture.company[0], fixture.product[0], fixture.warehouse[0], fixture.actor[0]);
+            assertThat(readStock(jdbc, readers.getFirst(), fixture, query).warehouses().getFirst().available()).isEqualByComparingTo("9");
+            writer.commit();
+            for (var reader : readers) assertThat(readStock(jdbc, reader, fixture, query).warehouses().getFirst().available()).isEqualByComparingTo("7");
+            assertThat(scalar(writer, "SELECT count(*) FROM inventory.stock_movement WHERE idempotency_key='test-issue'")).isEqualTo(1);
+            expectSqlState(writer, "23505", "INSERT INTO inventory.stock_movement SELECT gen_random_uuid(),company_id,product_id,warehouse_id,base_unit_id,base_unit_code,movement_type,on_hand_delta,reserved_delta,damaged_delta,on_hand_after,reserved_after,damaged_after,balance_version,source_type,source_id,source_line_id,idempotency_key,actor_id,reason,occurred_at FROM inventory.stock_movement WHERE idempotency_key='test-issue'");
+            writer.rollback();
+        }
+    }
+
+    @Test
+    void inventoryUnknownZeroAndCompanyIsolationAreDistinct() throws Exception {
+        try (var fixture = new Fixture(); var writer = migrationConnection()) {
+            var jdbc = new JdbcTemplate(new DriverManagerDataSource(url, appUser, appPassword));
+            var reader = new PostgresInventorySource(jdbc, Clock.systemUTC());
+            var query = new InventorySource.Query(fixture.company[0], fixture.product[0], Set.of(fixture.warehouse[0]));
+            var unknown = readStock(jdbc, reader, fixture, query).warehouses().getFirst();
+            assertThat(unknown.knowledge()).isEqualTo(InventoryAvailability.Knowledge.UNKNOWN);
+            assertThat(unknown.available()).isNull();
+            execute(writer, "INSERT INTO inventory.stock_balance(company_id,product_id,warehouse_id,base_unit_id,on_hand) VALUES (?,?,?,?,0)",
+                    fixture.company[0], fixture.product[0], fixture.warehouse[0], fixture.unit[0]);
+            var zero = readStock(jdbc, reader, fixture, query).warehouses().getFirst();
+            assertThat(zero.knowledge()).isEqualTo(InventoryAvailability.Knowledge.KNOWN);
+            assertThat(zero.available()).isEqualByComparingTo("0");
+            assertThatThrownBy(() -> readStock(jdbc, reader, fixture,
+                    new InventorySource.Query(fixture.company[1], fixture.product[1], Set.of(fixture.warehouse[1]))))
+                    .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+            assertThatThrownBy(() -> readStock(jdbc, reader, fixture,
+                    new InventorySource.Query(fixture.company[0], fixture.product[0], Set.of(fixture.warehouse[0], fixture.warehouse[1]))))
+                    .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+            assertThatThrownBy(() -> reader.read(query)).isInstanceOf(IllegalStateException.class);
+            try (var runtime = appConnection()) {
+                runtime.setAutoCommit(false);
+                setContext(runtime, fixture.company[0], fixture.actor[0]);
+                expectSqlState(runtime, "42501", "UPDATE inventory.stock_balance SET on_hand=999");
+                expectSqlState(runtime, "42501", "DELETE FROM inventory.stock_movement");
+                runtime.rollback();
+            }
+        }
+    }
+
+    @Test
+    void inventoryConstraintsPreventCrossCompanyQuantitiesOversellingAndUnitDrift() throws Exception {
+        try (var fixture = new Fixture(); var writer = migrationConnection()) {
+            writer.setAutoCommit(false);
+            expectSqlState(writer, "23503", "INSERT INTO inventory.stock_balance(company_id,product_id,warehouse_id,base_unit_id,on_hand) VALUES (?,?,?,?,5)",
+                    fixture.company[0], fixture.product[0], fixture.warehouse[1], fixture.unit[0]);
+            execute(writer, "INSERT INTO inventory.stock_balance(company_id,product_id,warehouse_id,base_unit_id,on_hand,reserved) VALUES (?,?,?,?,5,2)",
+                    fixture.company[0], fixture.product[0], fixture.warehouse[0], fixture.unit[0]);
+            expectSqlState(writer, "23514", "UPDATE inventory.stock_balance SET on_hand=1 WHERE company_id=?", fixture.company[0]);
+            expectSqlState(writer, "23514", "UPDATE inventory.stock_balance SET damaged=4 WHERE company_id=?", fixture.company[0]);
+            expectSqlState(writer, "23514", "UPDATE inventory.stock_balance SET base_unit_id=? WHERE company_id=?", fixture.unit[1], fixture.company[0]);
+            UUID boxUnit = UUID.randomUUID();
+            execute(writer, "INSERT INTO catalog.unit_of_measure(id,company_id,code,name) VALUES (?,?,'BOX','Test box')", boxUnit, fixture.company[0]);
+            execute(writer, "INSERT INTO catalog.product_unit(company_id,product_id,unit_id,base_unit_id,conversion_to_base,quantity_step) VALUES (?,?,?,?,2.2,1)",
+                    fixture.company[0], fixture.product[0], boxUnit, fixture.unit[0]);
+            expectSqlState(writer, "23514", "INSERT INTO catalog.product_unit(company_id,product_id,unit_id,base_unit_id,conversion_to_base,quantity_step) VALUES (?,?,?,?,2,1)",
+                    fixture.company[0], fixture.product[0], fixture.unit[0], fixture.unit[0]);
+            expectSqlState(writer, "23503", "UPDATE catalog.product SET base_unit_id=? WHERE id=?", boxUnit, fixture.product[0]);
+            writer.rollback();
+        }
+    }
+
+    private static InventoryAvailability readStock(JdbcTemplate jdbc, PostgresInventorySource source, Fixture fixture, InventorySource.Query query) {
+        var transaction = new TransactionTemplate(new JdbcTransactionManager(jdbc.getDataSource()));
+        return transaction.execute(status -> {
+            jdbc.queryForObject("SELECT set_config('htt.company_id',?,true)", String.class, fixture.company[0].toString());
+            jdbc.queryForObject("SELECT set_config('htt.actor_id',?,true)", String.class, fixture.actor[0].toString());
+            return source.read(query);
+        });
+    }
+
+    @Test
+    void portalBranchSliceMatchesLegacyProjectionWithRealAuthenticationAndPostgres() throws Exception {
+        UUID grant=UUID.randomUUID(), otherGrant=UUID.randomUUID(), companyGrant=UUID.randomUUID(), role=UUID.randomUUID();
+        UUID otherCustomer=UUID.randomUUID(), otherBranch=UUID.randomUUID(), extra=UUID.randomUUID(), hidden=UUID.randomUUID(), archived=UUID.randomUUID();
+        try (var fixture=new Fixture(); var writer=migrationConnection()) {
+            writer.setAutoCommit(false);
+            execute(writer,"update identity.company_member set member_kind='CUSTOMER' where company_id=? and user_id=?",fixture.company[0],fixture.actor[0]);
+            execute(writer,"insert into identity.company_member(company_id,user_id,member_kind) values (?,?,'CUSTOMER')",fixture.company[0],fixture.actor[1]);
+            execute(writer,"insert into identity.role(company_id,id,code) values (?,?,'PORTAL BRANCH TEST ONLY')",fixture.company[0],role);
+            execute(writer,"insert into identity.role_permission(company_id,role_id,permission_code) values (?,?,'branch:read')",fixture.company[0],role);
+            for (UUID user : fixture.actor) {
+                execute(writer,"insert into identity.member_role(company_id,user_id,role_id) values (?,?,?)",fixture.company[0],user,role);
+                execute(writer,"insert into identity.external_identity(issuer,subject,user_id,realm) values ('https://portal.example.invalid',?,?,'CUSTOMER')",user.toString(),user);
+            }
+            execute(writer,"update crm.customer_branch set code='B20',name='Main',address_line1='1 Test Street',city='Sydney',state='NSW',postcode='2000',country_code='AU' where id=?",fixture.branch[0]);
+            execute(writer,"insert into crm.customer(id,company_id,code,business_name) values (?,?,'OTHER-TEST','Test only')",otherCustomer,fixture.company[0]);
+            for (UUID branch : List.of(otherBranch,extra,hidden,archived)) {
+                execute(writer,"insert into crm.customer_branch(id,company_id,customer_id,code,name,address_line1,city,state,postcode,country_code) values (?,?,?,?,?,'2 Test Street','Melbourne','VIC','3000','AU')",
+                        branch,fixture.company[0],branch.equals(otherBranch) ? otherCustomer : fixture.customer[0],
+                        branch.equals(extra) ? "A10" : branch.toString(),branch.equals(extra) ? "Extra" : "Test only");
+            }
+            execute(writer,"update crm.customer_branch set status='ARCHIVED' where id=?",archived);
+            execute(writer,"insert into identity.resource_grant(id,company_id,user_id,scope,customer_id) values (?,?,?,'BRANCH',?),(?,?,?,'BRANCH',?)",
+                    grant,fixture.company[0],fixture.actor[0],fixture.customer[0],otherGrant,fixture.company[0],fixture.actor[1],otherCustomer);
+            execute(writer,"insert into identity.resource_grant(id,company_id,user_id,scope) values (?,?,?,'COMPANY')",companyGrant,fixture.company[0],fixture.actor[0]);
+            for (UUID branch : List.of(fixture.branch[0],extra,archived))
+                execute(writer,"insert into identity.grant_branch(grant_id,company_id,customer_id,branch_id) values (?,?,?,?)",grant,fixture.company[0],fixture.customer[0],branch);
+            execute(writer,"insert into identity.grant_branch(grant_id,company_id,customer_id,branch_id) values (?,?,?,?)",otherGrant,fixture.company[0],otherCustomer,otherBranch);
+            expectSqlState(writer,"23505","update crm.customer_branch set code='A10' where id=?",fixture.branch[0]);
+            writer.commit();
+            writer.setAutoCommit(true);
+            String token=PortalTokens.token(fixture.actor[0]), otherToken=PortalTokens.token(fixture.actor[1]);
+            try (var application=new SpringApplicationBuilder(PortalTokens.class,HttManagementApiApplication.class).run(
+                    "--spring.profiles.active=database", "--server.port=0", "--server.address=127.0.0.1", "--logging.level.root=WARN",
+                    "--spring.datasource.url="+url, "--spring.datasource.username="+appUser, "--spring.datasource.password="+appPassword,
+                    "--spring.flyway.placeholders.runtime_role="+appUser, "--htt.auth.enabled=true", "--htt.portal.branches-enabled=true",
+                    "--htt.auth.staff.issuer=https://staff.example.invalid", "--htt.auth.staff.audience=staff-api", "--htt.auth.staff.jwk-set-uri=https://staff.example.invalid/certs",
+                    "--htt.auth.portal.issuer=https://portal.example.invalid", "--htt.auth.portal.audience=portal-api", "--htt.auth.portal.jwk-set-uri=https://portal.example.invalid/certs");
+                    var client=HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(5)).build()) {
+                String origin="http://127.0.0.1:"+application.getEnvironment().getRequiredProperty("local.server.port");
+                var anonymous=portalBranches(client,origin,null,fixture.company[0],grant);
+                assertThat(anonymous.statusCode()).isEqualTo(401);
+                deleteRequestAudit(writer,anonymous);
+                var response=portalBranches(client,origin,token,fixture.company[0],grant);
+                assertThat(response.statusCode()).isEqualTo(200);
+                var json=new JsonMapper().readTree(response.body());
+                Instant.parse(json.path("dataAsOf").asString());
+                assertThat(json).isEqualTo(new JsonMapper().readTree("""
+                        {"customerId":"%s","grantId":"%s","items":[
+                         {"id":"%s","code":"A10","name":"Extra","addressLine1":"2 Test Street","suburb":"Melbourne","state":"VIC","postcode":"3000","country":"AU"},
+                         {"id":"%s","code":"B20","name":"Main","addressLine1":"1 Test Street","suburb":"Sydney","state":"NSW","postcode":"2000","country":"AU"}],"dataAsOf":"%s"}
+                        """.formatted(fixture.customer[0],grant,extra,fixture.branch[0],json.path("dataAsOf").asString())));
+                assertThat(portalBranches(client,origin,token,fixture.company[0],otherGrant).statusCode()).isEqualTo(403);
+                assertThat(portalBranches(client,origin,otherToken,fixture.company[0],grant).statusCode()).isEqualTo(403);
+                assertThat(portalBranches(client,origin,token,fixture.company[1],grant).statusCode()).isEqualTo(403);
+                assertThat(portalBranches(client,origin,token,fixture.company[0],companyGrant).statusCode()).isEqualTo(403);
+                var otherJson=new JsonMapper().readTree(portalBranches(client,origin,otherToken,fixture.company[0],otherGrant).body());
+                assertThat(otherJson.path("customerId").asString()).isEqualTo(otherCustomer.toString());
+                assertThat(otherJson.path("items").size()).isEqualTo(1);
+
+                execute(writer,"update identity.resource_grant set scope='CUSTOMER' where id=?",grant);
+                assertThat(new JsonMapper().readTree(portalBranches(client,origin,token,fixture.company[0],grant).body()).path("items").size()).isEqualTo(2);
+                execute(writer,"update crm.customer_branch set status='ARCHIVED' where id in (?,?)",fixture.branch[0],extra);
+                var empty=portalBranches(client,origin,token,fixture.company[0],grant);
+                assertThat(empty.statusCode()).isEqualTo(200);
+                assertThat(new JsonMapper().readTree(empty.body()).path("items").size()).isZero();
+                // Also preserve empty BRANCH grants, which resolve_access deliberately omits from its summary.
+                execute(writer,"update identity.resource_grant set scope='BRANCH' where id=?",grant);
+                assertThat(portalBranches(client,origin,token,fixture.company[0],grant).statusCode()).isEqualTo(200);
+                execute(writer,"update crm.customer_branch set status='ACTIVE' where id in (?,?)",fixture.branch[0],extra);
+                execute(writer,"update crm.customer_branch set code=null where id=?",fixture.branch[0]);
+                var incomplete=portalBranches(client,origin,token,fixture.company[0],grant);
+                assertThat(incomplete.statusCode()).isEqualTo(503);
+                assertThat(new JsonMapper().readTree(incomplete.body()).path("code").asString()).isEqualTo("database_unavailable");
+                execute(writer,"update crm.customer_branch set code='B20' where id=?",fixture.branch[0]);
+                execute(writer,"delete from identity.role_permission where company_id=? and role_id=? and permission_code='branch:read'",fixture.company[0],role);
+                assertThat(portalBranches(client,origin,token,fixture.company[0],grant).statusCode()).isEqualTo(403);
+                execute(writer,"insert into identity.role_permission(company_id,role_id,permission_code) values (?,?,'branch:read')",fixture.company[0],role);
+                execute(writer,"update identity.resource_grant set enabled=false where id=?",grant);
+                assertThat(portalBranches(client,origin,token,fixture.company[0],grant).statusCode()).isEqualTo(403);
+                execute(writer,"update identity.resource_grant set enabled=true where id=?",grant);
+                execute(writer,"update crm.customer set status='ARCHIVED' where id=?",fixture.customer[0]);
+                assertThat(portalBranches(client,origin,token,fixture.company[0],grant).statusCode()).isEqualTo(403);
+                execute(writer,"update crm.customer set status='ACTIVE' where id=?",fixture.customer[0]);
+                assertThat(portalBranches(client,origin,token,fixture.company[0],grant).statusCode()).isEqualTo(200);
+                execute(writer,"update identity.user_account set status='DISABLED' where id=?",fixture.actor[0]);
+                var disabled=portalBranches(client,origin,token,fixture.company[0],grant);
+                assertThat(disabled.statusCode()).isEqualTo(401);
+                deleteRequestAudit(writer,disabled);
+                assertThat(scalar(writer,"select count(*) from platform.access_audit where action='branch:read' and outcome='DENY' and actor_id='"+fixture.actor[0]+"'::uuid")).isGreaterThan(0);
+            }
+        }
+    }
+
+    private static HttpResponse<String> portalBranches(HttpClient client,String origin,String token,UUID company,UUID grant) throws Exception {
+        var request=HttpRequest.newBuilder(URI.create(origin+"/api/portal/v1/branches"))
+                .timeout(java.time.Duration.ofSeconds(10)).header("X-Company-Id",company.toString()).header("X-Portal-Grant-Id",grant.toString());
+        if (token!=null) request.header("Authorization","Bearer "+token);
+        return client.send(request.GET().build(),HttpResponse.BodyHandlers.ofString());
+    }
+    private static void deleteRequestAudit(Connection writer,HttpResponse<?> response) throws SQLException {
+        execute(writer,"delete from platform.access_audit where request_id=?::uuid",response.headers().firstValue("X-Request-Id").orElseThrow());
+    }
+
+    @TestConfiguration(proxyBeanMethods=false)
+    static class PortalTokens {
+        static final KeyPair KEY=keyPair();
+        @Bean("staffJwtDecoder") JwtDecoder staff() { return decoder("https://staff.example.invalid","staff-api"); }
+        @Bean("portalJwtDecoder") JwtDecoder portal() { return decoder("https://portal.example.invalid","portal-api"); }
+        private static JwtDecoder decoder(String issuer,String audience) {
+            var decoder=NimbusJwtDecoder.withPublicKey((RSAPublicKey)KEY.getPublic()).build();
+            decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefaultWithIssuer(issuer),jwt ->
+                    jwt.getAudience().contains(audience) && jwt.getIssuedAt()!=null && jwt.getExpiresAt()!=null
+                            ? OAuth2TokenValidatorResult.success() : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token"))));
+            return decoder;
+        }
+        static String token(UUID user) throws Exception {
+            var jwt=new SignedJWT(new JWSHeader(JWSAlgorithm.RS256),new JWTClaimsSet.Builder().issuer("https://portal.example.invalid")
+                    .subject(user.toString()).audience("portal-api").issueTime(Date.from(Instant.now().minusSeconds(1)))
+                    .expirationTime(Date.from(Instant.now().plusSeconds(300))).build());
+            jwt.sign(new RSASSASigner((RSAPrivateKey)KEY.getPrivate()));
+            return jwt.serialize();
+        }
+        private static KeyPair keyPair() {
+            try { var generator=KeyPairGenerator.getInstance("RSA"); generator.initialize(2048); return generator.generateKeyPair(); }
+            catch (Exception failure) { throw new IllegalStateException(failure); }
+        }
+    }
+
     private static final class Fixture implements AutoCloseable {
         final UUID[] company = {UUID.randomUUID(), UUID.randomUUID()};
         final UUID[] actor = {UUID.randomUUID(), UUID.randomUUID()};
         final UUID[] customer = {UUID.randomUUID(), UUID.randomUUID()};
         final UUID[] unit = {UUID.randomUUID(), UUID.randomUUID()};
         final UUID[] branch = {UUID.randomUUID(), UUID.randomUUID()};
+        final UUID[] product = {UUID.randomUUID(), UUID.randomUUID()};
+        final UUID[] warehouse = {UUID.randomUUID(), UUID.randomUUID()};
 
         Fixture() throws SQLException {
             try (var connection = migrationConnection()) {
@@ -376,8 +733,8 @@ class PostgresBaselineIT {
                     execute(connection, "INSERT INTO crm.customer_branch(id, company_id, customer_id, name) VALUES (?, ?, ?, 'TEST ONLY')", branch[i], company[i], customer[i]);
                     execute(connection, "INSERT INTO crm.customer_contact(company_id, customer_id, branch_id, name) VALUES (?, ?, ?, 'TEST ONLY')", company[i], customer[i], branch[i]);
                     execute(connection, "INSERT INTO catalog.unit_of_measure(id, company_id, code, name) VALUES (?, ?, 'TEST', 'TEST ONLY')", unit[i], company[i]);
-                    execute(connection, "INSERT INTO catalog.product(company_id, sku, name, base_unit_id) VALUES (?, 'TEST', 'TEST ONLY', ?)", company[i], unit[i]);
-                    execute(connection, "INSERT INTO inventory.warehouse(company_id, code, name) VALUES (?, 'TEST', 'TEST ONLY')", company[i]);
+                    execute(connection, "INSERT INTO catalog.product(id, company_id, sku, name, base_unit_id) VALUES (?, ?, 'TEST', 'TEST ONLY', ?)", product[i], company[i], unit[i]);
+                    execute(connection, "INSERT INTO inventory.warehouse(id, company_id, code, name) VALUES (?, ?, 'TEST', 'TEST ONLY')", warehouse[i], company[i]);
                 }
                 connection.commit();
             }
@@ -387,7 +744,13 @@ class PostgresBaselineIT {
         public void close() throws SQLException {
             try (var connection = migrationConnection()) {
                 connection.setAutoCommit(false);
-                for (String table : List.of("identity.grant_branch", "identity.resource_grant", "identity.member_role",
+                execute(connection,"DELETE FROM platform.access_audit WHERE selected_company_id IN (?,?) OR actor_id IN (?,?)",company[0],company[1],actor[0],actor[1]);
+                execute(connection,"DELETE FROM notification.audit WHERE company_id IN (?,?) OR event_id IN (SELECT id FROM platform.domain_outbox WHERE company_id IN (?,?))",company[0],company[1],company[0],company[1]);
+                execute(connection,"DELETE FROM notification.delivery WHERE message_id IN (SELECT id FROM notification.message WHERE company_id IN (?,?))",company[0],company[1]);
+                for (String table : List.of("notification.message","notification.recipient_cursor","notification.device","notification.inbox","platform.domain_outbox")) {
+                    execute(connection,"DELETE FROM "+table+" WHERE company_id IN (?,?)",company[0],company[1]);
+                }
+                for (String table : List.of("inventory.stock_movement", "inventory.stock_balance", "catalog.product_barcode", "catalog.product_unit", "identity.grant_branch", "identity.resource_grant", "identity.member_role",
                         "identity.role_permission", "identity.role", "inventory.warehouse", "catalog.product", "catalog.unit_of_measure",
                         "crm.customer_contact", "crm.customer_branch", "crm.customer", "identity.company_member")) {
                     execute(connection, "DELETE FROM " + table + " WHERE company_id IN (?, ?)", company[0], company[1]);

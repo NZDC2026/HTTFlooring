@@ -1,6 +1,26 @@
 # HTT Management API
 
-HTT 三端共用的 Java 后端。当前实现技术基线、PostgreSQL 基础及可配置的 Bearer 认证与资源授权。已增加员工/门户身份查询；客户、订单、财务和消息业务 API 尚未实现。
+日常运行、IDEA Run/Debug配置和换机接续，请先看 **[开发环境与换机手册](docs/development-setup.md)**，包含DPAPI凭据恢复、Java/浏览器证书、Maven构建、Swagger登录及故障排查。
+
+**本地真实登录已接通（开发DEMO）**：4个Keycloak测试用户已绑定 `htt_management`，邮箱密码+授权码PKCE→Java→Main的me/门店/越权验收通过。运行 `./scripts/Start-Development.ps1 -Port 8081`，打开 http://localhost:8081/swagger-ui/index.html；证书信任、密码获取和操作见 **[开发登录](docs/development-login.md)**。最终94项普通/15项真实PG及JAR通过。下方“业务身份未绑定”是早期状态；三端接入、手机号及生命周期同步仍待完成。
+
+HTT三端共用的Java后端。当前有工程/数据库、Bearer身份与资源权限、独立通知和内部库存读取；客户业务本轮只完成CTX-002门店只读切片，订单/财务API尚未迁移。
+
+2026-11-07最新：按用户要求，日常开发/人工验收统一使用 **`htt_management`**，现已V6并保留最小演示数据；Validation只做自动化隔离测试，人工演示数据已清理。92项普通/15项真实PG测试、JAR和Main运行账号readiness验证通过。生产只需一个HTT业务库，通过Flyway脚本建表。见 [数据库启动及生产建表](docs/database.md)、[演示数据](docs/demo-data.md)。真实业务登录仍待Keycloak账户绑定。
+
+[门户门店API](docs/migration/customer-portal.md)保留旧响应/范围/错误/限流，HTT_PORTAL_BRANCHES_ENABLED默认false；前端尚未接入。文件、精确命令与回滚见 [门户计划](docs/plans/customer-portal-branches.md)。下方迁移范围和测试数量保留各阶段历史。
+
+最新通知复核：业务事件发布配置独立于通知开关，71项普通测试/构建及7项真实PG/RabbitMQ容器测试通过；新增真实HTTP/SSE、RSA身份、RLS、跨客户/门店和Last-Event-ID补偿的同链路验收。FCM仍为Fake，未真机验证。文件清单/命令/回滚见 [通知阶段记录](docs/plans/notification-verification.md)，渠道和部署说明见 [通知文档](docs/notification.md)。
+
+库存阶段进展：共享库存V5及PostgreSQL读取已通过专用验证库验收（14项真实PG测试），该阶段69项普通测试/JAR构建通过。Keycloak已运行于 **https://192.168.10.174:18443**；开发CA、凭据位置、运维及生产域名/配置切换详见 [部署记录](deploy/keycloak/DEPLOYMENT.md)。三端共用库存表的字段、数量语义和未实施用例见 [ADR-0008](docs/adr/0008-shared-postgresql-inventory.md)。没有新增业务HTTP路由或变更前端登录。
+
+分层与依赖见 [架构](docs/ARCHITECTURE.md)、[模块及数据所有权](docs/MODULES.md) 和 [本阶段计划](docs/plans/shared-inventory-and-keycloak.md)。内部库存来源已接入同一PostgreSQL余额表，授权查询API/出库事务仍待实施；ERPNext未访问或集成。下面保留各阶段历史验收记录。
+
+2026-11-06 通知增量：实现事务 Outbox、RabbitMQ 消费/去重/重试/死信、渠道任务、Fake FCM、本人历史/设备/已读接口及认证 SSE。V4 已应用专用验证库；56 项普通测试、11 项真实 PostgreSQL 测试、6 项真实 RabbitMQ Testcontainers 测试全部通过。后者已在用户提供的 Linux Docker 服务器执行，临时测试容器已清理；FCM/APNs 未真机验证。配置、接口、Nginx 和多实例说明见 [通知模块](docs/notification.md)。功能默认关闭，未知领域事件/模板未自动启用。
+
+基础服务已在 192.168.10.174 隔离部署 htt-infra-test（RabbitMQ/Redis），端口仅环回绑定，随机凭据留在服务器私有状态目录。已准备并验证 [生产部署脚本](deploy/infra/README.md)：镜像 digest、双向 TLS、资源限制、持久化、ACL、健康检查、冷备份及保留卷停止。生产 TLS 冒烟栈已停止，测试证书状态不能用于正式生产；Redis 尚未接入 Java 缓存或会话逻辑。
+
+2026-11-06 早期复核记录：当时用户刚选择 Keycloak、尚未部署；后续本轮已完成开发部署，当前状态见 [进度清单](docs/STATUS.md)。早期认证复核补齐审计事务失败的统一 503 处理，当时43项普通测试通过；后续通知增量为56项普通、11项PostgreSQL和6项真实RabbitMQ测试。这些历史结果不替代最新69项普通/14项PG验收。
 
 认证实现轮未修改前端登录或访问远程服务。随后用户明确授权使用专门准备的测试 PostgreSQL：V3 已在 `htt_management_validation` 应用并通过验证，没有操作主库或 ERPNext，也没有部署新容器或更改服务器服务。应用启动仍仅校验迁移。
 
@@ -25,7 +45,7 @@ HTT 三端共用的 Java 后端。当前实现技术基线、PostgreSQL 基础�
 - Spring Boot 4.1.2，PostgreSQL 驱动、Flyway PostgreSQL 模块、Spring AMQP 由 Boot 管理版本。
 - springdoc 3.2.0；兼容依据及验证记录见 [ADR-0001](docs/adr/0001-java-baseline.md)。
 - 普通验证不需要 Docker、PostgreSQL 或 RabbitMQ；数据库集成验证使用本机 Docker 或明确选择专用验证库。
-- RabbitMQ 选用 Boot 管理的 `spring-boot-starter-amqp`；本阶段保留依赖，在 `local`/`test` 中排除 Rabbit 自动配置，未实现消费者、队列或通知业务。
+- RabbitMQ 选用 Boot 管理的 `spring-boot-starter-amqp`；`local`/`test` 排除 Rabbit 自动配置。通知启用后的消费者/队列和投递流程见上方通知模块说明。
 
 在当前目录运行（Windows 使用 `mvnw.cmd`，Linux/macOS 使用 `./mvnw`）：
 

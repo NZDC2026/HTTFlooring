@@ -1,0 +1,8 @@
+services:
+  rabbitmq:
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:15672"
+  redis:
+    ports:
+      - "127.0.0.1:${REDIS_PORT}:6379"

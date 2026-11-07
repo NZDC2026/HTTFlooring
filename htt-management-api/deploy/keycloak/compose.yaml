@@ -1,0 +1,56 @@
+# Preparation template: no resources are created by this file alone. Read README before use.
+name: htt-keycloak
+services:
+  keycloak:
+    image: ${KEYCLOAK_IMAGE:?Set a reviewed quay.io/keycloak/keycloak version and sha256 digest}
+    entrypoint: ["/bin/bash", "/opt/htt/entrypoint.sh"]
+    command: ["start", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: ${KEYCLOAK_DB_URL:?Use the dedicated htt_keycloak database only}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USERNAME:?Set the dedicated identity database account}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:?Set the complete trusted HTTPS origin}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "false"
+      KC_HTTPS_CERTIFICATE_FILE: /run/secrets/https_cert
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /run/secrets/https_key
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_DB_POOL_MAX_SIZE: "20"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?Set a temporary bootstrap admin name}
+      HTT_ADMIN_REDIRECT_URI: ${HTT_ADMIN_REDIRECT_URI:?Set an exact approved admin callback URI}
+      HTT_ADMIN_ORIGIN: ${HTT_ADMIN_ORIGIN:?Set the exact admin web origin}
+      HTT_SALES_REDIRECT_URI: ${HTT_SALES_REDIRECT_URI:?Set the approved mobile app callback URI}
+      HTT_PORTAL_REDIRECT_URI: ${HTT_PORTAL_REDIRECT_URI:?Set an exact approved portal callback URI}
+      HTT_PORTAL_ORIGIN: ${HTT_PORTAL_ORIGIN:?Set the exact portal web origin}
+    ports:
+      - "${KEYCLOAK_BIND_ADDRESS:-127.0.0.1}:${KEYCLOAK_HTTPS_PORT:-18443}:8443"
+      - "127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-19000}:9000"
+    volumes:
+      - ./entrypoint.sh:/opt/htt/entrypoint.sh:ro
+      - ./realms:/opt/keycloak/data/import:ro
+    secrets: [db_password, bootstrap_password, https_cert, https_key, pg_root_cert]
+    networks: [identity]
+    mem_limit: ${KEYCLOAK_MEMORY_LIMIT:-2g}
+    cpus: ${KEYCLOAK_CPU_LIMIT:-2}
+    pids_limit: 512
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 60s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+networks:
+  identity: {}
+secrets:
+  db_password:
+    file: ${KEYCLOAK_DB_PASSWORD_FILE:?Set an absolute secret file path}
+  bootstrap_password:
+    file: ${KEYCLOAK_BOOTSTRAP_PASSWORD_FILE:?Set an absolute temporary admin secret file path}
+  https_cert:
+    file: ${KEYCLOAK_HTTPS_CERT_FILE:?Set the trusted full certificate chain PEM path}
+  https_key:
+    file: ${KEYCLOAK_HTTPS_KEY_FILE:?Set the matching private key PEM path}
+  pg_root_cert:
+    file: ${KEYCLOAK_PG_ROOT_CERT_FILE:?Set the PostgreSQL CA PEM path}

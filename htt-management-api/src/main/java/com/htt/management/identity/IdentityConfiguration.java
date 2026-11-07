@@ -32,6 +32,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.transaction.TransactionException;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration(proxyBeanMethods = false)
@@ -46,6 +47,12 @@ public class IdentityConfiguration {
 
     @Bean
     ResourceAccess resourceAccess(AccessRepository repository, AccessAudit audit) { return new ResourceAccess(repository, audit); }
+
+    @Bean
+    @ConditionalOnProperty(name = "htt.portal.branches-enabled", havingValue = "true")
+    CustomerBranchAccess customerBranchAccess(AccessRepository repository, AccessAudit audit) {
+        return new CustomerBranchAccess(repository, audit);
+    }
 
     @Bean("staffJwtDecoder")
     @ConditionalOnMissingBean(name = "staffJwtDecoder")
@@ -109,7 +116,9 @@ public class IdentityConfiguration {
                 throw new BadCredentialsException("Identity is unavailable or token has been revoked.");
             }
             // Ignore JWT role/scope claims. Action permissions come from current company membership.
-            return UsernamePasswordAuthenticationToken.authenticated(new VerifiedUser(access, realm), null, List.of());
+            var authentication = UsernamePasswordAuthenticationToken.authenticated(new VerifiedUser(access, realm), null, List.of());
+            authentication.setDetails(new VerifiedToken(jwt.getIssuer().toString(), jwt.getSubject(), jwt.getIssuedAt(), jwt.getExpiresAt()));
+            return authentication;
         });
         return authentication -> {
             try { return provider.authenticate(authentication); }
@@ -125,7 +134,7 @@ public class IdentityConfiguration {
             boolean unavailable = exception instanceof OAuth2AuthenticationException oauth
                     && "temporarily_unavailable".equals(oauth.getError().getErrorCode());
             try { audit.record(request, "authentication", null, null, "DENY"); }
-            catch (DataAccessException failure) { unavailable = true; }
+            catch (DataAccessException | TransactionException failure) { unavailable = true; }
             if (!unavailable) response.setHeader("WWW-Authenticate", "Bearer");
             errors.write(request, response, unavailable ? 503 : 401,
                     unavailable ? "SERVICE_UNAVAILABLE" : "AUTHENTICATION_REQUIRED",
@@ -138,7 +147,7 @@ public class IdentityConfiguration {
         return (request, response, exception) -> {
             boolean unavailable = false;
             try { audit.record(request, "http:access", null, null, "DENY"); }
-            catch (DataAccessException failure) { unavailable = true; }
+            catch (DataAccessException | TransactionException failure) { unavailable = true; }
             errors.write(request, response, unavailable ? 503 : 403,
                     unavailable ? "SERVICE_UNAVAILABLE" : "ACCESS_DENIED",
                     unavailable ? "Authorization is temporarily unavailable." : "Access is denied.");

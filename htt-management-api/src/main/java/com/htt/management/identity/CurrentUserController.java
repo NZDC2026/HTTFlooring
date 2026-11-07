@@ -20,6 +20,7 @@ public class CurrentUserController {
     public record PortalSession(List<Context> contexts, Instant dataAsOf) {}
 
     @GetMapping("/api/v1/me")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "staff")
     @PreAuthorize("@resourceAccess.isStaff()")
     public StaffSession staff(@AuthenticationPrincipal VerifiedUser user) {
         return new StaffSession(user.access().companies().stream().map(company -> new Company(
@@ -28,6 +29,7 @@ public class CurrentUserController {
     }
 
     @GetMapping("/api/portal/v1/me")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "portal")
     @PreAuthorize("@resourceAccess.isCustomer()")
     public PortalSession portal(@AuthenticationPrincipal VerifiedUser user) {
         Instant now = Instant.now();

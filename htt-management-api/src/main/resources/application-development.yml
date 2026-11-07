@@ -1,0 +1,35 @@
+# Explicit loopback-only business development. Use with database, never with local or in production.
+server:
+  address: 127.0.0.1
+  port: 8080
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    disable-swagger-default-url: true
+    persist-authorization: false
+    oauth:
+      client-id: htt-api-swagger
+      use-pkce-with-authorization-code-grant: true
+      scopes: openid
+      additional-query-string-params:
+        prompt: login
+htt:
+  auth:
+    enabled: true
+    staff:
+      issuer: https://192.168.10.174:18443/realms/htt-staff
+      audience: htt-staff-api
+      jwk-set-uri: https://192.168.10.174:18443/realms/htt-staff/protocol/openid-connect/certs
+      mode: OIDC
+    portal:
+      issuer: https://192.168.10.174:18443/realms/htt-customer
+      audience: htt-portal-api
+      jwk-set-uri: https://192.168.10.174:18443/realms/htt-customer/protocol/openid-connect/certs
+      mode: OIDC
+  portal:
+    branches-enabled: true
+  notification:
+    enabled: false
+    workers-enabled: false

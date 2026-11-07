@@ -1,0 +1,78 @@
+name: htt-keycloak-dev
+services:
+  keycloak-db:
+    image: ${POSTGRES_IMAGE:?Pinned PostgreSQL image required}
+    environment:
+      POSTGRES_DB: htt_keycloak
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password, db_password]
+    volumes:
+      - identity-data:/var/lib/postgresql/data
+      - ./init-database.sql:/docker-entrypoint-initdb.d/01-identity.sql:ro
+    networks: [identity]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d htt_keycloak"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 256
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  keycloak:
+    image: ${KEYCLOAK_IMAGE:?Pinned Keycloak image required}
+    entrypoint: ["/bin/bash", "/opt/htt/entrypoint.sh"]
+    command: ["start", "--import-realm"]
+    depends_on:
+      keycloak-db: {condition: service_healthy}
+    environment:
+      HTT_KEYCLOAK_DEVELOPMENT: "true"
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/htt_keycloak?sslmode=disable
+      KC_DB_USERNAME: htt_keycloak
+      KC_DB_POOL_MAX_SIZE: "10"
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:?Development HTTPS IP origin required}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "false"
+      KC_HTTPS_CERTIFICATE_FILE: /run/secrets/https_cert
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /run/secrets/https_key
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: htt-bootstrap
+      HTT_ADMIN_REDIRECT_URI: https://admin.example.invalid/auth/callback
+      HTT_ADMIN_ORIGIN: https://admin.example.invalid
+      HTT_SALES_REDIRECT_URI: https://app.example.invalid/auth/callback
+      HTT_PORTAL_REDIRECT_URI: https://portal.example.invalid/auth/callback
+      HTT_PORTAL_ORIGIN: https://portal.example.invalid
+    ports:
+      - "${KEYCLOAK_BIND_ADDRESS:?Private IP required}:18443:8443"
+      - "127.0.0.1:19000:9000"
+    volumes:
+      - ./entrypoint.sh:/opt/htt/entrypoint.sh:ro
+      - ./realms:/opt/keycloak/data/import:ro
+    secrets: [db_password, bootstrap_password, https_cert, https_key]
+    networks: [identity]
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 512
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 60s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+networks:
+  identity: {}
+volumes:
+  identity-data: {}
+secrets:
+  db_password: {file: "${STATE_DIR:?}/secrets/db_password"}
+  postgres_password: {file: "${STATE_DIR:?}/secrets/postgres_password"}
+  bootstrap_password: {file: "${STATE_DIR:?}/secrets/bootstrap_password"}
+  https_cert: {file: "${STATE_DIR:?}/tls/server.crt"}
+  https_key: {file: "${STATE_DIR:?}/tls/server.key"}
