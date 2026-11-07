@@ -174,8 +174,9 @@ export function Sidebar() {
     const { pathname } = useLocation();
     const inSuppliers = pathname === "/contacts/supplier-dashboard" || pathname === "/contacts/suppliers" || pathname.startsWith("/contacts/suppliers/");
     const inCustomers=pathname==='/contacts'||pathname==='/contacts/list'||pathname.startsWith('/contacts/customers/')||pathname.startsWith('/contacts/review');
-    const [expanded,setExpanded]=useState({customers:inCustomers,suppliers:inSuppliers});
-    useEffect(()=>{if(inCustomers)setExpanded(value=>({...value,customers:true}));if(inSuppliers)setExpanded(value=>({...value,suppliers:true}));},[pathname,inCustomers,inSuppliers]);
+    const inInventory=pathname==='/inventory'||pathname.startsWith('/inventory/');
+    const [expanded,setExpanded]=useState({customers:inCustomers,suppliers:inSuppliers,inventory:inInventory});
+    useEffect(()=>{if(inCustomers)setExpanded(value=>({...value,customers:true}));if(inSuppliers)setExpanded(value=>({...value,suppliers:true}));if(inInventory)setExpanded(value=>({...value,inventory:true}));},[pathname,inCustomers,inSuppliers,inInventory]);
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
         if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
@@ -239,6 +240,10 @@ export function Sidebar() {
                             <div className="space-y-1">
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
+                                    if(item.path==='/inventory'){
+                                        const children=[{label:'Sold',path:'/inventory/sold',permission:'sales.read' as Permission},{label:'Bought',path:'/inventory/bought',permission:'purchases.read' as Permission},{label:'Damage Stock',path:'/inventory/damage',permission:'inventory.read' as Permission},{label:'Stock Adjustments',path:'/inventory/adjustments',permission:'inventory.read' as Permission}].filter(child=>hasPermission(principal,child.permission));
+                                        return <div key={item.path}><div className={cn('group flex h-10 items-center rounded-lg text-[13px] font-medium transition',inInventory?'bg-white/12 text-white':'text-white/65 hover:bg-white/7 hover:text-white')}><NavLink to="/inventory" end onClick={()=>setExpanded(v=>({...v,inventory:true}))} className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3"><Icon size={17} strokeWidth={1.8} className={inInventory?'text-[var(--color-accent)]':'text-white/55'}/><span>Inventory</span></NavLink>{!!children.length&&<button type="button" aria-label={`${expanded.inventory?'Collapse':'Expand'} Inventory`} aria-expanded={expanded.inventory} aria-controls="sidebar-inventory-submenu" onClick={()=>setExpanded(v=>({...v,inventory:!v.inventory}))} className="mr-1 grid size-8 place-items-center rounded-md hover:bg-white/10"><ChevronDown size={14} className={cn('transition-transform',expanded.inventory?'rotate-180':'')}/></button>}</div>{expanded.inventory&&!!children.length&&<nav id="sidebar-inventory-submenu" aria-label="Inventory submenu" className="ml-5 mt-1 border-l border-white/15 pl-3">{children.map(child=><NavLink key={child.path} to={child.path} end className={({isActive})=>cn('block rounded-lg px-3 py-2 text-xs transition',isActive?'bg-white/10 font-semibold text-white':'text-white/60 hover:bg-white/7 hover:text-white')}>{child.label}</NavLink>)}</nav>}</div>;
+                                    }
                                     if(item.path==='/contacts'||item.path==='/contacts/supplier-dashboard'){
                                         const key=item.path==='/contacts'?'customers':'suppliers';
                                         const active=key==='customers'?inCustomers:inSuppliers;

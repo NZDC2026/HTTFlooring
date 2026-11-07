@@ -3,6 +3,7 @@ export type JournalEntryStatus =
     | "REVERSED";
 
 export type AccountingSourceType =
+    | "INVENTORY_ADJUSTMENT"
     | "YEAR_END_CLOSE"
     | "OPENING_BALANCE"
     | "MANUAL_JOURNAL"

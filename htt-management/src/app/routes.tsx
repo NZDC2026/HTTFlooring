@@ -1,3 +1,4 @@
+import { StockAdjustmentsPage } from '../features/stock-adjustments/StockAdjustments';
 import { CustomerPriceSettingsPage } from "../features/contacts/pages/CustomerPriceSettingsPage";
 import { StaffManagementPage } from "../features/security/pages/StaffManagementPage";
 import { CustomerDashboardPage } from "../features/contacts/pages/CustomerDashboardPage";
@@ -230,6 +231,10 @@ export const appRoutes:RouteObject[] = [
                 path: "inventory",
                 element: <InventoryPage />,
             },
+            { path: "inventory/damage", element: <StockAdjustmentsPage damageOnly /> },
+            { path: "inventory/adjustments", element: <StockAdjustmentsPage /> },
+            { path: "inventory/sold", element: <InventoryPage key="sold" initialKind="Sold" /> },
+            { path: "inventory/bought", element: <InventoryPage key="bought" initialKind="Bought" /> },
             {
                 path: "inventory/valuation",
                 element: (

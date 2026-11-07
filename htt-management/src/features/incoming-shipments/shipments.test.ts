@@ -98,3 +98,8 @@ it('allows a local purchase to receive and bill directly without creating a ship
  expect(records('purchaseOrders').purchaseOrders.find((p:any)=>p.id===po.id).lines[0].receivedQuantity).toBe(2);
  await restart();expect(saved()).toHaveLength(0);expect(records('supplierBills').supplierBills.some((b:any)=>b.id===bill.id)).toBe(true);
 });
+
+it('records Arrived without receiving stock and allows subsequent goods receiving',()=>{
+ const po=order(),before=JSON.stringify(records('stock'));const row=command('suppliers','saveShipment',shipment([po],{status:'Arrived'}));expect(row.status).toBe('Arrived');expect(JSON.stringify(records('stock'))).toBe(before);
+ const received=command('suppliers','receiveShipment',{supplierId:row.supplierId,id:row.id,revision:row.revision,operationId:crypto.randomUUID(),date:'2026-11-07',reason:'Warehouse checked arrived goods',lines:[{purchaseOrderId:po.id,lineId:po.lines[0].id,quantity:1}]});expect(received.lines[0].received).toBe(1);
+});

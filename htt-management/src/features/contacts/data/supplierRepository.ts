@@ -1,3 +1,4 @@
+import { shipmentWarehouse } from '../../incoming-shipments/shipmentWarehouse';
 import { shipmentInput, shipmentReceiptInput, shipmentSchema, buildShipmentLines, type Shipment } from "../../incoming-shipments/shipmentModel";
 import { resolveCommand } from "../../security/repositoryHost";
 import { inventorySiteRepository } from "../../inventory/data/inventorySiteRepository";
@@ -221,9 +222,10 @@ export const supplierRepository = {
         if(input.id&&!old)throw Error("Shipment was not found");
         if((old?.revision??0)!==input.revision)throw Error("Shipment changed. Reload and review before saving.");
         const locked=!!old?.lines.some(l=>l.received>0);
-        if(locked&&(input.siteId!==old!.siteId||input.status!==old!.status||JSON.stringify(input.lines)!==JSON.stringify(old!.lines.map(({purchaseOrderId,lineId,quantity})=>({purchaseOrderId,lineId,quantity})))))throw Error("Received shipment items, status and warehouse are locked.");
+        if(locked&&(input.siteId!==old!.siteId||input.status!==old!.status&&input.status!=='Arrived'||JSON.stringify(input.lines)!==JSON.stringify(old!.lines.map(({purchaseOrderId,lineId,quantity})=>({purchaseOrderId,lineId,quantity})))))throw Error("Received shipment items, status and warehouse are locked.");
         if(old?.status==='Cancelled')throw Error("Cancelled shipments cannot be changed");
         if(!inventorySiteRepository.getActive().some(s=>s.id===input.siteId))throw Error("Choose an active destination warehouse");
+        const regionWarehouse=shipmentWarehouse(businessSettings().companyName,inventorySiteRepository.getActive());if(!locked&&(!regionWarehouse.site||input.siteId!==regionWarehouse.site.id))throw Error("Shipment destination must match the current business region warehouse.");
         if(input.etd&&input.etd>input.eta)throw Error("ETA cannot be before dispatch date");
         const orders=(snapshotRepositories().purchaseOrders as {purchaseOrders:PurchaseOrder[]}).purchaseOrders;
         const all=suppliers.flatMap(s=>s.shipments??[]);
@@ -237,7 +239,7 @@ export const supplierRepository = {
         if(!supplier||!old)throw Error("Shipment was not found");
         if(old.history.some(h=>h.operationId===input.operationId)){if(old.history.find(h=>h.operationId===input.operationId)?.request!==JSON.stringify(input))throw Error("Operation already has different receiving content");return old;}
         if(old.revision!==input.revision)throw Error("Shipment changed. Reload before receiving.");
-        if(!['Preparing','In Transit'].includes(old.status))throw Error("Only active shipments can receive goods");
+        if(!['Preparing','In Transit','Arrived'].includes(old.status))throw Error("Only active shipments can receive goods");
         const keys=new Set<string>();
         for(const l of input.lines){const key=l.purchaseOrderId+':'+l.lineId;if(keys.has(key))throw Error('Duplicate receiving line');keys.add(key);const line=old.lines.find(x=>x.purchaseOrderId===l.purchaseOrderId&&x.lineId===l.lineId);if(!line||l.quantity>line.quantity-line.received+0.000001)throw Error("Receiving exceeds shipment quantity");}
         const receiptIds:string[]=[];

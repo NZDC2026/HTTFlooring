@@ -61,6 +61,7 @@ export interface Product {
     pattern?: "Plank" | "Herringbone" | "Chevron";
     accessoryType?: import("../../contacts/data/priceCatalogue").AccessoryType;
     description?: string;
+    dimensions?: { lengthMm?: number; widthMm?: number; thicknessMm?: number };
 
     status: ProductStatus;
 
@@ -73,6 +74,8 @@ export interface Product {
     wholePacks?: boolean;
     taxCode?: string;
 
+    /** Preferred packaging unit shown in product setup. */
+    measureUnitId?: string;
     baseUnitId: string;
 
     units: ProductUnit[];

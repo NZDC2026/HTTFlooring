@@ -1,3 +1,4 @@
+import '../../src/features/stock-adjustments/stockAdjustmentRepository';
 import './yearEndRepository';
 export {assertYearEndIntegrity} from './yearEndRepository';
 import './captureSourceRepository';

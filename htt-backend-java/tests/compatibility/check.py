@@ -145,6 +145,24 @@ def expired_rule_fixture(preview_id):
     assert result.returncode==0 and expired in result.stdout.splitlines(),result
     return expired
 
+def synthetic_feed_state(connection_id,action):
+    container=os.environ.get('HTT_COMPAT_PG_CONTAINER','')
+    assert re.fullmatch(r'htt-java-compat-[0-9a-f]{12}',container), 'Disposable synthetic database required'
+    feed=str(uuid.UUID(connection_id))
+    conditions="company_id='00000000-0000-0000-0000-000000000001' AND connection_id='"+feed+"'::uuid"
+    if action=='failed-verify':
+        mutation="UPDATE bankfeeds.jobs SET state='FAILED',error_code='synthetic_fixture',finished_at=now() WHERE "+conditions+" AND kind='VERIFY' AND state='PENDING';"
+    elif action=='active-consent':
+        mutation="UPDATE bankfeeds.jobs SET state='SUCCEEDED',finished_at=now() WHERE "+conditions+" AND kind='VERIFY' AND state='PENDING'; UPDATE bankfeeds.connections SET state='ACTIVE',consent_expires_at=now()+interval '1 day',remote_account_id='synthetic-local-only' WHERE company_id='00000000-0000-0000-0000-000000000001' AND id='"+feed+"'::uuid;"
+    elif action=='unknown-sync':
+        mutation="UPDATE bankfeeds.jobs SET state='UNKNOWN',error_code='synthetic_unknown',finished_at=now() WHERE "+conditions+" AND kind='SYNC' AND state='PENDING';"
+    else:raise AssertionError('Unknown synthetic feed state')
+    # Only the two synthetic test accounts are permitted; no gateway is invoked.
+    sql="SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true),set_config('htt.actor_id','00000000-0000-0000-0000-000000000480',true); DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM bankfeeds.connections WHERE id='"+feed+"'::uuid AND bank_account_id IN('00000000-0000-0000-0000-000000000470','00000000-0000-0000-0000-000000000471')) THEN RAISE EXCEPTION 'Synthetic account required'; END IF; END $$; "+mutation
+    result=subprocess.run(['docker','exec','-i',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-1'],input=sql,text=True,capture_output=True,timeout=20)
+    with (here/'feed-state-fixture.log').open('a') as evidence:evidence.write(action+'\\n'+result.stdout+result.stderr+'\\n')
+    assert result.returncode==0,result
+
 def request(path, jwt=None, company=None, grant=None, base=url, payload=None, key=None, version=None, content_type=None, method=None):
     if base.endswith((':15081',':15082')):
         pace_backend(base)
@@ -3814,14 +3832,14 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert a[0]==b[0]==status,(path,a,b)
                 if status==200:assert a[1]==b[1],(path,a,b)
                 return a
-            def rule_write_retry(path,body,first,second,changed,version=None,method='POST',status=201,actor=None):
+            def rule_write_retry(path,body,first,second,changed,version=None,method='POST',status=201,actor=None,replay_payload=None):
                 actor=actor or general_finance
                 key='rule-write-shared-'+uuid.uuid4().hex
                 args={'payload':body,'key':key,'method':method,'version':version}
                 result=request(path,actor,company,base=first,**args)
                 assert result[0]==status,(path,result)
                 with ThreadPoolExecutor(max_workers=6) as pool:
-                    attempts=list(pool.map(lambda n:request(path,actor,company,base=first if n%2 else second,**args),range(6)))
+                    attempts=list(pool.map(lambda n:request(path,actor,company,base=first if n%2 else second,**{**args,'payload':body if replay_payload is None else replay_payload}),range(6)))
                 assert all(x==result for x in attempts),(path,result,attempts)
                 assert request(path,actor,company,base=second,**{**args,'payload':{**body,**changed}})[0]==409
                 return result
@@ -3904,6 +3922,16 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 b=request(path,feed_manager,company,base=legacy_url)
                 assert a==b and a[0]==200,(path,a,b)
                 return a
+            def feed_command(path,version,first,second,body=None):
+                key='feed-command-'+uuid.uuid4().hex
+                args={'payload':body,'key':key,'version':version,'method':'POST'}
+                result=request(path,feed_manager,company,base=first,**args)
+                assert result[0]==202,(path,result)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda n:request(path,feed_manager,company,base=first if n%2 else second,**args),range(6)))
+                assert all(x==result for x in retries),(result,retries)
+                assert request(path,feed_manager,company,base=second,**{**args,'version':version+1})[0]==409
+                return result
             for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
                 feed_bank='00000000-0000-0000-0000-'+str(470+n).zfill(12)
                 path='/api/v1/bank-accounts/'+feed_bank+'/feed-connections'
@@ -3928,6 +3956,23 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                         blocked=request(feed_path+'/'+op,feed_manager,company,base=target,method='POST',key='feed-blocked-'+uuid.uuid4().hex,version=view[1]['version'])
                         assert blocked[0]==409,(op,target,blocked)
                     assert request(feed_path+'/revoke',feed_manager,company,base=target,method='POST')[0]==428
+                # Model worker outcomes only inside this disposable database; no provider is called.
+                synthetic_feed_state(feed_id,'failed-verify')
+                verified=feed_command(feed_path+'/verify',view[1]['version'],first,second)
+                assert verified[1]['kind']=='VERIFY',verified
+                synthetic_feed_state(feed_id,'active-consent')
+                view=feed_read(feed_path)
+                synced=feed_command(feed_path+'/sync',view[1]['version'],second,first)
+                assert synced[1]['kind']=='SYNC',synced
+                synthetic_feed_state(feed_id,'unknown-sync')
+                view=feed_read(feed_path)
+                retry_body={'jobId':synced[1]['id'],'reason':'Synthetic operator reviewed unknown outcome','acknowledgeUnknown':True}
+                for target in (first,second):
+                    assert request(feed_path+'/retry',feed_manager,company,base=target,payload={**retry_body,'acknowledgeUnknown':False},key='feed-ack-required-'+uuid.uuid4().hex,version=view[1]['version'])[0]==409
+                    assert request(feed_path+'/retry',feed_manager,company,base=target,payload={**retry_body,'reason':''},key='feed-reason-required-'+uuid.uuid4().hex,version=view[1]['version'])[0]==422
+                retried=feed_command(feed_path+'/retry',view[1]['version'],first,second,retry_body)
+                assert retried[1]['id']==synced[1]['id'] and retried[1]['kind']=='RETRY',retried
+                view=feed_read(feed_path)
                 # Bodyless commands still carry an idempotency key; request helper only attaches it to a body.
                 revoke_key='feed-revoke-'+uuid.uuid4().hex
                 def revoke(target,version):
@@ -3942,10 +3987,111 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert all(x==revoked for x in retries),(revoked,retries)
                 assert revoke(second,view[1]['version']+1)[0]==409
                 view=feed_read(feed_path)
-                assert view[1]['state']=='REVOKING' and {x['state'] for x in view[1]['jobs']}=={'PENDING','CANCELLED'},view
+                assert view[1]['state']=='REVOKING' and {x['state'] for x in view[1]['jobs']}=={'PENDING','CANCELLED','FAILED','SUCCEEDED'},view
                 feed_read(feed_path+'/jobs')
                 for target in (first,second):
                     assert request(feed_path+'/retry',feed_manager,company,base=target,payload={'jobId':revoked[1]['id'],'reason':'Not eligible synthetic pending job'},key='feed-retry-ineligible-'+uuid.uuid4().hex,version=view[1]['version'])[0]==409
+
+            def financial_parity(path,status=200):
+                a=request(path,general_finance,company);b=request(path,general_finance,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:
+                    for response in (a,b):
+                        snapshot=response[1]['snapshotAt']
+                        assert snapshot.endswith('+00:00') or snapshot.endswith('Z'),snapshot
+                    left={k:v for k,v in a[1].items() if k!='snapshotAt'}
+                    right={k:v for k,v in b[1].items() if k!='snapshotAt'}
+                    assert left==right,(path,left,right)
+                    assert a[1]['companyId']==company and a[1]['currency']=='AUD',a
+                return a
+            from decimal import Decimal
+            financial='/api/v1/accounting/reports/'
+            for zeros in ('false','true'):
+                pnl=financial_parity(financial+'profit-and-loss?from=2026-01-01&to=2027-01-01&includeZero='+zeros)[1]
+                assert Decimal(pnl['totals']['netProfit'])==Decimal(pnl['totals']['revenue'])-Decimal(pnl['totals']['expenses'])
+                revenue=sum((Decimal(x['amount']) for x in pnl['items'] if x['kind']=='REVENUE'),Decimal(0))
+                expenses=sum((Decimal(x['amount']) for x in pnl['items'] if x['kind']=='EXPENSE'),Decimal(0))
+                assert revenue==Decimal(pnl['totals']['revenue']) and expenses==Decimal(pnl['totals']['expenses']),pnl
+                balance=financial_parity(financial+'balance-sheet?asOf='+general_today+'&includeZero='+zeros)[1]
+                assert balance['status']=='BALANCED' and Decimal(balance['totals']['difference'])==0,balance
+                assert Decimal(balance['totals']['assets'])==Decimal(balance['totals']['liabilitiesAndEquity']),balance
+            financial_parity(financial+'balance-sheet?asOf='+general_today+'&fiscalYearStart=2026-01-01')
+            for side,party in (('receivables-aging','00000000-0000-0000-0000-000000000010'),('payables-aging','00000000-0000-0000-0000-000000000042')):
+                path=financial+side+'?asOf='+general_today
+                full=financial_parity(path+'&pageSize=100')[1]
+                first=financial_parity(path+'&pageSize=1&page=1')[1]
+                second=financial_parity(path+'&pageSize=1&page=2')[1]
+                assert first['items']==full['items'][:1] and second['items']==full['items'][1:2],(full,first,second)
+                assert full['totals']==first['totals']==second['totals']
+                totals=full['totals']
+                assert Decimal(totals['difference'])==Decimal(totals['netBalance'])-Decimal(totals['controlBalance']),full
+                assert (full['status']=='RECONCILED')==(Decimal(totals['difference'])==0),full
+                buckets=sum((Decimal(totals[x]) for x in ('current','days1To30','days31To60','days61To90','daysOver90')),Decimal(0))
+                assert buckets==Decimal(totals['outstanding']),full
+                financial_parity(path+'&partyId='+party)
+                financial_parity(path+'&partyId='+str(uuid.uuid4()),404)
+                financial_parity(path+'&page=0',422)
+                financial_parity(path+'&pageSize=101',422)
+                financial_parity(financial+side+'?asOf=0001-01-01',422)
+            for path,status in (('profit-and-loss?from=2026-01-01&to=2027-01-03',422),('profit-and-loss?from=2026-01-01&to=2026-01-01',422),('profit-and-loss?from=bad&to=2027-01-01',400),('profit-and-loss?from=2026-01-01&to=2027-01-01&includeZero=1',400),('balance-sheet?asOf=0001-01-01',422),('balance-sheet?asOf=2026-06-01&fiscalYearStart=2026-06-02',422)):
+                financial_parity(financial+path,status)
+            for target in (url,legacy_url):
+                for actor in (general_no_reports,general_no_ledger):
+                    assert request(financial+'profit-and-loss?from=2026-01-01&to=2027-01-01',actor,company,base=target)[0]==403
+
+            cash='/api/v1/accounting/cash-flow/'
+            cash_report='/api/v1/accounting/reports/cash-flow?from=2026-01-01&to=2027-01-01'
+            full=financial_parity(cash_report+'&pageSize=100')[1]
+            first_page=financial_parity(cash_report+'&page=1&pageSize=2')[1]
+            second_page=financial_parity(cash_report+'&page=2&pageSize=2')[1]
+            assert first_page['items']==full['items'][:2] and second_page['items']==full['items'][2:4]
+            assert first_page['totals']==second_page['totals']==full['totals']
+            totals=full['totals']
+            assert Decimal(totals['closingCash'])-Decimal(totals['openingCash'])==Decimal(totals['netChange']),full
+            assert Decimal(totals['movementDifference'])==Decimal(totals['netChange'])-sum((Decimal(totals[x]) for x in ('operatingNet','investingNet','financingNet','internalNet','unclassifiedNet')),Decimal(0)),full
+            def cash_read(path):
+                a=request(path,general_finance,company);b=request(path,general_finance,company,base=legacy_url)
+                assert a==b and a[0]==200,(path,a,b)
+                return a[1]
+            scopes=cash_read(cash+'scopes')['items']
+            for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
+                bank='00000000-0000-0000-0000-'+str(470+n).zfill(12)
+                entry=next(x for x in scopes if x['bankAccountId']==bank)
+                path=cash+'scopes/'+bank
+                changed=rule_write_retry(path,{'included':False,'reason':' Synthetic cash scope exclusion '},first,second,{'reason':'Different exclusion reason'},entry['version'],method='PUT',status=200)
+                assert changed[1]['included'] is False,changed
+                restored=rule_write_retry(path,{'included':True,'reason':'Synthetic cash scope restoration'},second,first,{'reason':'Different restoration reason'},changed[1]['version'],method='PUT',status=200)
+                assert restored[1]['included'] is True,restored
+            used=next(x for x in scopes if x['bankAccountId']==bank_a)
+            for target in (url,legacy_url):
+                assert request(cash+'scopes/'+bank_a,general_finance,company,base=target,payload={'included':False,'reason':'Used scope immutable'},key='cash-used-'+uuid.uuid4().hex,version=used['version'],method='PUT')[0]==409
+                assert request(cash+'scopes/'+bank_a,general_finance,company,base=target,payload={'included':True,'reason':'Missing version'},key='cash-version-'+uuid.uuid4().hex,method='PUT')[0]==428
+                assert request(cash+'scopes/'+str(uuid.uuid4()),general_finance,company,base=target,payload={'included':True,'reason':'Unknown scope'},key='cash-missing-'+uuid.uuid4().hex,method='PUT')[0]==404
+            original_id=posted[1]['transaction']['id']
+            original_doc=request('/api/v1/bank-transactions/'+original_id,general_finance,company)[1]
+            journal_id=original_doc['transaction']['journalEntryId']
+            path=cash+'journals/'+journal_id
+            detail=cash_read(path)
+            assert len(detail['lines'])==1 and detail['lines'][0]['signedAmount']=='1.25',detail
+            cash_line=detail['lines'][0]['journalLineId']
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                automatic=rule_write_retry(path+'/classification',{'mode':'AUTO','reason':'Synthetic automatic cash classification'},first,second,{'reason':'Different automatic classification'},detail['revision'],method='PUT',status=200)
+                detail=cash_read(path);assert detail['revision']==automatic[1]['revision'],detail
+                split={'mode':'CUSTOM','reason':'Synthetic split cash allocation','allocations':[{'journalLineId':cash_line,'category':'INVESTING','amount':'0.25'},{'journalLineId':cash_line,'category':'OPERATING','amount':'1.00'}]}
+                custom=rule_write_retry(path+'/classification',split,second,first,{'reason':'Different split classification'},detail['revision'],method='PUT',status=200,replay_payload={**split,'allocations':list(reversed(split['allocations']))})
+                detail=cash_read(path);assert detail['revision']==custom[1]['revision'],detail
+                restored=rule_write_retry(path+'/classification',{'mode':'CUSTOM','reason':'Restore original cash allocation','allocations':[{'journalLineId':cash_line,'category':'OPERATING','amount':'1.25'}]},first,second,{'reason':'Different original classification'},detail['revision'],method='PUT',status=200)
+                detail=cash_read(path);assert detail['revision']==restored[1]['revision'],detail
+            reverse_journal=cash+'journals/'+original_doc['reversal']['journalEntryId']
+            inherited=cash_read(reverse_journal)
+            assert inherited['lines'][0]['isReversal'] is True and inherited['lines'][0]['allocations'][0]['sourceRevision']==detail['revision'],inherited
+            for target in (url,legacy_url):
+                assert request(reverse_journal+'/classification',general_finance,company,base=target,payload={'mode':'AUTO','reason':'Reversal inherits classification'},key='cash-reversal-'+uuid.uuid4().hex,version=0,method='PUT')[0]==409
+                assert request(path+'/classification',general_finance,company,base=target,payload={'mode':'AUTO','reason':'No version'},key='cash-class-version-'+uuid.uuid4().hex,method='PUT')[0]==428
+                assert request(path+'/classification',general_no_reports,company,base=target,payload={'mode':'AUTO','reason':'No report read'},key='cash-class-denied-'+uuid.uuid4().hex,version=detail['revision'],method='PUT')[0]==403
+            financial_parity(cash_report+'&pageSize=2')
+            print('PASS: cash-flow ordered reporting, unused scope changes/restoration, used scope guard, AUTO/custom classification and reversal inheritance')
+            print('PASS: ordered profit/loss and balanced equity, AR/AP aging page totals and party scope, raw decimal strings, date/permission guards')
             print('PASS: sandbox-only feed connection and queued revocation, composite access, raw projections, shared replay and ineligible operation guards; gateway workers remain disabled')
             print('PASS: ready rule execution, exactly-once shared replay, frozen source links, permission/confirmation/double-execution guards and released-source reversal')
             print('PASS: ordered bank rule details/list/revisions, frozen previews and paged exception projections with composite access guards')

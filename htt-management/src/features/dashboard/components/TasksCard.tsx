@@ -23,7 +23,7 @@ export function TasksCard() {
  const linkedOrders=new Set(savedShipments.filter(s=>s.shipment.status!=='Cancelled').flatMap(s=>s.shipment.lines.map(l=>l.purchaseOrderId)));
  const shipments = canReadPurchases ? [
      ...shipmentAlerts(orders.filter(o=>!linkedOrders.has(o.id)), today),
-     ...savedShipments.filter(({shipment:s})=>!['Received','Cancelled','Draft'].includes(shipmentStatus(s,today))).flatMap(({supplier,shipment:s})=>{const days=Math.round((Date.parse(s.eta)-Date.parse(today))/86400000);return days<=7?[{id:s.id,number:s.number,supplier,eta:s.eta,days,overdue:days<0}]:[]}),
+     ...savedShipments.filter(({shipment:s})=>s.status!=='Arrived'&&!['Received','Cancelled','Draft'].includes(shipmentStatus(s,today))).flatMap(({supplier,shipment:s})=>{const days=Math.round((Date.parse(s.eta)-Date.parse(today))/86400000);return days<=7?[{id:s.id,number:s.number,supplier,eta:s.eta,days,overdue:days<0}]:[]}),
  ].sort((a,b)=>a.days-b.days) : [];
  const [showShipmentSample, setShowShipmentSample] = useState(true);
  const sampleDate = (days: number) => {

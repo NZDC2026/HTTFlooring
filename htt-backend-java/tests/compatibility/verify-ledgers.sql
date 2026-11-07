@@ -404,3 +404,22 @@ DO $$ BEGIN
  OR EXISTS(SELECT 1 FROM accounting.bank_rule_executions e LEFT JOIN accounting.bank_transaction_reversals v ON v.company_id=e.company_id AND v.original_id=e.source_document_id WHERE v.id IS NULL)
  THEN RAISE EXCEPTION 'Bank rule execution/source/revision exactly-once mismatch'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM bankfeeds.connections WHERE environment='SANDBOX' AND state='REVOKING')<>2
+ OR (SELECT count(*) FROM bankfeeds.jobs)<>8
+ OR (SELECT count(*) FROM bankfeeds.jobs WHERE state='PENDING' AND kind='REVOKE')<>2
+ OR (SELECT count(*) FROM bankfeeds.batches)<>0
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_feed_created')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_feed_queued')<>8
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_feed_completed')<>0
+ OR EXISTS(SELECT 1 FROM accounting.journal_lines WHERE account_id IN('00000000-0000-0000-0000-000000000470','00000000-0000-0000-0000-000000000471'))
+ THEN RAISE EXCEPTION 'Feed command, exactly-once queue or isolated/no-posting mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.cash_scope_changed')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.cash_flow_classified')<>6
+ OR (SELECT count(*) FROM accounting.cash_flow_scopes WHERE bank_account_id IN('00000000-0000-0000-0000-000000000470','00000000-0000-0000-0000-000000000471') AND included AND NOT review_required)<>2
+ THEN RAISE EXCEPTION 'Cash scope/classification exactly-once mismatch'; END IF;
+END $$;

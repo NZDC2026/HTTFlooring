@@ -458,3 +458,5 @@ INSERT INTO identity.roles(id,company_id,code,name)VALUES('00000000-0000-0000-00
 INSERT INTO identity.membership_roles(company_id,membership_id,role_id)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000481','00000000-0000-0000-0000-000000000482');
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT company_id,'00000000-0000-0000-0000-000000000482'::uuid,permission_code FROM identity.role_permissions WHERE company_id='00000000-0000-0000-0000-000000000001' AND role_id='00000000-0000-0000-0000-000000000452';
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT '00000000-0000-0000-0000-000000000001'::uuid,'00000000-0000-0000-0000-000000000482'::uuid,code FROM identity.permissions WHERE code IN('accounting.bank_feeds.read','accounting.bank_feeds.manage','accounting.bank_feeds.sync');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.cash_flow.configure');
