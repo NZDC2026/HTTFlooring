@@ -460,3 +460,13 @@ INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT 
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT '00000000-0000-0000-0000-000000000001'::uuid,'00000000-0000-0000-0000-000000000482'::uuid,code FROM identity.permissions WHERE code IN('accounting.bank_feeds.read','accounting.bank_feeds.manage','accounting.bank_feeds.sync');
 
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.cash_flow.configure');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bas.read');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bas.manage');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bas.finalize');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bas.reopen');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bas.classify');

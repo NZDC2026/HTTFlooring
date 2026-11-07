@@ -1,7 +1,9 @@
+import type { PurchaseCharges,PurchaseChargeDraft,PurchaseAttachment } from '../data/purchaseOrderExtras';
 import type { EtaChange } from "../../incoming-shipments/shipmentEta";
 import type { FxSnapshot } from "../../currency/currency";
 import type { PurchaseDefaults } from '../../purchase-settings/purchaseDefaults';
 export type PurchaseOrderStatus =
+    | "QUOTATION"
     | "DRAFT"
     | "APPROVED"
     | "SENT"
@@ -11,6 +13,8 @@ export type PurchaseOrderStatus =
     | "BILLED";
 
 export interface PurchaseOrderLine {
+    priceUnit?:"M2";
+    coveragePerUnit?:number;
     grossUnitCost?: number;
     taxCollectedAccountId?: string;
     taxPaidAccountId?: string;
@@ -49,6 +53,12 @@ export interface PurchaseOrderTotals {
 }
 
 export interface PurchaseOrder {
+    quotationNumber?: string;
+    quotationConvertedAt?: string;
+    quotationConvertedBy?: string;
+    charges?:PurchaseCharges;
+    originalCharges?:PurchaseCharges;
+    attachments?:PurchaseAttachment[];
     etaHistory?: EtaChange[];
     originalLines?: PurchaseOrderLine[];
     fx?: FxSnapshot;
@@ -87,6 +97,7 @@ export interface PurchaseOrder {
 }
 
 export interface PurchaseOrderLineDraft {
+    priceUnit?:"M2";
     priceBasis?: "Inclusive" | "Exclusive";
     productId: string;
     unitId: string;
@@ -96,6 +107,8 @@ export interface PurchaseOrderLineDraft {
 }
 
 export interface PurchaseOrderDraft {
+    charges?:PurchaseChargeDraft;
+    attachments?:PurchaseAttachment[];
     fx?: FxSnapshot;
     supplierId: string;
 

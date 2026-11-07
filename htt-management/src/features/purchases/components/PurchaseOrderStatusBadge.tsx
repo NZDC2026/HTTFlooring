@@ -44,6 +44,8 @@ function getConfig(
     | "info";
 } {
     switch (status) {
+        case "QUOTATION":
+            return {label:"Quotation",variant:"neutral"};
         case "DRAFT":
             return {
                 label: "Draft",

@@ -1,0 +1,13 @@
+import {expect,it,vi} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {MemoryRouter} from 'react-router-dom';
+const access=vi.hoisted(()=>({write:true,cost:true}));
+vi.mock('../security/usePermission',()=>({usePermission:(p:string)=>p==='sales.payment'?access.write:p==='inventory.cost.read'?access.cost:true}));
+vi.mock('../sales/data/useSalesDocuments',()=>({useSalesDocuments:()=>[]}));
+vi.mock('../sales/data/useCreditNotes',()=>({useCreditNotes:()=>[]}));
+vi.mock('../contacts/data/useCustomers',()=>({useCustomers:()=>[]}));
+vi.mock('./customerReturnRepository',()=>({useCustomerReturns:()=>[]}));
+import {CustomerCreditReturnsPage} from './CustomerCreditReturnsPage';
+const render=()=>renderToStaticMarkup(<MemoryRouter><CustomerCreditReturnsPage/></MemoryRouter>);
+it('routes physical goods through receiving while offering a separate financial-only credit',()=>{access.write=true;access.cost=true;const html=render();expect(html).toContain('href="/sales/customer-returns/new"');expect(html).toContain('Credit Only');expect(html).toContain('Sample');expect(html).toContain('Physical Returns');});
+it('keeps stock-cost actions and credit writes permission scoped',()=>{access.write=false;access.cost=false;const html=render();expect(html).not.toContain('href="/sales/customer-returns/new"');expect(html).not.toContain('>Credit Only</button>');expect(html).not.toContain('>Physical Returns</button>');});

@@ -175,6 +175,7 @@ export function SupplierBillDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <Link className="rounded-lg border bg-white px-4 py-2 text-sm" to={`/documents/purchase-print?sourceId=${bill.id}`}>Print / PDF · Customise</Link>
                     {canReadReturns&&bill.kind!=="EXPENSE"&&!bill.openingBalanceImportId&&<Link className="underline" to={`/purchases/supplier-returns?billId=${bill.id}`}>Physical supplier return</Link>}
                     {bill.status !==
                         "VOID" && (

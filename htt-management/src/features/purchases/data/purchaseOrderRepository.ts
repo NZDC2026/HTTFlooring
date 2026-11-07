@@ -1,3 +1,5 @@
+import { purchasePricingFactor } from './purchaseCoverage';
+import { purchaseCharges,purchaseChargesSchema,purchaseAttachments } from './purchaseOrderExtras';
 import { etaChangeInput, etaHistorySchema, incomingStatuses } from "../../incoming-shipments/shipmentEta";
 import { trustedAuthorization } from "../../security/trustedAuthorization";
 import { validateFx } from "../../currency/currency";
@@ -153,19 +155,24 @@ function buildLines(
                 );
             }
 
+            if(unit.code==='BOX'&&!Number.isInteger(draftLine.orderedQuantity))throw Error('Box quantity must be a whole number.');
             assertProductQuantity(draftLine.productId,draftLine.unitId,draftLine.orderedQuantity,'buy');
         if (product.buyEnabled === false) throw new Error("Product is not available for purchasing.");
+            if(draftLine.priceUnit!==undefined&&draftLine.priceUnit!=='M2')throw Error('Invalid purchase price unit.');
+            const pricingFactor=draftLine.priceUnit==='M2'?purchasePricingFactor(product,unit):undefined;
+            if(draftLine.priceUnit==='M2'&&pricingFactor===undefined)throw Error('This product unit has no square-metre pricing conversion.');
+            const transactionUnitCost=draftLine.unitCost*(pricingFactor??1);if(!Number.isFinite(transactionUnitCost))throw Error('Unit cost is too large.');
             const taxCode = product.taxCode ?? businessSettings().gstCode, taxRate = activeTaxRate(taxCode);
             const calculated =
                 calculatePurchaseOrderLine(
                     {
                         taxRate,
-                        inclusiveLineTotal:(draftLine.priceBasis??businessSettings().basis)==='Inclusive'?Math.round(draftLine.orderedQuantity*draftLine.unitCost*100)/100:undefined,
+                        inclusiveLineTotal:(draftLine.priceBasis??businessSettings().basis)==='Inclusive'?Math.round(draftLine.orderedQuantity*transactionUnitCost*100)/100:undefined,
                         orderedQuantity:
                             draftLine.orderedQuantity,
 
                         unitCost:
-                            exclusivePrice(draftLine.unitCost,taxRate,draftLine.priceBasis),
+                            exclusivePrice(transactionUnitCost,taxRate,draftLine.priceBasis),
                     },
                 );
 
@@ -174,8 +181,9 @@ function buildLines(
                     createId(
                         "pol",
                     ),
-                ...taxSnapshot(taxCode),grossUnitCost:(draftLine.priceBasis??businessSettings().basis)==='Inclusive'?draftLine.unitCost:undefined,
+                ...taxSnapshot(taxCode),grossUnitCost:(draftLine.priceBasis??businessSettings().basis)==='Inclusive'?transactionUnitCost:undefined,
 
+                priceUnit:draftLine.priceUnit,coveragePerUnit:pricingFactor,
                 productId:
                     product.id,
 
@@ -199,7 +207,7 @@ function buildLines(
                 billedQuantity: 0,
 
                 unitCost:
-                    exclusivePrice(draftLine.unitCost,taxRate,draftLine.priceBasis),
+                    exclusivePrice(transactionUnitCost,taxRate,draftLine.priceBasis),
 
                 ...calculated,
             };
@@ -255,6 +263,25 @@ function validateDates(
 
 export const purchaseOrderRepository =
 {
+    createQuotation(draft:PurchaseOrderDraft):PurchaseOrder {
+        const saved=purchaseOrderRepository.create(draft);
+        const number=configuredNumber('PQ',purchaseOrders.map(p=>p.quotationNumber??p.purchaseOrderNumber),draft.orderDate.slice(0,4));
+        return updateStatus(saved,{status:'QUOTATION',purchaseOrderNumber:number,quotationNumber:number});
+    },
+    convertQuotation(id:string):PurchaseOrder {
+        const old=purchaseOrderRepository.getById(id);
+        if(!old)throw Error('Purchase quotation was not found.');
+        if(old.quotationConvertedAt)return old;
+        if(old.status!=='QUOTATION')throw Error('Only a quotation can be converted to an order.');
+        const actor=trustedAuthorization.require('purchases.write');
+        const draft=updateStatus(old,{status:'DRAFT',purchaseOrderNumber:createPurchaseOrderNumber(old.orderDate),quotationConvertedAt:new Date().toISOString(),quotationConvertedBy:actor.userId});
+        purchaseOrderRepository.approve(draft.id);
+        return purchaseOrderRepository.send(draft.id);
+    },
+    saveAndIssue(draft:PurchaseOrderDraft,id?:string):PurchaseOrder {
+        const saved=id?purchaseOrderRepository.updateDraft(id,draft):purchaseOrderRepository.create(draft);
+        purchaseOrderRepository.approve(saved.id);return purchaseOrderRepository.send(saved.id);
+    },
     subscribe(
         listener: Listener,
     ) {
@@ -352,6 +379,7 @@ export const purchaseOrderRepository =
                 draft.fx ? {...draft,lines:draft.lines.map(line=>({...line,unitCost:line.unitCost*draft.fx!.rate}))} : draft,
             );
 
+        const charges=purchaseCharges(draft.charges,draft.fx?.rate??1),originalCharges=draft.fx?purchaseCharges(draft.charges):undefined,attachments=purchaseAttachments(draft.attachments);
         const originalLines = fx ? buildLines(draft).map((line,index)=>({...line,id:lines[index].id})) : undefined;
         const now =
             new Date().toISOString();
@@ -364,8 +392,8 @@ export const purchaseOrderRepository =
                     "po",
                 ),
 
-            fx:fx ? {...fx,baseAmount:calculatePurchaseOrderTotals(lines).total,originalAmount:calculatePurchaseOrderTotals(originalLines!).total} : undefined,
-            originalLines,
+            fx:fx ? {...fx,baseAmount:calculatePurchaseOrderTotals(lines,charges).total,originalAmount:calculatePurchaseOrderTotals(originalLines!,originalCharges).total} : undefined,
+            originalLines,charges,originalCharges,attachments,
             purchaseDefaults: purchaseDefaults(supplier),
             purchaseOrderNumber:
                 createPurchaseOrderNumber(
@@ -406,7 +434,7 @@ export const purchaseOrderRepository =
 
             totals:
                 calculatePurchaseOrderTotals(
-                    lines,
+                    lines,charges,
                 ),
 
             createdAt:
@@ -445,8 +473,7 @@ export const purchaseOrderRepository =
         }
 
         if (
-            existing.status !==
-            "DRAFT"
+            !["DRAFT","QUOTATION"].includes(existing.status)
         ) {
             throw new Error(
                 "Only draft purchase orders can be edited.",
@@ -468,13 +495,14 @@ export const purchaseOrderRepository =
                 draft.fx ? {...draft,lines:draft.lines.map(line=>({...line,unitCost:line.unitCost*draft.fx!.rate}))} : draft,
             );
 
+        const charges=purchaseCharges(draft.charges,draft.fx?.rate??1),originalCharges=draft.fx?purchaseCharges(draft.charges):undefined,attachments=purchaseAttachments(draft.attachments);
         const originalLines = fx ? buildLines(draft.fx ? draft : {...draft,lines:draft.lines.map(line=>({...line,unitCost:line.unitCost/fx.rate}))}).map((line,index)=>({...line,id:lines[index].id})) : undefined;
         const updated:
             PurchaseOrder =
         {
             ...existing,
-            fx:fx ? {...fx,baseAmount:calculatePurchaseOrderTotals(lines).total,originalAmount:calculatePurchaseOrderTotals(originalLines!).total} : undefined,
-            originalLines,
+            fx:fx ? {...fx,baseAmount:calculatePurchaseOrderTotals(lines,charges).total,originalAmount:calculatePurchaseOrderTotals(originalLines!,originalCharges).total} : undefined,
+            originalLines,charges,originalCharges,attachments,
 
             supplierId:
                 supplier.id,
@@ -507,7 +535,7 @@ export const purchaseOrderRepository =
 
             totals:
                 calculatePurchaseOrderTotals(
-                    lines,
+                    lines,charges,
                 ),
 
             updatedAt:
@@ -1182,6 +1210,7 @@ export const purchaseOrderRepository =
 
         if (
             ![
+                "QUOTATION",
                 "DRAFT",
                 "APPROVED",
             ].includes(
@@ -1267,6 +1296,8 @@ registerRepository("purchaseOrders", {
     validate: value => {
         const etaOperations=new Set<string>();
         for(const row of (value as {purchaseOrders:PurchaseOrder[]}).purchaseOrders) {
+            if(row.status==='QUOTATION'&&(row.quotationNumber!==row.purchaseOrderNumber||row.quotationConvertedAt||row.lines.some(l=>l.receivedQuantity!==0||l.billedQuantity!==0)))throw Error('Invalid purchase quotation lifecycle.');
+            if(row.quotationConvertedAt&&(!row.quotationNumber||!row.quotationConvertedBy||!Number.isFinite(Date.parse(row.quotationConvertedAt))||row.quotationNumber===row.purchaseOrderNumber))throw Error('Invalid converted quotation metadata.');
             if(row.etaHistory) {
                 let previous: string | undefined;
                 let lastAt="";
@@ -1278,16 +1309,21 @@ registerRepository("purchaseOrders", {
                 });
                 if(row.etaHistory.length && previous!==row.expectedDeliveryDate) throw new Error("ETA does not match its history.");
             }
+            for(const line of [...row.lines,...(row.originalLines??[])]){if(line.priceUnit!==undefined&&(line.priceUnit!=='M2'||!Number.isFinite(line.coveragePerUnit)||line.coveragePerUnit!<=0))throw Error('Invalid square-metre pricing snapshot.');}
+            if(row.charges){purchaseChargesSchema.parse(row.charges);if(Math.abs(row.charges.taxAmount-Math.round((row.charges.freight+row.charges.insurance)*row.charges.taxRate*100)/100)>.001)throw Error('Invalid purchase charge tax.');}
+            if(row.originalCharges){purchaseChargesSchema.parse(row.originalCharges);if(!row.fx||!row.charges||row.charges.taxCode!==row.originalCharges.taxCode||row.charges.taxRate!==row.originalCharges.taxRate||Math.abs(row.charges.freight-Math.round(row.originalCharges.freight*row.fx.rate*100)/100)>.001||Math.abs(row.charges.insurance-Math.round(row.originalCharges.insurance*row.fx.rate*100)/100)>.001)throw Error('Invalid converted purchase charges.');}
+            purchaseAttachments(row.attachments);
+            if(row.charges&&(['subtotal','taxAmount','total'] as const).some(k=>Math.abs(calculatePurchaseOrderTotals(row.lines,row.charges)[k]-row.totals[k])>.001))throw Error('Invalid purchase totals with charges.');
             if(row.purchaseDefaults!==undefined) purchaseDefaultsSchema.parse(row.purchaseDefaults);
             if(row.fx) validateFx(row.fx);
             if(row.originalLines) {
                 if(!row.fx || row.originalLines.length!==row.lines.length ||
-                    calculatePurchaseOrderTotals(row.originalLines).total!==row.fx.originalAmount ||
+                    calculatePurchaseOrderTotals(row.originalLines,row.originalCharges).total!==row.fx.originalAmount ||
                     row.totals.total!==row.fx.baseAmount) throw new Error("Invalid original-currency order totals.");
                 row.originalLines.forEach((line,index)=>{
                     const base=row.lines[index];
                     if(line.id!==base.id || line.productId!==base.productId || line.unitId!==base.unitId ||
-                        line.orderedQuantity!==base.orderedQuantity || !Number.isFinite(line.unitCost) || line.unitCost<0 ||
+                        line.orderedQuantity!==base.orderedQuantity || line.priceUnit!==base.priceUnit || line.coveragePerUnit!==base.coveragePerUnit || !Number.isFinite(line.unitCost) || line.unitCost<0 ||
                         Math.abs(line.unitCost*row.fx!.rate-base.unitCost)>Math.max(0.000001,row.fx!.rate*0.00000001))
                         throw new Error("Original purchase costs do not match the saved conversion.");
                 });
@@ -1295,7 +1331,7 @@ registerRepository("purchaseOrders", {
         }
     },
     repository: purchaseOrderRepository, read: "purchases.read",
-    commands: {"updateEta":"purchases.write", "catch": null, "if": null, "create": "purchases.write", "updateDraft": "purchases.write", "approve": "purchases.write", "send": "purchases.write", "recordGoodsReceipt": null, "recordSupplierBill": null, "reverseSupplierBill": null, "emitChange": null, "return": null, "cancel": "purchases.write"},
+    commands: {"createQuotation":"purchases.write", "convertQuotation":"purchases.write", "saveAndIssue":"purchases.write", "updateEta":"purchases.write", "catch": null, "if": null, "create": "purchases.write", "updateDraft": "purchases.write", "approve": "purchases.write", "send": "purchases.write", "recordGoodsReceipt": null, "recordSupplierBill": null, "reverseSupplierBill": null, "emitChange": null, "return": null, "cancel": "purchases.write"},
     snapshot: () => ({ purchaseOrders }),
     restore: value => { purchaseOrders = (value as {purchaseOrders:PurchaseOrder[]}).purchaseOrders;  },
     publish: () => listeners.forEach(listener => listener()),

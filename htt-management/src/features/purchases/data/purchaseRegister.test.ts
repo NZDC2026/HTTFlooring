@@ -1,0 +1,8 @@
+import { describe,it,expect } from 'vitest';
+import { outstandingPurchaseValue,purchaseRegisterSamples,purchaseReceiving,purchaseQuantitySummary } from './purchaseRegister';
+describe('purchase register commitments',()=>{
+ it('values only unreceived quantities, excluding GST',()=>{const row=purchaseRegisterSamples('2026-11-07')[2];expect(row.lines[0].orderedQuantity).toBe(1000);expect(row.lines[0].receivedQuantity).toBe(500);expect(outstandingPurchaseValue(row)).toBe(4875);expect(purchaseReceiving(row)).toBe('Partially Received');expect(purchaseQuantitySummary(row).progress).toBe(50);});
+ it('excludes drafts, cancellations and fully received orders',()=>{const row=purchaseRegisterSamples('2026-11-07')[0];expect(outstandingPurchaseValue({...row,status:'DRAFT'})).toBe(0);expect(outstandingPurchaseValue({...row,status:'CANCELLED'})).toBe(0);expect(outstandingPurchaseValue({...row,lines:row.lines.map(l=>({...l,receivedQuantity:l.orderedQuantity}))})).toBe(0);expect(purchaseReceiving(purchaseRegisterSamples('2026-11-07')[3])).toBe('Fully Received');});
+ it('clamps overreceipts and sums each line at its own net value',()=>{const row=purchaseRegisterSamples('2026-11-07')[0];expect(outstandingPurchaseValue({...row,lines:[{...row.lines[0],orderedQuantity:10,receivedQuantity:4,lineSubtotal:100},{...row.lines[0],orderedQuantity:5,receivedQuantity:9,lineSubtotal:80}]})).toBe(60);});
+ it('keeps mixed units distinct in quantity summaries',()=>{const rows=purchaseRegisterSamples('2026-11-07');const result=purchaseQuantitySummary({...rows[0],lines:[...rows[0].lines,...rows[3].lines]});expect(result.units.map(u=>u.unit)).toEqual(['m²','Bucket']);});
+});

@@ -1,3 +1,4 @@
+import type { PurchaseCharges } from './purchaseOrderExtras';
 import { activeTaxRate } from '../../business-workspace/configurationState';
 import type {
     PurchaseOrderLine,
@@ -55,6 +56,7 @@ export function calculatePurchaseOrderLine({
 
 export function calculatePurchaseOrderTotals(
     lines: PurchaseOrderLine[],
+    charges?:PurchaseCharges,
 ): PurchaseOrderTotals {
     const subtotal =
         roundPurchaseMoney(
@@ -65,7 +67,7 @@ export function calculatePurchaseOrderTotals(
                 ) =>
                     total +
                     line.lineSubtotal,
-                0,
+                (charges?.freight??0)+(charges?.insurance??0),
             ),
         );
 
@@ -78,7 +80,7 @@ export function calculatePurchaseOrderTotals(
                 ) =>
                     total +
                     line.taxAmount,
-                0,
+                charges?.taxAmount??0,
             ),
         );
 

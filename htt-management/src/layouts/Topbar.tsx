@@ -21,6 +21,7 @@ const pageNames: Record<string, string> = {
     "/purchases/incoming-shipments": "Incoming Shipment",
     "/purchases": "Purchases",
     "/inventory": "Inventory",
+    "/sales/credit-returns": "Customer Credit / Return",
     "/inventory/damage": "Damage Stock",
     "/inventory/adjustments": "Stock Adjustments",
     "/inventory/sold": "Inventory · Sold",

@@ -1,3 +1,4 @@
+import { PurchaseOrderExtras } from '../components/PurchaseOrderExtras';
 import { DocumentTrashLink } from "../../document-recycle/DocumentTrashLink";
 import { CurrencySummary } from "../../currency/CurrencyFields";
 import { paymentTermsLabel } from "../../payment-terms/paymentTerms";
@@ -80,9 +81,7 @@ export function PurchaseOrderDetailPage() {
 
     function handleApprove() {
         try {
-            purchaseOrderRepository.approve(
-                resolvedPurchaseOrderId,
-            );
+            purchaseOrder?.status==='QUOTATION'?purchaseOrderRepository.convertQuotation(resolvedPurchaseOrderId):purchaseOrderRepository.approve(resolvedPurchaseOrderId);
         } catch (
         error
         ) {
@@ -134,8 +133,8 @@ export function PurchaseOrderDetailPage() {
     }
 
     return (
-        <div className="pb-8">
-            <CurrencySummary fx={purchaseOrder.fx} amount={purchaseOrder.totals.total}/>
+        <div className="pb-8"><div className="mb-4 flex flex-wrap gap-2 rounded-lg border bg-white p-3 text-xs"><span className="font-semibold text-emerald-800">{purchaseOrder.status==='QUOTATION'?'Quotation':'Quotation → Order'}</span><span>→ Receive Items / Bill</span>{purchaseOrder.quotationNumber&&<span>Source: {purchaseOrder.quotationNumber}</span>}</div>
+            <CurrencySummary fx={purchaseOrder.fx} amount={purchaseOrder.totals.total}/><PurchaseOrderExtras order={purchaseOrder}/>
 <Link className="mb-4 inline-block underline" to={"/documents/purchase-output?kind=PURCHASE_ORDER&sourceId="+encodeURIComponent(purchaseOrder.id)}>Prepare purchase order document</Link>
             <button
                 type="button"
@@ -187,9 +186,8 @@ export function PurchaseOrderDetailPage() {
                     </p>
                 </div>
 
-                <div className="flex gap-2"><DocumentTrashLink recordId={purchaseOrder.id} status={purchaseOrder.status}/>
-                    {purchaseOrder.status ===
-                        "DRAFT" && (
+                <div className="flex gap-2">{purchaseOrder.quotationNumber&&<span className="text-xs text-stone-500">Quotation: {purchaseOrder.quotationNumber}</span>}<DocumentTrashLink recordId={purchaseOrder.id} status={purchaseOrder.status}/>
+                    {["DRAFT","QUOTATION"].includes(purchaseOrder.status) && (
                             <>
                                 <Button
                                     variant="secondary"
@@ -232,7 +230,7 @@ export function PurchaseOrderDetailPage() {
                                             15
                                         }
                                     />
-                                    Approve
+                                    {purchaseOrder.status==='QUOTATION'?'Convert to Order':'Approve'}
                                 </Button>
                             </>
                         )}
@@ -289,7 +287,7 @@ export function PurchaseOrderDetailPage() {
                                     size={15}
                                 />
 
-                                Receive Goods
+                                Receive Items
                             </Button>
                         )}
 
@@ -515,11 +513,7 @@ export function PurchaseOrderDetailPage() {
                                             }
                                         />
 
-                                        <MoneyCell
-                                            value={
-                                                line.unitCost
-                                            }
-                                        />
+                                        <td className="px-4 py-4 text-right text-sm"><strong>{line.priceUnit==='M2'&&line.coveragePerUnit?formatMoney(line.unitCost/line.coveragePerUnit):formatMoney(line.unitCost)}</strong><small className="block text-xs text-stone-500">/ {line.priceUnit==='M2'?'m²':line.unitSymbol}</small>{line.priceUnit==='M2'&&line.coveragePerUnit&&<small className="block text-xs text-stone-500">{(line.orderedQuantity*line.coveragePerUnit).toLocaleString('en-AU',{maximumFractionDigits:4})} m² total</small>}</td>
 
                                         <MoneyCell
                                             value={

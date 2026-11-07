@@ -63,7 +63,7 @@ def scan_with_legacy(job, employee, company, legacy_url, db_port):
             worker.wait(timeout=15)
             scanner.shutdown()
 
-def token(subject, audience='staff', lifetime=3600):
+def token(subject, audience='staff', lifetime=14400):
     head = b64(json.dumps({'alg':'RS256','kid':'fixture'}).encode())
     claims = b64(json.dumps({'iss':issuer,'sub':subject,'aud':[audience],'exp':int(time.time())+lifetime}).encode())
     content = f'{head}.{claims}'
@@ -3497,7 +3497,8 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 return a
             for target in (url,legacy_url):
                 for path in (ledger_url(ledger_path),ledger_url(trial_path),'/api/v1/accounting/journals/'+str(uuid.uuid4())):
-                    assert request(path,employee,company,base=target)[0]==403
+                    denied=request(path,employee,company,base=target)
+                    assert denied[0]==403,(path,target,denied)
                     assert request(path,bank_reader,company,base=target)[0]==403
                 assert request(ledger_path,ledger_reader,company,base=target)[0]==400
                 for patch,status in (({'from':''},400),({'from':'2026-02-29'},400),({'from':'0000-01-01'},400),({'to':ledger_from},422),({'to':'2026-10-31'},422),({'from':'0001-01-01','to':'0001-01-02'},422),({'from':'2026-01-01','to':'2027-01-03'},422),({'page':0},422),({'pageSize':101},422),({'page':'2147483648'},400),({'page':''},400),({'accountId':''},400),({'partyId':'not-a-guid'},400)):
@@ -4090,6 +4091,49 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert request(path+'/classification',general_finance,company,base=target,payload={'mode':'AUTO','reason':'No version'},key='cash-class-version-'+uuid.uuid4().hex,method='PUT')[0]==428
                 assert request(path+'/classification',general_no_reports,company,base=target,payload={'mode':'AUTO','reason':'No report read'},key='cash-class-denied-'+uuid.uuid4().hex,version=detail['revision'],method='PUT')[0]==403
             financial_parity(cash_report+'&pageSize=2')
+
+            bas='/api/v1/accounting/'
+            # BAS writes remain unchanged local .NET test setup for this read-only batch.
+            def bas_read(path,status=200):
+                a=request(path,general_finance,company);b=request(path,general_finance,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a[1]==b[1],(path,a,b)
+                return a
+            for reporting,calculation in (('SIMPLER','ACCOUNTS'),('FULL','ACCOUNTS'),('FULL','WORKSHEET')):
+                report=financial_parity(bas+'reports/gst-bas?from=2026-01-01&to=2027-01-01&reportingMethod='+reporting+'&calculationMethod='+calculation+'&pageSize=100')
+                assert report[0]==200
+            financial_parity(bas+'reports/gst-bas?from=2026-01-01&to=2027-01-01&calculationMethod=WORKSHEET',422)
+            financial_parity(bas+'reports/gst-bas?from=2026-01-01&to=2026-01-01',422)
+            period_body={'reference':'Synthetic historical BAS read '+uuid.uuid4().hex,'from':'2025-01-01','to':'2025-02-01','cadence':'MONTHLY','gstBasis':os.environ.get('HTT_COMPAT_GST_BASIS','NON_CASH'),'reportingMethod':'SIMPLER','registrationConfirmed':True}
+            period=request(bas+'bas-periods',general_finance,company,base=legacy_url,payload=period_body,key='bas-read-create-'+uuid.uuid4().hex)
+            assert period[0]==201,period
+            period_id=period[1]['id'];period_path=bas+'bas-periods/'+period_id
+            assert bas_read(period_path)[1]==period[1]
+            bas_read(bas+'bas-periods?pageSize=1')
+            finalized=request(period_path+'/finalize',general_finance,company,base=legacy_url,payload={'reference':'Synthetic BAS finalization '+uuid.uuid4().hex,'reason':'Historical empty period snapshot read fixture'},key='bas-read-finalize-'+uuid.uuid4().hex,version=period[1]['version'])
+            assert finalized[0]==200,finalized
+            snapshot_id=finalized[1]['snapshotId']
+            frozen=bas_read(bas+'bas-snapshots/'+snapshot_id+'?pageSize=1')[1]
+            assert frozen['periodId']==period_id and len(frozen['financialHash'])==64 and len(frozen['sourceHash'])==64,frozen
+            bas_read(bas+'bas-snapshots/'+snapshot_id+'?page=2&pageSize=1')
+            history=bas_read(period_path+'/history')[1]
+            assert len(history['snapshots'])==1 and history['snapshots'][0]['id']==snapshot_id and history['events'][0]['action']=='FINALIZED',history
+            reopened=request(period_path+'/reopen',general_finance,company,base=legacy_url,payload={'reference':'Synthetic BAS reopen '+uuid.uuid4().hex,'reason':'Release historical fixture freeze'},key='bas-read-reopen-'+uuid.uuid4().hex,version=finalized[1]['period']['version'])
+            assert reopened[0]==200 and reopened[1]['period']['state']=='OPEN',reopened
+            bas_read(period_path);bas_read(period_path+'/history')
+            assert bas_read(bas+'bas-snapshots/'+snapshot_id+'?pageSize=1')[1]==frozen
+            target=bas+'bas-classifications/TAX_CODE/00000000-0000-0000-0000-000000000436'
+            classification=bas_read(target)[1]
+            changed=request(target,general_finance,company,base=legacy_url,payload={'salesClass':'AUTO','purchaseClass':'AUTO','inputTaxedPercent':None,'reason':'Synthetic classification history read'},key='bas-read-classify-'+uuid.uuid4().hex,version=classification['revision'],method='PUT')
+            assert changed[0]==200,changed
+            history=bas_read(target)[1]
+            assert history['revision']==changed[1]['revision'] and len(history['history'])==1,history
+            for suffix in ('bas-periods/','bas-snapshots/','bas-classifications/TAX_CODE/'):
+                bas_read(bas+suffix+str(uuid.uuid4()),404)
+            bas_read(bas+'bas-classifications/INVALID/'+str(uuid.uuid4()),422)
+            for backend in (url,legacy_url):
+                assert request(bas+'bas-periods',general_reader,company,base=backend)[0]==403
+            print('PASS: BAS methods and raw report paging, owned period/history, frozen snapshot hashes and ordered classification history; commands prepared through local .NET')
             print('PASS: cash-flow ordered reporting, unused scope changes/restoration, used scope guard, AUTO/custom classification and reversal inheritance')
             print('PASS: ordered profit/loss and balanced equity, AR/AP aging page totals and party scope, raw decimal strings, date/permission guards')
             print('PASS: sandbox-only feed connection and queued revocation, composite access, raw projections, shared replay and ineligible operation guards; gateway workers remain disabled')

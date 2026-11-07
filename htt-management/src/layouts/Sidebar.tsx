@@ -54,6 +54,11 @@ const sections = [
                 icon: ReceiptText,
             },
             {
+                label: "Credit / Return",
+                path: "/sales/credit-returns",
+                icon: ReceiptText,
+            },
+            {
                 label: "Purchases",
                 path: "/purchases",
                 icon: ShoppingCart,
@@ -180,7 +185,7 @@ export function Sidebar() {
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
         if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
-        if(path==='/tasks')return 'sales.read';
+        if(path==='/tasks'||path==='/sales/credit-returns')return 'sales.read';
         if(path==='/settings/employees')return 'users.manage';
         if(path==='/settings/trash')return 'users.manage';
         if(path==='/reports/library')return 'inventory.read';

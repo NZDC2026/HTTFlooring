@@ -7,6 +7,7 @@ import {
     Navigate,
     useNavigate,
     useParams,
+    useSearchParams,
 } from "react-router-dom";
 
 import {
@@ -34,6 +35,7 @@ interface Props {
 export function PurchaseOrderFormPage({
     mode,
 }: Props) {
+    const [query]=useSearchParams();
     const navigate =
         useNavigate();
 
@@ -46,6 +48,7 @@ export function PurchaseOrderFormPage({
             purchaseOrderId,
         );
 
+    const quotation=query.get("quotation")==="1"||purchaseOrder?.status==="QUOTATION";
     const isCreate =
         mode ===
         "create";
@@ -65,8 +68,7 @@ export function PurchaseOrderFormPage({
     if (
         !isCreate &&
         purchaseOrder &&
-        purchaseOrder.status !==
-        "DRAFT"
+        !["DRAFT","QUOTATION"].includes(purchaseOrder.status)
     ) {
         return (
             <Navigate
@@ -79,15 +81,13 @@ export function PurchaseOrderFormPage({
     function handleSave(
         draft:
             PurchaseOrderDraft,
+        issue = false,
     ) {
         try {
             if (
                 isCreate
             ) {
-                const created =
-                    purchaseOrderRepository.create(
-                        draft,
-                    );
+                const created = quotation?purchaseOrderRepository.createQuotation(draft):issue?purchaseOrderRepository.saveAndIssue(draft):purchaseOrderRepository.create(draft);
 
                 navigate(
                     `/purchases/${created.id}`,
@@ -106,11 +106,7 @@ export function PurchaseOrderFormPage({
                 return;
             }
 
-            const updated =
-                purchaseOrderRepository.updateDraft(
-                    purchaseOrder.id,
-                    draft,
-                );
+            const updated = issue?purchaseOrderRepository.saveAndIssue(draft,purchaseOrder.id):purchaseOrderRepository.updateDraft(purchaseOrder.id,draft);
 
             navigate(
                 `/purchases/${updated.id}`,
@@ -172,20 +168,20 @@ export function PurchaseOrderFormPage({
                     Purchases
                 </p>
 
-                <h1 className="font-display text-[34px] leading-tight">
+                <h1 className="text-[26px] font-bold leading-tight text-emerald-900">
                     {isCreate
-                        ? "New Purchase Order"
+                        ? quotation?"New Purchase Quotation":"New Purchase Order"
                         : `Edit ${purchaseOrder?.purchaseOrderNumber}`}
                 </h1>
 
                 <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                     {isCreate
-                        ? "Create a draft supplier purchase order."
+                        ? quotation?"Record supplier pricing. Save the quotation, then convert it to an order when confirmed.":"Create a purchase order to a supplier. Save as draft or issue to the supplier."
                         : "Update this draft purchase order before approval."}
                 </p>
             </div>
 
-            <PurchaseOrderForm
+            <PurchaseOrderForm quotation={quotation}
                 purchaseOrder={
                     purchaseOrder
                 }

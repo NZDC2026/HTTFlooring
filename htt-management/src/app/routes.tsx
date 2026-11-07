@@ -1,3 +1,5 @@
+import {PurchasePrintPage} from '../features/document-output/PurchasePrintPage';
+import { CustomerCreditReturnsPage } from '../features/customer-returns/CustomerCreditReturnsPage';
 import { StockAdjustmentsPage } from '../features/stock-adjustments/StockAdjustments';
 import { CustomerPriceSettingsPage } from "../features/contacts/pages/CustomerPriceSettingsPage";
 import { StaffManagementPage } from "../features/security/pages/StaffManagementPage";
@@ -132,6 +134,7 @@ export const appRoutes:RouteObject[] = [
                 path: "sales/invoices/:invoiceId",
                 element: <InvoiceDetailPage />,
             },
+            { path:"sales/credit-returns", element:<CustomerCreditReturnsPage/> },
             {
                 path: "sales/credit-notes/:creditNoteId",
                 element: <CreditNoteDetailPage />,
@@ -188,6 +191,10 @@ export const appRoutes:RouteObject[] = [
                 element: (
                     <PurchaseOrderFormPage mode="edit" />
                 ),
+            },
+            {
+                path: "documents/purchase-print",
+                element: <PurchasePrintPage />,
             },
             {
                 path: "documents/purchase-output",
