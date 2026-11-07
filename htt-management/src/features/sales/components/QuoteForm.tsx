@@ -1,3 +1,4 @@
+import {ProductSearchSelect,ProductSearchSample} from '../../../components/product-search/ProductSearchSelect';
 import { PricingTimeFields, defaultPricingTime } from './PricingTimeFields';
 import { resolvePricingInstant } from '../data/pricingInstant';
 import { SalesDeliveryFields } from './SalesDeliveryFields';
@@ -570,7 +571,8 @@ export function QuoteForm({
                 )}
 
                 <PricingTimeFields date={documentDate} value={pricingAt} onChange={setPricingAt}/>
-                <SalesDeliveryFields customerId={customerId} {...delivery} onChange={setDelivery} />
+                <ProductSearchSample/>
+<SalesDeliveryFields customerId={customerId} {...delivery} onChange={setDelivery} />
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                     <Field
                         label="Customer"
@@ -921,49 +923,7 @@ function QuoteLineRow({
 
     return (
         <div className="grid grid-cols-[260px_130px_110px_145px_150px_120px_130px_52px] items-center gap-3 border-b border-[var(--color-border)] px-4 py-3 last:border-b-0">
-            <select
-                value={
-                    line.productId
-                }
-                onChange={(event) =>
-                    onProductChange(
-                        event.target
-                            .value,
-                    )
-                }
-                className={selectClassName}
-            >
-                <option value="">
-                    Select product
-                </option>
-
-                {mockProducts
-                    .filter(
-                        (item) =>
-                            item.status ===
-                            "ACTIVE",
-                    )
-                    .map(
-                        (item) => (
-                            <option
-                                key={
-                                    item.id
-                                }
-                                value={
-                                    item.id
-                                }
-                            >
-                                {
-                                    item.sku
-                                }{" "}
-                                —{" "}
-                                {
-                                    item.name
-                                }
-                            </option>
-                        ),
-                    )}
-            </select>
+            <ProductSearchSelect products={mockProducts.filter(p=>p.id===line.productId||p.status==='ACTIVE'&&p.sellEnabled!==false)} value={line.productId} onChange={onProductChange}/>
 
             <select
                 value={
