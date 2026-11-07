@@ -4105,12 +4105,22 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             financial_parity(bas+'reports/gst-bas?from=2026-01-01&to=2027-01-01&calculationMethod=WORKSHEET',422)
             financial_parity(bas+'reports/gst-bas?from=2026-01-01&to=2026-01-01',422)
             period_body={'reference':'Synthetic historical BAS read '+uuid.uuid4().hex,'from':'2025-01-01','to':'2025-02-01','cadence':'MONTHLY','gstBasis':os.environ.get('HTT_COMPAT_GST_BASIS','NON_CASH'),'reportingMethod':'SIMPLER','registrationConfirmed':True}
-            period=request(bas+'bas-periods',general_finance,company,base=legacy_url,payload=period_body,key='bas-read-create-'+uuid.uuid4().hex)
+            for backend in (url,legacy_url):
+                for patch in ({'registrationConfirmed':False},{'calculationMethod':'WORKSHEET'},{'from':'0001-01-01'}):
+                    invalid=request(bas+'bas-periods',general_finance,company,base=backend,payload={**period_body,**patch},key='bas-period-invalid-'+uuid.uuid4().hex)
+                    assert invalid[0]==422,invalid
+                assert request(bas+'bas-periods',general_reader,company,base=backend,payload=period_body,key='bas-period-denied-'+uuid.uuid4().hex)[0]==403
+            period=rule_write_retry(bas+'bas-periods',period_body,url,legacy_url,{'reference':'Different BAS period reference'})
             assert period[0]==201,period
             period_id=period[1]['id'];period_path=bas+'bas-periods/'+period_id
             assert bas_read(period_path)[1]==period[1]
             bas_read(bas+'bas-periods?pageSize=1')
-            finalized=request(period_path+'/finalize',general_finance,company,base=legacy_url,payload={'reference':'Synthetic BAS finalization '+uuid.uuid4().hex,'reason':'Historical empty period snapshot read fixture'},key='bas-read-finalize-'+uuid.uuid4().hex,version=period[1]['version'])
+            current=period[1]
+            for reporting,calculation,first,second in (('FULL','WORKSHEET',url,legacy_url),('SIMPLER','ACCOUNTS',legacy_url,url)):
+                changed_method=rule_write_retry(period_path+'/method',{'reportingMethod':reporting,'calculationMethod':calculation,'reason':' Synthetic BAS calculation method change '},first,second,{'reason':'Different method change reason'},current['version'],method='PUT',status=200)
+                current=changed_method[1]
+                assert current['reportingMethod']==reporting and current['calculationMethod']==calculation,current
+            finalized=rule_write_retry(period_path+'/finalize',{'reference':'Synthetic BAS finalization '+uuid.uuid4().hex,'reason':'Historical empty period snapshot write fixture'},legacy_url,url,{'reason':'Different BAS finalization'},current['version'],status=200)
             assert finalized[0]==200,finalized
             snapshot_id=finalized[1]['snapshotId']
             frozen=bas_read(bas+'bas-snapshots/'+snapshot_id+'?pageSize=1')[1]
@@ -4118,13 +4128,16 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             bas_read(bas+'bas-snapshots/'+snapshot_id+'?page=2&pageSize=1')
             history=bas_read(period_path+'/history')[1]
             assert len(history['snapshots'])==1 and history['snapshots'][0]['id']==snapshot_id and history['events'][0]['action']=='FINALIZED',history
-            reopened=request(period_path+'/reopen',general_finance,company,base=legacy_url,payload={'reference':'Synthetic BAS reopen '+uuid.uuid4().hex,'reason':'Release historical fixture freeze'},key='bas-read-reopen-'+uuid.uuid4().hex,version=finalized[1]['period']['version'])
+            # This records a synthetic local event only; no ATO service is called.
+            lodged=rule_write_retry(period_path+'/record-lodgement',{'reference':'Synthetic local lodgement record '+uuid.uuid4().hex,'reason':'Local fixture, no external submission','lodgedOn':'2025-01-31'},url,legacy_url,{'reason':'Different local event reason'},finalized[1]['period']['version'],status=200)
+            assert lodged[1]['period']['state']=='LODGED' and lodged[1]['snapshotId']==snapshot_id,lodged
+            reopened=rule_write_retry(period_path+'/reopen',{'reference':'Synthetic BAS reopen '+uuid.uuid4().hex,'reason':'Release historical fixture freeze'},legacy_url,url,{'reason':'Different BAS reopening'},lodged[1]['period']['version'],status=200)
             assert reopened[0]==200 and reopened[1]['period']['state']=='OPEN',reopened
             bas_read(period_path);bas_read(period_path+'/history')
             assert bas_read(bas+'bas-snapshots/'+snapshot_id+'?pageSize=1')[1]==frozen
             target=bas+'bas-classifications/TAX_CODE/00000000-0000-0000-0000-000000000436'
             classification=bas_read(target)[1]
-            changed=request(target,general_finance,company,base=legacy_url,payload={'salesClass':'AUTO','purchaseClass':'AUTO','inputTaxedPercent':None,'reason':'Synthetic classification history read'},key='bas-read-classify-'+uuid.uuid4().hex,version=classification['revision'],method='PUT')
+            changed=rule_write_retry(target,{'salesClass':'AUTO','purchaseClass':'AUTO','inputTaxedPercent':None,'reason':'Synthetic classification history write'},url,legacy_url,{'reason':'Different BAS classification'},classification['revision'],method='PUT',status=200)
             assert changed[0]==200,changed
             history=bas_read(target)[1]
             assert history['revision']==changed[1]['revision'] and len(history['history'])==1,history
@@ -4133,6 +4146,75 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             bas_read(bas+'bas-classifications/INVALID/'+str(uuid.uuid4()),422)
             for backend in (url,legacy_url):
                 assert request(bas+'bas-periods',general_reader,company,base=backend)[0]==403
+
+            # Opposite first-host direction and FULL typed creation canonical.
+            full_body={**period_body,'reference':'Synthetic FULL BAS '+uuid.uuid4().hex,'from':'2025-02-01','to':'2025-03-01','reportingMethod':'FULL','calculationMethod':'WORKSHEET'}
+            second_period=rule_write_retry(bas+'bas-periods',full_body,legacy_url,url,{'reference':'Different FULL period reference'})
+            second_path=bas+'bas-periods/'+second_period[1]['id']
+            current=second_period[1]
+            for backend in (url,legacy_url):
+                overlap=request(bas+'bas-periods',general_finance,company,base=backend,payload={**full_body,'reference':'Overlap '+uuid.uuid4().hex},key='bas-overlap-'+uuid.uuid4().hex)
+                assert overlap[0]==409,overlap
+                assert request(second_path+'/finalize',general_finance,company,base=backend,payload={'reference':'No version','reason':'Synthetic required version'},key='bas-version-'+uuid.uuid4().hex)[0]==428
+                assert request(second_path+'/finalize',general_reader,company,base=backend,payload={'reference':'No authority','reason':'Synthetic denied transition'},key='bas-authority-'+uuid.uuid4().hex,version=current['version'])[0]==403
+            updated=rule_write_retry(second_path+'/method',{'reportingMethod':'FULL','calculationMethod':'ACCOUNTS','reason':'Synthetic FULL accounts method'},legacy_url,url,{'reason':'Different FULL method reason'},current['version'],method='PUT',status=200)
+            finalized_full=rule_write_retry(second_path+'/finalize',{'reference':'Synthetic FULL finalization '+uuid.uuid4().hex,'reason':'Opposite-host FULL period snapshot'},url,legacy_url,{'reason':'Different FULL finalization'},updated[1]['version'],status=200)
+            for backend in (url,legacy_url):
+                assert request(second_path+'/reopen',general_finance,company,base=backend,payload={'reference':'Wrong date','reason':'Date only for lodgement','lodgedOn':'2025-02-28'},key='bas-wrong-date-'+uuid.uuid4().hex,version=finalized_full[1]['period']['version'])[0]==422
+                assert request(second_path+'/record-lodgement',general_finance,company,base=backend,payload={'reference':'Early lodgement','reason':'Invalid historical date','lodgedOn':'2025-02-01'},key='bas-lodged-date-'+uuid.uuid4().hex,version=finalized_full[1]['period']['version'])[0]==422
+            lodged_full=rule_write_retry(second_path+'/record-lodgement',{'reference':'Synthetic FULL local record '+uuid.uuid4().hex,'reason':'Local database event only','lodgedOn':'2025-02-28'},legacy_url,url,{'reason':'Different FULL local record'},finalized_full[1]['period']['version'],status=200)
+            reopened_full=rule_write_retry(second_path+'/reopen',{'reference':'Synthetic FULL reopen '+uuid.uuid4().hex,'reason':'Restore historical FULL fixture'},url,legacy_url,{'reason':'Different FULL reopen'},lodged_full[1]['period']['version'],status=200)
+            assert reopened_full[1]['period']['state']=='OPEN'
+            bas_read(second_path+'/history')
+            bas_read(bas+'bas-snapshots/'+finalized_full[1]['snapshotId'])
+            revision=bas_read(target)[1]['revision']
+            changed_again=rule_write_retry(target,{'salesClass':'AUTO','purchaseClass':'AUTO','inputTaxedPercent':None,'reason':'Opposite-host BAS classification revision'},legacy_url,url,{'reason':'Different second classification'},revision,method='PUT',status=200)
+            assert changed_again[1]['revision']==2 and len(bas_read(target)[1]['history'])==2
+
+            # Period-close commands remain unchanged local .NET setup for Java read acceptance.
+            def close_read(path,status=200,live=False,year_plan=False):
+                a=request(path,general_finance,company);b=request(path,general_finance,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:
+                    def stable(body):
+                        body=dict(body)
+                        if live:
+                            stamp=body.pop('snapshotAt')
+                            assert stamp.endswith('+00:00') or stamp.endswith('Z'),stamp
+                        if year_plan and body.get('lastPeriodPreflight') is not None:
+                            nested=dict(body['lastPeriodPreflight']);stamp=nested.pop('snapshotAt')
+                            assert stamp.endswith('+00:00') or stamp.endswith('Z'),stamp
+                            body['lastPeriodPreflight']=nested
+                        return body
+                    assert stable(a[1])==stable(b[1]),(path,a,b)
+                return a
+            year=request(bas+'fiscal-years',general_finance,company,base=legacy_url,payload={'label':'Synthetic empty historical FY '+uuid.uuid4().hex,'from':'2023-07-01','to':'2024-07-01'},key='period-read-year-'+uuid.uuid4().hex)
+            assert year[0]==201,year
+            year_id=year[1]['id']
+            close_read(bas+'fiscal-years');close_read(bas+'periods')
+            periods=close_read(bas+'periods?fiscalYearId='+year_id)[1]['items']
+            assert len(periods)==12 and periods[0]['startsOn']=='2023-07-01' and periods[-1]['endsOn']=='2024-07-01',periods
+            pid=periods[0]['id'];period_path=bas+'periods/'+pid
+            preflight=close_read(period_path+'/preflight?basNotApplicableConfirmed=true',live=True)
+            assert preflight[1]['status']=='READY',preflight
+            close_read(bas+'fiscal-years/'+year_id+'/preflight',live=True,year_plan=True)
+            close_read(bas+'fiscal-years/'+year_id+'/history');close_read(bas+'retained-earnings')
+            closed=request(period_path+'/close',general_finance,company,base=legacy_url,payload={'reference':'Synthetic empty period close '+uuid.uuid4().hex,'reason':'Historical close evidence read fixture','basNotApplicableConfirmed':True},key='period-read-close-'+uuid.uuid4().hex,version=periods[0]['version'])
+            assert closed[0]==200,closed
+            frozen=close_read(bas+'period-close-snapshots/'+closed[1]['evidenceId'])[1]
+            assert frozen['period_id']==pid and len(frozen['financial_hash'])==64,frozen
+            history=close_read(period_path+'/history')[1]
+            assert len(history['snapshots'])==1 and history['events'][0]['action']=='CLOSED',history
+            opened=request(period_path+'/reopen',general_finance,company,base=legacy_url,payload={'reference':'Synthetic empty period reopen '+uuid.uuid4().hex,'reason':'Restore historical read fixture'},key='period-read-reopen-'+uuid.uuid4().hex,version=closed[1]['entity']['version'])
+            assert opened[0]==200 and opened[1]['entity']['state']=='OPEN',opened
+            close_read(period_path+'/history')
+            assert close_read(bas+'period-close-snapshots/'+closed[1]['evidenceId'])[1]==frozen
+            for suffix in ('periods/'+str(uuid.uuid4())+'/history','fiscal-years/'+str(uuid.uuid4())+'/history','period-close-snapshots/'+str(uuid.uuid4())):
+                close_read(bas+suffix,404)
+            close_read(period_path+'/preflight?basNotApplicableConfirmed=1',400)
+            for backend in (url,legacy_url):
+                assert request(bas+'fiscal-years',general_reader,company,base=backend)[0]==403
+            print('PASS: fiscal calendar, period and year preflight, frozen close evidence/history, retained mapping and compound read permissions; local legacy commands only')
             print('PASS: BAS methods and raw report paging, owned period/history, frozen snapshot hashes and ordered classification history; commands prepared through local .NET')
             print('PASS: cash-flow ordered reporting, unused scope changes/restoration, used scope guard, AUTO/custom classification and reversal inheritance')
             print('PASS: ordered profit/loss and balanced equity, AR/AP aging page totals and party scope, raw decimal strings, date/permission guards')

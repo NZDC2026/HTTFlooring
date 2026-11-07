@@ -46,6 +46,8 @@ export function businessSettings() {
 }
 export function configuredNumber(kind: string, existing: string[], year: string) {
  existing = [...existing, ...purgedNumbers()];
+ if(['QU','SO','INV'].includes(kind)){const key=kind==='QU'?'nextQuote':kind==='SO'?'nextOrder':'nextInvoice',settings=businessSettings() as Record<string,string>,n=Math.max(Number(settings[key])||1,1,...existing.filter(v=>v.startsWith(kind+'-')).map(v=>Number(v.match(/-(\d+)$/)?.[1]??0)+1));if(!Number.isSafeInteger(n)||n>9999999)throw Error('Sales document number sequence exhausted.');return `${kind}-${String(n).padStart(7,'0')}`;}
+
  const fields: Record<string,[string,string]> = {QU:['quotePrefix','nextQuote'],SO:['orderPrefix','nextOrder'],INV:['invoicePrefix','nextInvoice'],CN:['creditPrefix','nextCredit'],PO:['purchasePrefix','nextPurchase'],BILL:['billPrefix','nextBill'],SC:['supplierCreditPrefix','nextSupplierCredit']};
  const pair=fields[kind]; if(!pair) { const n=Math.max(0,...existing.map(s=>Number(s.match(/-(\d+)$/)?.[1]??0)))+1;return `${kind}-${year}-${String(n).padStart(4,'0')}`; }
  const settings=businessSettings() as Record<string,string>,prefix=`${settings[pair[0]]}-${year}-`;

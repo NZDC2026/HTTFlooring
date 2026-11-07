@@ -142,6 +142,17 @@ function buildSnapshot():
 }
 
 export const salesRepository = {
+    scheduleDispatch(id:string,expectedDate:string,awaitingCollection:boolean):SalesDocument {
+        if(typeof id!=='string'||typeof expectedDate!=='string'||typeof awaitingCollection!=='boolean')throw Error('Invalid dispatch schedule.');
+        const doc=salesRepository.getById(id);if(!doc)throw Error('Sales document not found.');
+        if(['VOID','CANCELLED','DECLINED','EXPIRED'].includes(doc.status))throw Error('This document cannot be scheduled.');
+        if(expectedDate)requireDateKey(expectedDate,'Expected dispatch date');
+        const next={...doc,expectedDispatchDate:expectedDate||undefined,awaitingCollection,updatedAt:new Date().toISOString()};
+        if(doc.type==='QUOTE')commitQuotes(quotes.map(d=>d.id===id?next as Quote:d));
+        else if(doc.type==='SALES_ORDER')commitOrderDocuments(salesOrders.map(d=>d.id===id?next as SalesOrder:d));
+        else commitInvoices(invoices.map(d=>d.id===id?next as Invoice:d));
+        return next;
+    },
     createManagedOrder(input: {draftId:string;recipient?:import("../types/salesDocument").SalesRecipientSnapshot;customerId:string;documentDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):SalesOrder {
         const prior=salesOrders.find(o=>o.managedDraftId===input.draftId);if(prior)return prior;
         if(isCustomerCreditHeld(customerRepository.getById(input.customerId)))throw Error("Customer is Credit On Hold. New orders are blocked.");
@@ -636,6 +647,7 @@ export const salesRepository = {
 
             sourceQuoteId:
                 quote.id,
+            expectedDispatchDate:quote.expectedDispatchDate,awaitingCollection:quote.awaitingCollection,
 
             invoiceIds: [],
 
@@ -809,6 +821,7 @@ export const salesRepository = {
 
             sourceSalesOrderId:
                 order.id,
+            expectedDispatchDate:order.expectedDispatchDate,awaitingCollection:order.awaitingCollection,
 
             customerReference:
                 order.customerReference,
@@ -2196,7 +2209,7 @@ function getLocalDateKey(
 }
 registerRepository("sales", {
     repository: salesRepository, read: "sales.read",
-    commands: {"createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
+    commands: {"scheduleDispatch":"sales.manage", "createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
     validate: (value,snapshots) => {
         const saved=value as {quotes:Quote[];salesOrders:SalesOrder[];invoices:Invoice[]};
         for (const d of [...saved.quotes,...saved.salesOrders,...saved.invoices]) {

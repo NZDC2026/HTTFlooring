@@ -423,3 +423,23 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM accounting.cash_flow_scopes WHERE bank_account_id IN('00000000-0000-0000-0000-000000000470','00000000-0000-0000-0000-000000000471') AND included AND NOT review_required)<>2
  THEN RAISE EXCEPTION 'Cash scope/classification exactly-once mismatch'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_period_created')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_method_changed')<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_finalize')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_record_lodgement')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_reopen')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_classified')<>2
+ OR (SELECT count(*) FROM accounting.bas_period_controls WHERE state='OPEN')<>2
+ OR (SELECT count(*) FROM accounting.bas_snapshots)<>2
+ OR (SELECT count(*) FROM accounting.bas_period_events)<>6
+ THEN RAISE EXCEPTION 'BAS local lifecycle/method/classification exactly-once mismatch'; END IF;
+END $$;
+
+DO $$ DECLARE mismatches jsonb; prior_actor uuid:=core.current_actor(); BEGIN
+ PERFORM set_config('htt.actor_id','00000000-0000-0000-0000-000000000450',true);
+ SELECT jsonb_agg(to_jsonb(x)) INTO mismatches FROM accounting.reconciliation_checks() x WHERE expected IS DISTINCT FROM actual;
+ IF mismatches IS NOT NULL THEN RAISE EXCEPTION 'Global current reconciliation mismatch: %',mismatches; END IF;
+ PERFORM set_config('htt.actor_id',prior_actor::text,true);
+END $$;

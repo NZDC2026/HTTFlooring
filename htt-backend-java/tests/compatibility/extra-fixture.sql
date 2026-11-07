@@ -232,6 +232,7 @@ INSERT INTO identity.role_permissions(company_id,role_id,permission_code) SELECT
 INSERT INTO identity.customer_assignments(company_id,membership_id,customer_id,created_by) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000240','00000000-0000-0000-0000-000000000011','00000000-0000-0000-0000-000000000002');
 INSERT INTO crm.parties(id,company_id,legal_name) VALUES ('00000000-0000-0000-0000-000000000250','00000000-0000-0000-0000-000000000001','Synthetic shared CRM party');
 INSERT INTO crm.customers(id,company_id,party_id,code,status,credit_limit,payment_terms_days) VALUES ('00000000-0000-0000-0000-000000000251','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000250','SHARED_CRM_TEST','ON_HOLD',100,30);
+INSERT INTO crm.customer_credit_exposures(company_id,customer_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000251');
 INSERT INTO crm.suppliers(id,company_id,party_id,code,status,payment_terms_days) VALUES ('00000000-0000-0000-0000-000000000252','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000250','SHARED_SUPPLIER_TEST','ACTIVE',30);
 
 INSERT INTO crm.customer_branches(id,company_id,customer_id,code,name,address_line1,state,postcode) VALUES
@@ -470,3 +471,15 @@ INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES(
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bas.reopen');
 
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bas.classify');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.bas.lodged');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.periods.read');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.periods.manage');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.periods.close');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.periods.reopen');
+
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.reconciliation.read');

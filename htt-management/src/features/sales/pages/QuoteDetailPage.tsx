@@ -1,3 +1,4 @@
+import {SalesDispatchSchedule} from '../components/SalesDispatchSchedule';
 import { DocumentTrashLink } from "../../document-recycle/DocumentTrashLink";
 import { PricingTimeSummary } from '../components/PricingTimeFields';
 import { ItemTypeSummary } from '../components/ItemTypeSummary';
@@ -282,7 +283,7 @@ export function QuoteDetailPage() {
             />
 
             <div className="mb-5 grid grid-cols-4 gap-4">
-                <div><Link className="text-sm underline" to={`/documents/delivery?kind=QUOTE&sourceId=${quote.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={quote.recipient}/><PricingTimeSummary lines={quote.lines}/></div>
+                <div><Link className="text-sm underline" to={`/documents/delivery?kind=QUOTE&sourceId=${quote.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={quote.recipient}/><SalesDispatchSchedule document={quote}/><PricingTimeSummary lines={quote.lines}/></div>
                 <InfoCard
                     label="Customer"
                     value={

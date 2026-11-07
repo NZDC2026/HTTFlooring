@@ -119,6 +119,8 @@ export interface SalesDocumentTotals {
 }
 
 interface SalesDocumentBase {
+    expectedDispatchDate?: string;
+    awaitingCollection?: boolean;
     recipient?: SalesRecipientSnapshot;
     managedDraftId?: string;
     openingBalanceImportId?: string;
