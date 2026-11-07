@@ -36,3 +36,10 @@ build/
 
 ### VS Code ###
 .vscode/
+# Generated infrastructure credentials, TLS keys and data backups.
+deploy/infra/.state/
+deploy/infra/**/__pycache__/
+deploy/keycloak/.state/
+deploy/keycloak/**/__pycache__/
+
+.docs/

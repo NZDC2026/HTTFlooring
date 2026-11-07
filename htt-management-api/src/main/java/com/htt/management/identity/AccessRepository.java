@@ -1,6 +1,7 @@
 package com.htt.management.identity;
 
 import java.util.UUID;
+import com.htt.management.identity.contract.CustomerBranchScope;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.dao.DataRetrievalFailureException;
 import tools.jackson.databind.ObjectMapper;
@@ -26,6 +27,11 @@ public class AccessRepository {
         String result = jdbc.queryForObject("select identity.resource_owner(?, ?)::text",
                 String.class, kind.name(), id);
         return parse(result, AccessSnapshot.ResourceOwner.class);
+    }
+
+    public CustomerBranchScope customerBranchScope(UUID actor, UUID company, UUID grant) {
+        String result = jdbc.queryForObject("select identity.portal_branch_scope(?, ?, ?)::text", String.class, actor, company, grant);
+        return parse(result, CustomerBranchScope.class);
     }
 
     private <T> T parse(String value, Class<T> type) {

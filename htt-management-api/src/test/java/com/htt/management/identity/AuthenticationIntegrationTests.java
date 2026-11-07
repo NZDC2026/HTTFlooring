@@ -233,6 +233,31 @@ class AuthenticationIntegrationTests {
     }
 
     @Test
+    void auditTransactionFailureDuringAuthenticationReturns503() throws Exception {
+        doThrow(new org.springframework.transaction.CannotCreateTransactionException("test connection unavailable"))
+                .when(audit).record(any(), anyString(), any(), any(), anyString());
+        mvc.perform(get("/api/v1/me")).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.requestId").isNotEmpty());
+    }
+
+    @Test
+    void auditTransactionFailureDuringHttpDenialReturns503() throws Exception {
+        doThrow(new org.springframework.transaction.CannotCreateTransactionException("test connection unavailable"))
+                .when(audit).record(any(), anyString(), any(), any(), anyString());
+        mvc.perform(get("/unconfigured").header("Authorization", "Bearer " + staffToken()))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
+    }
+
+    @Test
+    void auditTransactionFailurePreventsOrderActionWithUniform503() throws Exception {
+        doThrow(new org.springframework.transaction.CannotCreateTransactionException("test connection unavailable"))
+                .when(audit).record(any(), eq("order:create"), any(), any(), anyString());
+        mvc.perform(createOrder(staffToken(), BRANCH)).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
+    }
+
+    @Test
     void keyProviderOutageFailsClosedWith503() throws Exception {
         doThrow(new org.springframework.security.oauth2.jwt.JwtException("test JWKS outage"))
                 .when(staff).decode(anyString());

@@ -1,6 +1,8 @@
 # ADR-0003：通知可靠投递方向
 
-日期：2026-11-05。状态：方向已确定；未实现、未连接 RabbitMQ/FCM/APNs。
+日期：2026-11-05，2026-11-06 更新。状态：Outbox、消费、渠道任务、Fake Push、SSE 与恢复代码已实现；专用 PostgreSQL 和远程执行机上的真实 RabbitMQ 容器测试通过，FCM/APNs 真机未验证。实际边界和运行说明见 [通知模块](../notification.md)。
+
+本轮复核：业务发布器的Bean配置已移至platform，通知关闭仍可提交Outbox；71项普通测试/JAR及7项真实PG/Rabbit容器测试通过。新增同链路真实HTTP/SSE、RSA验签、身份仓储/RLS、跨客户/门店隔离与游标恢复验证，测试取钥不连接实际IdP。文件/命令/回滚见 [验收记录](../plans/notification-verification.md)。
 
 业务事务同时保存业务变更、审计及 Outbox。Publisher 用短事务领取有租约的记录，事务外发布到 RabbitMQ，收到 publisher confirm 并处理 mandatory return 后再标记成功。崩溃可能重发，因此承诺至少一次，不声称端到端恰好一次。
 

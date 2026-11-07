@@ -1,0 +1,18 @@
+services:
+  rabbitmq:
+    volumes:
+      - ${HTT_STATE_DIR}/tls/ca.crt:/run/htt-tls-source/ca.crt:ro
+      - ${HTT_STATE_DIR}/tls/rabbitmq.crt:/run/htt-tls-source/rabbitmq.crt:ro
+      - ${HTT_STATE_DIR}/tls/rabbitmq.key:/run/htt-tls-source/rabbitmq.key:ro
+    ports:
+      - "${HTT_BIND_ADDRESS}:${RABBITMQ_PORT}:5671"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:15672"
+  redis:
+    volumes:
+      - ${HTT_STATE_DIR}/tls/ca.crt:/run/htt-tls-source/ca.crt:ro
+      - ${HTT_STATE_DIR}/tls/redis.crt:/run/htt-tls-source/redis.crt:ro
+      - ${HTT_STATE_DIR}/tls/redis.key:/run/htt-tls-source/redis.key:ro
+      - ${HTT_STATE_DIR}/tls/ops-client.crt:/run/htt-tls-source/ops-client.crt:ro
+      - ${HTT_STATE_DIR}/tls/ops-client.key:/run/htt-tls-source/ops-client.key:ro
+    ports:
+      - "${HTT_BIND_ADDRESS}:${REDIS_PORT}:6379"

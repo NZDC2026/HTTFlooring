@@ -34,7 +34,7 @@ class SecurityConfiguration {
         http.authorizeHttpRequests(authorize -> {
             authorize.requestMatchers(HttpMethod.GET, "/actuator/health",
                     "/actuator/health/liveness", "/actuator/health/readiness").permitAll();
-            if (environment.matchesProfiles("local")) {
+            if (environment.matchesProfiles("local", "development")) {
                 authorize.requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs/**",
                         "/v3/api-docs.yaml", "/swagger-ui.html", "/swagger-ui/**").permitAll();
             }
