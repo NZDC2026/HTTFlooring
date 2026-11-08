@@ -1,0 +1,5 @@
+import {useState} from 'react';
+import {renderOutputHtml} from './outputHtml';
+import {type OutputKind} from './outputRepository';
+import {salesOutputSample} from './salesOutputSamples';
+export function SalesOutputSample(){const[kind,setKind]=useState<OutputKind>('QUOTE');return <details className="rounded-xl border border-amber-300 bg-amber-50 p-4"><summary className="cursor-pointer font-medium">Sample · Customer Quote / Order / Invoice print preview</summary><p className="my-3 text-sm">Read-only synthetic data. Nothing is saved or emailed; payment details are examples only.</p><div className="mb-3 flex gap-3">{(['QUOTE','SALES_ORDER','INVOICE'] as const).map(k=><button type="button" className="rounded border bg-white px-4 py-2" aria-pressed={kind===k} key={k} onClick={()=>setKind(k)}>{k.replace('_',' ')}</button>)}</div><iframe title="Sample customer document" className="h-[820px] w-full border bg-white" sandbox="allow-same-origin" srcDoc={renderOutputHtml(salesOutputSample(kind))}/></details>}

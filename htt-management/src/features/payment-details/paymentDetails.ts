@@ -1,0 +1,8 @@
+export type CompanyPaymentDetails={bankName:string;accountName:string;bsb:string;accountNumber:string;instructions:string};
+export const paymentDetailFields=['paymentBankName','paymentAccountName','paymentBsb','paymentAccountNumber','paymentInstructions'] as const;
+export function companyPaymentDetails(settings:Record<string,string|undefined>):CompanyPaymentDetails{return {bankName:settings.paymentBankName??'',accountName:settings.paymentAccountName??'',bsb:settings.paymentBsb??'',accountNumber:settings.paymentAccountNumber??'',instructions:settings.paymentInstructions??''};}
+export function validateCompanyPaymentDetails(settings:Record<string,string|undefined>){const d=companyPaymentDetails(settings);if(![d.bankName,d.accountName,d.bsb,d.accountNumber,d.instructions].some(Boolean))return;if(!d.accountName.trim()||!d.bsb||!d.accountNumber)throw Error('Payment Details require an account name, BSB and account number.');if(!/^\d{3}-?\d{3}$/.test(d.bsb))throw Error('BSB must contain 6 digits, for example 000-000.');if(!/^\d{4,20}$/.test(d.accountNumber))throw Error('Account number must contain 4–20 digits.');if(d.bankName.length>200||d.accountName.length>200||d.instructions.length>1000)throw Error('Payment Details exceed the permitted length.');}
+export const samplePaymentDetails:CompanyPaymentDetails={bankName:'Sample Bank · Not a real account',accountName:'Sample HTT Flooring Pty Ltd',bsb:'000-000',accountNumber:'00000000',instructions:'Please use your document number as the payment reference. Sample only — do not make a payment.'};
+
+/** Keep the final numeric sequence as text so leading zeroes are preserved. */
+export function paymentReference(documentNumber?:string):string{return documentNumber?.trim().match(/(?:^|-)(\d+)$/)?.[1]??'';}

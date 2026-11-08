@@ -94,11 +94,14 @@ export function buildSalesLine({
     assertProductQuantity(draft.productId,draft.unitId,area.quantity,'sell');
     if (product.sellEnabled === false) throw new Error("Product is not available for selling.");
     const taxCode = product.taxCode ?? businessSettings().gstCode, taxRate = activeTaxRate(taxCode);
-    const unitPrice = hasManualPrice ? exclusivePrice(inputPrice, taxRate, draft.priceBasis) : inputPrice;
+    const discount = draft.discountPercent ?? 0;
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) throw new Error('Discount must be between 0 and 100%.');
+    const discountBaseUnitPrice = hasManualPrice ? exclusivePrice(inputPrice, taxRate, draft.priceBasis) : inputPrice;
+    const unitPrice = discountBaseUnitPrice * (1 - discount / 100);
     const calculations =
         calculateSalesLine({
             taxRate,
-            inclusiveLineTotal:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?Math.round(area.quantity*inputPrice*100)/100:undefined,
+            inclusiveLineTotal:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?Math.round(area.quantity*inputPrice*(1-discount/100)*100)/100:undefined,
             quantity:
                 area.quantity,
 
@@ -113,7 +116,7 @@ export function buildSalesLine({
         ...context,
         itemType: product.itemType??"STOCK",
         ...area,
-        ...taxSnapshot(taxCode), priceBasis:hasManualPrice?(draft.priceBasis??businessSettings().basis) as 'Inclusive'|'Exclusive':'Exclusive',grossUnitPrice:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?inputPrice:undefined, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,
+        ...taxSnapshot(taxCode), priceBasis:hasManualPrice?(draft.priceBasis??businessSettings().basis) as 'Inclusive'|'Exclusive':'Exclusive',grossUnitPrice:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?inputPrice*(1-discount/100):undefined, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,
 
         productId:
             product.id,
@@ -150,6 +153,7 @@ export function buildSalesLine({
                 : undefined,
 
         ...calculations,
+        ...(draft.discountPercent===undefined?{}:{explicitDiscountPercent:discount,discountBaseUnitPrice}),
     };
 }
 
@@ -188,4 +192,10 @@ function createId(
     prefix: string,
 ) {
     return `${prefix}_${crypto.randomUUID()}`;
+}
+/** Validate the saved, pre-discount price independently of the current price catalogue. */
+export function validateSalesDiscountSnapshot(line: {explicitDiscountPercent?:number;discountBaseUnitPrice?:number;unitPrice:number}) {
+ if(line.explicitDiscountPercent===undefined&&line.discountBaseUnitPrice===undefined)return;
+ const d=line.explicitDiscountPercent,b=line.discountBaseUnitPrice;
+ if(d===undefined||b===undefined||!Number.isFinite(d)||d<0||d>100||!Number.isFinite(b)||b<0||Math.abs(line.unitPrice-b*(1-d/100))>1e-8)throw new Error('Invalid saved sales discount.');
 }

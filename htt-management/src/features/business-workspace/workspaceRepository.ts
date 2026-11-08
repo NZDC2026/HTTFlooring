@@ -1,3 +1,4 @@
+import {validateCompanyPaymentDetails} from '../payment-details/paymentDetails';
 import { validateTaskDocument, type TaskDocument } from "../contacts/data/taskDocumentReference";
 import { paymentTermsTypeSchema, validatePaymentTerms } from "../payment-terms/paymentTerms";
 import { validTaskLocalTime } from "../delivery-tasks/deliveryTaskTime";
@@ -36,7 +37,7 @@ export const workspaceDomains: Record<string, {
     templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
     'report-packs': { read: 'accounting.read', write: 'accounting.post', required: ['periodStart', 'periodEnd', 'reports'], fields: ['periodStart', 'periodEnd', 'reports', 'cover', 'introduction'] },
-    settings: { read: 'inventory.read', write: 'accounting.post', required: ['section'], fields: ['termsType', 'reportDefaults', 'termsPolicy', 'paymentMethod', 'section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase', 'billPrefix', 'supplierCreditPrefix', 'nextBill', 'nextSupplierCredit', 'tradingName', 'identifier', 'email', 'phone', 'address'] },
+    settings: { read: 'inventory.read', write: 'accounting.post', required: ['section'], fields: ['paymentBankName','paymentAccountName','paymentBsb','paymentAccountNumber','paymentInstructions','termsType', 'reportDefaults', 'termsPolicy', 'paymentMethod', 'section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase', 'billPrefix', 'supplierCreditPrefix', 'nextBill', 'nextSupplierCredit', 'tradingName', 'identifier', 'email', 'phone', 'address'] },
 };
 const listeners = new Set<() => void>();
 let revision = 0;
@@ -184,6 +185,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             if(!['BANK_TRANSFER','CARD','CASH','CHEQUE','OTHER'].includes(input.paymentMethod))throw new Error('Invalid preferred payment method.');
         }
         if(input.section==='business') {
+            validateCompanyPaymentDetails(input);
             for(const field of ['companyName','currency','timezone','yearEnd','gstCode','basis','terms'])requiredText(input[field],field);
             if(input.status!=='Active')throw new Error('Business settings must remain active.');
             if(!['Exclusive','Inclusive'].includes(input.basis))throw new Error('Invalid price basis.');

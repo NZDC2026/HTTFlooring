@@ -575,3 +575,16 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.card_confirm')<>2
  THEN RAISE EXCEPTION 'Card API job retry/confirmation must create drafts exactly once'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_update')<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_delete')<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_remove' AND actor_id='00000000-0000-0000-0000-000000000500')<>1
+ THEN RAISE EXCEPTION 'Collaboration updates, deletion and removal must execute once'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_checkout' AND actor_id='00000000-0000-0000-0000-000000000500')<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_cancel' AND actor_id='00000000-0000-0000-0000-000000000500')<>1
+ THEN RAISE EXCEPTION 'Synthetic checkout and cancellation must execute once'; END IF;
+END $$;

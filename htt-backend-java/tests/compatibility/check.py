@@ -4508,6 +4508,11 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             collaboration_read(collaboration_path+'/'+str(uuid.uuid4()),404)
             collaboration_read(collaboration_path+'/'+str(uuid.uuid4())+'/history',404)
             collaboration_read(collaboration_path,403,general_reader)
+            offset_cases=json.loads((here/'offset-query-oracle.json').read_text())
+            for case in offset_cases:
+                collaboration_read(collaboration_path+'?'+urllib.parse.urlencode({'from':case['input']}),case['status'])
+            print('PASS: native DateTimeOffset query oracle including invariant date grammar, 100ns half-even rounding and UTC year/offset bounds')
+
             print('PASS: collaboration ordered list/detail/history raw projections, filters, native parameters and source visibility guards')
             def draft_read(path,actor=None,status=200):
                 a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
@@ -4752,6 +4757,59 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert card_read(path)[1]['draftId']==confirmed[1]['id']
                 assert request(path+'/confirm',report_actor,company,base=first,payload=contact,key='card-consumed-'+uuid.uuid4().hex)[0]==409
             print('PASS: owned card job read, failed retry and successful draft-only confirmation; bounded PNG/JPEG upload shared replay and synthetic worker SQL fixtures, no OCR provider')
+            note=next(x for x in collaboration_fixtures if x['kind']=='NOTE')
+            note_path=collaboration_path+'/'+note['id']
+            private=rule_write_retry(note_path,{'text':' Updated synthetic private café ','visibility':'PRIVATE'},url,legacy_url,{'text':'Different note'},note['version'],method='PUT',status=200,actor=report_actor)
+            assert private[1]['visibility']=='PRIVATE',private
+            collaboration_read(note_path,403,other_report_actor)
+            shared=rule_write_retry(note_path,{'text':'Synthetic team note restored','visibility':'TEAM'},legacy_url,url,{'text':'Different restored note'},private[1]['version'],method='PUT',status=200,actor=report_actor)
+            assert collaboration_read(note_path)[1]==shared[1]
+            history=collaboration_read(note_path+'/history')[1]
+            assert len(history)==3,history
+            deleted=draft_transition(note_path,url,legacy_url,shared[1]['version'],method='DELETE')
+            assert deleted[1]['state']=='DELETED',deleted
+            collaboration_read(note_path,404)
+            collaboration_read(note_path+'/history',404)
+            board=next(x for x in collaboration_fixtures if x['kind']=='BOARD')
+            board_path=collaboration_path+'/'+board['id']
+            board_body={**board['data'],'title':'Synthetic board updated','description':' café + board '}
+            for backend in (url,legacy_url):
+                immutable=request(board_path,report_actor,company,base=backend,payload={**board_body,'productId':str(uuid.uuid4())},key='board-product-'+uuid.uuid4().hex,version=board['version'],method='PUT')
+                assert immutable[0]==422,immutable
+            updated=rule_write_retry(board_path,board_body,legacy_url,url,{'title':'Different board update'},board['version'],method='PUT',status=200,actor=report_actor)
+            removed=rule_write_retry(board_path+'/remove',{'reason':' Synthetic board removal '},url,legacy_url,{'reason':'Different board removal'},updated[1]['version'],status=200,actor=report_actor)
+            assert removed[1]['state']=='REMOVED',removed
+            assert collaboration_read(board_path)[1]==removed[1]
+            for backend in (url,legacy_url):
+                result=request(board_path+'/remove',report_actor,company,base=backend,payload={'reason':'Already removed'},key='board-terminal-'+uuid.uuid4().hex,version=removed[1]['version'])
+                assert result[0]==409,result
+            visit=next(x for x in collaboration_fixtures if x['kind']=='VISIT')
+            visit_path=collaboration_path+'/'+visit['id']
+            checkout_now=datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z')
+            checkout={'checkOut':{'latitude':'-33.8688','longitude':'151.2093','accuracyMetres':'10','capturedAt':checkout_now},'notes':chr(0x85)+' café + checkout '+chr(0x85)}
+            for backend in (url,legacy_url):
+                denied=request(visit_path+'/checkout',other_report_actor,company,base=backend,payload=checkout,key='visit-other-'+uuid.uuid4().hex,version=visit['version'])
+                assert denied[0]==403,denied
+                invalid=request(visit_path+'/checkout',report_actor,company,base=backend,payload={**checkout,'checkOut':{**checkout['checkOut'],'accuracyMetres':'0'}},key='visit-accuracy-'+uuid.uuid4().hex,version=visit['version'])
+                assert invalid[0]==422,invalid
+                before=datetime.datetime.fromisoformat(visit['data']['checkIn']['capturedAt'].replace('Z','+00:00'))-datetime.timedelta(seconds=1)
+                invalid=request(visit_path+'/checkout',report_actor,company,base=backend,payload={**checkout,'checkOut':{**checkout['checkOut'],'capturedAt':before.isoformat()}},key='visit-before-'+uuid.uuid4().hex,version=visit['version'])
+                assert invalid[0]==422,invalid
+            closed=rule_write_retry(visit_path+'/checkout',checkout,url,legacy_url,{'notes':'Different checkout'},visit['version'],status=200,actor=report_actor)
+            assert closed[1]['state']=='CLOSED' and closed[1]['data']['notes']=='café + checkout',closed
+            assert collaboration_read(visit_path)[1]==closed[1]
+            second_visit_body={'id':str(uuid.uuid4()),'kind':'VISIT','customerId':customer_id,'branchId':branch,'data':{'checkIn':checkout['checkOut'],'purpose':'Synthetic cancellable visit'}}
+            second_visit=request(collaboration_path,report_actor,company,base=legacy_url,payload=second_visit_body,key='visit-cancel-fixture-'+uuid.uuid4().hex)
+            assert second_visit[0]==201,second_visit
+            second_path=collaboration_path+'/'+second_visit[1]['id']
+            cancelled=rule_write_retry(second_path+'/cancel',{'reason':' Synthetic cancellation '},legacy_url,url,{'reason':'Different cancellation'},second_visit[1]['version'],status=200,actor=report_actor)
+            assert cancelled[1]['state']=='CANCELLED' and cancelled[1]['data']['cancelReason']=='Synthetic cancellation',cancelled
+            assert collaboration_read(second_path)[1]==cancelled[1]
+            for backend in (url,legacy_url):
+                assert request(visit_path+'/cancel',report_actor,company,base=backend,payload={'reason':'Closed visit'},key='visit-closed-'+uuid.uuid4().hex,version=closed[1]['version'])[0]==409
+                assert request(second_path+'/cancel',report_actor,company,base=backend,payload={'reason':'Cancelled visit'},key='visit-cancelled-'+uuid.uuid4().hex,version=cancelled[1]['version'])[0]==409
+            print('PASS: original-visitor checkout, temporal/accuracy guards, native whitespace normalization and cancellation with mixed retry; CSRF policy unchanged')
+            print('PASS: collaboration note privacy/update/delete and board immutable placement/product/update/remove, mixed retry with existing CSRF policy unchanged')
             print('PASS: independent CRM approval creates exactly one customer/exposure/owner assignment, AU branch and normalized linked contact with mixed replay')
             draft_read('/api/v1/crm/drafts?pageSize=1')
             draft_read('/api/v1/crm/drafts?state=DELETED&pageSize=100')

@@ -32,13 +32,7 @@ class CollaborationReads {
  });}
  @GetMapping("/api/v1/crm/collaboration/{id}/history")
  ResponseEntity<String> history(@PathVariable UUID id,@AuthenticationPrincipal Jwt token,HttpServletRequest request){var scope=access(token,request);return read(scope,request,()->query("SELECT crm.collab_history(:id)::text",scope,Map.of("id",id)).query(String.class).single());}
- private static OffsetDateTime date(String value){
-  if(value==null)return null;String text=trim(value);
-  try{return OffsetDateTime.parse(text).withOffsetSameInstant(ZoneOffset.UTC);}catch(java.time.format.DateTimeParseException ignored){}
-  try{return LocalDateTime.parse(text).atOffset(ZoneOffset.UTC);}catch(java.time.format.DateTimeParseException ignored){}
-  try{return LocalDate.parse(text).atStartOfDay().atOffset(ZoneOffset.UTC);}catch(java.time.format.DateTimeParseException ignored){}
-  throw new StaffScope.Failure(400,"invalid_request","Invalid request body or parameters.");
- }
+ private static OffsetDateTime date(String value){return QueryOffsetFields.parse(value);}
  private JdbcClient.StatementSpec query(String sql,StaffScope.CompanyAccess scope,Map<String,?> args){return jdbc.sql(sql).param("company",scope.companyId()).params(args);}
  private StaffScope.CompanyAccess access(Jwt token,HttpServletRequest request){return staff.require(token,request.getHeader("X-Company-Id"),"crm.collaboration.read");}
  private ResponseEntity<String> read(StaffScope.CompanyAccess scope,HttpServletRequest request,java.util.function.Supplier<String> body){return staff.inCompany(scope,(String)request.getAttribute(ApiResponseHeaders.REQUEST_ID),()->ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body.get()));}

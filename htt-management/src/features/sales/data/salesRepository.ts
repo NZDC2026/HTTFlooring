@@ -1,8 +1,9 @@
+import {validateSalesDiscountSnapshot} from './salesPricingService';
 import { isCustomerCreditHeld } from "../../credit-hold/creditHoldNotice";
 import { paymentDueDate, invoicePaymentTerms } from "../../payment-terms/paymentTerms";
 import { customerRepository } from "../../contacts/data/customerRepository";
 import { resolvePricingInstant, validatePricingSnapshot } from './pricingInstant';
-import { visibleDocuments } from '../../document-recycle/recycleState';
+import { purgedNumbers, visibleDocuments } from '../../document-recycle/recycleState';
 import { validateLineItemType } from '../../inventory/data/itemTypes';
 import { validateAreaSnapshot } from './areaPacks';
 import { validateRecipientSnapshot } from './salesRecipients';
@@ -141,28 +142,44 @@ function buildSnapshot():
     ];
 }
 
+function nextSalesNumber(kind:'QU'|'SO'|'INV'){
+ const all=[...[...quotes,...salesOrders,...invoices].map(d=>d.documentNumber),...purgedNumbers()].map(number=>number.replace(/^(QU|SO|INV)-/,kind+'-'));
+ return getNextDocumentNumber(kind,all);
+}
+function convertedSalesNumber(source:string,kind:'SO'|'INV'){
+ const number=source.replace(/^(QU|SO|INV)-/,kind+'-');
+ if(number===source||purgedNumbers().includes(number)||[...quotes,...salesOrders,...invoices].some(d=>d.documentNumber===number))throw Error('The linked document number is already in use. Resolve the existing number before converting this document.');
+ return number;
+}
+function validateDispatchFields(d:{deliveryBooked?:boolean;expectedDispatchDate?:string;awaitingCollection?:boolean}){
+ if(d.deliveryBooked!==undefined&&typeof d.deliveryBooked!=='boolean'||d.awaitingCollection!==undefined&&typeof d.awaitingCollection!=='boolean')throw Error('Invalid delivery booking.');
+ if(d.expectedDispatchDate)requireDateKey(d.expectedDispatchDate,'Delivery date');
+ if(d.deliveryBooked&&!d.expectedDispatchDate)throw Error('Delivery date is required when Delivery Booked is selected.');
+}
 export const salesRepository = {
-    scheduleDispatch(id:string,expectedDate:string,awaitingCollection:boolean):SalesDocument {
+    scheduleDispatch(id:string,expectedDate:string,awaitingCollection:boolean,deliveryBooked?:boolean):SalesDocument {
         if(typeof id!=='string'||typeof expectedDate!=='string'||typeof awaitingCollection!=='boolean')throw Error('Invalid dispatch schedule.');
         const doc=salesRepository.getById(id);if(!doc)throw Error('Sales document not found.');
         if(['VOID','CANCELLED','DECLINED','EXPIRED'].includes(doc.status))throw Error('This document cannot be scheduled.');
         if(expectedDate)requireDateKey(expectedDate,'Expected dispatch date');
-        const next={...doc,expectedDispatchDate:expectedDate||undefined,awaitingCollection,updatedAt:new Date().toISOString()};
+        validateDispatchFields({deliveryBooked:deliveryBooked??doc.deliveryBooked,expectedDispatchDate:expectedDate,awaitingCollection});
+        const next={...doc,deliveryBooked:deliveryBooked??doc.deliveryBooked,expectedDispatchDate:expectedDate||undefined,awaitingCollection,updatedAt:new Date().toISOString()};
         if(doc.type==='QUOTE')commitQuotes(quotes.map(d=>d.id===id?next as Quote:d));
         else if(doc.type==='SALES_ORDER')commitOrderDocuments(salesOrders.map(d=>d.id===id?next as SalesOrder:d));
         else commitInvoices(invoices.map(d=>d.id===id?next as Invoice:d));
         return next;
     },
-    createManagedOrder(input: {draftId:string;recipient?:import("../types/salesDocument").SalesRecipientSnapshot;customerId:string;documentDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):SalesOrder {
+    createManagedOrder(input: {deliveryBooked?:boolean;expectedDispatchDate?:string;awaitingCollection?:boolean;draftId:string;recipient?:import("../types/salesDocument").SalesRecipientSnapshot;customerId:string;documentDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):SalesOrder {
         const prior=salesOrders.find(o=>o.managedDraftId===input.draftId);if(prior)return prior;
         if(isCustomerCreditHeld(customerRepository.getById(input.customerId)))throw Error("Customer is Credit On Hold. New orders are blocked.");
-        const now=new Date().toISOString(),order:SalesOrder={id:createId('order'),managedDraftId:input.draftId,type:'SALES_ORDER',status:'CONFIRMED',documentNumber:getNextDocumentNumber('SO',salesOrders.map(o=>o.documentNumber)),customerId:input.customerId,recipient:structuredClone(input.recipient),documentDate:input.documentDate,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),invoiceIds:[],createdAt:now,updatedAt:now};
+        validateDispatchFields(input);
+        const now=new Date().toISOString(),order:SalesOrder={id:createId('order'),managedDraftId:input.draftId,type:'SALES_ORDER',status:'CONFIRMED',documentNumber:nextSalesNumber('SO'),deliveryBooked:input.deliveryBooked,expectedDispatchDate:input.expectedDispatchDate,awaitingCollection:input.awaitingCollection,customerId:input.customerId,recipient:structuredClone(input.recipient),documentDate:input.documentDate,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),invoiceIds:[],createdAt:now,updatedAt:now};
         commitOrderDocuments([order,...salesOrders]);return order;
     },
-    createManagedInvoice(input: {draftId:string;recipient?:import("../types/salesDocument").SalesRecipientSnapshot;customerId:string;documentDate:string;dueDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):Invoice {
+    createManagedInvoice(input: {deliveryBooked?:boolean;expectedDispatchDate?:string;awaitingCollection?:boolean;draftId:string;recipient?:import("../types/salesDocument").SalesRecipientSnapshot;customerId:string;documentDate:string;dueDate:string;customerReference?:string;notes?:string;lines:SalesDocumentLine[];totals:Invoice['totals']}):Invoice {
         const prior=invoices.find(i=>i.managedDraftId===input.draftId);if(prior)return prior;
         const order=salesRepository.createManagedOrder(input),now=new Date().toISOString();
-        const invoice:Invoice={id:createId('invoice'),managedDraftId:input.draftId,type:'INVOICE',status:'ISSUED',documentNumber:getNextDocumentNumber('INV',invoices.map(i=>i.documentNumber)),customerId:input.customerId,recipient:structuredClone(input.recipient),documentDate:input.documentDate,dueDate:input.dueDate,sourceSalesOrderId:order.id,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),amountPaid:0,amountDue:input.totals.total,createdAt:now,updatedAt:now};
+        const invoice:Invoice={id:createId('invoice'),managedDraftId:input.draftId,type:'INVOICE',status:'ISSUED',documentNumber:convertedSalesNumber(order.documentNumber,'INV'),deliveryBooked:input.deliveryBooked,expectedDispatchDate:input.expectedDispatchDate,awaitingCollection:input.awaitingCollection,customerId:input.customerId,recipient:structuredClone(input.recipient),documentDate:input.documentDate,dueDate:input.dueDate,sourceSalesOrderId:order.id,customerReference:input.customerReference,notes:input.notes,lines:structuredClone(input.lines),totals:structuredClone(input.totals),amountPaid:0,amountDue:input.totals.total,createdAt:now,updatedAt:now};
         const nextOrders=salesOrders.map(o=>o.id===order.id?{...o,status:'INVOICED' as const,invoiceIds:[...o.invoiceIds,invoice.id],updatedAt:now}:o);
         persistSalesDocuments({quotes,salesOrders:nextOrders,invoices:[invoice,...invoices]});salesOrders=nextOrders;invoices=[invoice,...invoices];emitChange();salesAccountingPostingService.postInvoice(invoice);return invoice;
     },
@@ -292,14 +309,9 @@ export const salesRepository = {
             type: "QUOTE",
 
             documentNumber:
-                getNextDocumentNumber(
-                    "QU",
-                    quotes.map(
-                        (item) =>
-                            item.documentNumber,
-                    ),
-                ),
+                nextSalesNumber('QU'),
 
+            deliveryBooked:draft.deliveryBooked,expectedDispatchDate:draft.expectedDispatchDate,awaitingCollection:draft.awaitingCollection,
             recipient: salesRecipient(draft.customerId, draft),
             customerId:
                 draft.customerId,
@@ -627,13 +639,7 @@ export const salesRepository = {
                 "SALES_ORDER",
 
             documentNumber:
-                getNextDocumentNumber(
-                    "SO",
-                    salesOrders.map(
-                        (item) =>
-                            item.documentNumber,
-                    ),
-                ),
+                convertedSalesNumber(quote.documentNumber,'SO'),
 
             recipient: structuredClone(quote.recipient),
             customerId:
@@ -647,7 +653,7 @@ export const salesRepository = {
 
             sourceQuoteId:
                 quote.id,
-            expectedDispatchDate:quote.expectedDispatchDate,awaitingCollection:quote.awaitingCollection,
+            deliveryBooked:quote.deliveryBooked,expectedDispatchDate:quote.expectedDispatchDate,awaitingCollection:quote.awaitingCollection,
 
             invoiceIds: [],
 
@@ -799,13 +805,7 @@ export const salesRepository = {
                 "INVOICE",
 
             documentNumber:
-                getNextDocumentNumber(
-                    "INV",
-                    invoices.map(
-                        (item) =>
-                            item.documentNumber,
-                    ),
-                ),
+                convertedSalesNumber(order.documentNumber,'INV'),
 
             recipient: structuredClone(order.recipient),
             customerId:
@@ -821,7 +821,7 @@ export const salesRepository = {
 
             sourceSalesOrderId:
                 order.id,
-            expectedDispatchDate:order.expectedDispatchDate,awaitingCollection:order.awaitingCollection,
+            deliveryBooked:order.deliveryBooked,expectedDispatchDate:order.expectedDispatchDate,awaitingCollection:order.awaitingCollection,
 
             customerReference:
                 order.customerReference,
@@ -2106,6 +2106,7 @@ export const salesRepository = {
 function validateDraft(
     draft: SalesDocumentDraft,
 ) {
+    validateDispatchFields(draft);
     if (
         !draft.customerId
     ) {
@@ -2213,8 +2214,9 @@ registerRepository("sales", {
     validate: (value,snapshots) => {
         const saved=value as {quotes:Quote[];salesOrders:SalesOrder[];invoices:Invoice[]};
         for (const d of [...saved.quotes,...saved.salesOrders,...saved.invoices]) {
+            validateDispatchFields(d);
             validateRecipientSnapshot(d.recipient);
-            for (const l of d.lines) {validateAreaSnapshot(l); validatePricingSnapshot(l);validateLineItemType(l,(snapshots.products as {products:import("../../inventory/types/product").Product[]}).products.find(p=>p.id===l.productId));}
+            for (const l of d.lines) {validateSalesDiscountSnapshot(l);validateAreaSnapshot(l); validatePricingSnapshot(l);validateLineItemType(l,(snapshots.products as {products:import("../../inventory/types/product").Product[]}).products.find(p=>p.id===l.productId));}
         }
     },
     snapshot: () => ({ quotes, salesOrders, invoices }),

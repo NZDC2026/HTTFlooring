@@ -19,7 +19,7 @@ import { accountRepository } from '../accounting/data/accountRepository';
 import { salesRepository } from '../sales/data/salesRepository';
 import { supplierBillRepository } from '../purchases/data/supplierBillRepository';
 import { journalEntryRepository } from '../accounting/data/journalEntryRepository';
-import { buildSalesLine } from '../sales/data/salesPricingService';
+import { buildSalesLine,validateSalesDiscountSnapshot } from '../sales/data/salesPricingService';
 import { calculateDocumentTotals } from '../sales/data/salesCalculations';
 import { taxSnapshot, businessSettings, exclusivePrice, configuredNumber } from '../business-workspace/configurationState';
 import { taxPostingLines } from '../business-workspace/taxPosting';
@@ -27,9 +27,9 @@ import { assertProductQuantity } from '../business-workspace/productRules';
 import type { SalesDocumentLine } from '../sales/types/salesDocument';
 import type { SupplierBill, SupplierBillLine } from '../purchases/types/supplierBill';
 const text = z.string().trim().min(1).max(200), optional = z.string().trim().max(2000).optional();
-const salesLine = z.object({ requestedArea: z.number().finite().positive().max(1e9).optional(), productId: text, unitId: text, quantity: z.number().positive().finite(), unitPrice: z.number().nonnegative().finite().optional(), priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
+const salesLine = z.object({ discountPercent:z.number().finite().min(0).max(100).optional(), requestedArea: z.number().finite().positive().max(1e9).optional(), productId: text, unitId: text, quantity: z.number().positive().finite(), unitPrice: z.number().nonnegative().finite().optional(), priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
 const expenseLine = z.object({ description: z.string().trim().min(1).max(500), accountId: text, quantity: z.number().positive().finite(), unitCost: z.number().nonnegative().finite(), taxCode: text, priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
-const salesPayload = z.object({ kind: z.enum(['ORDER', 'INVOICE']), customerId: text, pricingAt: text.optional(), pricingTimezone: text.optional(), locationId: text.or(z.literal('')).optional(), accountingContactId: text.or(z.literal('')).optional(), documentDate: text, dueDate: text.optional(), customerReference: optional, notes: optional, lines: z.array(salesLine).min(1).max(500) }).strict();
+const salesPayload = z.object({ deliveryBooked:z.boolean().optional(),expectedDispatchDate:text.optional(),awaitingCollection:z.boolean().optional(),kind: z.enum(['ORDER', 'INVOICE']), customerId: text, pricingAt: text.optional(), pricingTimezone: text.optional(), locationId: text.or(z.literal('')).optional(), accountingContactId: text.or(z.literal('')).optional(), documentDate: text, dueDate: text.optional(), customerReference: optional, notes: optional, lines: z.array(salesLine).min(1).max(500) }).strict();
 const billPayload = z.object({ kind: z.literal('EXPENSE'), fx:fxSchema.optional(), supplierId: text, supplierInvoiceNumber: text, documentDate: text, dueDate: text.optional(), notes: optional, lines: z.array(expenseLine).min(1).max(500) }).strict();
 export const parseManagedPayload = (raw: unknown) => z.union([salesPayload, billPayload]).parse(raw);
 const captureAmount = z.number().finite().nonnegative().refine(n => Number.isSafeInteger(Math.round(n*100)) && n===Math.round(n*100)/100, 'Use an amount in whole cents within the supported range.');
@@ -192,6 +192,7 @@ function repo(kind: 'sales' | 'expense') {
             payload: SalesPayload | ExpensePayload;
         }) {
             const input = z.object({ operationId: text, id: text.optional(), expectedRevision: z.number().int().positive().optional(), payload: kind === 'sales' ? salesPayload : billPayload }).strict().parse(raw), fingerprint = JSON.stringify(input.payload);
+            if(input.payload.kind!=='EXPENSE'){const p=input.payload;if(p.expectedDispatchDate)requireDateKey(p.expectedDispatchDate,'Delivery date');if(p.deliveryBooked&&!p.expectedDispatchDate)throw Error('Delivery date is required when Delivery Booked is selected.');}
             if (purgedCreationOperation(input.operationId)) throw new Error('This creation request belongs to a permanently purged draft. Use a new operation ID.');
             if (!input.id) {
                 const prior = rows().find(d => d.operationId === input.operationId);
@@ -268,7 +269,7 @@ function repo(kind: 'sales' | 'expense') {
                 documentId = bill.id;
             }
             else {
-                const data = { recipient: structuredClone(row.recipient), draftId: row.id, customerId: p.customerId, documentDate: p.documentDate, customerReference: p.customerReference, notes: p.notes, lines: row.lines as SalesDocumentLine[], totals: row.totals };
+                const data = { deliveryBooked:p.deliveryBooked,expectedDispatchDate:p.expectedDispatchDate,awaitingCollection:p.awaitingCollection,recipient: structuredClone(row.recipient), draftId: row.id, customerId: p.customerId, documentDate: p.documentDate, customerReference: p.customerReference, notes: p.notes, lines: row.lines as SalesDocumentLine[], totals: row.totals };
                 documentId = p.kind === 'ORDER' ? salesRepository.createManagedOrder(data).id : salesRepository.createManagedInvoice({ ...data, dueDate: p.dueDate! }).id;
             }
             return change(row, 'Posted', { status: 'POSTED', documentId });
@@ -314,6 +315,8 @@ for (const kind of ['sales', 'expense'] as const)
                 for (const [i, line] of d.lines.entries()) {
                     const raw = d.payload.lines[i] as any, l = line as Record<string, any>;
                     if (d.kind !== 'EXPENSE') {
+                        validateSalesDiscountSnapshot(l as any);
+                        if(l.explicitDiscountPercent!==raw.discountPercent)throw new Error('Draft discount mismatch.');
                         validateAreaSnapshot(l as any);
                         validatePricingSnapshot(l, d.payload.documentDate);
                         if (d.payload.kind !== 'EXPENSE' && (d.payload.pricingAt !== l.pricingAt || d.payload.pricingTimezone !== l.pricingTimezone)) throw new Error('Draft pricing context mismatch.');

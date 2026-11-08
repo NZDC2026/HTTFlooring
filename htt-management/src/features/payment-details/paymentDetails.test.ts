@@ -1,0 +1,5 @@
+import {it,expect} from 'vitest';
+import {companyPaymentDetails,validateCompanyPaymentDetails,paymentReference} from './paymentDetails';
+it('allows unconfigured payment details and validates complete bank details without losing account leading zeros',()=>{expect(()=>validateCompanyPaymentDetails({})).not.toThrow();const v={paymentAccountName:'Sample Company',paymentBsb:'000-000',paymentAccountNumber:'00001234'};expect(()=>validateCompanyPaymentDetails(v)).not.toThrow();expect(companyPaymentDetails(v).accountNumber).toBe('00001234');expect(()=>validateCompanyPaymentDetails({...v,paymentBsb:'123'})).toThrow(/BSB/);expect(()=>validateCompanyPaymentDetails({...v,paymentAccountNumber:''})).toThrow(/require/);});
+
+it('uses only the trailing document digits for payment reference and preserves leading zeroes',()=>{for(const prefix of ['QU','SO','INV'])expect(paymentReference(prefix+'-0004725')).toBe('0004725');expect(paymentReference('INV-2026-004725')).toBe('004725');expect(paymentReference('INV-SAMPLE-0004725')).toBe('0004725');expect(paymentReference()).toBe('');expect(paymentReference('Assigned when saved')).toBe('');});

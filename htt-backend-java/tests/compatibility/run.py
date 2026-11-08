@@ -101,6 +101,7 @@ with (run/'run.log').open('w') as log:
         check.mkdir()
         shutil.copy2(source/'check.py',check/'check.py')
         shutil.copy2(project/'src/test/resources/ledger-fields-oracle.json',check/'ledger-fields-oracle.json')
+        shutil.copy2(project/'src/test/resources/offset-query-oracle.json',check/'offset-query-oracle.json')
         with (check/'parity.log').open('w') as parity:
             try:
                 command(['python3',check/'check.py'],stdout=parity,stderr=parity)

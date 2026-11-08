@@ -1,3 +1,4 @@
+import {SalesEntryEditor} from '../sales/components/SalesEntryEditor';
 import {ProductSearchSelect,ProductSearchSample} from '../../components/product-search/ProductSearchSelect';
 import {CustomerSearchSelect,CustomerSearchSample} from '../sales/components/CustomerSearchSelect';
 import { DocumentTrashLink } from "../document-recycle/DocumentTrashLink";
@@ -55,6 +56,7 @@ export function ManagedDocumentPage({ kind, mode, id }: {
             setError((e as Error).message);
         }
     };
+    if(!expense&&editing&&canWrite&&(!row||row.status==='DRAFT'))return <SalesEntryEditor key={kind+':'+(id??'new')} kind={kind as 'ORDER'|'INVOICE'} initial={payload as SalesPayload} number={row?.documentId} onCancel={()=>navigate('/sales')} onSave={value=>{const {expiryDate,...sales}=value;const saved=managedSalesRepository.save({operationId,id:row?.id,expectedRevision:expected,payload:{...sales,kind:kind as 'ORDER'|'INVOICE'}});navigate(path+'/'+saved.id);}}/>;
     if (id && !row)
         return <BusinessFrame title="Draft not found"><Link to={path}>Back to register</Link></BusinessFrame>;
     let preview: {

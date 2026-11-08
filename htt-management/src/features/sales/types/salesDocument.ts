@@ -87,6 +87,8 @@ export interface SalesDocumentLine {
      * was priced.
      */
     standardUnitPrice: number;
+    explicitDiscountPercent?: number;
+    discountBaseUnitPrice?: number;
 
     /**
      * Actual selling price stored on the document.
@@ -119,6 +121,7 @@ export interface SalesDocumentTotals {
 }
 
 interface SalesDocumentBase {
+    deliveryBooked?: boolean;
     expectedDispatchDate?: string;
     awaitingCollection?: boolean;
     recipient?: SalesRecipientSnapshot;
@@ -200,6 +203,7 @@ export type SalesDocument =
     | Invoice;
 
 export interface SalesLineDraft {
+    discountPercent?: number;
     requestedArea?: number;
     priceBasis?: "Inclusive" | "Exclusive";
     productId: string;
@@ -216,6 +220,9 @@ export interface SalesLineDraft {
 }
 
 export interface SalesDocumentDraft {
+    deliveryBooked?: boolean;
+    expectedDispatchDate?: string;
+    awaitingCollection?: boolean;
     pricingAt?: string;
     locationId?: string;
     accountingContactId?: string;
@@ -237,6 +244,8 @@ export interface QuoteLineUpdateDraft {
     quantity: number;
 
     standardUnitPrice: number;
+    explicitDiscountPercent?: number;
+    discountBaseUnitPrice?: number;
     unitPrice: number;
 
     priceSource: SalesPriceSource;
