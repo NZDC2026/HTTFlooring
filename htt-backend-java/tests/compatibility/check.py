@@ -4478,6 +4478,290 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             restored=designer_raw(b'{"format":{}}',legacy_url,url,1,b'{"format":{"footer":"Different footer"}}')
             assert restored[1]['version']==2 and restored[1]['format']['header']=='',restored
             assert designer_read('/api/v1/reports/settings')[1]==restored[1]
+            def collaboration_read(path,status=200,actor=None):
+                a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a==b,(path,a,b)
+                return a
+            collaboration_path='/api/v1/crm/collaboration'
+            # Earlier fixture creation belongs to a later test block; create this batch's own objects.
+            collaboration_now=datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z')
+            collaboration_fixtures=[]
+            for kind,data in (
+                ('NOTE',{'text':'Synthetic collaboration read café '+uuid.uuid4().hex,'visibility':'TEAM'}),
+                ('BOARD',{'title':'Synthetic board read '+uuid.uuid4().hex,'placedAt':collaboration_now}),
+                ('VISIT',{'checkIn':{'latitude':'-33.8688','longitude':'151.2093','accuracyMetres':'10','capturedAt':collaboration_now},'purpose':'Synthetic collaboration read visit'})):
+                created=request(collaboration_path,report_actor,company,base=legacy_url,payload={'id':str(uuid.uuid4()),'kind':kind,'customerId':customer_id,'branchId':branch,'data':data},key='collaboration-read-fixture-'+uuid.uuid4().hex)
+                assert created[0]==201,created
+                collaboration_fixtures.append(created[1])
+            collaboration_items=collaboration_read(collaboration_path+'?pageSize=100')[1]['items']
+            assert collaboration_items
+            for item in collaboration_items[:3]:
+                assert collaboration_read(collaboration_path+'/'+item['id'])[1]==item
+                collaboration_read(collaboration_path+'/'+item['id']+'/history')
+            for query in ('kind=NOTE','kind=BOARD','kind=VISIT','state=OPEN','pageSize=1','page=2&pageSize=1','customerId='+customer_id,'branchId='+branch,'ownerId=00000000-0000-0000-0000-000000000002','from=2020-01-01T00%3A00%3A00Z&to=2030-01-01T00%3A00%3A00Z'):
+                collaboration_read(collaboration_path+'?'+query)
+            for query in ('kind=invalid','state=DELETED','page=0','pageSize=101','from=2027-01-01T00%3A00%3A00Z&to=2026-01-01T00%3A00%3A00Z'):
+                collaboration_read(collaboration_path+'?'+query,422)
+            for query in ('ownerId=bad','from=bad','page=1.0'):
+                collaboration_read(collaboration_path+'?'+query,400)
+            collaboration_read(collaboration_path+'/'+str(uuid.uuid4()),404)
+            collaboration_read(collaboration_path+'/'+str(uuid.uuid4())+'/history',404)
+            collaboration_read(collaboration_path,403,general_reader)
+            print('PASS: collaboration ordered list/detail/history raw projections, filters, native parameters and source visibility guards')
+            def draft_read(path,actor=None,status=200):
+                a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a==b,(path,a,b)
+                return a
+            def draft_transition(path,first,second,version,method='POST'):
+                key='draft-transition-'+uuid.uuid4().hex
+                args={'key':key,'version':version,'method':method}
+                result=request(path,report_actor,company,base=first,**args)
+                assert result[0]==200,(path,result)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,report_actor,company,base=first if n%2 else second,**args),range(6)))
+                assert all(x==result for x in attempts),(path,result,attempts)
+                assert request(path,report_actor,company,base=second,**{**args,'version':version+99})[0]==409
+                return result
+            for kind,data in (
+                ('CUSTOMER',{'name':'Synthetic draft customer café','code':'DRAFT_'+uuid.uuid4().hex[:8]}),
+                ('BRANCH',{'name':'Synthetic draft branch','code':'DRAFT_'+uuid.uuid4().hex[:8],'addressLine1':'10 Synthetic Street','state':'NSW','postcode':'2000'}),
+                ('CONTACT',{'name':'Synthetic draft contact','email':'draft@example.invalid','phone':'(02) 1234 5678','branchIds':[branch]})):
+                draft_id=str(uuid.uuid4())
+                first,second=(legacy_url,url) if kind=='BRANCH' else (url,legacy_url)
+                draft_body={'id':draft_id,'kind':kind,'customerId':None if kind=='CUSTOMER' else customer_id,'data':data}
+                created=rule_write_retry('/api/v1/crm/drafts',draft_body,first,second,{'data':{**data,'name':'Different same-key draft'}},actor=report_actor)
+                assert created[0]==201,created
+                path='/api/v1/crm/drafts/'+draft_id
+                assert draft_read(path)[1]==created[1]
+                assert draft_read(path,other_report_actor)[1]==created[1]
+                draft_read(path+'/duplicates')
+                assert created[1] in draft_read('/api/v1/crm/drafts?state=DRAFT&pageSize=100')[1]['items']
+                updated=rule_write_retry(path,{**data,'name':data['name']+' updated'},second,first,{'name':'Different same-key update'},created[1]['version'],method='PUT',status=200,actor=report_actor)
+                submitted=draft_transition(path+'/submit',first,second,updated[1]['version'])
+                assert submitted[1]['state']=='SUBMITTED',submitted
+                for backend in (first,second):
+                    denied=request(path+'/review',report_actor,company,base=backend,payload={'approve':False,'reason':'Owner cannot independently review'},key='draft-self-review-'+uuid.uuid4().hex,version=submitted[1]['version'])
+                    assert denied[0]==403,denied
+                reviewed=rule_write_retry(path+'/review',{'approve':False,'reason':' Synthetic rejection without formal CRM writes '},second,first,{'reason':'Different same-key review'},submitted[1]['version'],status=200,actor=other_report_actor)
+                assert reviewed[1]['state']=='REJECTED',reviewed
+                # Rejected drafts are terminal in the source; only DRAFT can be deleted.
+                for backend in (first,second):
+                    conflict=request(path,report_actor,company,base=backend,key='draft-rejected-delete-'+uuid.uuid4().hex,version=reviewed[1]['version'],method='DELETE')
+                    assert conflict[0]==409,conflict
+                delete_body={**draft_body,'id':str(uuid.uuid4()),'data':{**data,'name':data['name']+' deletion fixture'}}
+                delete_fixture=rule_write_retry('/api/v1/crm/drafts',delete_body,second,first,{'data':{**data,'name':'Different same-key deletion fixture'}},actor=report_actor)
+                delete_path='/api/v1/crm/drafts/'+delete_fixture[1]['id']
+                deleted=draft_transition(delete_path,second,first,delete_fixture[1]['version'],method='DELETE')
+                assert deleted[0]==200 and deleted[1]['state']=='DELETED',deleted
+                assert draft_read(delete_path)[1]==deleted[1] and deleted[1]['data'] is None
+            approved_customer=None;approved_branch=None
+            for kind in ('CUSTOMER','BRANCH','CONTACT'):
+                unique=uuid.uuid4().hex
+                data={'name':'Approved synthetic '+kind+' '+unique}
+                parent=None if kind=='CUSTOMER' else approved_customer
+                if kind in ('CUSTOMER','BRANCH'):data['code']='JVAPP_'+unique[:12]
+                if kind=='BRANCH':data.update({'addressLine1':'20 Synthetic Approval Street','state':'NSW','postcode':'2000'})
+                if kind=='CONTACT':data.update({'email':'APPROVED_'+unique+'@example.invalid','phone':'(02) 9876 5432','branchIds':[approved_branch]})
+                body={'id':str(uuid.uuid4()),'kind':kind,'customerId':parent,'data':data}
+                first,second=(legacy_url,url) if kind=='BRANCH' else (url,legacy_url)
+                created=rule_write_retry('/api/v1/crm/drafts',body,first,second,{'data':{**data,'name':'Different approval fixture'}},actor=report_actor)
+                path='/api/v1/crm/drafts/'+created[1]['id']
+                assert draft_read(path+'/duplicates')[1]==[]
+                submitted=draft_transition(path+'/submit',first,second,created[1]['version'])
+                approved=rule_write_retry(path+'/review',{'approve':True,'reason':' Synthetic independent approval '},second,first,{'reason':'Different approval reason'},submitted[1]['version'],status=200,actor=other_report_actor)
+                assert approved[1]['state']=='APPROVED' and approved[1]['formalId'],approved
+                assert draft_read(path)[1]==approved[1]
+                formal=approved[1]['formalId']
+                if kind=='CUSTOMER':
+                    approved_customer=formal
+                    formal_path='/api/v1/customers/'+formal
+                elif kind=='BRANCH':
+                    approved_branch=formal
+                    formal_path='/api/v1/customers/'+approved_customer+'/branches/'+formal
+                else:formal_path='/api/v1/customers/'+approved_customer+'/contacts/'+formal
+                a=request(formal_path,report_actor,company);b=request(formal_path,report_actor,company,base=legacy_url)
+                assert a[0]==200 and a==b,(formal_path,a,b)
+                if kind=='CUSTOMER':assert Decimal(a[1]['creditLimit'])==0 and a[1]['paymentTermsDays']==30,a
+                if kind=='CONTACT':assert a[1]['email']==data['email'].lower() and a[1]['phone']=='+61298765432' and a[1]['branchIds']==[approved_branch],a
+                for backend in (first,second):
+                    assert request(path,report_actor,company,base=backend,key='approved-delete-denied-'+uuid.uuid4().hex,version=approved[1]['version'],method='DELETE')[0]==409
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                device_id=str(uuid.uuid4());device_path='/api/v1/crm/mobile/devices/'+device_id
+                registered=rule_write_retry('/api/v1/crm/mobile/devices',{'deviceId':device_id},first,second,{'deviceId':str(uuid.uuid4())},actor=report_actor)
+                assert registered[1]['deviceId']==device_id and registered[1]['lastSequence']==0,registered
+                target_id=str(uuid.uuid4())
+                source={'operationId':str(uuid.uuid4()),'sequence':1,'id':target_id,'action':'CREATE','kind':'CUSTOMER','data':{'name':'Synthetic mobile '+uuid.uuid4().hex,'code':'MOB_'+uuid.uuid4().hex[:12]}}
+                operations=device_path+'/operations'
+                for backend in (first,second):
+                    gap=request(operations,report_actor,company,base=backend,payload={**source,'sequence':99},key='mobile-gap-'+uuid.uuid4().hex)
+                    assert gap[0]==409,gap
+                    assert request(device_path+'/changes',other_report_actor,company,base=backend)[0]==403
+                applied=rule_write_retry(operations,source,first,second,{'sequence':99},status=200,actor=report_actor)
+                assert applied[1]['status']=='APPLIED',applied
+                version=applied[1]['draft']['version']
+                update={'operationId':str(uuid.uuid4()),'sequence':2,'id':target_id,'action':'UPDATE','version':version,'data':{**source['data'],'name':source['data']['name']+' updated'}}
+                updated=rule_write_retry(operations,update,second,first,{'sequence':99},status=200,actor=report_actor)
+                assert updated[1]['status']=='APPLIED',updated
+                stale={**update,'operationId':str(uuid.uuid4()),'sequence':3}
+                conflict=rule_write_retry(operations,stale,first,second,{'sequence':99},status=200,actor=report_actor)
+                assert conflict[1]['status']=='CONFLICT' and conflict[1]['serverVersion']==updated[1]['draft']['version'],conflict
+                submit={'operationId':str(uuid.uuid4()),'sequence':4,'id':target_id,'action':'SUBMIT','version':updated[1]['draft']['version']}
+                submitted=rule_write_retry(operations,submit,second,first,{'sequence':99},status=200,actor=report_actor)
+                assert submitted[1]['status']=='APPLIED' and submitted[1]['draft']['state']=='SUBMITTED',submitted
+                terminal={**submit,'operationId':str(uuid.uuid4()),'sequence':5,'action':'DELETE','version':submitted[1]['draft']['version']}
+                conflict=rule_write_retry(operations,terminal,first,second,{'sequence':99},status=200,actor=report_actor)
+                assert conflict[1]['status']=='CONFLICT',conflict
+                deletion_source={**source,'operationId':str(uuid.uuid4()),'sequence':6,'id':str(uuid.uuid4()),'data':{**source['data'],'name':'Synthetic mobile deletion '+uuid.uuid4().hex,'code':'MOBDEL_'+uuid.uuid4().hex[:12]}}
+                deletion_created=rule_write_retry(operations,deletion_source,second,first,{'sequence':99},status=200,actor=report_actor)
+                assert deletion_created[1]['status']=='APPLIED',deletion_created
+                deletion={'operationId':str(uuid.uuid4()),'sequence':7,'id':deletion_source['id'],'action':'DELETE','version':deletion_created[1]['draft']['version']}
+                deletion_applied=rule_write_retry(operations,deletion,first,second,{'sequence':99},status=200,actor=report_actor)
+                assert deletion_applied[1]['status']=='APPLIED' and deletion_applied[1]['draft']['state']=='DELETED' and deletion_applied[1]['draft']['data'] is None,deletion_applied
+                initial=request(device_path+'/changes?pageSize=1',report_actor,company,base=first)
+                assert initial[0]==200 and initial[1]['items'] and initial[1]['nextSequence']>0,initial
+                cursor=initial[1]
+                while True:
+                    query=urllib.parse.urlencode({'after':cursor['nextSequence'],'auth':cursor['auth'],'pageSize':100})
+                    a=request(device_path+'/changes?'+query,report_actor,company,base=first)
+                    b=request(device_path+'/changes?'+query,report_actor,company,base=second)
+                    assert a[0]==200 and a==b,(a,b)
+                    cursor=a[1]
+                    if not cursor['hasMore']:break
+                bad=request(device_path+'/changes?'+urllib.parse.urlencode({'after':cursor['nextSequence'],'auth':'invalid'}),report_actor,company,base=second)
+                assert bad[0]==409,bad
+                # Starting at zero rotates this device's epoch; old valid auth must become unusable.
+                old_cursor=dict(cursor)
+                reset=request(device_path+'/changes?pageSize=1',report_actor,company,base=second)
+                assert reset[0]==200 and reset[1]['auth']!=old_cursor['auth'],reset
+                old_query=urllib.parse.urlencode({'after':old_cursor['nextSequence'],'auth':old_cursor['auth']})
+                for backend in (first,second):
+                    assert request(device_path+'/changes?'+old_query,report_actor,company,base=backend)[0]==409
+                cursor=reset[1]
+                # Expire only this runner's synthetic owned device, then recover through the source zero reset.
+                fixture_container=os.environ.get('HTT_COMPAT_PG_CONTAINER','')
+                assert re.fullmatch(r'htt-java-compat-[0-9a-f]{12}',fixture_container)
+                owned_device=str(uuid.UUID(device_id))
+                expiry_sql="DO $$ BEGIN UPDATE crm.mobile_devices SET cursor_expires_at=now()-interval '1 second' WHERE company_id='00000000-0000-0000-0000-000000000001' AND actor_id='00000000-0000-0000-0000-000000000500' AND active AND id='"+owned_device+"'::uuid; IF NOT FOUND THEN RAISE EXCEPTION 'Synthetic owned device required'; END IF; END $$;"
+                expired=subprocess.run(['docker','exec','-i',fixture_container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1'],input=expiry_sql,text=True,capture_output=True,timeout=20)
+                with (here/'mobile-expiry-fixture.log').open('a') as evidence:evidence.write(owned_device+'\n'+expired.stdout+expired.stderr)
+                assert expired.returncode==0,expired.stderr
+                expired_query=urllib.parse.urlencode({'after':cursor['nextSequence'],'auth':cursor['auth']})
+                for backend in (first,second):
+                    assert request(device_path+'/changes?'+expired_query,report_actor,company,base=backend)[0]==409
+                recovered=request(device_path+'/changes?pageSize=1',report_actor,company,base=first)
+                assert recovered[0]==200 and recovered[1]['auth']!=cursor['auth'],recovered
+                restored_query=urllib.parse.urlencode({'after':recovered[1]['nextSequence'],'auth':recovered[1]['auth']})
+                a=request(device_path+'/changes?'+restored_query,report_actor,company,base=first)
+                b=request(device_path+'/changes?'+restored_query,report_actor,company,base=second)
+                assert a[0]==200 and a==b,(a,b)
+                key='mobile-revoke-'+uuid.uuid4().hex
+                revoked=request(device_path,report_actor,company,base=first,key=key,method='DELETE')
+                assert revoked==(200,{'deviceId':device_id,'active':False}),revoked
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda n:request(device_path,report_actor,company,base=first if n%2 else second,key=key,method='DELETE'),range(6)))
+                assert all(x==revoked for x in retries),retries
+                for backend in (first,second):
+                    assert request(device_path+'/changes',report_actor,company,base=backend)[0]==403
+                    assert request('/api/v1/crm/mobile/devices',report_actor,company,base=backend,payload={'deviceId':device_id},key='mobile-reactivate-'+uuid.uuid4().hex)[0]==403
+            print('PASS: owned mobile devices, strict operation sequences/shared replay, persisted conflict responses, cross-host authorized cursor continuation and revocation')
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                unique=uuid.uuid4().hex
+                selected=[{'name':'Synthetic selected contact A '+unique,'email':'SELECTED_A_'+unique+'@example.invalid','branchIds':[branch]},
+                          {'name':'Synthetic selected contact A '+unique,'email':'SELECTED_A_'+unique+'@example.invalid','branchIds':[branch]},
+                          {'name':'Synthetic selected contact B '+unique,'email':'SELECTED_B_'+unique+'@example.invalid','branchIds':[branch]}]
+                import_body={'customerId':customer_id,'consentReference':' Synthetic user selection '+unique+' ','selectedContacts':selected}
+                preview=rule_write_retry('/api/v1/crm/contact-imports',import_body,first,second,{'consentReference':'Different selection consent'},actor=report_actor)
+                assert preview[0]==201 and len(preview[1]['rows'])==3,preview
+                assert [x['withinBatchDuplicate'] for x in preview[1]['rows']]==[False,True,False],preview
+                assert preview[1]['rows'][0]['data']['email']==selected[0]['email'].lower(),preview
+                confirmation='/api/v1/crm/contact-imports/'+preview[1]['id']+'/confirm'
+                for backend in (first,second):
+                    for rows,status in (([],422),([0,0],422),([-1],422),([99],409),([1],409)):
+                        result=request(confirmation,report_actor,company,base=backend,payload={'rows':rows},key='import-invalid-'+uuid.uuid4().hex)
+                        assert result[0]==status,(rows,result)
+                    assert request(confirmation,other_report_actor,company,base=backend,payload={'rows':[0]},key='import-owner-'+uuid.uuid4().hex)[0]==403
+                confirmed=rule_write_retry(confirmation,{'rows':[2,0]},second,first,{'rows':[0]},status=201,actor=report_actor,replay_payload={'rows':[0,2]})
+                assert len(confirmed[1]['draftIds'])==2 and len(set(confirmed[1]['draftIds']))==2,confirmed
+                for draft_id in confirmed[1]['draftIds']:
+                    imported=draft_read('/api/v1/crm/drafts/'+draft_id)[1]
+                    assert imported['state']=='DRAFT' and imported['kind']=='CONTACT' and imported['formalId'] is None,imported
+                assert request(confirmation,report_actor,company,base=first,payload={'rows':[0,2]},key='import-second-confirm-'+uuid.uuid4().hex)[0]==409
+            print('PASS: selected-contact consent/preview, duplicate flags, owner guards, sorted row shared replay and exactly-once draft-only confirmation')
+            def card_complete(job_id,state,suggestion=None):
+                fixture_container=os.environ.get('HTT_COMPAT_PG_CONTAINER','')
+                assert re.fullmatch(r'htt-java-compat-[0-9a-f]{12}',fixture_container)
+                expected=str(uuid.UUID(job_id));assert state in ('FAILED','SUCCEEDED')
+                value='NULL' if suggestion is None else "'"+json.dumps(suggestion).replace("'","''")+"'::jsonb"
+                sql="SET ROLE htt_worker; DO $$ DECLARE j uuid; l uuid; BEGIN SELECT job_id,lease INTO j,l FROM crm.claim_card(); IF j IS DISTINCT FROM '"+expected+"'::uuid THEN RAISE EXCEPTION 'Only current synthetic card job may be claimed'; END IF; PERFORM crm.finish_card(j,l,'"+state+"','synthetic_ocr_fixture',"+value+"); END $$;"
+                done=subprocess.run(['docker','exec','-i',fixture_container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1'],input=sql,text=True,capture_output=True,timeout=20)
+                with (here/'card-state-fixture.log').open('a') as evidence:evidence.write(expected+' '+state+'\n'+done.stdout+done.stderr)
+                assert done.returncode==0,done.stderr
+            def card_read(path,actor=None,status=200):
+                a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a==b,(path,a,b)
+                return a
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                boundary='card-'+uuid.uuid4().hex
+                def card_multipart(content,filename,mime):
+                    return ('--'+boundary+'\r\nContent-Disposition: form-data; name="file"; filename="'+filename+'"\r\nContent-Type: '+mime+'\r\n\r\n').encode()+content+('\r\n--'+boundary+'--\r\n').encode()
+                card_path='/api/v1/crm/cards/'+customer_id
+                png=bytes([137,80,78,71,13,10,26,10])
+                for backend in (first,second):
+                    for content,filename,mime in ((b'','empty.png','image/png'),(b'not-image','bad.png','image/png'),(png,'mismatch.jpg','image/png'),(png,'.hidden.png','image/png'),(png,'image.png','application/pdf'),(png+b'0'*(10485761-8),'large.png','image/png')):
+                        result=request(card_path,report_actor,company,base=backend,payload=card_multipart(content,filename,mime),content_type='multipart/form-data; boundary='+boundary,key='card-invalid-'+uuid.uuid4().hex,timeout_seconds=30)
+                        assert result[0]==422,(len(content),filename,mime,result)
+                image=png+b'0'*(1048577-8) if first==url else bytes([255,216])+b'0'*(10485760-4)+bytes([255,217])
+                mime='image/png' if first==url else 'image/jpeg'
+                suffix='.png' if first==url else '.jpeg'
+                key='card-upload-shared-'+uuid.uuid4().hex
+                multipart=card_multipart(image,'synthetic-card'+suffix,mime)
+                queued=request(card_path,report_actor,company,base=first,payload=multipart,content_type='multipart/form-data; boundary='+boundary,key=key,timeout_seconds=30)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(card_path,report_actor,company,base=first if n%2 else second,payload=card_multipart(image,'renamed-card'+suffix,mime),content_type='multipart/form-data; boundary='+boundary,key=key,timeout_seconds=30),range(6)))
+                assert all(x==queued for x in attempts),(queued,attempts)
+                changed=image[:10]+b'X'+image[11:]
+                conflict=request(card_path,report_actor,company,base=second,payload=card_multipart(changed,'synthetic-card'+suffix,mime),content_type='multipart/form-data; boundary='+boundary,key=key,timeout_seconds=30)
+                assert conflict[0]==409,conflict
+                assert queued[0]==202,queued
+                path='/api/v1/crm/cards/jobs/'+queued[1]['id']
+                assert card_read(path)[1]==queued[1]
+                card_read(path,other_report_actor,403)
+                for backend in (first,second):
+                    assert request(path+'/retry',report_actor,company,base=backend,key='card-pending-retry-'+uuid.uuid4().hex,method='POST')[0]==409
+                    assert request(path+'/confirm',report_actor,company,base=backend,payload={'name':'Premature synthetic contact'},key='card-premature-'+uuid.uuid4().hex)[0]==409
+                card_complete(queued[1]['id'],'FAILED')
+                assert card_read(path)[1]['state']=='FAILED'
+                key='card-retry-'+uuid.uuid4().hex
+                retried=request(path+'/retry',report_actor,company,base=first,key=key,method='POST')
+                assert retried[0]==200 and retried[1]['state']=='PENDING' and retried[1]['attempts']==0,retried
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path+'/retry',report_actor,company,base=first if n%2 else second,key=key,method='POST'),range(6)))
+                assert all(x==retried for x in attempts),attempts
+                unique=uuid.uuid4().hex
+                contact={'name':'Synthetic card contact '+unique,'email':'CARD_'+unique+'@example.invalid','branchIds':[branch]}
+                normalized={k:None for k in ('name','code','abn','email','phone','mobile','jobTitle','addressLine1','suburb','state','postcode')}
+                normalized.update({'name':contact['name'],'email':contact['email'].lower(),'branchIds':[branch]})
+                card_complete(queued[1]['id'],'SUCCEEDED',normalized)
+                assert card_read(path)[1]['state']=='SUCCEEDED'
+                confirmed=rule_write_retry(path+'/confirm',contact,second,first,{'name':'Different card confirmation'},status=201,actor=report_actor)
+                assert confirmed[1]['kind']=='CONTACT' and confirmed[1]['state']=='DRAFT' and confirmed[1]['formalId'] is None,confirmed
+                assert draft_read('/api/v1/crm/drafts/'+confirmed[1]['id'])[1]==confirmed[1]
+                assert card_read(path)[1]['draftId']==confirmed[1]['id']
+                assert request(path+'/confirm',report_actor,company,base=first,payload=contact,key='card-consumed-'+uuid.uuid4().hex)[0]==409
+            print('PASS: owned card job read, failed retry and successful draft-only confirmation; bounded PNG/JPEG upload shared replay and synthetic worker SQL fixtures, no OCR provider')
+            print('PASS: independent CRM approval creates exactly one customer/exposure/owner assignment, AU branch and normalized linked contact with mixed replay')
+            draft_read('/api/v1/crm/drafts?pageSize=1')
+            draft_read('/api/v1/crm/drafts?state=DELETED&pageSize=100')
+            for query in ('state=invalid','page=0','pageSize=101'):
+                draft_read('/api/v1/crm/drafts?'+query,status=422)
+            draft_read('/api/v1/crm/drafts?page=1.0',status=400)
+            draft_read('/api/v1/crm/drafts/'+str(uuid.uuid4()),status=404)
+            draft_read('/api/v1/crm/drafts/'+str(uuid.uuid4())+'/duplicates',status=404)
+            draft_read('/api/v1/crm/drafts',general_reader,403)
+            print('PASS: typed CRM draft normalization and create/update/submit/reject/delete shared replay, independent reviewer, ordered reads and deleted-data redaction')
             def discovery_read(path,actor=None,status=200):
                 a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
                 assert a[0]==b[0]==status,(path,a,b)
@@ -4511,20 +4795,24 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             discovery_read('/api/v1/search/products',actor=general_reader,status=403)
             print('PASS: customer/product/branch/contact discovery ordered rows, paging, native query binding and source validation/permissions')
             catalog_path='/api/v1/customers/'+customer_id+'/catalog'
+            def catalog_stamp(raw):
+                # Python 3.9 accepts only 3/6 fractional digits; both APIs emit valid ISO fractions.
+                value=re.sub(r'\.(\d{1,9})(?=Z|[+-]\d{2}:\d{2}$)',lambda m:'.'+m.group(1)[:6].ljust(6,'0'),raw)
+                return datetime.datetime.fromisoformat(value.replace('Z','+00:00'))
             def customer_catalog_read(query,status=200,actor=None):
                 results=[request(catalog_path+query,actor or report_actor,company,base=backend) for backend in (url,legacy_url)]
                 assert all(x[0]==status for x in results),(query,results)
                 if status!=200:return results[0]
                 stable=[]
                 for _,body in results:
-                    stamp=datetime.datetime.fromisoformat(body['dataAsOf'].replace('Z','+00:00'))
+                    stamp=catalog_stamp(body['dataAsOf'])
                     assert abs((datetime.datetime.now(datetime.timezone.utc)-stamp).total_seconds())<60,body
                     copied={**body,'items':[]};copied.pop('dataAsOf')
                     for item in body['items']:
                         row={**item}
                         if row['price'] is not None:
                             price=dict(row['price'])
-                            assert datetime.datetime.fromisoformat(price.pop('pricingAt').replace('Z','+00:00'))==stamp,row
+                            assert catalog_stamp(price.pop('pricingAt'))==stamp,row
                             assert Decimal(price['unitPrice'])>=0 and price['currency']=='AUD',price
                             row['price']=price
                         else:assert row['priceUnavailableCode'],row

@@ -523,3 +523,55 @@ DO $$ BEGIN
  OR EXISTS(SELECT 1 FROM platform.audit_events WHERE action='catalog.barcode_changed' AND details<> '{"Active":false}'::jsonb)
  THEN RAISE EXCEPTION 'Unit barcode exactly-once/audit/status mismatch'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.mobile_drafts WHERE owner_id='00000000-0000-0000-0000-000000000500' AND state='DELETED')<>5
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.create')<>9
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.DELETE')<>3
+ THEN RAISE EXCEPTION 'Synthetic CRM draft read fixture or cleanup mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.mobile_drafts WHERE state='REJECTED')<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.UPDATE')<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.SUBMIT')<>6
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.review')<>6
+ OR (SELECT count(*) FROM crm.mobile_drafts WHERE formal_id IS NOT NULL AND state='APPROVED')<>3
+ THEN RAISE EXCEPTION 'CRM draft transitions and approved formal links must execute once'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM crm.mobile_drafts d WHERE d.state='APPROVED' AND d.kind='CUSTOMER' AND(
+ NOT EXISTS(SELECT 1 FROM crm.customers c JOIN crm.customer_credit_exposures e ON e.company_id=c.company_id AND e.customer_id=c.id WHERE c.company_id=d.company_id AND c.id=d.formal_id AND c.credit_limit=0 AND c.payment_terms_days=30)
+ OR NOT EXISTS(SELECT 1 FROM identity.customer_assignments a JOIN identity.memberships m ON m.company_id=a.company_id AND m.id=a.membership_id WHERE a.company_id=d.company_id AND a.customer_id=d.formal_id AND m.user_id=d.owner_id)))
+ OR EXISTS(SELECT 1 FROM crm.mobile_drafts d WHERE d.state='APPROVED' AND d.kind='BRANCH' AND NOT EXISTS(SELECT 1 FROM crm.customer_branches b WHERE b.company_id=d.company_id AND b.id=d.formal_id AND b.customer_id=d.customer_id AND b.country='AU'))
+ OR EXISTS(SELECT 1 FROM crm.mobile_drafts d WHERE d.state='APPROVED' AND d.kind='CONTACT' AND NOT EXISTS(SELECT 1 FROM crm.contacts c JOIN crm.contact_branch_links l ON l.company_id=c.company_id AND l.contact_id=c.id WHERE c.company_id=d.company_id AND c.id=d.formal_id AND c.phone='+61298765432' AND l.customer_branch_id=(d.data->'branchIds'->>0)::uuid))
+ THEN RAISE EXCEPTION 'Approved CRM entity links, owner assignment or exposure mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.mobile_devices WHERE actor_id='00000000-0000-0000-0000-000000000500' AND NOT active AND last_sequence=7)<>2
+ OR (SELECT count(*) FROM crm.mobile_operations)<>14
+ OR (SELECT count(*) FROM crm.mobile_operations WHERE response->>'status'='CONFLICT')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.push')<>14
+ THEN RAISE EXCEPTION 'Mobile device, operation sequence, conflict persistence or audit mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.contact_imports WHERE confirmed)<>2
+ OR (SELECT count(*) FROM crm.mobile_drafts WHERE kind='CONTACT' AND state='DRAFT' AND data->>'name' LIKE 'Synthetic selected contact %')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.import_preview')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.import_confirm')<>2
+ THEN RAISE EXCEPTION 'Selected contact import must create drafts exactly once without formal contact writes'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.card_jobs WHERE state='SUCCEEDED' AND attempts=1 AND draft_id IS NOT NULL)<>2
+ OR (SELECT count(*) FROM crm.mobile_drafts WHERE state='DRAFT' AND kind='CONTACT' AND data->>'name' LIKE 'Synthetic card contact %')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.card_queue')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.card_retry')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.card_confirm')<>2
+ THEN RAISE EXCEPTION 'Card API job retry/confirmation must create drafts exactly once'; END IF;
+END $$;
