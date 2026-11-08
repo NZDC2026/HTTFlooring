@@ -505,3 +505,21 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM reporting.preferences WHERE user_id='00000000-0000-0000-0000-000000000500' AND version=2 AND format->>'header'='' AND format->>'footer'='')<>1
  THEN RAISE EXCEPTION 'Report formatting idempotency or restored defaults mismatch'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='settings.business_changed')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='settings.numbering_changed')<>4
+ OR EXISTS(SELECT 1 FROM platform.audit_events WHERE action='settings.business_changed' AND NOT(details ?& ARRAY['SalesTermsDays','PurchaseTermsDays','QuoteValidDays','DefaultDispatchMode','Notes']))
+ OR EXISTS(SELECT 1 FROM platform.audit_events WHERE action='settings.numbering_changed' AND NOT(details ?& ARRAY['type','prefix','NextValue']))
+ OR (SELECT count(*) FROM core.business_preferences WHERE company_id='00000000-0000-0000-0000-000000000001' AND version=5 AND sales_terms_days=30 AND purchase_terms_days=30 AND quote_valid_days=30 AND default_dispatch_mode='PICKUP' AND notes='')<>1
+ THEN RAISE EXCEPTION 'Business settings restoration or exact-once audit details mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM catalog.unit_barcodes WHERE barcode LIKE 'JV-COMPAT-BARCODE-%' AND NOT active AND version=2)<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='catalog.barcode_created')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='catalog.barcode_changed')<>2
+ OR EXISTS(SELECT 1 FROM platform.audit_events WHERE action='catalog.barcode_created' AND NOT(details ?& ARRAY['ProductUnitId','barcode']))
+ OR EXISTS(SELECT 1 FROM platform.audit_events WHERE action='catalog.barcode_changed' AND details<> '{"Active":false}'::jsonb)
+ THEN RAISE EXCEPTION 'Unit barcode exactly-once/audit/status mismatch'; END IF;
+END $$;

@@ -4295,6 +4295,13 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             rule_write_retry(annual_path+'/reopen',{'reference':'Historical annual BAS reopening '+uuid.uuid4().hex,'reason':'Restore synthetic source posting freedom'},legacy_url,url,{'reason':'Different annual BAS reopening'},annual_final[1]['period']['version'],status=200)
             general_reverse(income_doc,legacy_url,url)
 
+            # Refresh planner statistics after this disposable database's bulk synthetic writes.
+            # No application timeout, permissions, source SQL or report assertions are changed.
+            fixture_container=os.environ.get('HTT_COMPAT_PG_CONTAINER','')
+            assert re.fullmatch(r'htt-java-compat-[0-9a-f]{12}',fixture_container)
+            stats=subprocess.run(['docker','exec','-i',fixture_container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1'],input='ANALYZE;\n',text=True,capture_output=True,timeout=60)
+            (here/'synthetic-planner-statistics.log').write_text(stats.stdout+stats.stderr)
+            assert stats.returncode==0,stats.stderr
             report_actor=token('test-operating-report')
             def operating_read(path,status=200,live=False):
                 a=request(path,report_actor,company,timeout_seconds=30);b=request(path,report_actor,company,base=legacy_url,timeout_seconds=30)
@@ -4422,8 +4429,9 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 definition={'kind':'PROFIT_LOSS','filters':{'from':'2026-01-01','to':'2027-01-01'}}
                 body={'name':' Synthetic café saved report '+uuid.uuid4().hex+' ','definition':definition,'visibility':'PRIVATE','active':True}
                 for backend in (first,second):
-                    for patch in ({'definition':None},{'definition':[]},{'name':'bad\\nname'}):
-                        assert request('/api/v1/reports/saved',report_actor,company,base=backend,payload={**body,**patch},key='designer-invalid-'+uuid.uuid4().hex)[0]==422
+                    for patch in ({'definition':None},{'definition':[]},{'name':'bad'+chr(10)+'name'}):
+                        invalid=request('/api/v1/reports/saved',report_actor,company,base=backend,payload={**body,**patch},key='designer-invalid-'+uuid.uuid4().hex)
+                        assert invalid[0]==422,(patch,backend,invalid)
                 saved=operating_capture('/api/v1/reports/saved',body,first,second,{'name':'Different saved report name'})
                 assert saved[0]==201,saved
                 path='/api/v1/reports/saved/'+saved[1]['id']
@@ -4470,6 +4478,70 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             restored=designer_raw(b'{"format":{}}',legacy_url,url,1,b'{"format":{"footer":"Different footer"}}')
             assert restored[1]['version']==2 and restored[1]['format']['header']=='',restored
             assert designer_read('/api/v1/reports/settings')[1]==restored[1]
+            barcode_path='/api/v1/products/00000000-0000-0000-0000-000000000031/barcodes'
+            barcode_unit='00000000-0000-0000-0000-000000000032'
+            def barcode_read(path):
+                a=request(path,report_actor,company);b=request(path,report_actor,company,base=legacy_url)
+                assert a[0]==200 and a==b,(path,a,b)
+                return a[1]
+            barcode_read('/api/v1/products/'+str(uuid.uuid4())+'/barcodes')
+            for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
+                code='JV-COMPAT-BARCODE-'+str(n)
+                body={'productUnitId':barcode_unit,'barcode':' '+code+' '}
+                for target in (first,second):
+                    for invalid in ('','BIN:123','lot:123','x y','café','x'*81,'a'+chr(10)+'b'):
+                        result=request('/api/v1/product-barcodes',report_actor,company,base=target,payload={**body,'barcode':invalid},key='barcode-invalid-'+uuid.uuid4().hex)
+                        assert result[0]==422,(invalid,result)
+                    assert request('/api/v1/product-barcodes',report_actor,company,base=target,payload={**body,'productUnitId':str(uuid.uuid4())},key='barcode-unit-'+uuid.uuid4().hex)[0]==404
+                    assert request('/api/v1/product-barcodes',general_reader,company,base=target,payload=body,key='barcode-cap-'+uuid.uuid4().hex)[0]==403
+                created=rule_write_retry('/api/v1/product-barcodes',body,first,second,{'barcode':code+'-DIFFERENT'},actor=report_actor,replay_payload={**body,'barcode':code})
+                assert created[1]['barcode']==code and created[1]['active'] is True and created[1]['version']==1,created
+                assert created[1] in barcode_read(barcode_path)['items']
+                path='/api/v1/product-barcodes/'+created[1]['id']
+                for target in (first,second):
+                    assert request('/api/v1/product-barcodes',report_actor,company,base=target,payload=body,key='barcode-duplicate-'+uuid.uuid4().hex)[0]==409
+                    assert request(path,report_actor,company,base=target,payload={'active':False},key='barcode-no-version-'+uuid.uuid4().hex,method='PUT')[0]==428
+                inactive=rule_write_retry(path,{'active':False},second,first,{'active':True},1,method='PUT',status=200,actor=report_actor)
+                assert inactive[1]['active'] is False and inactive[1]['version']==2,inactive
+                assert inactive[1] in barcode_read(barcode_path)['items']
+                assert request(path,report_actor,company,base=first,payload={'active':True},key='barcode-stale-'+uuid.uuid4().hex,version=1,method='PUT')[0]==409
+            print('PASS: unit barcode ordered reads, create/deactivate shared replay, printable source guards, permission and duplicate/stale rejection')
+            def business_read(path):
+                a=request(path,report_actor,company,base=url);b=request(path,report_actor,company,base=legacy_url)
+                assert a[0]==200 and a==b,(path,a,b)
+                return a[1]
+            business_path='/api/v1/settings/business'
+            numbering_path='/api/v1/settings/document-numbering'
+            original_business=business_read(business_path)
+            business_fields=('salesTermsDays','purchaseTermsDays','quoteValidDays','defaultDispatchMode','notes')
+            defaults={k:original_business[k] for k in business_fields}
+            sequences=business_read(numbering_path)['items']
+            assert sequences
+            selected_sequence=sequences[0]
+            sequence_path=numbering_path+'/'+selected_sequence['documentType']
+            number_defaults={'prefix':selected_sequence['prefix'],'nextValue':selected_sequence['nextValue']}
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                before=business_read(business_path)
+                for target in (first,second):
+                    assert request(business_path,general_reader,company,base=target)[0]==403
+                    for patch in ({'salesTermsDays':-1},{'purchaseTermsDays':366},{'quoteValidDays':0},{'defaultDispatchMode':' pickup '},{'notes':'x'*2001}):
+                        assert request(business_path,report_actor,company,base=target,payload={**defaults,**patch},key='settings-invalid-'+uuid.uuid4().hex,version=before['version'],method='PUT')[0]==422,patch
+                    assert request(business_path,report_actor,company,base=target,payload=defaults,key='settings-version-'+uuid.uuid4().hex,method='PUT')[0]==428
+                changed={'salesTermsDays':31,'purchaseTermsDays':21,'quoteValidDays':14,'defaultDispatchMode':'DELIVERY','notes':' café + synthetic settings '}
+                configured=rule_write_retry(business_path,changed,first,second,{'salesTermsDays':32},before['version'],method='PUT',status=200,actor=report_actor)
+                current=business_read(business_path)
+                assert current['version']==before['version']+1 and current['notes']=='café + synthetic settings',current
+                restored=rule_write_retry(business_path,defaults,second,first,{'quoteValidDays':15 if defaults['quoteValidDays']!=15 else 16},current['version'],method='PUT',status=200,actor=report_actor)
+                assert all(business_read(business_path)[k]==v for k,v in defaults.items()),restored
+                sequence=next(x for x in business_read(numbering_path)['items'] if x['id']==selected_sequence['id'])
+                for target in (first,second):
+                    for patch in ({'prefix':'_BAD'},{'prefix':'X'*21},{'nextValue':0},{'nextValue':1000000000000}):
+                        assert request(sequence_path,report_actor,company,base=target,payload={**number_defaults,**patch},key='numbering-invalid-'+uuid.uuid4().hex,version=sequence['version'],method='PUT')[0]==422,patch
+                numbered=rule_write_retry(sequence_path,{'prefix':' jv_ ','nextValue':sequence['nextValue']},first,second,{'prefix':'JV_OTHER'},sequence['version'],method='PUT',status=200,actor=report_actor)
+                assert numbered[1]['prefix']=='JV_' and numbered[1]['version']==sequence['version']+1,numbered
+                restored=rule_write_retry(sequence_path,number_defaults,second,first,{'prefix':'DIFFERENT'},numbered[1]['version'],method='PUT',status=200,actor=report_actor)
+                assert next(x for x in business_read(numbering_path)['items'] if x['id']==selected_sequence['id'])==restored[1]
+            print('PASS: business defaults and document numbering with normalized notes/prefix, source guards, shared replay and restored configuration')
             print('PASS: raw JsonElement duplicate properties/numeric lexemes, report metadata and pack shared replay, favourite and zero-version formatting with restoration')
             print('PASS: saved report/private/company visibility, per-user favourites/defaults and immutable owner-scoped report packs; local legacy writes only')
             print('PASS: explicit authorized salesperson reassignment with both first-host directions, candidate scope, immutable invoice/cancellation guards and restored service credit')
