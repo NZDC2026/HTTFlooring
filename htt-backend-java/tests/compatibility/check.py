@@ -4478,6 +4478,71 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             restored=designer_raw(b'{"format":{}}',legacy_url,url,1,b'{"format":{"footer":"Different footer"}}')
             assert restored[1]['version']==2 and restored[1]['format']['header']=='',restored
             assert designer_read('/api/v1/reports/settings')[1]==restored[1]
+            def discovery_read(path,actor=None,status=200):
+                a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a==b,(path,a,b)
+                return a
+            for resource in ('customers','products','branches','contacts'):
+                path='/api/v1/search/'+resource
+                discovery_read(path)
+                discovery_read(path+'?page=1&pageSize=1')
+                discovery_read(path+'?q=%20%20')
+                discovery_read(path+'?q=NoSuchSyntheticSearchValue')
+                discovery_read(path+'?q='+urllib.parse.quote('café'))
+                for query in ('page=0','page=100001','pageSize=0','pageSize=101','q='+'x'*101):
+                    discovery_read(path+'?'+query,status=422)
+                discovery_read(path+'?page=1.0',status=400)
+            for resource,sort in (('customers','code'),('customers','name'),('products','sku'),('products','name')):
+                path='/api/v1/search/'+resource
+                discovery_read(path+'?sort='+sort+'&descending=true&pageSize=2')
+                discovery_read(path+'?sort='+sort+'&descending=false&pageSize=2')
+                discovery_read(path+'?descending=1',status=400)
+                discovery_read(path+'?sort=SQL_INJECTION',status=422)
+                discovery_read(path+'?status=ACTIVE')
+                discovery_read(path+'?status=active',status=422)
+            for resource in ('branches','contacts'):
+                path='/api/v1/search/'+resource
+                discovery_read(path+'?customerId='+customer_id)
+                discovery_read(path+'?customerId='+str(uuid.uuid4()),status=404)
+                discovery_read(path+'?customerId=invalid',status=400)
+            discovery_read('/api/v1/search/products?q=JV-COMPAT-BARCODE-0')
+            discovery_read('/api/v1/search/customers',actor=general_reader,status=403)
+            discovery_read('/api/v1/search/products',actor=general_reader,status=403)
+            print('PASS: customer/product/branch/contact discovery ordered rows, paging, native query binding and source validation/permissions')
+            catalog_path='/api/v1/customers/'+customer_id+'/catalog'
+            def customer_catalog_read(query,status=200,actor=None):
+                results=[request(catalog_path+query,actor or report_actor,company,base=backend) for backend in (url,legacy_url)]
+                assert all(x[0]==status for x in results),(query,results)
+                if status!=200:return results[0]
+                stable=[]
+                for _,body in results:
+                    stamp=datetime.datetime.fromisoformat(body['dataAsOf'].replace('Z','+00:00'))
+                    assert abs((datetime.datetime.now(datetime.timezone.utc)-stamp).total_seconds())<60,body
+                    copied={**body,'items':[]};copied.pop('dataAsOf')
+                    for item in body['items']:
+                        row={**item}
+                        if row['price'] is not None:
+                            price=dict(row['price'])
+                            assert datetime.datetime.fromisoformat(price.pop('pricingAt').replace('Z','+00:00'))==stamp,row
+                            assert Decimal(price['unitPrice'])>=0 and price['currency']=='AUD',price
+                            row['price']=price
+                        else:assert row['priceUnavailableCode'],row
+                        copied['items'].append(row)
+                    stable.append(copied)
+                assert stable[0]==stable[1],(query,stable)
+                return results[0]
+            catalog_warehouse='?warehouseId=00000000-0000-0000-0000-000000000014'
+            full_catalog=customer_catalog_read(catalog_warehouse)[1]
+            assert full_catalog['items'] and any(x['price'] is not None for x in full_catalog['items']),full_catalog
+            for query in ('&pageSize=1','&page=2&pageSize=1','&q=NoSuchCatalogSearch','&q=%20%20'):
+                customer_catalog_read(catalog_warehouse+query)
+            customer_catalog_read(catalog_warehouse+'&page=0',422)
+            customer_catalog_read(catalog_warehouse+'&q='+'x'*101,422)
+            customer_catalog_read('?warehouseId=invalid',400)
+            customer_catalog_read('',400)
+            customer_catalog_read(catalog_warehouse,403,general_reader)
+            print('PASS: customer sale catalog price/inventory facts, ordered paging, compound permission and native parameters with bounded live timestamps')
             barcode_path='/api/v1/products/00000000-0000-0000-0000-000000000031/barcodes'
             barcode_unit='00000000-0000-0000-0000-000000000032'
             def barcode_read(path):
@@ -4497,6 +4562,10 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 created=rule_write_retry('/api/v1/product-barcodes',body,first,second,{'barcode':code+'-DIFFERENT'},actor=report_actor,replay_payload={**body,'barcode':code})
                 assert created[1]['barcode']==code and created[1]['active'] is True and created[1]['version']==1,created
                 assert created[1] in barcode_read(barcode_path)['items']
+                found=discovery_read('/api/v1/search/products?q='+code)[1]['items']
+                assert len(found)==1 and found[0]['id']=='00000000-0000-0000-0000-000000000031',found
+                active_catalog=customer_catalog_read(catalog_warehouse+'&q='+code)[1]['items']
+                assert len(active_catalog)==1 and active_catalog[0]['product']['productUnitId']==barcode_unit,active_catalog
                 path='/api/v1/product-barcodes/'+created[1]['id']
                 for target in (first,second):
                     assert request('/api/v1/product-barcodes',report_actor,company,base=target,payload=body,key='barcode-duplicate-'+uuid.uuid4().hex)[0]==409
@@ -4504,6 +4573,8 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 inactive=rule_write_retry(path,{'active':False},second,first,{'active':True},1,method='PUT',status=200,actor=report_actor)
                 assert inactive[1]['active'] is False and inactive[1]['version']==2,inactive
                 assert inactive[1] in barcode_read(barcode_path)['items']
+                assert discovery_read('/api/v1/search/products?q='+code)[1]['items']==[]
+                assert customer_catalog_read(catalog_warehouse+'&q='+code)[1]['items']==[]
                 assert request(path,report_actor,company,base=first,payload={'active':True},key='barcode-stale-'+uuid.uuid4().hex,version=1,method='PUT')[0]==409
             print('PASS: unit barcode ordered reads, create/deactivate shared replay, printable source guards, permission and duplicate/stale rejection')
             def business_read(path):

@@ -164,3 +164,7 @@ All ten saved report, per-user formatting and frozen pack operations passed comp
 
 
 Business defaults and document numbering passed complete CASH 55a5db06eb834f19b674d93a2e8f21f9 and NON_CASH afe2f126b3c6421b8400279a0546bd35. Both host directions verify mixed retries, normalized notes/prefix, exact dispatch choices, versions, permissions and restored defaults without counter rewind. Bulk synthetic writes now refresh planner statistics before reporting; application SQL and ten-second statement limits are unchanged. All evidence is archived; stages 3–4 remain incomplete.
+
+Unit barcode list/create/status operations passed complete CASH 7809d2cadcc8470da6367b75d98171fb and NON_CASH c78fbefaff52498ebe90f9dd6ac3fb36. Ordered native rows, both first-host directions, normalized create replay, default activation, deactivation, source validation, duplicate/stale rejection and exact-once audit details are checked. Both synthetic barcodes end inactive. Full evidence is archived; stages 3–4 remain incomplete.
+
+Four discovery search routes passed complete CASH f359bd04d1ca4b38aae0b9231d3a3652 and NON_CASH 0628f8b5a6b34acc9dd4679abd23cbd0. Full ordered row parity, pagination, exact status and sort choices, native query binding, customer scope and capability rejection are checked. This excludes the customer catalog route and exhaustive barcode/assignment scenarios. Source and synthetic evidence is archived; stages 3–4 remain incomplete.
