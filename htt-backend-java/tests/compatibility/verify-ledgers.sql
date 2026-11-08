@@ -373,10 +373,10 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM accounting.bank_transactions WHERE reference LIKE 'General %')<>10
  OR (SELECT count(*) FROM accounting.bank_transaction_reversals v JOIN accounting.bank_transactions h ON h.company_id=v.company_id AND h.id=v.original_id WHERE h.reference LIKE 'General %')<>10
  OR (SELECT count(*) FROM accounting.bank_transaction_lines l JOIN accounting.bank_transactions h ON h.company_id=l.company_id AND h.id=l.transaction_id WHERE h.reference LIKE 'General %')<>10
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_posted')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_posted')<>5
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_transferred')<>4
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bank_line_classified')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_reversed')<>12
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.general_bank_reversed')<>13
  OR (SELECT count(*) FROM accounting.bank_transaction_lines l JOIN accounting.bank_transactions h ON h.company_id=l.company_id AND h.id=l.transaction_id WHERE h.kind='PAY' AND h.reference LIKE 'General %' AND l.net=100 AND l.tax=10 AND l.recoverable_tax=7.5 AND l.input_taxed_percent=25)<>2
  OR EXISTS(SELECT 1 FROM accounting.journal_lines l WHERE l.account_id IN('00000000-0000-0000-0000-000000000430','00000000-0000-0000-0000-000000000431','00000000-0000-0000-0000-000000000432','00000000-0000-0000-0000-000000000433','00000000-0000-0000-0000-000000000434') GROUP BY l.account_id HAVING sum(l.debit)<>sum(l.credit))
  OR EXISTS(SELECT 1 FROM accounting.bank_transaction_events e JOIN accounting.bank_transactions h ON h.company_id=e.company_id AND h.id=e.original_id WHERE h.reference LIKE 'General %' GROUP BY e.kind HAVING sum(e.net)<>0 OR sum(e.tax)<>0 OR sum(e.recoverable_tax)<>0)
@@ -425,15 +425,15 @@ DO $$ BEGIN
 END $$;
 
 DO $$ BEGIN
- IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_period_created')<>2
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_period_created')<>3
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_method_changed')<>3
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_finalize')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_finalize')<>3
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_record_lodgement')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_reopen')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_reopen')<>3
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.bas_classified')<>2
- OR (SELECT count(*) FROM accounting.bas_period_controls WHERE state='OPEN')<>2
- OR (SELECT count(*) FROM accounting.bas_snapshots)<>2
- OR (SELECT count(*) FROM accounting.bas_period_events)<>6
+ OR (SELECT count(*) FROM accounting.bas_period_controls WHERE state='OPEN')<>3
+ OR (SELECT count(*) FROM accounting.bas_snapshots)<>3
+ OR (SELECT count(*) FROM accounting.bas_period_events)<>8
  THEN RAISE EXCEPTION 'BAS local lifecycle/method/classification exactly-once mismatch'; END IF;
 END $$;
 
@@ -447,13 +447,61 @@ END $$;
 DO $$ BEGIN
  IF (SELECT count(*) FROM platform.audit_events WHERE action='accounting.fiscal_year_created')<>1
  OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.retained_earnings_configured')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.period_close')<>13
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.period_reopen')<>13
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.year_close')<>1
- OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.year_reopen')<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.period_close')<>25
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.period_reopen')<>25
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.year_close')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.year_reopen')<>2
  OR (SELECT count(*) FROM accounting.year_end_closings WHERE profit=0 AND journal_entry_id IS NULL)<>1
  OR (SELECT count(*) FROM accounting.year_end_reversals WHERE journal_entry_id IS NULL)<>1
- OR (SELECT count(*) FROM accounting.period_close_snapshots)<>13
- OR (SELECT count(*) FROM accounting.period_close_events)<>26
+ OR (SELECT count(*) FROM accounting.period_close_snapshots)<>25
+ OR (SELECT count(*) FROM accounting.period_close_events)<>50
  THEN RAISE EXCEPTION 'Period/fiscal close exactly-once or zero-nominal evidence mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM accounting.year_end_closings WHERE profit=100 AND journal_entry_id IS NOT NULL)<>1
+ OR (SELECT count(*) FROM accounting.year_end_reversals WHERE journal_entry_id IS NOT NULL)<>1
+ OR EXISTS(SELECT 1 FROM accounting.year_end_closings c JOIN accounting.journal_lines l ON l.company_id=c.company_id AND l.journal_entry_id=c.journal_entry_id LEFT JOIN accounting.year_end_reversals r ON r.company_id=c.company_id AND r.closing_id=c.id LEFT JOIN accounting.journal_lines rev ON rev.company_id=r.company_id AND rev.journal_entry_id=r.journal_entry_id AND rev.account_id=l.account_id WHERE c.profit=100 AND (rev.id IS NULL OR rev.debit<>l.credit OR rev.credit<>l.debit))
+ THEN RAISE EXCEPTION 'Nonzero year-end closing or exact reversal proof mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM accounting.customer_statements)<>2
+ OR (SELECT count(*) FROM accounting.operating_report_runs)<>12
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='accounting.statement_captured')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='reports.operating_captured')<>10
+ THEN RAISE EXCEPTION 'Frozen statement/operating report exactly-once mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.document_jobs j JOIN accounting.operating_report_runs r ON r.company_id=j.company_id AND r.id=j.document_id WHERE j.kind='EXPORT' AND j.source_version=1 AND j.state='QUEUED')<>10
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='reports.export_requested')<>10
+ OR EXISTS(SELECT 1 FROM platform.document_jobs j JOIN accounting.operating_report_runs r ON r.company_id=j.company_id AND r.id=j.document_id WHERE j.kind='EXPORT' AND (j.payload->>'snapshotHash' IS DISTINCT FROM r.sha256 OR jsonb_array_length(j.payload->'columns')=0))
+ THEN RAISE EXCEPTION 'Frozen report export uniqueness/payload binding or worker isolation mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='sales.analytics_checkpoint')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='sales.attribution_assigned')<>4
+ THEN RAISE EXCEPTION 'Analytics checkpoint or frozen attribution audit mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM sales.orders WHERE creation_reason LIKE 'Synthetic attribution service %' AND cancelled_at IS NOT NULL)<>2
+ OR EXISTS(SELECT 1 FROM sales.invoices i JOIN sales.orders o ON o.company_id=i.company_id AND o.id=i.order_id WHERE o.creation_reason LIKE 'Synthetic attribution service %')
+ OR EXISTS(SELECT 1 FROM sales.credit_commitments c JOIN sales.orders o ON o.company_id=c.company_id AND o.id=c.order_id WHERE o.creation_reason LIKE 'Synthetic attribution service %' AND c.amount<>c.released_amount)
+ THEN RAISE EXCEPTION 'Synthetic attribution order freeze/credit restoration mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM reporting.saved_reports)<>2
+ OR (SELECT count(*) FROM reporting.packs)<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='reports.saved_changed')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='reports.pack_captured')<>2
+ THEN RAISE EXCEPTION 'Saved report/pack read fixture or visibility mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM reporting.preferences WHERE user_id='00000000-0000-0000-0000-000000000500' AND version=2 AND format->>'header'='' AND format->>'footer'='')<>1
+ THEN RAISE EXCEPTION 'Report formatting idempotency or restored defaults mismatch'; END IF;
 END $$;

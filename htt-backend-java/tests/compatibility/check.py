@@ -163,7 +163,7 @@ def synthetic_feed_state(connection_id,action):
     with (here/'feed-state-fixture.log').open('a') as evidence:evidence.write(action+'\\n'+result.stdout+result.stderr+'\\n')
     assert result.returncode==0,result
 
-def request(path, jwt=None, company=None, grant=None, base=url, payload=None, key=None, version=None, content_type=None, method=None):
+def request(path, jwt=None, company=None, grant=None, base=url, payload=None, key=None, version=None, content_type=None, method=None, timeout_seconds=5):
     if base.endswith((':15081',':15082')):
         pace_backend(base)
     headers = {} if jwt is None else {'Authorization':'Bearer '+jwt}
@@ -178,7 +178,7 @@ def request(path, jwt=None, company=None, grant=None, base=url, payload=None, ke
     if payload is not None:
         headers.update({'Content-Type':content_type or 'application/json','Idempotency-Key':key})
     try:
-        with urllib.request.urlopen(urllib.request.Request(base+path,headers=headers,method=method,data=None if payload is None else payload if isinstance(payload, bytes) else json.dumps(payload).encode()),timeout=5) as res:
+        with urllib.request.urlopen(urllib.request.Request(base+path,headers=headers,method=method,data=None if payload is None else payload if isinstance(payload, bytes) else json.dumps(payload).encode()),timeout=timeout_seconds) as res:
             return res.status, json.load(res)
     except urllib.error.HTTPError as ex:
         return ex.code, ex.read().decode()
@@ -4252,6 +4252,230 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 result=rule_write_retry(bas+'periods/'+entry['id']+'/reopen',{'reference':'Sequential period reopening '+uuid.uuid4().hex,'reason':'Restore all historical periods'},first,second,{'reason':'Different sequential reopening'},entry['version'],status=200)
                 assert result[1]['entity']['state']=='OPEN'
             assert all(x['state']=='OPEN' for x in close_read(bas+'periods?fiscalYearId='+year_id)[1]['items'])
+
+            # Nonzero nominal closing must use real source postings and certified BAS coverage.
+            income={'kind':'RECEIVE','bankAccountId':bank_a,'occurredOn':'2023-07-10','reference':'Year profit source '+uuid.uuid4().hex,'reason':'Synthetic historical income for annual nominal closing','noPriorPostingConfirmed':True,'lines':[{'accountId':'00000000-0000-0000-0000-000000000433','description':'Historical GST-free income','net':'100.00','tax':'0.00','taxCodeId':'00000000-0000-0000-0000-000000000016','basClass':'OTHER_GST_FREE'}]}
+            income_doc=general_retry('/api/v1/bank-transactions',income,url,legacy_url)
+            live_periods=close_read(bas+'periods?fiscalYearId='+year_id)[1]['items']
+            for backend in (url,legacy_url):
+                blocked=request(bas+'periods/'+live_periods[0]['id']+'/close',general_finance,company,base=backend,payload={'reference':'Invalid BAS exclusion '+uuid.uuid4().hex,'reason':'Actual turnover requires BAS coverage','basNotApplicableConfirmed':True},key='nonzero-bas-required-'+uuid.uuid4().hex,version=live_periods[0]['version'])
+                assert blocked[0]==409,blocked
+            annual_body={'reference':'Historical annual BAS '+uuid.uuid4().hex,'from':'2023-07-01','to':'2024-07-01','cadence':'ANNUAL','gstBasis':os.environ.get('HTT_COMPAT_GST_BASIS','NON_CASH'),'reportingMethod':'SIMPLER','registrationConfirmed':True}
+            annual=rule_write_retry(bas+'bas-periods',annual_body,legacy_url,url,{'reference':'Different annual BAS reference'})
+            annual_path=bas+'bas-periods/'+annual[1]['id']
+            annual_final=rule_write_retry(annual_path+'/finalize',{'reference':'Historical annual BAS certification '+uuid.uuid4().hex,'reason':'Certify actual historical turnover'},url,legacy_url,{'reason':'Different annual certification'},annual[1]['version'],status=200)
+            frozen_annual=bas_read(bas+'bas-snapshots/'+annual_final[1]['snapshotId'])[1]
+            nonzero_periods=[]
+            for n,entry in enumerate(live_periods):
+                first,second=(legacy_url,url) if n%2==0 else (url,legacy_url)
+                result=rule_write_retry(bas+'periods/'+entry['id']+'/close',{'reference':'Nonzero certified period '+uuid.uuid4().hex,'reason':'Annual BAS is finalized'},first,second,{'reason':'Different nonzero monthly close'},entry['version'],status=200)
+                nonzero_periods.append(result[1]['entity'])
+            plan=close_read(year_path+'/preflight',live=True,year_plan=True)
+            assert plan[1]['status']=='READY' and Decimal(plan[1]['profit'])==100,plan
+            nonzero_closed=rule_write_retry(year_path+'/close',{'reference':'Nonzero fiscal closing '+uuid.uuid4().hex,'reason':'Move historical nominal profit to retained earnings'},legacy_url,url,{'reason':'Different nonzero annual closing'},opened_year[1]['entity']['version'],status=200)
+            history=close_read(year_path+'/history')[1]
+            closing=history['closings'][-1]
+            assert closing['revision']==2 and Decimal(closing['profit'])==100 and closing['journal_entry_id'] is not None,history
+            closing_journal=request('/api/v1/accounting/journals/'+closing['journal_entry_id'],general_finance,company)
+            assert closing_journal[0]==200,closing_journal
+            actual={x['accountId']:(Decimal(x['debit']),Decimal(x['credit'])) for x in closing_journal[1]['lines']}
+            assert actual=={'00000000-0000-0000-0000-000000000433':(Decimal(100),Decimal(0)),'00000000-0000-0000-0000-000000000041':(Decimal(0),Decimal(100))},actual
+            assert bas_read(bas+'bas-snapshots/'+annual_final[1]['snapshotId'])[1]==frozen_annual
+            nonzero_opened=rule_write_retry(year_path+'/reopen',{'reference':'Nonzero fiscal reversal '+uuid.uuid4().hex,'reason':'Reverse the annual nominal closing'},url,legacy_url,{'reason':'Different annual reversal'},nonzero_closed[1]['entity']['version'],status=200)
+            history=close_read(year_path+'/history')[1]
+            reversed_entry=history['reversals'][-1]
+            assert reversed_entry['journal_entry_id'] is not None,history
+            mirror=request('/api/v1/accounting/journals/'+reversed_entry['journal_entry_id'],general_finance,company)
+            assert mirror[0]==200,mirror
+            mirrored={x['accountId']:(Decimal(x['debit']),Decimal(x['credit'])) for x in mirror[1]['lines']}
+            assert mirrored=={account:(credit,debit) for account,(debit,credit) in actual.items()},(actual,mirrored)
+            for n,entry in enumerate(reversed(nonzero_periods)):
+                first,second=(url,legacy_url) if n%2==0 else (legacy_url,url)
+                rule_write_retry(bas+'periods/'+entry['id']+'/reopen',{'reference':'Nonzero period restoration '+uuid.uuid4().hex,'reason':'Restore historical accounting period'},first,second,{'reason':'Different historical restoration'},entry['version'],status=200)
+            rule_write_retry(annual_path+'/reopen',{'reference':'Historical annual BAS reopening '+uuid.uuid4().hex,'reason':'Restore synthetic source posting freedom'},legacy_url,url,{'reason':'Different annual BAS reopening'},annual_final[1]['period']['version'],status=200)
+            general_reverse(income_doc,legacy_url,url)
+
+            report_actor=token('test-operating-report')
+            def operating_read(path,status=200,live=False):
+                a=request(path,report_actor,company,timeout_seconds=30);b=request(path,report_actor,company,base=legacy_url,timeout_seconds=30)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:
+                    def stable(body):
+                        body=dict(body)
+                        if live:
+                            stamp=body.pop('snapshotAt')
+                            assert stamp.endswith('+00:00') or stamp.endswith('Z'),stamp
+                            if 'mvccSnapshot' in body:
+                                assert re.fullmatch(r'[0-9]+:[0-9]+:(?:[0-9]+(?:,[0-9]+)*)?',body.pop('mvccSnapshot'))
+                        return body
+                    assert stable(a[1])==stable(b[1]),(path,a,b)
+                return a
+            def operating_capture(path,body,first,second,changed):
+                key='operating-capture-'+uuid.uuid4().hex
+                args={'payload':body,'key':key,'timeout_seconds':30}
+                result=request(path,report_actor,company,base=first,**args)
+                assert result[0]==201,(path,result)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda n:request(path,report_actor,company,base=first if n%2 else second,**args),range(6)))
+                assert all(x==result for x in retries),(path,result,retries)
+                assert request(path,report_actor,company,base=second,payload={**body,**changed},key=key,timeout_seconds=30)[0]==409
+                return result
+            customer_id='00000000-0000-0000-0000-000000000011'
+            report_run_ids=[]
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                operating_read('/api/v1/customers/'+customer_id+'/statement-preview?from=2026-01-01&to=2027-01-01',live=True)
+                statement=operating_capture('/api/v1/customers/'+customer_id+'/statements',{'from':'2026-01-01','to':'2027-01-01'},first,second,{'from':'2026-01-02'})
+                frozen=operating_read('/api/v1/customer-statements/'+statement[1]['id'])[1]
+                assert frozen==statement[1] and len(frozen['sha256'])==64 and frozen['version']==1,frozen
+                operating_read('/api/v1/customers/'+customer_id+'/statements?pageSize=1')
+                for kind in ('PURCHASING','ARAP','INVENTORY','BANKING','SALES'):
+                    path=bas+'reports/operating?kind='+kind+'&from=2026-01-01&to=2027-01-01'
+                    full=operating_read(path+'&pageSize=100',live=True)[1]
+                    page=operating_read(path+'&pageSize=1',live=True)[1]
+                    assert page['rows']==full['rows'][:1] and page['totalCount']==full['totalCount'],(kind,full,page)
+                    captured=operating_capture('/api/v1/operating-report-runs',{'kind':kind,'from':'2026-01-01','to':'2027-01-01'},first,second,{'from':'2026-01-02'})
+                    report_run_ids.append(captured[1]['id'])
+                    frozen=operating_read('/api/v1/operating-report-runs/'+captured[1]['id'])[1]
+                    assert frozen['snapshot']==captured[1]['snapshot'] and frozen['sha256']==captured[1]['sha256'] and len(frozen['sha256'])==64,frozen
+                    operating_read('/api/v1/operating-report-runs?kind='+kind+'&pageSize=1')
+            operating_read(bas+'reports/operating?kind=INVENTORY&from=2026-01-01&to=2027-01-01&partyId=00000000-0000-0000-0000-000000000010',422)
+            operating_read('/api/v1/customer-statements/'+str(uuid.uuid4()),404)
+            operating_read('/api/v1/operating-report-runs/'+str(uuid.uuid4()),404)
+            for backend in (url,legacy_url):
+                assert request('/api/v1/operating-report-runs?kind=BANKING',general_finance,company,base=backend)[0]==403
+
+            analytics='/api/v1/sales-analytics/'
+            def analytics_read(path,status=200,live=False):
+                a=request(path,report_actor,company,timeout_seconds=30)
+                b=request(path,report_actor,company,base=legacy_url,timeout_seconds=30)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:
+                    def stable(body):
+                        body=dict(body)
+                        if live and 'snapshotAt' in body:
+                            stamp=body.pop('snapshotAt')
+                            assert stamp.endswith('+00:00') or stamp.endswith('Z'),stamp
+                        return body
+                    assert stable(a[1])==stable(b[1]),(path,a,b)
+                return a
+            dates='?from=2026-01-01&to=2027-01-01'
+            for bucket in ('DAY','MONTH'):
+                full=analytics_read(analytics+'trends'+dates+'&bucket='+bucket+'&pageSize=100',live=True)[1]
+                small=analytics_read(analytics+'trends'+dates+'&bucket='+bucket+'&pageSize=1',live=True)[1]
+                assert small['rows']==full['rows'][:1] and small['totals']==full['totals'] and small['sourceHash']==full['sourceHash']
+                assert 'sourceFacts' not in full and 'mvccSnapshot' not in full,full
+            facts=analytics_read(analytics+'facts'+dates+'&pageSize=100',live=True)[1]
+            small=analytics_read(analytics+'facts'+dates+'&pageSize=1',live=True)[1]
+            assert small['items']==facts['items'][:1] and small['totalCount']==facts['totalCount']
+            analytics_read(analytics+'pending-returns'+dates+'&pageSize=1')
+            analytics_read(analytics+'reconciliation'+dates,live=True)
+            analytics_read(analytics+'trends'+dates+'&customerId=00000000-0000-0000-0000-000000000011',live=True)
+            analytics_read(analytics+'trends'+dates+'&customerId=00000000-0000-0000-0000-000000000000',422)
+            analytics_read(analytics+'trends?from=0002-01-01&to=0002-01-02',422)
+            analytics_read(analytics+'trends'+dates+'&bucket=YEAR',422)
+            analytics_read(analytics+'facts'+dates+'&pageSize=101',422)
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                captured=operating_capture(analytics+'checkpoints',{'from':'2026-01-01','to':'2027-01-01','bucket':'MONTH'},first,second,{'from':'2026-01-02'})
+                assert analytics_read(analytics+'checkpoints/'+captured[1]['id'])[1]==captured[1] and len(captured[1]['sha256'])==64,captured
+            analytics_read(analytics+'checkpoints/'+str(uuid.uuid4()),404)
+            assert facts['items'],facts
+            invoice_order=facts['items'][0]['orderId']
+            attribution_path='/api/v1/sales-orders/'+invoice_order+'/sales-attribution'
+            attribution=analytics_read(attribution_path)[1]
+            assert attribution['frozen'] is True,attribution
+            for backend in (url,legacy_url):
+                body={'salespersonId':'00000000-0000-0000-0000-000000000500','reason':'Attempt to change frozen attribution'}
+                assert request(attribution_path,report_actor,company,base=backend,payload=body,key='attribution-version-'+uuid.uuid4().hex,method='PUT',timeout_seconds=30)[0]==428
+                blocked=request(attribution_path,report_actor,company,base=backend,payload=body,key='attribution-frozen-'+uuid.uuid4().hex,version=attribution['version'],method='PUT',timeout_seconds=30)
+                assert blocked[0]==409,blocked
+                assert request(analytics+'facts'+dates,general_finance,company,base=backend)[0]==403
+
+            for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
+                service=request('/api/v1/sales-orders',employee,company,base=legacy_url,payload={'customerId':customer_id,'customerBranchId':branch,'warehouseId':'00000000-0000-0000-0000-000000000014','lines':[{'productUnitId':'00000000-0000-0000-0000-000000000032','quantity':1}],'reason':'Synthetic attribution service '+uuid.uuid4().hex},key='attribution-service-'+uuid.uuid4().hex)
+                assert service[0]==201,service
+                order_id=service[1]['orderId'];path='/api/v1/sales-orders/'+order_id+'/sales-attribution'
+                view=analytics_read(path)[1]
+                assert view['frozen'] is False,view
+                for backend in (first,second):
+                    assert request(path,report_actor,company,base=backend,payload={'salespersonId':str(uuid.uuid4()),'reason':'Unauthorized synthetic salesperson'},key='attribution-member-'+uuid.uuid4().hex,version=view['version'],method='PUT')[0]==403
+                    assert request(path,general_finance,company,base=backend,payload={'salespersonId':'00000000-0000-0000-0000-000000000500','reason':'Missing assignment permission'},key='attribution-permission-'+uuid.uuid4().hex,version=view['version'],method='PUT')[0]==403
+                for a,b in ((first,second),(second,first)):
+                    assigned=rule_write_retry(path,{'salespersonId':'00000000-0000-0000-0000-000000000500','reason':' Synthetic explicit salesperson assignment '},a,b,{'reason':'Different salesperson assignment'},view['version'],method='PUT',status=200,actor=report_actor)
+                    assert assigned[1]['version']==view['version']+1 and assigned[1]['salespersonId']=='00000000-0000-0000-0000-000000000500' and assigned[1]['basis']=='EXPLICIT',assigned
+                    view=analytics_read(path)[1]
+                    assert view==assigned[1]
+                canceled=request('/api/v1/sales-orders/'+order_id+'/cancel',employee,company,base=first,payload={'reason':'Restore synthetic service credit commitment'},key='attribution-cancel-'+uuid.uuid4().hex,version=service[1]['version'])
+                assert canceled[0]==200,canceled
+                for backend in (first,second):
+                    denied=request(path,report_actor,company,base=backend,payload={'salespersonId':'00000000-0000-0000-0000-000000000500','reason':'Cancellation freezes reassignment'},key='attribution-cancel-frozen-'+uuid.uuid4().hex,version=view['version'],method='PUT')
+                    assert denied[0]==409,denied
+
+            other_report_actor=token('test-report-other')
+            def designer_read(path,actor=report_actor,status=200):
+                a=request(path,actor,company,timeout_seconds=30)
+                b=request(path,actor,company,base=legacy_url,timeout_seconds=30)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a[1]==b[1],(path,a,b)
+                return a
+            assert designer_read('/api/v1/reports/settings')[1]['version']==0
+            for n,(first,second) in enumerate(((url,legacy_url),(legacy_url,url))):
+                definition={'kind':'PROFIT_LOSS','filters':{'from':'2026-01-01','to':'2027-01-01'}}
+                body={'name':' Synthetic café saved report '+uuid.uuid4().hex+' ','definition':definition,'visibility':'PRIVATE','active':True}
+                for backend in (first,second):
+                    for patch in ({'definition':None},{'definition':[]},{'name':'bad\\nname'}):
+                        assert request('/api/v1/reports/saved',report_actor,company,base=backend,payload={**body,**patch},key='designer-invalid-'+uuid.uuid4().hex)[0]==422
+                saved=operating_capture('/api/v1/reports/saved',body,first,second,{'name':'Different saved report name'})
+                assert saved[0]==201,saved
+                path='/api/v1/reports/saved/'+saved[1]['id']
+                assert designer_read(path)[1]==saved[1]
+                designer_read(path,other_report_actor,404)
+                favourite=rule_write_retry(path+'/favourite',{'active':True},second,first,{'active':False},method='PUT',status=200,actor=report_actor)
+                assert favourite[0]==200 and favourite[1]['favourite'] is True,favourite
+                assert designer_read(path)[1]==favourite[1]
+                designer_read('/api/v1/reports/saved?favourites=true&pageSize=1')
+                shared=rule_write_retry(path,{**body,'visibility':'COMPANY'},first,second,{'name':'Different shared report name'},saved[1]['version'],method='PUT',status=200,actor=report_actor)
+                assert shared[0]==200,shared
+                visible=designer_read(path,other_report_actor)[1]
+                assert visible['visibility']=='COMPANY' and visible['favourite'] is False,visible
+                pack=operating_capture('/api/v1/reports/packs',{'title':'Synthetic frozen café pack '+uuid.uuid4().hex,'items':[{'savedReportId':saved[1]['id'],'version':shared[1]['version']},{'definition':{'kind':'BALANCE_SHEET','filters':{'asOf':general_today}}}]},second,first,{'title':'Different frozen pack title'})
+                assert pack[0]==201,pack
+                assert designer_read('/api/v1/reports/packs/'+pack[1]['id'])[1]==pack[1] and len(pack[1]['sha256'])==64
+                designer_read('/api/v1/reports/packs/'+pack[1]['id'],other_report_actor,404)
+                designer_read('/api/v1/reports/packs?pageSize=1')
+            designer_read('/api/v1/reports/saved?pageSize=1')
+            designer_read('/api/v1/reports/saved?favourites=1',status=400)
+            designer_read('/api/v1/reports/packs?pageSize=101',status=422)
+            for suffix in ('saved/','packs/'):
+                designer_read('/api/v1/reports/'+suffix+str(uuid.uuid4()),status=404)
+            for backend in (url,legacy_url):
+                assert request('/api/v1/reports/saved',general_finance,company,base=backend)[0]==403
+
+            def designer_raw(body,first,second,version,changed):
+                key='designer-raw-'+uuid.uuid4().hex;path='/api/v1/reports/settings'
+                args={'payload':body,'key':key,'version':version,'method':'PUT','content_type':'application/json','timeout_seconds':30}
+                result=request(path,report_actor,company,base=first,**args)
+                assert result[0]==200,result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda n:request(path,report_actor,company,base=first if n%2 else second,**args),range(6)))
+                assert all(x==result for x in retries),(result,retries)
+                assert request(path,report_actor,company,base=second,**{**args,'payload':changed})[0]==409
+                return result
+            raw_format='{"format":{"decimalPlaces":2e0,"header":"first","header":"café + final","footer":"<&>","negativeStyle":"MINUS"}}'.encode()
+            for backend in (url,legacy_url):
+                assert request('/api/v1/reports/settings',report_actor,company,base=backend,payload={'format':{}},key='designer-format-version-'+uuid.uuid4().hex,method='PUT')[0]==422
+                bad=b'{"format":{"header":"bad\\nvalue","header":"okay"}}'
+                assert request('/api/v1/reports/settings',report_actor,company,base=backend,payload=bad,key='designer-control-duplicate-'+uuid.uuid4().hex,version=0,method='PUT',content_type='application/json')[0]==422
+            formatted=designer_raw(raw_format,url,legacy_url,0,raw_format.replace(b'2e0',b'2.0'))
+            assert formatted[1]['version']==1 and formatted[1]['format']['header']=='café + final',formatted
+            restored=designer_raw(b'{"format":{}}',legacy_url,url,1,b'{"format":{"footer":"Different footer"}}')
+            assert restored[1]['version']==2 and restored[1]['format']['header']=='',restored
+            assert designer_read('/api/v1/reports/settings')[1]==restored[1]
+            print('PASS: raw JsonElement duplicate properties/numeric lexemes, report metadata and pack shared replay, favourite and zero-version formatting with restoration')
+            print('PASS: saved report/private/company visibility, per-user favourites/defaults and immutable owner-scoped report packs; local legacy writes only')
+            print('PASS: explicit authorized salesperson reassignment with both first-host directions, candidate scope, immutable invoice/cancellation guards and restored service credit')
+            print('PASS: sales trend/fact/return/reconciliation queries, frozen checkpoints and invoice attribution freeze; positive reassignment pending')
+            print('PASS: customer statements and five operating report families, frozen source snapshots/hashes, ordered paging and bidirectional shared capture replay; export acceptance pending')
+            print('PASS: nonzero nominal profit closing and exact annual journal reversal, real BAS prerequisites, sequential period evidence and restored source income')
             print('PASS: retained mapping at revision zero, certified sequential period close, zero-profit year close/reversal and reverse-order period reopening with shared replay')
             print('PASS: fiscal calendar, period and year preflight, frozen close evidence/history, retained mapping and compound read permissions; local legacy commands only')
             print('PASS: BAS methods and raw report paging, owned period/history, frozen snapshot hashes and ordered classification history; commands prepared through local .NET')
@@ -4400,6 +4624,25 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             print(f'PASS: {len(cases)} Java/.NET HTTP contract comparisons')
             print('PASS: signed identity, wrong audience, scoped branch query, missing/cross-company rejection and validation')
             verify_rate_limits(legacy_url)
+
+            # All legacy scan/visit workers have stopped before exports are enqueued.
+            for n,run_id in enumerate(report_run_ids):
+                first,second=(url,legacy_url) if n<5 else (legacy_url,url)
+                export_path='/api/v1/operating-report-runs/'+run_id+'/export'
+                for backend in (first,second):
+                    assert request(export_path,report_actor,company,base=backend,method='POST',key='export-version-'+uuid.uuid4().hex,timeout_seconds=30)[0]==428
+                    assert request(export_path,report_actor,company,base=backend,method='POST',key='export-wrong-version-'+uuid.uuid4().hex,version=2,timeout_seconds=30)[0]==422
+                    assert request(export_path,general_finance,company,base=backend,method='POST',key='export-denied-'+uuid.uuid4().hex,version=1)[0]==403
+                key='operating-export-'+uuid.uuid4().hex
+                args={'method':'POST','key':key,'version':1,'timeout_seconds':30}
+                queued=request(export_path,report_actor,company,base=first,**args)
+                assert queued[0]==202 and queued[1]['documentId']==run_id and queued[1]['sourceVersion']==1,queued
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda i:request(export_path,report_actor,company,base=first if i%2 else second,**args),range(6)))
+                assert all(x==queued for x in retries),(queued,retries)
+                assert request(export_path,report_actor,company,base=second,**{**args,'version':2})[0]==409
+                assert request(export_path,report_actor,company,base=second,**{**args,'key':'another-export-'+uuid.uuid4().hex})==queued
+            print('PASS: all five frozen report families export exactly one local queued job per document/version, opposite-host shared replay, version and authorization guards; no export worker started')
         finally:
             legacy.terminate()
             legacy.wait(timeout=15)

@@ -1,0 +1,79 @@
+[
+  {
+    "raw": " { \"kind\":\"PROFIT_LOSS\", \"filters\":{\"from\":\"2026-01-01\",\"to\":\"2027-01-01\"} } ",
+    "objectValid": true,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{\"kind\":\"PROFIT_LOSS\",\"filters\":{\"from\":\"2026-01-01\",\"to\":\"2027-01-01\"}},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{\"kind\":\"PROFIT_LOSS\",\"filters\":{\"from\":\"2026-01-01\",\"to\":\"2027-01-01\"}}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{\"kind\":\"PROFIT_LOSS\",\"filters\":{\"from\":\"2026-01-01\",\"to\":\"2027-01-01\"}}]}"
+  },
+  {
+    "raw": "{\"b\":1e+02,\"a\":1.00,\"negative\":-0,\"big\":1234567890123456789012345678901234567890}",
+    "objectValid": true,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{\"b\":1e+02,\"a\":1.00,\"negative\":-0,\"big\":1234567890123456789012345678901234567890},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{\"b\":1e+02,\"a\":1.00,\"negative\":-0,\"big\":1234567890123456789012345678901234567890}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{\"b\":1e+02,\"a\":1.00,\"negative\":-0,\"big\":1234567890123456789012345678901234567890}]}"
+  },
+  {
+    "raw": "{\"str\":\"caf\u00e9 <&> + \ud83d\ude00\",\"slash\":\"a\\/b\",\"esc\":\"\\u0061\",\"line\":\"a\\u2028b\"}",
+    "objectValid": true,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{\"str\":\"caf\\u00E9 \\u003C\\u0026\\u003E \\u002B \\uD83D\\uDE00\",\"slash\":\"a/b\",\"esc\":\"a\",\"line\":\"a\\u2028b\"},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{\"str\":\"caf\\u00E9 \\u003C\\u0026\\u003E \\u002B \\uD83D\\uDE00\",\"slash\":\"a/b\",\"esc\":\"a\",\"line\":\"a\\u2028b\"}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{\"str\":\"caf\\u00E9 \\u003C\\u0026\\u003E \\u002B \\uD83D\\uDE00\",\"slash\":\"a/b\",\"esc\":\"a\",\"line\":\"a\\u2028b\"}]}"
+  },
+  {
+    "raw": "{\"duplicate\":1,\"duplicate\":2,\"n\":{\"x\":1,\"x\":2}}",
+    "objectValid": true,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{\"duplicate\":1,\"duplicate\":2,\"n\":{\"x\":1,\"x\":2}},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{\"duplicate\":1,\"duplicate\":2,\"n\":{\"x\":1,\"x\":2}}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{\"duplicate\":1,\"duplicate\":2,\"n\":{\"x\":1,\"x\":2}}]}"
+  },
+  {
+    "raw": "{\"items\":[true,false,null,1.0,1E-2,{\"z\":\"x\"}]}",
+    "objectValid": true,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{\"items\":[true,false,null,1.0,1E-2,{\"z\":\"x\"}]},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{\"items\":[true,false,null,1.0,1E-2,{\"z\":\"x\"}]}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{\"items\":[true,false,null,1.0,1E-2,{\"z\":\"x\"}]}]}"
+  },
+  {
+    "raw": "{\"bad\":\"line\\nbreak\"}",
+    "objectValid": false,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{\"bad\":\"line\\nbreak\"},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{\"bad\":\"line\\nbreak\"}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{\"bad\":\"line\\nbreak\"}]}"
+  },
+  {
+    "raw": "{\"\\u0085\":\"C1 property\"}",
+    "objectValid": false,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{\"\\u0085\":\"C1 property\"},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{\"\\u0085\":\"C1 property\"}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{\"\\u0085\":\"C1 property\"}]}"
+  },
+  {
+    "raw": "{\"nested\":[{\"bad\":\"\\u009f\"}]}",
+    "objectValid": false,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{\"nested\":[{\"bad\":\"\\u009F\"}]},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{\"nested\":[{\"bad\":\"\\u009F\"}]}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{\"nested\":[{\"bad\":\"\\u009F\"}]}]}"
+  },
+  {
+    "raw": "{}",
+    "objectValid": true,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":{},\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "{}",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[{}]}"
+  },
+  {
+    "raw": "null",
+    "objectValid": false,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":null,\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "null",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[null]}"
+  },
+  {
+    "raw": "[]",
+    "objectValid": false,
+    "canonical": "{\"version\":0,\"x\":{\"name\":\" caf\\u00E9 \\u002B name \",\"definition\":[],\"visibility\":\"PRIVATE\",\"active\":true}}",
+    "element": "[]",
+    "pack": "{\"title\":\" Pack caf\\u00E9 \",\"items\":[[]]}"
+  }
+]

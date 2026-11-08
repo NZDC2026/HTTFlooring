@@ -1,6 +1,8 @@
 SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true),set_config('htt.actor_id','00000000-0000-0000-0000-000000000002',true);
 INSERT INTO catalog.uoms(id,company_id,code,name) VALUES ('00000000-0000-0000-0000-000000000018','00000000-0000-0000-0000-000000000001','ALT','Synthetic Alternative Unit');
 INSERT INTO accounting.tax_rates(company_id,tax_code_id,rate,effective_from) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000016',0,'2026-01-01');
+-- Historical synthetic source posting requires an effective zero rate; current 2026 rate is unchanged.
+INSERT INTO accounting.tax_rates(company_id,tax_code_id,rate,effective_from,effective_to) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000016',0,'2023-07-01','2024-07-01');
 INSERT INTO crm.customer_credit_exposures(company_id,customer_id) VALUES ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000011');
 INSERT INTO platform.document_sequences(company_id,document_type,prefix) VALUES
  ('00000000-0000-0000-0000-000000000001','PICK','PK-'),
@@ -487,3 +489,13 @@ INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES(
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.years.close');
 
 INSERT INTO identity.role_permissions(company_id,role_id,permission_code)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000452','accounting.years.reopen');
+
+INSERT INTO identity.users(id,issuer,subject,display_name)VALUES('00000000-0000-0000-0000-000000000500','https://localhost:15443','test-operating-report','Synthetic report authority');
+INSERT INTO identity.memberships(id,company_id,user_id)VALUES('00000000-0000-0000-0000-000000000501','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000500');
+INSERT INTO identity.roles(id,company_id,code,name)VALUES('00000000-0000-0000-0000-000000000502','00000000-0000-0000-0000-000000000001','REPORT_TEST','Synthetic report authority');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000501','00000000-0000-0000-0000-000000000502');
+INSERT INTO identity.role_permissions(company_id,role_id,permission_code)SELECT '00000000-0000-0000-0000-000000000001'::uuid,'00000000-0000-0000-0000-000000000502'::uuid,code FROM identity.permissions;
+
+INSERT INTO identity.users(id,issuer,subject,display_name)VALUES('00000000-0000-0000-0000-000000000503','https://localhost:15443','test-report-other','Synthetic other report authority');
+INSERT INTO identity.memberships(id,company_id,user_id)VALUES('00000000-0000-0000-0000-000000000504','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000503');
+INSERT INTO identity.membership_roles(company_id,membership_id,role_id)VALUES('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000504','00000000-0000-0000-0000-000000000502');
