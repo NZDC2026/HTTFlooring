@@ -50,10 +50,12 @@ describe('local business integration through the trusted desktop host', () => {
         const { product, customer } = fixture();
         command('products', 'save', { ...product, wholePacks: true }, 0);
         const { supplierRepository } = await import('../contacts/data/supplierRepository');
-        const quote = () => command('sales', 'createQuote', { customerId: customer.id, documentDate: '2026-10-10', lines: [{ productId: product.id, unitId: product.units[1].id, quantity: 1.5 }] });
-        const purchase = () => command('purchaseOrders', 'create', { supplierId: supplierRepository.getAll()[0].id, orderDate: '2026-10-10', lines: [{ productId: product.id, unitId: product.units[1].id, orderedQuantity: 1.5, unitCost: 20 }] });
+        let quantity=1.5;
+        const quote = () => command('sales', 'createQuote', { customerId: customer.id, documentDate: '2026-10-10', lines: [{ productId: product.id, unitId: product.units[1].id, quantity }] });
+        const purchase = () => command('purchaseOrders', 'create', { supplierId: supplierRepository.getAll()[0].id, orderDate: '2026-10-10', lines: [{ productId: product.id, unitId: product.units[1].id, orderedQuantity:quantity, unitCost: 20 }] });
         expect(quote).toThrow(/whole packs/);
-        expect(purchase).toThrow(/whole packs/);
+        expect(purchase).toThrow(/whole packs|Box quantity must be a whole number/);
+        quantity=1;
         command('products', 'save', { ...product, wholePacks: false, sellEnabled: false, buyEnabled: false }, 1);
         expect(quote).toThrow(/not available/);
         expect(purchase).toThrow(/not available/);

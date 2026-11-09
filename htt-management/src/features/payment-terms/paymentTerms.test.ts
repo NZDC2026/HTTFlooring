@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { invoicePaymentTerms, paymentDueDate, paymentTermsLabel, validatePaymentTerms } from "./paymentTerms";
+import { salesDocumentPaymentTerms, invoicePaymentTerms, paymentDueDate, paymentTermsLabel, validatePaymentTerms } from "./paymentTerms";
 
 describe("payment terms", () => {
     it("keeps legacy day counts and COD compatible", () => {
@@ -28,4 +28,11 @@ describe("payment terms", () => {
         expect(invoicePaymentTerms({paymentTermsDays:30},{terms:"14"})).toEqual({paymentTermsDays:14});
         expect(paymentDueDate("2026-11-10",invoicePaymentTerms({paymentTermsDays:30,paymentTermsType:"DAY_OF_MONTH"},{terms:"14"}))).toBe("2026-12-30");
     });
+});
+
+it("defaults new documents to customer terms and allows isolated overrides",()=>{
+ const customer={paymentTermsDays:45};
+ expect(salesDocumentPaymentTerms(undefined,customer,{terms:"14"})).toEqual({paymentTermsDays:45,paymentTermsType:"DAYS"});
+ expect(salesDocumentPaymentTerms({paymentTermsDays:0,paymentTermsType:"COD"},customer,{terms:"14"})).toEqual({paymentTermsDays:0,paymentTermsType:"COD"});
+ expect(customer).toEqual({paymentTermsDays:45});
 });

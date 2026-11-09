@@ -1,3 +1,4 @@
+import {DocumentInternalTasks} from '../components/DocumentInternalTasks';
 import {SalesDispatchSchedule} from '../components/SalesDispatchSchedule';
 import { PricingTimeSummary } from '../components/PricingTimeFields';
 import { ItemTypeSummary } from '../components/ItemTypeSummary';
@@ -613,7 +614,7 @@ export function InvoiceDetailPage() {
                 )}
 
             <div className="mb-5 grid grid-cols-4 gap-4">
-                <div><Link className="text-sm underline" to={`/documents/delivery?kind=INVOICE&sourceId=${invoice.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={invoice.recipient}/><SalesDispatchSchedule document={invoice}/><PricingTimeSummary lines={invoice.lines}/></div>
+                <div><Link className="text-sm underline" to={`/documents/delivery?kind=INVOICE&sourceId=${invoice.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={invoice.recipient}/><SalesDispatchSchedule document={invoice}/><DocumentInternalTasks customerId={invoice.customerId} invoiceId={invoice.id} sourceSalesDraftId={invoice.managedDraftId}/><PricingTimeSummary lines={invoice.lines}/></div>
                 <InfoCard
                     label="Customer"
                     value={<Link to={`/contacts/customers/${resolvedCustomerId}`} className="text-[var(--color-primary)] underline underline-offset-4 hover:opacity-80">{customerName}</Link>}

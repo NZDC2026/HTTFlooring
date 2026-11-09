@@ -121,6 +121,7 @@ export interface SalesDocumentTotals {
 }
 
 interface SalesDocumentBase {
+    paymentTerms?: import("../../payment-terms/paymentTerms").PaymentTerms;
     deliveryBooked?: boolean;
     expectedDispatchDate?: string;
     awaitingCollection?: boolean;
@@ -220,6 +221,7 @@ export interface SalesLineDraft {
 }
 
 export interface SalesDocumentDraft {
+    paymentTerms?: import("../../payment-terms/paymentTerms").PaymentTerms;
     deliveryBooked?: boolean;
     expectedDispatchDate?: string;
     awaitingCollection?: boolean;

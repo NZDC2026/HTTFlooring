@@ -31,6 +31,8 @@ class ApiSecurity {
                 .authorizeHttpRequests(requests -> {
                     requests.requestMatchers(HttpMethod.GET, "/health/live", "/health/ready").permitAll();
                     if (staffConfigured && !databaseUrl.isBlank()) {
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/crm/branches/*/navigation").authenticated();
+                        requests.requestMatchers(HttpMethod.PUT, "/api/v1/crm/branches/*/coordinates").authenticated();
                         requests.requestMatchers(HttpMethod.POST, "/api/v1/crm/collaboration/*/checkout", "/api/v1/crm/collaboration/*/cancel").authenticated();
                         requests.requestMatchers(HttpMethod.PUT, "/api/v1/crm/collaboration/*").authenticated();
                         requests.requestMatchers(HttpMethod.DELETE, "/api/v1/crm/collaboration/*").authenticated();

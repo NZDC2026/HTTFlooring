@@ -1,21 +1,12 @@
+import './sales-entry.css';
+import './document-entry-unified.css';
+import {customerRepository} from '../../contacts/data/customerRepository';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
     useState,
 } from "react";
-
-import {
-    AlertCircle,
-    Minus,
-    Plus,
-    ReceiptText,
-    X,
-} from "lucide-react";
-
-import {
-    Button,
-} from "../../../components/ui/Button";
 
 import {
     calculateDocumentTotals,
@@ -34,6 +25,7 @@ export interface CreateCreditNoteValues {
 }
 
 interface Props {
+    readOnlySample?: boolean;
     invoice: Invoice;
 
     onCancel: () => void;
@@ -51,6 +43,7 @@ interface CreditLineState {
 
 export function CreateCreditNoteForm({
     invoice,
+    readOnlySample=false,
     onCancel,
     onSubmit,
 }: Props) {
@@ -206,6 +199,7 @@ export function CreateCreditNoteForm({
     }
 
     function handleSubmit() {
+        if(readOnlySample)return;
         setError(null);
 
         if (
@@ -260,389 +254,19 @@ export function CreateCreditNoteForm({
         });
     }
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-6">
-            <div className="flex max-h-[90vh] w-full max-w-[920px] flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white shadow-xl">
-                <div className="flex items-start justify-between border-b border-[var(--color-border)] px-6 py-5">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <ReceiptText
-                                size={18}
-                                className="text-[var(--color-accent)]"
-                            />
-
-                            <h2 className="text-base font-semibold">
-                                Create Credit Note
-                            </h2>
-                        </div>
-
-                        <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                            Credit against{" "}
-                            {
-                                invoice.documentNumber
-                            }
-                        </p>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={
-                            onCancel
-                        }
-                        className="rounded-md p-1 text-[var(--color-text-muted)] transition hover:bg-[var(--color-background-subtle)] hover:text-[var(--color-text)]"
-                    >
-                        <X
-                            size={18}
-                        />
-                    </button>
-                </div>
-
-                <div className="overflow-y-auto">
-                    <div className="grid grid-cols-2 gap-5 border-b border-[var(--color-border)] px-6 py-5">
-                        <label>
-                            <span className="mb-2 block text-xs font-medium">
-                                Credit Date
-                            </span>
-
-                            <input
-                                type="date"
-                                value={
-                                    creditDate
-                                }
-                                min={
-                                    invoice.documentDate
-                                }
-                                onChange={(
-                                    event,
-                                ) =>
-                                    setCreditDate(
-                                        event
-                                            .target
-                                            .value,
-                                    )
-                                }
-                                className="h-10 w-full rounded-lg border border-[var(--color-border)] px-3 text-sm outline-none focus:border-[var(--color-primary)]"
-                            />
-                        </label>
-
-                        <label>
-                            <span className="mb-2 block text-xs font-medium">
-                                Reason
-                            </span>
-
-                            <input
-                                value={
-                                    reason
-                                }
-                                onChange={(
-                                    event,
-                                ) =>
-                                    setReason(
-                                        event
-                                            .target
-                                            .value,
-                                    )
-                                }
-                                placeholder="e.g. Returned material"
-                                className="h-10 w-full rounded-lg border border-[var(--color-border)] px-3 text-sm outline-none placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-primary)]"
-                            />
-                        </label>
-                    </div>
-
-                    <div className="px-6 py-5">
-                        <div className="mb-3">
-                            <h3 className="text-sm font-semibold">
-                                Credit Lines
-                            </h3>
-
-                            <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                                Select the
-                                invoice lines
-                                and quantity
-                                being credited.
-                            </p>
-                        </div>
-
-                        <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
-                            <div className="grid grid-cols-[44px_minmax(0,1fr)_130px_120px_120px] gap-3 bg-[var(--color-background-subtle)] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--color-text-muted)]">
-                                <div />
-
-                                <div>
-                                    Item
-                                </div>
-
-                                <div className="text-center">
-                                    Credit Qty
-                                </div>
-
-                                <div className="text-right">
-                                    Unit Price
-                                </div>
-
-                                <div className="text-right">
-                                    Credit
-                                </div>
-                            </div>
-
-                            {creditLines.map(
-                                (
-                                    item,
-                                    index,
-                                ) => {
-                                    const line =
-                                        item.line;
-
-                                    const calculated =
-                                        previewCreditLine({
-                                            lineSubtotal:line.lineSubtotal,taxAmount:line.taxAmount,sourceQuantity:line.quantity,
-                                            taxRate: line.taxRate ?? (line.lineSubtotal ? line.taxAmount / line.lineSubtotal : 0.1),
-                                            quantity:
-                                                item.selected
-                                                    ? item.quantity
-                                                    : 0,
-
-                                            standardUnitPrice:
-                                                line.standardUnitPrice,
-
-                                            unitPrice:
-                                                line.unitPrice,
-                                        });
-
-                                    return (
-                                        <div
-                                            key={
-                                                line.id
-                                            }
-                                            className="grid grid-cols-[44px_minmax(0,1fr)_130px_120px_120px] items-center gap-3 border-t border-[var(--color-border)] px-4 py-4"
-                                        >
-                                            <div>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={
-                                                        item.selected
-                                                    }
-                                                    onChange={() =>
-                                                        toggleLine(
-                                                            index,
-                                                        )
-                                                    }
-                                                    className="h-4 w-4 accent-[var(--color-primary)]"
-                                                />
-                                            </div>
-
-                                            <div className="min-w-0">
-                                                <div className="truncate text-sm font-medium">
-                                                    {
-                                                        line.description
-                                                    }
-                                                </div>
-
-                                                <div className="mt-1 text-[10px] text-[var(--color-text-muted)]">
-                                                    Original
-                                                    quantity:{" "}
-                                                    {
-                                                        line.quantity
-                                                    }
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    disabled={
-                                                        !item.selected
-                                                    }
-                                                    onClick={() =>
-                                                        updateQuantity(
-                                                            index,
-                                                            item.quantity -
-                                                            1,
-                                                        )
-                                                    }
-                                                    className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-border)] disabled:opacity-40"
-                                                >
-                                                    <Minus
-                                                        size={13}
-                                                    />
-                                                </button>
-
-                                                <input
-                                                    type="number"
-                                                    min={
-                                                        0
-                                                    }
-                                                    max={
-                                                        line.quantity
-                                                    }
-                                                    step="0.01"
-                                                    disabled={
-                                                        !item.selected
-                                                    }
-                                                    value={
-                                                        item.quantity
-                                                    }
-                                                    onChange={(
-                                                        event,
-                                                    ) =>
-                                                        updateQuantity(
-                                                            index,
-                                                            Number(
-                                                                event
-                                                                    .target
-                                                                    .value,
-                                                            ),
-                                                        )
-                                                    }
-                                                    className="h-8 w-14 rounded-md border border-[var(--color-border)] text-center text-xs outline-none disabled:opacity-40"
-                                                />
-
-                                                <button
-                                                    type="button"
-                                                    disabled={
-                                                        !item.selected ||
-                                                        item.quantity >=
-                                                        line.quantity
-                                                    }
-                                                    onClick={() =>
-                                                        updateQuantity(
-                                                            index,
-                                                            item.quantity +
-                                                            1,
-                                                        )
-                                                    }
-                                                    className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-border)] disabled:opacity-40"
-                                                >
-                                                    <Plus
-                                                        size={13}
-                                                    />
-                                                </button>
-                                            </div>
-
-                                            <div className="money text-right text-sm">
-                                                {formatMoney(
-                                                    line.unitPrice,
-                                                )}
-                                            </div>
-
-                                            <div className="money text-right text-sm font-semibold">
-                                                {formatMoney(
-                                                    calculated.lineTotal,
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                },
-                            )}
-                        </div>
-
-                        <div className="mt-5 flex justify-end">
-                            <div className="w-[320px] rounded-lg border border-[var(--color-border)] bg-[var(--color-background-subtle)] p-4">
-                                <SummaryRow
-                                    label="Subtotal"
-                                    value={formatMoney(
-                                        totals.subtotal,
-                                    )}
-                                />
-
-                                <div className="mt-2">
-                                    <SummaryRow
-                                        label="GST"
-                                        value={formatMoney(
-                                            totals.taxAmount,
-                                        )}
-                                    />
-                                </div>
-
-                                <div className="mt-3 border-t border-[var(--color-border)] pt-3">
-                                    <SummaryRow
-                                        label="Credit Total"
-                                        value={formatMoney(
-                                            totals.total,
-                                        )}
-                                        strong
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {error && (
-                            <div className="mt-5 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
-                                <AlertCircle
-                                    size={15}
-                                    className="mt-0.5 shrink-0"
-                                />
-
-                                {
-                                    error
-                                }
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3 border-t border-[var(--color-border)] bg-[var(--color-background-subtle)] px-6 py-4">
-                    <Button
-                        variant="secondary"
-                        onClick={
-                            onCancel
-                        }
-                    >
-                        Cancel
-                    </Button>
-
-                    <Button
-                        onClick={
-                            handleSubmit
-                        }
-                        disabled={
-                            selectedLines.length ===
-                            0
-                        }
-                    >
-                        <ReceiptText
-                            size={14}
-                        />
-
-                        Create Credit Note
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function SummaryRow({
-    label,
-    value,
-    strong = false,
-}: {
-    label: string;
-    value: string;
-    strong?: boolean;
-}) {
-    return (
-        <div className="flex items-center justify-between gap-4">
-            <span
-                className={
-                    strong
-                        ? "text-sm font-semibold"
-                        : "text-xs text-[var(--color-text-secondary)]"
-                }
-            >
-                {label}
-            </span>
-
-            <span
-                className={
-                    strong
-                        ? "money text-base font-semibold"
-                        : "money text-sm"
-                }
-            >
-                {value}
-            </span>
-        </div>
-    );
+    const customer=customerRepository.getById(invoice.customerId);
+    return <div className="unified-credit-overlay"><div className="unified-credit-dialog sales-entry unified-entry" role="dialog" aria-modal="true" aria-label="Create Credit Note">
+      <header className="entry-heading"><div className="entry-breadcrumb">Sales › Credit / Return › New Document</div><h1>Create Credit Note</h1><p>Return products at their original invoice prices. Inherited discounts are read-only and already included.</p></header>
+      <nav className="entry-type-tabs"><span>Original Invoice</span><span className="active">Credit / Return</span><span>Apply to Invoice</span></nav>
+      {error&&<p role="alert" className="entry-error">{error}</p>}
+      {readOnlySample&&<p className="entry-sample">Sample · Read-only Credit / Return editor · No business records are changed.</p>}<fieldset disabled={readOnlySample}><div className="entry-layout"><main className="entry-main">
+      <div className="entry-parties"><section className="entry-card"><h2>Customer</h2><strong>{customer?.businessName??invoice.customerId}</strong><small>{customer?.code}</small></section><section className="entry-card"><h2>Billing To</h2><p>{invoice.recipient?.billingAddress??'Not recorded'}</p></section><section className="entry-card"><h2>Original Invoice</h2><strong>{invoice.documentNumber}</strong><p>{invoice.documentDate}</p></section></div>
+      <section className="entry-card entry-document"><h2>Document Details</h2><div><label>Credit Date<input type="date" min={invoice.documentDate} value={creditDate} onChange={e=>setCreditDate(e.target.value)}/></label><label>Source Invoice<input readOnly value={invoice.documentNumber}/></label><label>Discount Treatment<input readOnly value="Inherited · No additional discount"/></label></div></section>
+      <section className="entry-card entry-products"><header><h2>Products · Credit Lines</h2><small>Select original invoice items to return</small></header><div className="entry-table-scroll"><table><thead><tr>{['Select','Product / SKU','Unit','Invoice Qty','Return Qty','Area (m²)','Original Net Price','Discount %','Credit (incl. GST)'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{creditLines.map((item,index)=>{const line=item.line,calculated=selectedLines.find(l=>l.id===line.id);return <tr key={line.id}><td><input aria-label={'Select '+line.description} type="checkbox" checked={item.selected} onChange={()=>toggleLine(index)}/></td><td><strong>{line.description}</strong><small>{line.sku}</small></td><td>{line.unitSymbol}</td><td>{line.quantity}</td><td><input aria-label={'Return quantity '+line.description} className="credit-quantity" type="number" min="0" max={line.quantity} step={line.areaPerPack?1:'any'} value={item.quantity} onChange={e=>updateQuantity(index,Number(e.target.value))}/></td><td>{line.areaPerPack?(item.quantity*line.areaPerPack).toFixed(3):'—'}</td><td>{formatMoney(line.unitPrice)}</td><td><span className="inherited-discount" title="Inherited from original invoice; already included">{line.explicitDiscountPercent??line.discountPercent}%</span></td><td><b>{formatMoney(calculated?.lineTotal??0)}</b></td></tr>;})}</tbody></table></div><footer><b>{selectedLines.length} items</b><span>Discount inherited from original invoice</span></footer></section>
+      <section className="entry-card entry-notes"><h2>Notes · Credit Reason</h2><textarea rows={3} placeholder="Reason for this credit / return…" value={reason} onChange={e=>setReason(e.target.value)}/></section>
+      </main><aside className="entry-sidebar"><section className="entry-card entry-status"><h2>CREDIT NOTE</h2><strong>Draft · New Document</strong><p>Invoice → Credit / Return → Apply to Invoice</p></section><section className="entry-card entry-summary"><h2>Pricing Summary ({businessSettings().currency})</h2><div><span>Subtotal (ex. GST)</span><b>{formatMoney(totals.subtotal)}</b></div><div><span>GST</span><b>{formatMoney(totals.taxAmount)}</b></div><div className="entry-grand"><b>Credit Total</b><strong>{formatMoney(totals.total)}</strong></div><small>Proportional original invoice amounts. No second discount is applied.</small></section></aside></div></fieldset>
+      <footer className="entry-actions"><button className="primary" disabled={readOnlySample||!selectedLines.length} onClick={handleSubmit}>Create Credit Note</button><span>Save the credit before printing or applying it to an invoice.</span><button onClick={onCancel}>Cancel</button></footer>
+    </div></div>;
 }
 
 function getToday() {

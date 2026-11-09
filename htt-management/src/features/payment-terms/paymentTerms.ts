@@ -47,3 +47,11 @@ export function invoicePaymentTerms(customer: PaymentTerms | undefined, settings
         paymentTermsType: paymentTermsTypeSchema.parse(settings.termsType),
     };
 }
+
+/** Per-document snapshot: an override never changes the customer's credit terms. */
+export function salesDocumentPaymentTerms(override:PaymentTerms|undefined,customer:PaymentTerms|undefined,settings:{terms:string;termsType?:string}):PaymentTerms {
+ const value=override??customer??invoicePaymentTerms(undefined,settings);
+ const paymentTermsType=validatePaymentTerms(value);
+ return {paymentTermsDays:value.paymentTermsDays,paymentTermsType};
+}
+export const documentPaymentTermsSchema=z.object({paymentTermsDays:z.number().int().min(0).max(365),paymentTermsType:z.enum(paymentTermsTypes).optional()}).strict().superRefine((v,ctx)=>{try{validatePaymentTerms(v);}catch(e){ctx.addIssue({code:'custom',message:(e as Error).message});}});

@@ -171,3 +171,37 @@ it('validates discount range and recalculates inclusive GST without applying dis
 it('retains entered quote discount through conversion to order and invoice',async()=>{
  const q=cmd('sales','createQuote',{...sales('ORDER'),lines:sales('ORDER').lines.map(l=>({...l,discountPercent:25}))});expect(q.totals).toEqual({subtotal:150,taxAmount:15,total:165});cmd('sales','sendQuote',q.id);cmd('sales','acceptQuote',q.id);const o=cmd('sales','convertQuoteToOrder',q.id),i=cmd('sales','createInvoiceFromOrder',o.id);for(const d of [q,o,i]){expect(d.lines[0].explicitDiscountPercent).toBe(25);expect(prepare([...state('sales').quotes,...state('sales').salesOrders,...state('sales').invoices].find((v:any)=>v.id===d.id)).lines[0].discountPercent).toBe(25);}await restart();expect(state('sales').invoices.find((d:any)=>d.id===i.id).totals.total).toBe(165);
 });
+it('credits the original discounted invoice proportionally, ignores replacement discounts and prints the inherited rate',async()=>{
+ const payload={...sales(),lines:sales().lines.map(l=>({...l,discountPercent:20}))},draft=cmd('managedSalesDocuments','save',{operationId:crypto.randomUUID(),payload}),approved=cmd('managedSalesDocuments','approve',draft.id,draft.revision),posted=cmd('managedSalesDocuments','post',draft.id,approved.revision),i=state('sales').invoices.find((d:any)=>d.id===posted.documentId);
+ const c=cmd('sales','createCreditNoteFromInvoice',{invoiceId:i.id,creditDate:'2026-10-11',reason:'Return discounted unit',lines:[{...i.lines[0],quantity:1,explicitDiscountPercent:99,unitPrice:1}]});
+ expect(c.lines[0].explicitDiscountPercent).toBe(20);expect(c.lines[0].unitPrice).toBe(80);expect(c.totals).toEqual({subtotal:80,taxAmount:8,total:88});const a=cmd('preparedSalesOutputs','prepare',{operationId:crypto.randomUUID(),kind:'CREDIT_NOTE',sourceId:c.id,expectedUpdatedAt:c.updatedAt});expect(a.lines[0].discountPercent).toBe(20);expect(a.lines[0].standardUnitPrice).toBe(100);const {renderOutputHtml}=await import('./outputHtml');const html=renderOutputHtml(a);expect(html).toContain('20%');expect(html).toContain('Source Invoice');expect(html).toContain(i.documentNumber);expect(html).toContain('$88.00');
+ const rest=cmd('sales','createCreditNoteFromInvoice',{invoiceId:i.id,creditDate:'2026-10-12',reason:'Return final unit',lines:[{...i.lines[0],quantity:1}]});expect(rest.totals.total+c.totals.total).toBe(i.totals.total);await restart();expect(state('customerCredits').creditNotes.find((r:any)=>r.id===c.id).lines[0].explicitDiscountPercent).toBe(20);
+});
+it('links internal tasks to saved quotes and sales drafts without leaking instructions into customer output',async()=>{
+ const q=cmd('sales','createQuote',{...sales('ORDER'),notes:'Customer note: thank you for your order.'});
+ const draft=cmd('managedSalesDocuments','save',{operationId:crypto.randomUUID(),payload:sales('ORDER')});
+ const base={name:'Confirm access internally',customerId:q.customerId,owner:security.principal()!.userId,due:'2026-11-10',priority:'Normal',notes:'STAFF_ONLY_ACCESS_CODE_123',status:'Open'};
+ const task=cmd('workspace_tasks','save',{...base,sourceQuoteId:q.id}),dt=cmd('workspace_tasks','save',{...base,name:'Draft dispatch check',sourceSalesDraftId:draft.id});expect(task.sourceQuoteId).toBe(q.id);expect(dt.sourceSalesDraftId).toBe(draft.id);
+ const other=state('customers').customers.find((c:any)=>c.id!==q.customerId);if(other)expect(()=>cmd('workspace_tasks','save',{...base,customerId:other.id,sourceQuoteId:q.id})).toThrow(/quote.*customer/);
+ const artifact=cmd('preparedSalesOutputs','prepare',{operationId:crypto.randomUUID(),kind:'QUOTE',sourceId:q.id,expectedUpdatedAt:q.updatedAt}),{renderOutputHtml}=await import('./outputHtml');expect(renderOutputHtml(artifact)).toContain('Customer note: thank you');expect(renderOutputHtml(artifact)).not.toContain('STAFF_ONLY_ACCESS_CODE_123');
+ await restart();expect(state('workspace_tasks').records.find((r:any)=>r.id===task.id).sourceQuoteId).toBe(q.id);expect(state('workspace_tasks').records.find((r:any)=>r.id===dt.id).sourceSalesDraftId).toBe(draft.id);
+});
+
+it('preserves document COD override through conversion, restart and print without changing customer terms',async()=>{
+ const customer=structuredClone(state('customers').customers[0]);
+ const q=cmd('sales','createQuote',{...sales('ORDER'),paymentTerms:{paymentTermsType:'COD',paymentTermsDays:0}});
+ cmd('sales','sendQuote',q.id);cmd('sales','acceptQuote',q.id);
+ const o=cmd('sales','convertQuoteToOrder',q.id),i=cmd('sales','createInvoiceFromOrder',o.id);
+ for(const d of [q,o,i])expect(d.paymentTerms).toEqual({paymentTermsType:'COD',paymentTermsDays:0});
+ expect(i.dueDate).toBe(i.documentDate);expect(prepare(i).paymentTerms).toBe('COD');
+ expect(state('customers').customers[0]).toEqual(customer);
+ await restart();expect(state('sales').invoices.find((d:any)=>d.id===i.id).paymentTerms.paymentTermsType).toBe('COD');
+});
+it('persists managed invoice End Of Month terms and prints the saved selection',async()=>{
+ const payload={...sales(),paymentTerms:{paymentTermsType:'DAY_OF_MONTH',paymentTermsDays:30},dueDate:'2026-11-30'};
+ const draft=cmd('managedSalesDocuments','save',{operationId:crypto.randomUUID(),payload});
+ expect(draft.payload.paymentTerms).toEqual(payload.paymentTerms);
+ const a=cmd('managedSalesDocuments','approve',draft.id,draft.revision),posted=cmd('managedSalesDocuments','post',draft.id,a.revision),i=state('sales').invoices.find((d:any)=>d.id===posted.documentId);
+ expect(i.paymentTerms).toEqual(payload.paymentTerms);expect(prepare(i).paymentTerms).toContain('30 End Of Month');
+ expect(()=>cmd('sales','createQuote',{...sales('ORDER'),paymentTerms:{paymentTermsType:'COD',paymentTermsDays:30}})).toThrow();
+});

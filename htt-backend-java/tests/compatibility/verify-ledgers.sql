@@ -588,3 +588,8 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_cancel' AND actor_id='00000000-0000-0000-0000-000000000500')<>1
  THEN RAISE EXCEPTION 'Synthetic checkout and cancellation must execute once'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_coordinates' AND actor_id='00000000-0000-0000-0000-000000000500')<>2
+ THEN RAISE EXCEPTION 'Synthetic manual coordinate writes must execute once'; END IF;
+END $$;

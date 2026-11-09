@@ -1,3 +1,6 @@
+import {DocumentEntrySample} from '../../sales/components/DocumentEntrySample';
+import '../../sales/components/sales-entry.css';
+import '../../sales/components/document-entry-unified.css';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
@@ -365,7 +368,7 @@ export function CreateSupplierCreditPage() {
     }
 
     return (
-        <div className="pb-8">
+        <div className="sales-entry unified-entry"><DocumentEntrySample kind="Supplier Credit"/>
             <p className="mb-5 rounded-lg border bg-slate-50 p-3 text-sm">Financial supplier credit: the net adjustment posts to purchase price variance, consistent with receipt-cost inventory valuation. This document does not record a physical stock return.</p>
             <button
                 type="button"
@@ -422,6 +425,7 @@ export function CreateSupplierCreditPage() {
                 </div>
             </div>
 
+            <nav className="entry-type-tabs"><span>Supplier Bill</span><span className="active">Supplier Credit</span><span>Apply Credit</span></nav><div className="entry-layout"><main className="entry-main">
             {error && (
                 <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {
@@ -798,8 +802,8 @@ export function CreateSupplierCreditPage() {
                 </div>
             </div>
 
-            <div className="mt-5 flex justify-end">
-                <div className="w-[360px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
+            </main><aside className="entry-sidebar">
+                <section className="entry-card entry-summary"><h2>Pricing Summary</h2>
                     <MoneyRow
                         label="Subtotal"
                         value={
@@ -824,7 +828,7 @@ export function CreateSupplierCreditPage() {
                         />
                     </div>
 
-                    <button
+</section></aside></div><footer className="entry-actions">                    <button
                         type="button"
                         disabled={
                             submitting
@@ -837,9 +841,7 @@ export function CreateSupplierCreditPage() {
                         {submitting
                             ? "Issuing..."
                             : "Issue Supplier Credit"}
-                    </button>
-                </div>
-            </div>
+                    </button></footer>
         </div>
     );
 }

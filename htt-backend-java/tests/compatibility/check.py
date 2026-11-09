@@ -4810,6 +4810,33 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert request(second_path+'/cancel',report_actor,company,base=backend,payload={'reason':'Cancelled visit'},key='visit-cancelled-'+uuid.uuid4().hex,version=cancelled[1]['version'])[0]==409
             print('PASS: original-visitor checkout, temporal/accuracy guards, native whitespace normalization and cancellation with mixed retry; CSRF policy unchanged')
             print('PASS: collaboration note privacy/update/delete and board immutable placement/product/update/remove, mixed retry with existing CSRF policy unchanged')
+            navigation_path='/api/v1/crm/branches/'+approved_branch+'/navigation'
+            coordinate_path='/api/v1/crm/branches/'+approved_branch+'/coordinates'
+            def navigation_read(query='',status=200,actor=None):
+                a=request(navigation_path+query,actor or report_actor,company);b=request(navigation_path+query,actor or report_actor,company,base=legacy_url)
+                assert a[0]==b[0]==status,(query,a,b)
+                if status==200:assert a==b,(query,a,b)
+                return a
+            before_navigation=navigation_read()[1]
+            assert before_navigation['usesCoordinates'] is False,before_navigation
+            navigation_read('?provider=APPLE')
+            navigation_read('?provider=google',422)
+            navigation_read('',403,general_reader)
+            version=before_navigation['branchVersion']
+            for first,second,lat,lng in ((url,legacy_url,'-33.8688000','151.2093000'),(legacy_url,url,'-33.8600000','151.2000000')):
+                body={'latitude':lat,'longitude':lng,'reason':' Synthetic manual coordinates café '}
+                for backend in (first,second):
+                    for patch,status in (({'latitude':'91'},422),({'longitude':'181'},422),({'latitude':'-33.12345678'},422),({'reason':' '},422),({'latitude':None},400)):
+                        invalid=request(coordinate_path,report_actor,company,base=backend,payload={**body,**patch},key='coordinates-invalid-'+uuid.uuid4().hex,version=version,method='PUT')
+                        assert invalid[0]==status,(patch,invalid)
+                changed=rule_write_retry(coordinate_path,body,first,second,{'reason':'Different coordinate evidence'},version,method='PUT',status=200,actor=report_actor)
+                assert changed[1]=={'branchId':approved_branch,'branchVersion':version,'source':'MANUAL'},changed
+                for query in ('','?provider=GOOGLE','?provider=APPLE'):
+                    nav=navigation_read(query)[1]
+                    assert nav['usesCoordinates'] is True and nav['branchVersion']==version,nav
+                stale=request(coordinate_path,report_actor,company,base=first,payload=body,key='coordinates-stale-'+uuid.uuid4().hex,version=version+99,method='PUT')
+                assert stale[0]==409,stale
+            print('PASS: native encoded navigation address/manual-coordinate modes, provider choices, bounded decimal precision and cross-host coordinate evidence replay; no external map calls')
             print('PASS: independent CRM approval creates exactly one customer/exposure/owner assignment, AU branch and normalized linked contact with mixed replay')
             draft_read('/api/v1/crm/drafts?pageSize=1')
             draft_read('/api/v1/crm/drafts?state=DELETED&pageSize=100')

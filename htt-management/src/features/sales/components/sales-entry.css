@@ -2,3 +2,5 @@
 .entry-fulfilment label{display:flex;align-items:center;gap:6px;white-space:nowrap}.entry-fulfilment input[type=checkbox]{width:auto;accent-color:#087830}.entry-fulfilment input[type=date]{width:125px}.entry-fulfilment>div{flex-wrap:wrap}
 
 .entry-products td:nth-child(9) input{width:60px;min-width:60px;background:#f0f8ed;color:#075329}.entry-products td:nth-child(10){white-space:nowrap}
+
+.entry-terms{display:grid;gap:5px;align-content:start}.entry-terms-fields{display:flex;gap:5px;min-width:0}.entry-terms-fields select{min-width:0;flex:1}.entry-terms-fields input{width:60px!important;flex:0 0 60px}.entry-terms small{font-size:9px;color:#667568}.entry-terms>button{font-size:9px;color:#075c32;padding:0;border:0;text-align:left}

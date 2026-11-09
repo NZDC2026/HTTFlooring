@@ -1,3 +1,6 @@
+import {DocumentEntrySample} from '../../sales/components/DocumentEntrySample';
+import '../../sales/components/sales-entry.css';
+import '../../sales/components/document-entry-unified.css';
 import { CurrencyFields } from "../../currency/CurrencyFields";
 import type { FxSnapshot } from "../../currency/currency";
 import { orderDefaults, purchaseDueDate } from '../../purchase-settings/purchaseDefaults';
@@ -505,7 +508,7 @@ export function CreateSupplierBillPage() {
     }
 
     return (
-        <div className="pb-8">
+        <div className="sales-entry unified-entry"><DocumentEntrySample kind="Supplier Bill"/>
             <CurrencyFields value={fx} baseCurrency={businessSettings().currency} onChange={setFx}/><p className="my-2 text-sm">Unit costs in {fx?.currency === "CNY" ? "RMB" : fx?.currency ?? businessSettings().currency}; totals in {businessSettings().currency}.</p>
 
             <button
@@ -566,6 +569,7 @@ export function CreateSupplierBillPage() {
                 </Button>
             </div>
 
+            <nav className="entry-type-tabs"><span>Purchase Order</span><span>Received Items</span><span className="active">Supplier Bill</span></nav><div className="entry-layout"><main className="entry-main">
             {error && (
                 <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {error}
@@ -897,7 +901,7 @@ export function CreateSupplierBillPage() {
                     )}
             </div>
 
-            <div className="mt-5 grid grid-cols-[1fr_360px] gap-5">
+            <div className="entry-notes">
                 <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
                     <Field label="Notes">
                         <textarea
@@ -919,9 +923,9 @@ export function CreateSupplierBillPage() {
                     </Field>
                 </div>
 
-                <div className="rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-xs)]">
+            </div></main><aside className="entry-sidebar"><section className="entry-card entry-summary">
                     <h2 className="font-display text-xl">
-                        Bill Summary
+                        Pricing Summary
                     </h2>
 
                     <MoneyRow
@@ -947,10 +951,9 @@ export function CreateSupplierBillPage() {
                             strong
                         />
                     </div>
-                </div>
-            </div>
+                </section></aside></div>
 
-            <div className="mt-5 flex justify-end gap-3">
+            <div className="entry-actions">
                 <Button
                     variant="secondary"
                     onClick={() =>
