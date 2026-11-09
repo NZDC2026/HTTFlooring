@@ -58,6 +58,7 @@ const sections = [
                 path: "/sales/credit-returns",
                 icon: ReceiptText,
             },
+            {label:"Promotion",path:"/promotions",icon:Presentation},
             {label:"Procurement",path:"/procurement",icon:PackageCheck},
             {
                 label: "Purchases",
@@ -127,7 +128,6 @@ const sections = [
     {
         label: "Work management",
         items: [
-            {label:"Recurring transactions",path:"/automation/recurring",icon:Presentation},
             {label:"Tasks",path:"/tasks",icon:LayoutDashboard},
             {label:"Import & export",path:"/tools/import-export",icon:FileText},
         ],
@@ -160,6 +160,7 @@ export function Sidebar() {
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
         if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
+        if(path==='/promotions')return 'sales.read';
         if(path==='/procurement')return 'purchases.read';
         if(path==='/tasks'||path==='/sales/credit-returns')return 'sales.read';
         if(path==='/settings/employees')return 'users.manage';

@@ -13,6 +13,44 @@ function state(name: string) { return host.view().repositories[name] as any; }
 function fixture() { const product = state('products').products[0], customer = state('customers').customers[0]; return { product, customer }; }
 function promotion(product: any, customer: any, overrides: Record<string, string> = {}) { return { name: 'October offer', status: 'Active', productId: product.id, unitId: product.baseUnitId, customerId: customer.id, starts: '2026-10-01T00:00:00Z', ends: '2026-11-01T00:00:00Z', price: '12', priority: '10', policy: 'Promotion first', ...overrides }; }
 describe('local business integration through the trusted desktop host', () => {
+    it('saves multi-product promotions atomically, applies prices, updates and deletes with history',async()=>{
+      const products=state('products').products,customer=fixture().customer;
+      const raw={name:'Multi product campaign',starts:'2026-10-01T00:00:00Z',ends:'2026-11-01T00:00:00Z',priority:'20',policy:'Promotion first',expected:[],lines:products.slice(0,2).map((p:any,i:number)=>({productId:p.id,unitId:p.baseUnitId,price:10+i}))};
+      const id=command('workspace_promotions','saveCampaign',raw);
+      let rows=state('workspace_promotions').records.filter((r:any)=>r.campaignId===id);
+      expect(rows).toHaveLength(2);
+      const q=command('sales','createQuote',{customerId:customer.id,documentDate:'2026-10-10',lines:raw.lines.map((l:any)=>({productId:l.productId,unitId:l.unitId,quantity:1}))});
+      expect(q.lines.map((l:any)=>l.unitPrice)).toEqual([10,11]);
+      const before=readFileSync(join(root,'business.json'),'utf8');
+      expect(()=>command('workspace_promotions','saveCampaign',{...raw,id,expected:rows.map((r:any)=>({id:r.id,revision:r.revision})),lines:[raw.lines[0],{productId:'missing',unitId:'missing',price:5}]})).toThrow();
+      expect(readFileSync(join(root,'business.json'),'utf8')).toBe(before);
+      command('workspace_promotions','saveCampaign',{...raw,id,expected:rows.map((r:any)=>({id:r.id,revision:r.revision})),lines:[{...raw.lines[0],price:9}]});
+      rows=state('workspace_promotions').records.filter((r:any)=>r.campaignId===id&&r.deleted!=='true');expect(rows).toHaveLength(1);expect(rows[0].price).toBe('9');
+      expect(()=>command('workspace_promotions','saveCampaign',{...raw,id})).toThrow(/changed/);
+      command('workspace_promotions','saveCampaign',{...raw,id,expected:rows.map((r:any)=>({id:r.id,revision:r.revision})),lines:[],remove:true});
+      await restart();expect(state('workspace_promotions').records.filter((r:any)=>r.campaignId===id).every((r:any)=>r.deleted==='true'&&r.status==='Inactive')).toBe(true);
+      expect(state('workspace_promotions').history.length).toBeGreaterThan(3);
+    });
+    it('persists customer classifications and limits promotion pricing to matching customers',async()=>{
+      const {product,customer}=fixture();const raw={name:'Retailer and installer special',starts:'2026-10-01T00:00:00Z',ends:'2026-11-01T00:00:00Z',customerTypes:[customer.businessType,'Installer'],expected:[],lines:[{productId:product.id,unitId:product.baseUnitId,price:8}]};
+      expect(()=>command('workspace_promotions','saveCampaign',{...raw,customerTypes:[]})).toThrow();
+      const id=command('workspace_promotions','saveCampaign',raw);
+      const quote=()=>command('sales','createQuote',{customerId:customer.id,documentDate:'2026-10-10',lines:[{productId:product.id,unitId:product.baseUnitId,quantity:1}]});
+      expect(quote().lines[0].unitPrice).toBe(8);
+      await restart();let row=state('workspace_promotions').records.find((r:any)=>r.campaignId===id);expect(JSON.parse(row.customerTypes)).toEqual(raw.customerTypes);
+      command('workspace_promotions','saveCampaign',{...raw,id,customerTypes:['Builder','Architect'],expected:[{id:row.id,revision:row.revision}]});
+      expect(quote().lines[0].unitPrice).not.toBe(8);
+    });
+    it('persists a selected-customer audience and rejects nonexistent customers',async()=>{
+      const {product,customer}=fixture(),other=state('customers').customers[1];
+      const raw={name:'Selected accounts offer',starts:'2026-10-01T00:00:00Z',ends:'2026-11-01T00:00:00Z',customerTypes:['Builder'],customerIds:[customer.id,other.id],expected:[],lines:[{productId:product.id,unitId:product.baseUnitId,price:7}]};
+      expect(()=>command('workspace_promotions','saveCampaign',{...raw,customerIds:['missing']})).toThrow(/customer/i);
+      const id=command('workspace_promotions','saveCampaign',raw);
+      const quote=(customerId:string)=>command('sales','createQuote',{customerId,documentDate:'2026-10-10',lines:[{productId:product.id,unitId:product.baseUnitId,quantity:1}]}).lines[0].unitPrice;
+      expect(quote(customer.id)).toBe(7);expect(quote(other.id)).toBe(7);
+      const third=state('customers').customers.find((c:any)=>c.status==='ACTIVE'&&!raw.customerIds.includes(c.id));if(third)expect(quote(third.id)).not.toBe(7);
+      await restart();const row=state('workspace_promotions').records.find((r:any)=>r.campaignId===id);expect(JSON.parse(row.customerIds)).toEqual(raw.customerIds);
+    });
     it('saves a product into the same catalogue used by quotes and survives restart', async () => { const { product, customer } = fixture(); const saved = command('products', 'save', { ...product, name: 'Live catalogue flooring', units: product.units.map((u: any) => ({ ...u, basePrice: 77 })) }, 0); const quote = command('sales', 'createQuote', { customerId: customer.id, documentDate: '2026-10-10', lines: [{ productId: product.id, unitId: product.baseUnitId, quantity: 2 }] }); expect(quote.lines[0]).toMatchObject({ description: 'Live catalogue flooring', standardUnitPrice: 77, unitPrice: 62.5, lineSubtotal: 125, taxAmount: 12.5 }); await restart(); expect(state('products').products.find((p: any) => p.id === product.id)).toMatchObject({ name: 'Live catalogue flooring', revision: saved.revision }); expect(state('sales').quotes.find((d: any) => d.id === quote.id).lines[0].standardUnitPrice).toBe(77); });
     it('enforces optimistic revisions and rejects duplicate SKUs without changing the durable file', () => { const { product } = fixture(); command('products', 'save', { ...product, name: 'First update' }, 0); const before = readFileSync(join(root, 'business.json'), 'utf8'); expect(() => command('products', 'save', { ...product, name: 'Stale edit' }, 0)).toThrow(/changed/); const other = state('products').products[1]; expect(() => command('products', 'save', { ...other, sku: product.sku }, 0)).toThrow(/Duplicate/); expect(readFileSync(join(root, 'business.json'), 'utf8')).toBe(before); });
     it('protects document unit conversions while allowing a new selling price', () => { const { product, customer } = fixture(); command('sales', 'createQuote', { customerId: customer.id, documentDate: '2026-10-10', lines: [{ productId: product.id, unitId: product.units[1].id, quantity: 1 }] }); expect(() => command('products', 'save', { ...product, units: product.units.map((u: any, i: number) => i === 1 ? { ...u, conversionToBase: 999 } : u) }, 0)).toThrow(/referenced unit/i); });

@@ -1,3 +1,4 @@
+import {ExpenseDetails} from './ExpenseDetails';
 import type { calculateDashboardBasis } from "../data/dashboardBasis";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
@@ -9,7 +10,10 @@ import type { MonthlyFinancialData } from "../data/mockDashboard";
 const lastYearColor = "#d0008f";
 const thisYearColor = "#a45bff";
 
-export function RevenueChart({ months = 6, data, basis = "cash", includeGst = true, breakdown, monthlyTotals }: { months?: 1 | 3 | 6; data: MonthlyFinancialData[]; basis?: DashboardBasis; includeGst?: boolean; breakdown?: DashboardBreakdown; monthlyTotals?: ReturnType<typeof calculateDashboardBasis>["monthlyTotals"] }) {
+export function RevenueChart({ months = 6, data, basis = "cash", includeGst = true, breakdown, monthlyTotals, expenseDetails }: { expenseDetails?: ReturnType<typeof calculateDashboardBasis>["expenseDetails"]; months?: 1 | 3 | 6; data: MonthlyFinancialData[]; basis?: DashboardBasis; includeGst?: boolean; breakdown?: DashboardBreakdown; monthlyTotals?: ReturnType<typeof calculateDashboardBasis>["monthlyTotals"] }) {
+    const [drilldown,setDrilldown]=useState<{kind:'chart'|'cash'|'bills'|'wages';title:string;sampleAmount?:number}>();
+    const selectedPeriods=expenseDetails?.slice(-months)??[];
+    const drillRows=drilldown?.sampleAmount!==undefined?[{date:selectedPeriods.at(-1)?.to??'',reference:'EXP-SAMPLE-001',description:'Sample supplier expense · Excluded from live records',amount:drilldown.sampleAmount}]:selectedPeriods.flatMap(p=>drilldown?p[drilldown.kind]:[]);
     const [showSample, setShowSample] = useState(true);
     const [expanded, setExpanded] = useState({ revenue: true, expenses: false });
     const totals = monthlyTotals?.slice(-months).reduce((sum, item) => ({ cashReceived: sum.cashReceived + item.cashReceived, cashSpent: sum.cashSpent + item.cashSpent, invoiceCount: sum.invoiceCount + item.invoiceCount, invoiceAmount: sum.invoiceAmount + item.invoiceAmount, billCount: sum.billCount + item.billCount, billAmount: sum.billAmount + item.billAmount, wagesAndSuper: sum.wagesAndSuper + item.wagesAndSuper }), { cashReceived: 0, cashSpent: 0, invoiceCount: 0, invoiceAmount: 0, billCount: 0, billAmount: 0, wagesAndSuper: 0 });
@@ -40,7 +44,7 @@ export function RevenueChart({ months = 6, data, basis = "cash", includeGst = tr
             const currentTotal = comparisonData.reduce((sum, item) => sum + item[current], 0);
             return <section key={title} aria-label={`${title} year comparison`} className={`flex min-w-0 flex-col rounded-xl border border-[var(--color-border)] bg-white p-5 shadow-sm ${expanded.revenue === expanded.expenses ? "self-stretch" : "self-start"}`}>
                 <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold">{title}{isCurrentSample && <span title="Includes a sample current-year expense" className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium leading-4 text-amber-900">Sample</span>}</h2>
-                <p className="mt-3 text-2xl font-semibold tabular-nums">{money(currentTotal)}</p>
+                <p className="mt-3 text-2xl font-semibold tabular-nums">{current==='expenses'?<button className="text-left underline decoration-dotted underline-offset-4 hover:text-emerald-800" title="View expenses for selected period" onClick={()=>setDrilldown({kind:'chart',title:basis==='cash'?'Cash paid · Expense details':'Accounts payable · Expense details',...(isCurrentSample?{sampleAmount:currentTotal}:{})})}>{money(currentTotal)}</button>:money(currentTotal)}</p>{current==='expenses'&&<button className="mt-1 self-start text-xs text-emerald-800 underline" onClick={()=>setDrilldown({kind:'chart',title:'Expense details',...(isCurrentSample?{sampleAmount:currentTotal}:{})})}>View expenses →</button>}
                 <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{months === 1 ? "Selected month" : `Selected ${months} months`} · {businessSettings().currency}</p>
                 <div className="mt-5 h-[240px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -58,12 +62,12 @@ export function RevenueChart({ months = 6, data, basis = "cash", includeGst = tr
                     {[{ label: lastYearLabel, color: lastYearColor }, { label: thisYearLabel, color: thisYearColor }].map(item => <span key={item.label} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }}/>{item.label}</span>)}
                 </div>
                 {details && expanded[current] && <div id={`dashboard-${current}-breakdown`} className="mt-5 border-t border-[var(--color-border)] pt-4">
-                    <h3 className="text-sm text-[var(--color-text-muted)]">{current === "revenue" ? "Income totals" : "Expense totals"}</h3>
+                    <h3 className="text-sm text-[var(--color-text-muted)]">{current === "revenue" ? "Income totals" : <button className="text-emerald-800 underline" onClick={()=>setDrilldown({kind:'bills',title:'Expense totals · Supplier bills'})}>Expense totals →</button>}</h3>
                     {totals && <dl className="mt-4 space-y-4 text-sm md:min-h-[128px]">
-                        <div className="flex justify-between gap-3"><dt>{current === "revenue" ? "Cash received" : "Cash spent"}</dt><dd className="font-medium tabular-nums">{money(current === "revenue" ? totals.cashReceived : totals.cashSpent)}</dd></div>
-                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3"><dt className="text-violet-600">{current === "revenue" ? "Invoices" : "Bills"}</dt><dd className="text-xs tabular-nums">{current === "revenue" ? totals.invoiceCount : totals.billCount}</dd><dd className="font-medium tabular-nums">{money(current === "revenue" ? totals.invoiceAmount : totals.billAmount)}</dd></div>
+                        <div className="flex justify-between gap-3"><dt>{current === "revenue" ? "Cash received" : "Cash spent"}</dt><dd className="font-medium tabular-nums">{current==='expenses'?<button className="underline" onClick={()=>setDrilldown({kind:'cash',title:'Cash spent'})}>{money(totals.cashSpent)}</button>:money(totals.cashReceived)}</dd></div>
+                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-3"><dt className="text-violet-600">{current === "revenue" ? "Invoices" : <button className="underline" onClick={()=>setDrilldown({kind:'bills',title:'Supplier bills · Expense details'})}>Bills</button>}</dt><dd className="text-xs tabular-nums">{current === "revenue" ? totals.invoiceCount : totals.billCount}</dd><dd className="font-medium tabular-nums">{money(current === "revenue" ? totals.invoiceAmount : totals.billAmount)}</dd></div>
                         {current === "expenses" && <>
-                            <div className="flex justify-between gap-3"><dt>Wages and Super</dt><dd className="font-medium tabular-nums">{money(totals.wagesAndSuper)}</dd></div>
+                            <div className="flex justify-between gap-3"><dt>Wages and Super</dt><dd className="font-medium tabular-nums"><button className="underline" onClick={()=>setDrilldown({kind:'wages',title:'Wages and Super'})}>{money(totals.wagesAndSuper)}</button></dd></div>
                             <div className="flex justify-between gap-3"><dt>Inventory adjustment</dt><dd title="Separate inventory adjustment amount is not available">—</dd></div>
                         </>}
                     </dl>}
@@ -87,5 +91,6 @@ export function RevenueChart({ months = 6, data, basis = "cash", includeGst = tr
             </section>;
         })}
         </div>
+        {drilldown&&<ExpenseDetails title={drilldown.title} from={selectedPeriods[0]?.from??''} to={selectedPeriods.at(-1)?.to??''} rows={drillRows} includeGst={includeGst} money={money} sample={drilldown.sampleAmount!==undefined} onClose={()=>setDrilldown(undefined)}/>}
     </div>;
 }

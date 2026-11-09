@@ -57,7 +57,7 @@ export function calculateDashboardBasis(input: DashboardBasisInput) {
                 value += journal.lines.filter(line => taxIds.has(line.accountId)).reduce((sum, line) => sum + line.debit - line.credit, 0);
             }
         }
-        return { date: journal.journalDate, amount: round(value) };
+        return { date: journal.journalDate, amount: round(value), reference:journal.reference??journal.id, description:journal.description??journal.sourceType, id:journal.id };
     });
     function totals(from: string, to: string, asOf: string) {
         if (basis === "cash") {
@@ -125,6 +125,14 @@ export function calculateDashboardBasis(input: DashboardBasisInput) {
         addBalance(breakdown.bills, bill.dueDate, balance.amountDue, netRatio(bill.totals));
     }
     const expenseIds = new Set(accounts.filter(account => account.type === "EXPENSE").map(account => account.id));
+    const expenseDetails = Array.from({length:6},(_,index)=>{
+        const d=new Date(Date.UTC(year,month-6+index,1)),from=d.toISOString().slice(0,10),end=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10),to=end<date?end:date;
+        const cashRows=cash.filter(r=>r.date>=from&&r.date<=to&&r.amount<0).map(r=>({date:r.date,reference:r.reference,description:r.description,amount:-r.amount}));
+        const billRows=bills.filter(b=>b.billDate>=from&&b.billDate<=to&&!(b.status==='VOID'&&!b.voidedAt)&&!(b.voidedAt&&businessDateKey(b.voidedAt)<=to)).map(b=>({date:b.billDate,reference:b.supplierInvoiceNumber||b.billNumber,description:b.supplierName,amount:includeGst?b.totals.total:b.totals.subtotal,billId:b.id}));
+        const payableRows=bills.filter(b=>b.dueDate>=from&&b.dueDate<=end&&!(b.status==='VOID'&&!b.voidedAt)).map(b=>({date:b.dueDate,reference:b.supplierInvoiceNumber||b.billNumber,description:b.supplierName,amount:round(Math.max(0,calculateSupplierBillBalanceAsAt(b,input.supplierPayments,input.supplierCreditAllocations,to).amountDue)*(includeGst?1:netRatio(b.totals))),billId:b.id})).filter(r=>r.amount>0);
+        const wagesRows=journals.filter(j=>j.journalDate>=from&&j.journalDate<=to&&j.sourceType==='PAYROLL').map(j=>({date:j.journalDate,reference:j.reference??j.id,description:j.description??'Wages and Super',amount:round(j.lines.filter(l=>expenseIds.has(l.accountId)).reduce((n,l)=>n+l.debit-l.credit,0))})).filter(r=>r.amount!==0);
+        return {from,to,chart:basis==='cash'?cashRows:payableRows,cash:cashRows,bills:billRows,wages:wagesRows};
+    });
     const monthlyTotals = Array.from({ length: 6 }, (_, index) => {
         const d = new Date(Date.UTC(year, month - 6 + index, 1));
         const from = d.toISOString().slice(0,10);
@@ -142,5 +150,5 @@ export function calculateDashboardBasis(input: DashboardBasisInput) {
             wagesAndSuper: round(wages),
         };
     });
-    return { metrics, chart, breakdown, monthlyTotals };
+    return { metrics, chart, breakdown, monthlyTotals, expenseDetails };
 }

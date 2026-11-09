@@ -7,11 +7,11 @@ import { ProductDetailPage } from './ProductDetailPage';
 describe('product details',()=>{
  it('opens populated read-only sample details without edit controls',()=>{
   const html=renderToStaticMarkup(<MemoryRouter><ProductDetailPage id="sample-0"/></MemoryRouter>);
-  expect(html).toContain('AquaGlow Berlin Oak');expect(html).toContain('Product Information');expect(html).toContain('>Sold</button>');expect(html).toContain('>Bought</button>');expect(html).toContain('Units &amp; Prices');expect(html).toContain('Read-only');expect(html).not.toContain('Edit product');
+  expect(html).toContain('Previous Purchase Price');expect(html).toContain('Current Purchase Price');expect(html).toContain('2026-10-05');expect(html).toContain('2026-10-22');expect(html).toContain('AquaGlow Berlin Oak');expect(html).toContain('Product Information');expect(html).toContain('>Sold</button>');expect(html).toContain('>Bought</button>');expect(html).toContain('Units &amp; Prices');expect(html).toContain('Read-only');expect(html).not.toContain('Edit product');
  });
  it('hides inventory value and costs without cost permission',()=>{
   access.cost=false;
-  try{const html=renderToStaticMarkup(<MemoryRouter><ProductDetailPage id="sample-0"/></MemoryRouter>);expect(html).not.toContain('Average Cost');expect(html).not.toContain('Current Value');expect(html).not.toContain('Last Purchase Price');}finally{access.cost=true;}
+  try{const html=renderToStaticMarkup(<MemoryRouter><ProductDetailPage id="sample-0"/></MemoryRouter>);expect(html).not.toContain('Previous Purchase Price');expect(html).not.toContain('Current Purchase Price');expect(html).not.toContain('Average Cost');expect(html).not.toContain('Current Value');expect(html).not.toContain('Last Purchase Price');}finally{access.cost=true;}
  });
  it('handles missing products with a return to inventory',()=>{
   const html=renderToStaticMarkup(<MemoryRouter><ProductDetailPage id="missing"/></MemoryRouter>);expect(html).toContain('Product not found');expect(html).toContain('Back to Inventory');

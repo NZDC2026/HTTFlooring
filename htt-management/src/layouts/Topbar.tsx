@@ -18,6 +18,7 @@ const pageNames: Record<string, string> = {
     "/demo": "Customer demo journey",
     "/dashboard": "Dashboard",
     "/sales": "Sales",
+    "/promotions": "Promotion",
     "/purchases/incoming-shipments": "Incoming Shipment",
     "/purchases": "Purchases",
     "/inventory": "Inventory",

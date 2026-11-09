@@ -96,7 +96,7 @@ export function DashboardPage() {
                 <div className="mb-2 flex items-center justify-end gap-2 text-xs"><span className="text-[var(--color-text-muted)]">Chart range</span>
                     {([1,3,6] as const).map((months) => <button type="button" key={months} onClick={() => setChartMonths(months)} aria-pressed={chartMonths === months} className={`rounded-md border px-3 py-1.5 font-medium transition-colors ${chartMonths === months ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary)]" : "border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"}`}>{months} {months === 1 ? "month" : "months"}</button>)}
                 </div>
-                <RevenueChart months={chartMonths} data={basisDashboard.chart} breakdown={basisDashboard.breakdown} monthlyTotals={basisDashboard.monthlyTotals} basis={basis} includeGst={includeGst}/>
+                <RevenueChart months={chartMonths} data={basisDashboard.chart} breakdown={basisDashboard.breakdown} monthlyTotals={basisDashboard.monthlyTotals} expenseDetails={basisDashboard.expenseDetails} basis={basis} includeGst={includeGst}/>
                 <div className="mt-4"><TaxPayrollCards date={reportingDate}/></div>
             </div>
             <div className="grid min-w-0 gap-4 xl:pt-[34px]">

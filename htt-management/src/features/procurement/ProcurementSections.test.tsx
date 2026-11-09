@@ -27,6 +27,15 @@ describe('Procurement document sections',()=>{
  const html=renderToStaticMarkup(<><ProcurementDocumentSection kind="materials" documents={readDocuments(b.documents)} sample orders={[]}/><ProcurementAllocation links={b.links} documents={b.documents} orders={orders}/></>);
  for(const text of ['Included','Excluded','Selected Qty','1,752.8','1,732.8','26.43'])expect(html).toContain(text);
  });
+ it('shows allocated inventory costs only for included sample products',()=>{
+ const {batches,orders}=procurementSamples();const b=batches.find(b=>b.id==='sample-complete')!;const t=procurementTotals({links:b.links,documents:b.documents},orders);
+ const materials=orders.filter(o=>o.id==='sample-complete-0');
+ const html=renderToStaticMarkup(<ProcurementDocumentSection kind="materials" documents={readDocuments(b.documents)} sample orders={materials} landedCost={t.landedCost}/>);
+ expect(html).toContain('Inventory Cost Price');
+ for(const line of materials[0].lines.slice(0,2)){const area=line.orderedQuantity*line.coveragePerUnit!;const value=((line.lineSubtotal??0)+t.landedCost!*area)/area;expect(html).toContain(new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(value));}
+ for(const value of ['$2.00 / m²','$5.00 / m²','$5.00 / Piece'])expect(html).toContain(value);
+ expect(t.total).toBe(52645);expect(t.selectedQty).toBe(1765.2);
+ });
  it('retains compatibility with existing batches and rejects malformed documents',()=>{
  expect(readDocuments()).toEqual({materials:{},freight:{},customs:{}});
  expect(()=>readDocuments('{"materials":42}')).toThrow();

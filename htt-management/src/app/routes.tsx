@@ -1,3 +1,4 @@
+import {PromotionPage} from '../features/promotions/PromotionPage';
 import {ProcurementPage} from '../features/procurement/ProcurementPage';
 import {InvoiceRemindersPage} from '../features/invoice-reminders/InvoiceRemindersPage';
 import { DispatchFollowupsPanel } from '../features/dispatch-followups/DispatchFollowupsPanel';
@@ -99,6 +100,7 @@ export const appRoutes:RouteObject[] = [
             { path: 'payroll/leave', element: <LeavePage /> },
             { path: 'documents/upload', element: <DocumentUploadPage /> },
             { path: 'documents/:documentId', element: <DocumentDetailPage /> },
+            { path: 'promotions', element: <PromotionPage /> },
             { path: 'procurement', element: <ProcurementPage /> },
             { path: 'sales/invoice-reminders', element: <InvoiceRemindersPage /> },
             { path: 'settings/dispatch-followups', element: <DispatchFollowupsPanel /> },

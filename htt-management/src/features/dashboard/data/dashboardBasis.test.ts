@@ -41,3 +41,15 @@ it('breaks down all open balances, with overdue as a subset and due today still 
  expect(net.invoices).toMatchObject({openAmount:200,overdueAmount:100});
  expect(net.bills).toMatchObject({openAmount:400,overdueAmount:200});
 });
+it('reconciles expense drilldowns with chart amounts and respects GST and reporting dates',()=>{
+ for(const includeGst of [true,false]) {
+  const input={...base(),includeGst,journals:[journal('paid','2026-11-02',-55,'BANK_TRANSACTION',-5),journal('future','2026-11-03',-99)]};
+  const accrual=calculateDashboardBasis(input);
+  expect(accrual.expenseDetails.at(-1)?.chart.reduce((n,r)=>n+r.amount,0)).toBe(accrual.chart.at(-1)?.expenses);
+  expect(accrual.expenseDetails.at(-1)?.chart[0]).toMatchObject({billId:'bill',date:'2026-11-25'});
+  const cash=calculateDashboardBasis({...input,basis:'cash'});
+  expect(cash.expenseDetails.at(-1)?.cash.reduce((n,r)=>n+r.amount,0)).toBe(cash.chart.at(-1)?.expenses);
+  expect(cash.expenseDetails.at(-1)?.cash.map(r=>r.reference)).toEqual(['paid']);
+  expect(accrual.expenseDetails.at(-2)?.bills[0]).toMatchObject({billId:'bill',amount:includeGst?220:200});
+ }
+});

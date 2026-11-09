@@ -1,0 +1,4 @@
+import {readPromotionAudience,readPromotionCustomerIds} from './promotionAudience';
+import type {ConfigRow} from '../business-workspace/configurationState';
+export function campaignState(starts:string,ends:string,now=Date.now()) {return now<Date.parse(starts)?'Not started':now>=Date.parse(ends)?'Ended':'In progress';}
+export function promotionCampaigns(rows:ConfigRow[]){const groups=new Map<string,ConfigRow[]>();for(const row of rows.filter(r=>r.deleted!=='true'&&r.status==='Active')){const id=row.campaignId||row.id;groups.set(id,[...(groups.get(id)??[]),row]);}return [...groups].map(([id,lines])=>({id,customerIds:lines[0].customerIds?readPromotionCustomerIds(lines[0].customerIds):lines[0].customerId?[lines[0].customerId]:[],customerTypes:readPromotionAudience(lines[0].customerTypes),name:lines[0].name,starts:lines[0].starts,ends:lines[0].ends,priority:lines[0].priority,policy:lines[0].policy,lines}));}

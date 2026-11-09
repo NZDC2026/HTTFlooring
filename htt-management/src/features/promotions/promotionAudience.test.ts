@@ -1,0 +1,7 @@
+import {describe,it,expect} from 'vitest';
+import {readPromotionAudience,promotionMatchesAudience,promotionMatchesCustomer,readPromotionCustomerIds} from './promotionAudience';
+describe('promotion audience',()=>{
+ it('matches any selected category and rejects unselected or unknown categories',()=>{const audience=JSON.stringify(['Builder','Installer']);expect(promotionMatchesAudience(audience,'Builder')).toBe(true);expect(promotionMatchesAudience(audience,'Installer')).toBe(true);expect(promotionMatchesAudience(audience,'Flooring Retailer')).toBe(false);expect(promotionMatchesAudience(audience)).toBe(false);});
+ it('allows only specified customers, taking priority over classifications',()=>{const types=JSON.stringify(['Builder']),ids=JSON.stringify(['a','b']);expect(promotionMatchesCustomer(types,ids,'a','Flooring Retailer')).toBe(true);expect(promotionMatchesCustomer(types,ids,'b','Other')).toBe(true);expect(promotionMatchesCustomer(types,ids,'c','Builder')).toBe(false);expect(promotionMatchesCustomer(types,'[]','c','Builder')).toBe(true);expect(()=>readPromotionCustomerIds('["a","a"]')).toThrow();});
+ it('retains legacy all-customer promotions and validates saved classifications',()=>{expect(promotionMatchesAudience(undefined,'Other')).toBe(true);expect(()=>readPromotionAudience('[]')).toThrow();expect(()=>readPromotionAudience('["Invalid"]')).toThrow();expect(()=>readPromotionAudience('["Builder","Builder"]')).toThrow();});
+});

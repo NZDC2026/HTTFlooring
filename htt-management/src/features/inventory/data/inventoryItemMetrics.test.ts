@@ -12,7 +12,7 @@ describe('inventory item metrics',()=>{
   expect(inventoryItemMetrics(product,balances,[],'ALL')).toMatchObject({currentValue:1100,averageCost:27.5});
  });
  it('uses latest non-void bill and converts purchase units to base units',()=>{
-  expect(inventoryItemMetrics(product,balances,[bill('2026-10-01',40),bill('2026-11-01',50),bill('2026-11-02',80,'VOID')],'a').lastPurchasePrice).toBe(25);
+  expect(inventoryItemMetrics(product,balances,[bill('2026-10-01',40),bill('2026-11-01',50),bill('2026-11-02',80,'VOID')],'a')).toMatchObject({lastPurchasePrice:25,currentPurchasePrice:25,previousPurchasePrice:20,currentPurchaseDate:'2026-11-01',previousPurchaseDate:'2026-10-01'});
  });
  it('does not invent missing costs or unit conversion',()=>{
   expect(inventoryItemMetrics(product,[],[],'ALL')).toEqual({currentValue:0,averageCost:undefined,lastPurchasePrice:undefined});

@@ -1,3 +1,4 @@
+import {promotionAudienceSchema,readPromotionAudience,promotionCustomerTypes,promotionCustomerIdsSchema,readPromotionCustomerIds} from '../promotions/promotionAudience';
 import {purchaseDueDate,purchaseDefaults} from '../purchase-settings/purchaseDefaults';
 import {supplierRepository} from '../contacts/data/supplierRepository';
 import {onProcurementExpenseDraftChange} from '../procurement/invoiceDraftEvents';
@@ -53,7 +54,7 @@ export const workspaceDomains: Record<string, {
     procurement: {read:'purchases.read',write:'purchases.write',required:['code','links'],fields:['code','links','notes','documents','invoiceDrafts']},
     'tax-codes': { read: 'inventory.read', write: 'accounting.post', required: ['code', 'rate', 'collected', 'paid'], fields: ['code', 'rate', 'collected', 'paid', 'basis', 'report'] },
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },
-    promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
+    promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['customerIds','customerTypes','campaignId', 'deleted', 'productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
     jobs: { read: 'accounting.read', write: 'accounting.post', required: ['code', 'customerId', 'starts', 'ends', 'budget', 'costBudget'], fields: ['code', 'customerId', 'owner', 'starts', 'ends', 'budget', 'costBudget'] },
     tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'documentType', 'documentId', 'sourceQuoteId', 'sourceSalesDraftId', 'completedAt', 'completedBy', 'completedByName', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
     'bank-rules': { read: 'banking.read', write: 'banking.write', required: ['field', 'operator', 'value', 'accountId', 'taxCode'], fields: ['field', 'operator', 'value', 'accountId', 'taxCode', 'enabled', 'conditions', 'match', 'priority', 'automatic', 'bankAccountId'] },
@@ -137,6 +138,8 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             throw new Error('A linked account role may only have one mapping.');
     }
     if (domain === 'promotions') {
+        readPromotionAudience(input.customerTypes);
+        const selectedCustomers=readPromotionCustomerIds(input.customerIds);if(checkReferences&&selectedCustomers.some(id=>!customerRepository.getById(id)))throw Error('Selected customer was not found.');
         const p = getProductById(input.productId);
         if (checkReferences && (!p || !getProductUnit(p.id, input.unitId)))
             throw new Error('Product/unit not found.');
@@ -267,6 +270,19 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
                 if (displayName) row.completedByName = displayName;
             }
         } if(domain==='procurement'){if(raw.invoiceDrafts!==undefined&&raw.invoiceDrafts!==(existing?.invoiceDrafts??''))throw Error('Invoice drafts are managed by the server.');const docs=JSON.parse(row.documents||'{}');for(const meta of Object.values(docs) as Record<string,string>[]){if(meta.mode==='manual'){const manual=JSON.parse(meta.manual||'{}');if(!(snapshotRepositories().suppliers as {suppliers:{id:string;status:string}[]}).suppliers.some(s=>s.id===manual.supplierId&&s.status==='ACTIVE'))throw Error('Choose an active supplier for each manual invoice.');}}row.invoiceDrafts=JSON.stringify(refreshInvoiceDrafts({...row,code:row.code,links:row.links},readInvoiceDrafts(existing?.invoiceDrafts),(snapshotRepositories().purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,businessDateKey(timestamp)));row.invoiceDrafts=ensureProcurementExpenseDrafts(row.invoiceDrafts);} validate(domain, row, configurationRows[domain]); configurationRows[domain] = [...configurationRows[domain].filter(r => r.id !== row.id), row]; log(domain, row, existing ? 'Updated' : 'Created'); emit(); return row; },
+        saveCampaign(raw:unknown){
+            if(domain!=='promotions')throw Error('Invalid campaign register.');
+            const input=z.object({id:z.string().optional(),name:z.string().trim().min(1).max(180),starts:z.string(),ends:z.string(),priority:z.string().default('10'),policy:z.enum(['Promotion first','Customer price first','Lowest eligible price']).default('Promotion first'),customerIds:promotionCustomerIdsSchema.optional(),customerTypes:promotionAudienceSchema.optional(),expected:z.array(z.object({id:z.string(),revision:z.string()}).strict()),lines:z.array(z.object({productId:z.string(),unitId:z.string(),price:z.number().finite().nonnegative()}).strict()).max(100),remove:z.boolean().optional()}).strict().parse(raw);
+            const old=input.id?configurationRows.promotions.filter(r=>(r.campaignId||r.id)===input.id&&r.deleted!=='true'):[];
+            if(input.id&&!old.length)throw Error('Activity no longer exists. Reload.');
+            if(old.length!==input.expected.length||old.some(r=>!input.expected.some(e=>e.id===r.id&&e.revision===r.revision)))throw Error('Activity changed. Reload before saving.');
+            if(!input.remove&&!input.lines.length)throw Error('Add at least one product.');
+            if(new Set(input.lines.map(l=>l.productId+':'+l.unitId)).size!==input.lines.length)throw Error('Each product / unit can appear only once.');
+            const id=input.id??crypto.randomUUID(),kept=new Set<string>();
+            if(!input.remove)for(const line of input.lines){const previous=old.find(r=>r.productId===line.productId&&r.unitId===line.unitId);const saved=repository.save({...(previous??{}),campaignId:id,customerId:'',customerIds:JSON.stringify(input.customerIds??[]),customerTypes:JSON.stringify(input.customerTypes??promotionCustomerTypes),name:input.name,status:'Active',deleted:'false',starts:input.starts,ends:input.ends,priority:input.priority,policy:input.policy,productId:line.productId,unitId:line.unitId,price:String(line.price)},previous?.revision);kept.add(saved.id);}
+            for(const row of old.filter(r=>!kept.has(r.id)))repository.save({...row,status:'Inactive',deleted:'true'},row.revision);
+            return id;
+        },
         reviewInvoice(id:string,draftId:string,action:'approve'|'post',expectedRevision:string){
             if(domain!=='procurement')throw Error('Not a procurement batch.');if(!['approve','post'].includes(action))throw Error('Invalid invoice review action.');
             const principal=trustedAuthorization.require(action==='approve'?'accounting.post':'purchases.bill');
@@ -291,7 +307,7 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
         addNote(id: string, note: string) { const row = repository.getById(id); if (!row || domain !== 'tasks' || !note.trim() || note.length > 4000)
             throw new Error('A valid task note is required.'); log(domain, { ...row, note: note.trim() }, 'Note added'); emit(); },
     };
-    registerRepository('workspace_' + domain.replaceAll('-', '_'), { validate: (value, snapshots) => { validateConfigurationSnapshot(domain, value); validateConfigurationReferences(domain, value, snapshots); }, repository, read: workspaceDomains[domain].read, commands: { reviewInvoice:domain==='procurement'?'purchases.read':null, previewBulkStatus:workspaceDomains[domain].write, bulkStatus:workspaceDomains[domain].write, run: domain==='custom-reports'?'accounting.read':null, generate: domain==='report-packs'?'accounting.read':null, save: workspaceDomains[domain].write, setStatus: workspaceDomains[domain].write, addNote: domain === 'tasks' ? 'sales.write' : null }, snapshot: () => ({ records: configurationRows[domain], history: configurationHistory[domain] }), restore: value => { validateConfigurationSnapshot(domain, value); configurationRows[domain] = value.records; configurationHistory[domain] = value.history; }, publish: emit });
+    registerRepository('workspace_' + domain.replaceAll('-', '_'), { validate: (value, snapshots) => { validateConfigurationSnapshot(domain, value); validateConfigurationReferences(domain, value, snapshots); }, repository, read: workspaceDomains[domain].read, commands: { saveCampaign:domain==='promotions'?'sales.write':null, reviewInvoice:domain==='procurement'?'purchases.read':null, previewBulkStatus:workspaceDomains[domain].write, bulkStatus:workspaceDomains[domain].write, run: domain==='custom-reports'?'accounting.read':null, generate: domain==='report-packs'?'accounting.read':null, save: workspaceDomains[domain].write, setStatus: workspaceDomains[domain].write, addNote: domain === 'tasks' ? 'sales.write' : null }, snapshot: () => ({ records: configurationRows[domain], history: configurationHistory[domain] }), restore: value => { validateConfigurationSnapshot(domain, value); configurationRows[domain] = value.records; configurationHistory[domain] = value.history; }, publish: emit });
     return [domain, repository];
 }));
 export function validateConfigurationSnapshot(domain: string, value: unknown) { const snapshot = z.object({ records: z.array(strings), history: z.array(strings) }).strict().parse(value); const ids = new Set<string>(); for (const row of snapshot.records) {
@@ -336,6 +352,7 @@ function validateConfigurationReferences(domain: string, value: unknown, snapsho
     for (const row of records) {
         if(domain==='procurement')validateProcurement(row,records,(snapshots.purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,(snapshots.supplierBills as {supplierBills:import('../purchases/types/supplierBill').SupplierBill[]}).supplierBills);
         if(domain==='tasks'){validateInternalTaskSource(row,snapshots as Record<string,any>);const sales=snapshots.sales as {salesOrders:TaskDocument[];invoices:TaskDocument[]};validateTaskDocument(row.documentType,row.documentId,row.customerId,sales.salesOrders,sales.invoices,'customerId');}
+        if(domain==='promotions'&&readPromotionCustomerIds(row.customerIds).some(id=>!customers.some(c=>c.id===id)))throw Error('Backup promotion customer reference is invalid.');
         if (row.customerId && !customers.some(c => c.id === row.customerId))
             throw new Error('Backup workspace customer reference is invalid.');
         if (domain === 'promotions' && !products.some(p => p.id === row.productId && p.units.some(u => u.id === row.unitId)))

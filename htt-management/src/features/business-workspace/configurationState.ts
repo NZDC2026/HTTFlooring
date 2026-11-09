@@ -1,3 +1,4 @@
+import {promotionMatchesCustomer} from '../promotions/promotionAudience';
 import { purgedNumbers } from '../document-recycle/recycleState';
 import type { AccountSystemRole } from '../accounting/types/account';
 export type ConfigRow = {
@@ -23,6 +24,7 @@ export function activeTaxRate(code?: string) {
 }
 export function promotionalPrice(input: {
     customerId: string;
+    businessType?: string;
     productId: string;
     unitId: string;
     at: string;
@@ -31,7 +33,7 @@ export function promotionalPrice(input: {
     hasCustomerPrice?: boolean;
 }) {
     const at = Date.parse(input.at.length === 10 ? input.at + 'T00:00:00Z' : input.at);
-    const candidates = (configurationRows.promotions ?? []).filter(r => r.status === 'Active' && r.productId === input.productId && r.unitId === input.unitId && (!r.customerId || r.customerId === input.customerId) && Date.parse(r.starts) <= at && at < Date.parse(r.ends));
+    const candidates = (configurationRows.promotions ?? []).filter(r => r.status === 'Active' && r.deleted !== 'true' && promotionMatchesCustomer(r.customerTypes,r.customerIds,input.customerId,input.businessType) && r.productId === input.productId && r.unitId === input.unitId && (!r.customerId || r.customerId === input.customerId) && Date.parse(r.starts) <= at && at < Date.parse(r.ends));
     if (!candidates.length)
         return { price: input.customerPrice, promotionId: undefined };
     const row = candidates.sort((a, b) => Number(b.priority) - Number(a.priority) || a.id.localeCompare(b.id))[0];
