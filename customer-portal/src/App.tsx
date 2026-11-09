@@ -1,3 +1,4 @@
+import SalesDocumentsPage from "./pages/SalesDocumentsPage";
 import DispatchFollowupPage from "./pages/DispatchFollowupPage";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import AccountPage from "./pages/AccountPage";
@@ -41,6 +42,10 @@ export default function App() {
         <Route path="/series/:id" element={<SeriesPage />} />
         <Route path="/collections/:id" element={<SeriesPage />} />
         <Route path="/products/:id" element={<ProductPage />} />
+        <Route path="/quotes" element={<SalesDocumentsPage kind="quotes" />} />
+        <Route path="/quotes/:id" element={<SalesDocumentsPage kind="quotes" />} />
+        <Route path="/orders" element={<SalesDocumentsPage kind="orders" />} />
+        <Route path="/orders/:id" element={<SalesDocumentsPage kind="orders" />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/invoices/credits/:id" element={<CreditDetailPage />} />
         <Route path="/invoices/returns/:id" element={<ReturnDetailPage />} />

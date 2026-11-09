@@ -1208,3 +1208,8 @@ select:not([multiple]):not([size]):disabled{cursor:not-allowed;opacity:.55}
 @media(forced-colors:active){select:not([multiple]):not([size]){-webkit-appearance:auto;appearance:auto;background-image:none;padding-right:12px}}
 
 .inventory-search input{min-width:0}.inventory-search>svg{flex-shrink:0}
+
+@media(min-width:1001px){.portal-nav{gap:26px}.portal-header{column-gap:20px}}
+@media(min-width:1001px) and (max-width:1250px){.portal-header{grid-template-columns:auto 1fr auto;padding-inline:3%}.portal-nav{justify-content:center;gap:18px}.account-menu>div{max-width:140px}.account-menu strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+
+.sales-document-reference{display:flex;align-items:center;gap:12px;padding-bottom:12px}.sales-document-reference small{color:#777}
