@@ -39,6 +39,30 @@ class BranchMaps {
    });
   }));
  }
+ @PostMapping("/api/v1/crm/branches/{branch}/geocode")
+ ResponseEntity<String> queue(@PathVariable UUID branch,@AuthenticationPrincipal Jwt token,HttpServletRequest request){
+  var scope=staff.require(token,request.getHeader("X-Company-Id"),"crm.maps.manage");return response(staff.inCompany(scope,rid(request),()->{
+   guard(scope,branch,true);long version=WarehouseDetails.version(request.getHeader("If-Match"));
+   return writes.execute(scope,"POST /crm/collaboration/geocode",request.getHeader("Idempotency-Key"),QuotePricing.value(QuoteDrafts.map("branch",branch,"version",version)),()->{
+    UUID id=query("SELECT crm.queue_geocode(:branch,:v)",scope,Map.of("branch",branch,"v",version)).query(UUID.class).single();
+    audit.record(scope,"crm.collaboration_geocode","crm_collaboration",branch,rid(request),Map.of());return new IdempotentWrite.StoredResponse(202,geocode(scope,id));
+   });
+  }));
+ }
+ @GetMapping("/api/v1/crm/geocode-jobs/{id}")
+ ResponseEntity<String> job(@PathVariable UUID id,@AuthenticationPrincipal Jwt token,HttpServletRequest request){
+  var scope=staff.require(token,request.getHeader("X-Company-Id"),"crm.maps.manage");return response(staff.inCompany(scope,rid(request),()->new IdempotentWrite.StoredResponse(200,geocode(scope,id))));
+ }
+ @PostMapping("/api/v1/crm/geocode-jobs/{id}/retry")
+ ResponseEntity<String> retry(@PathVariable UUID id,@AuthenticationPrincipal Jwt token,HttpServletRequest request){
+  var scope=staff.require(token,request.getHeader("X-Company-Id"),"crm.maps.manage");return response(staff.inCompany(scope,rid(request),()->{
+   geocode(scope,id);return writes.execute(scope,"POST /crm/collaboration/geocode_retry",request.getHeader("Idempotency-Key"),QuotePricing.value(QuoteDrafts.map("id",id)),()->{
+    query("SELECT crm.retry_geocode(:id)",scope,Map.of("id",id)).query((r,n)->0).single();
+    audit.record(scope,"crm.collaboration_geocode_retry","crm_collaboration",id,rid(request),Map.of());return new IdempotentWrite.StoredResponse(200,geocode(scope,id));
+   });
+  }));
+ }
+ private String geocode(StaffScope.CompanyAccess scope,UUID id){return query("SELECT crm.geocode_view(:id)::text",scope,Map.of("id",id)).query(String.class).single();}
  static String escape(String value){StringBuilder out=new StringBuilder();for(byte raw:value.getBytes(StandardCharsets.UTF_8)){int c=raw&255;if(c>='a'&&c<='z'||c>='A'&&c<='Z'||c>='0'&&c<='9'||"-._~".indexOf(c)>=0)out.append((char)c);else out.append('%').append("0123456789ABCDEF".charAt(c>>>4)).append("0123456789ABCDEF".charAt(c&15));}return out.toString();}
  private void guard(StaffScope.CompanyAccess scope,UUID branch,boolean write){query("SELECT crm.require_branch(:branch,:write)",scope,Map.of("branch",branch,"write",write)).query((r,n)->0).single();}
  private JdbcClient.StatementSpec query(String sql,StaffScope.CompanyAccess scope,Map<String,?> args){return jdbc.sql(sql).param("company",scope.companyId()).params(args);}

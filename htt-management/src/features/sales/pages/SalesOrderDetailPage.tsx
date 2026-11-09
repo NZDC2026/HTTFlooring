@@ -1,3 +1,4 @@
+import {CollectionProofPanel} from '../../collection-proof/CollectionProofPanel';
 import {DocumentInternalTasks} from '../components/DocumentInternalTasks';
 import {SalesDispatchSchedule} from '../components/SalesDispatchSchedule';
 import { DeliveryTasks } from "../../delivery-tasks/DeliveryTasks";
@@ -222,7 +223,6 @@ export function SalesOrderDetailPage() {
             />
 
             <div className="mb-5 grid grid-cols-4 gap-4">
-                <div><Link className="text-sm underline" to={`/documents/delivery?kind=SALES_ORDER&sourceId=${order.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={order.recipient}/><SalesDispatchSchedule document={order}/><DocumentInternalTasks customerId={order.customerId} orderId={order.id} sourceQuoteId={order.sourceQuoteId} sourceSalesDraftId={order.managedDraftId}/><PricingTimeSummary lines={order.lines}/></div>
                 <InfoCard
                     label="Customer"
                     value={
@@ -256,6 +256,13 @@ export function SalesOrderDetailPage() {
                     }
                 />
             </div>
+            <div className="document-detail-operations">
+                <div className="document-detail-recipient"><Link className="text-sm underline" to={`/documents/delivery?kind=SALES_ORDER&sourceId=${order.id}`}>Prepare printable document</Link><SalesDeliverySummary recipient={order.recipient}/><PricingTimeSummary lines={order.lines}/></div>
+                <SalesDispatchSchedule document={order}/>
+            </div>
+            <CollectionProofPanel orderId={order.id}/>
+            <DocumentInternalTasks customerId={order.customerId} orderId={order.id} sourceQuoteId={order.sourceQuoteId} sourceSalesDraftId={order.managedDraftId}/>
+
 
             {sourceQuote?.type ===
                 "QUOTE" && (

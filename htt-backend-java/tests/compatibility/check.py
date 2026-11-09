@@ -4837,6 +4837,54 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 stale=request(coordinate_path,report_actor,company,base=first,payload=body,key='coordinates-stale-'+uuid.uuid4().hex,version=version+99,method='PUT')
                 assert stale[0]==409,stale
             print('PASS: native encoded navigation address/manual-coordinate modes, provider choices, bounded decimal precision and cross-host coordinate evidence replay; no external map calls')
+            def geocode_write(path,first,second,version=None,status=202):
+                key='geocode-shared-'+uuid.uuid4().hex;args={'key':key,'method':'POST','version':version}
+                result=request(path,report_actor,company,base=first,**args)
+                assert result[0]==status,(path,result)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(path,report_actor,company,base=first if n%2 else second,**args),range(6)))
+                assert all(x==result for x in attempts),(result,attempts)
+                if version is not None:assert request(path,report_actor,company,base=second,**{**args,'version':version+99})[0]==409
+                return result
+            def geocode_read(job_id):
+                path='/api/v1/crm/geocode-jobs/'+job_id
+                a=request(path,report_actor,company);b=request(path,report_actor,company,base=legacy_url)
+                assert a[0]==200 and a==b,(a,b)
+                return a[1]
+            def geocode_complete(job_id,state,result=None):
+                fixture_container=os.environ.get('HTT_COMPAT_PG_CONTAINER','')
+                assert re.fullmatch(r'htt-java-compat-[0-9a-f]{12}',fixture_container)
+                expected=str(uuid.UUID(job_id));assert state in ('FAILED','SUCCEEDED')
+                value='NULL' if result is None else "'"+json.dumps(result).replace("'","''")+"'::jsonb"
+                sql="SET ROLE htt_worker; DO $$ DECLARE j uuid; l uuid; BEGIN SELECT job_id,lease INTO j,l FROM crm.claim_geocode(); IF j IS DISTINCT FROM '"+expected+"'::uuid THEN RAISE EXCEPTION 'Only current synthetic geocode job may be claimed'; END IF; PERFORM crm.load_geocode(j,l); PERFORM crm.finish_geocode(j,l,'"+state+"','synthetic_map_fixture',"+value+"); END $$;"
+                done=subprocess.run(['docker','exec','-i',fixture_container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1'],input=sql,text=True,capture_output=True,timeout=20)
+                with (here/'geocode-state-fixture.log').open('a') as evidence:evidence.write(expected+' '+state+'\n'+done.stdout+done.stderr)
+                assert done.returncode==0,done.stderr
+            synthetic_geo={'latitude':'-33.8800000','longitude':'151.2200000','precision':'ROOFTOP','placeId':'Synthetic café + ~* place'}
+            manual_job=geocode_write('/api/v1/crm/branches/'+approved_branch+'/geocode',url,legacy_url,version)
+            geocode_complete(manual_job[1]['id'],'SUCCEEDED',synthetic_geo)
+            assert navigation_read('?provider=APPLE')[1]['usesCoordinates'] is True
+            assert geocode_read(manual_job[1]['id'])['state']=='SUCCEEDED'
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                branch_body={'code':'JV_GEO_'+uuid.uuid4().hex[:10],'name':'Synthetic geocode branch '+uuid.uuid4().hex,'addressLine1':'30 Synthetic café + ~* Street','state':'NSW','postcode':'2000','country':'AU','active':True}
+                created=request('/api/v1/customers/'+approved_customer+'/branches',report_actor,company,base=legacy_url,payload=branch_body,key='geocode-branch-fixture-'+uuid.uuid4().hex)
+                assert created[0]==201,created
+                geo_branch=created[1]['id'];geo_version=created[1]['version'];geo_path='/api/v1/crm/branches/'+geo_branch
+                queued=geocode_write(geo_path+'/geocode',first,second,geo_version)
+                assert geocode_read(queued[1]['id'])==queued[1]
+                for backend in (first,second):
+                    assert request('/api/v1/crm/geocode-jobs/'+queued[1]['id']+'/retry',report_actor,company,base=backend,key='geocode-pending-'+uuid.uuid4().hex,method='POST')[0]==409
+                geocode_complete(queued[1]['id'],'FAILED')
+                assert geocode_read(queued[1]['id'])['state']=='FAILED'
+                retried=geocode_write('/api/v1/crm/geocode-jobs/'+queued[1]['id']+'/retry',second,first,status=200)
+                assert retried[1]['state']=='PENDING' and retried[1]['attempts']==0,retried
+                geocode_complete(queued[1]['id'],'SUCCEEDED',synthetic_geo)
+                assert geocode_read(queued[1]['id'])['state']=='SUCCEEDED'
+                a=request(geo_path+'/navigation',report_actor,company);b=request(geo_path+'/navigation',report_actor,company,base=legacy_url)
+                assert a[0]==200 and a==b and a[1]['usesCoordinates'] and 'destination_place_id=' in a[1]['url'],(a,b)
+                for backend in (first,second):
+                    assert request(geo_path+'/navigation?provider=APPLE',report_actor,company,base=backend)[0]==409
+            print('PASS: geocode queue/read/retry shared replay, synthetic worker completion, manual priority and native Google place-ID/Apple restrictions; no provider calls')
             print('PASS: independent CRM approval creates exactly one customer/exposure/owner assignment, AU branch and normalized linked contact with mixed replay')
             draft_read('/api/v1/crm/drafts?pageSize=1')
             draft_read('/api/v1/crm/drafts?state=DELETED&pageSize=100')

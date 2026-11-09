@@ -33,7 +33,7 @@ async function restart() {
 describe('8D versioned business snapshots and recovery', () => {
     it('saves checksummed v2 snapshots and rejects accidental byte changes on restart', async () => {
         const file = join(root, 'business.json'); const saved = JSON.parse(readFileSync(file, 'utf8'));
-        expect(saved.schemaVersion).toBe(34); expect(saved.checksum).toMatch(/^[a-f0-9]{64}$/);
+        expect(saved.schemaVersion).toBe(35); expect(saved.checksum).toMatch(/^[a-f0-9]{64}$/);
         saved.repositories.accounts.accounts[0].name = 'damaged'; writeFileSync(file, JSON.stringify(saved));
         await expect(restart()).rejects.toThrow(/checksum/);
         expect(() => command('accounts', 'create', accountInput())).toThrow(/blocked/);
@@ -151,4 +151,17 @@ describe('8D recovery guard failures', () => {
         expect(readdirSync(root).some(name => name.startsWith('pre-migration-v1-'))).toBe(true);
         expect(() => command('accounts', 'create', accountInput())).toThrow(/blocked/);
     });
+});
+
+it('migrates pre-proof v34 data without changing existing repositories and keeps a recoverable backup',async()=>{
+ const {createHash}=await import('node:crypto');
+ const old=JSON.parse(readFileSync(join(root,'business.json'),'utf8'));old.schemaVersion=34;delete old.repositories.collectionProofs;delete old.checksum;
+ old.checksum=createHash('sha256').update(JSON.stringify(old)).digest('hex');
+ writeFileSync(join(root,'business.json'),JSON.stringify(old));
+ await restart();const updated=JSON.parse(readFileSync(join(root,'business.json'),'utf8'));
+ expect(updated.schemaVersion).toBe(35);expect(updated.repositories.collectionProofs).toEqual({records:[]});
+ for(const [key,value] of Object.entries(old.repositories))expect(updated.repositories[key]).toEqual(value);
+ expect(updated.storage).toEqual(old.storage);
+ const backups=readdirSync(root).filter(name=>name.startsWith('pre-migration-v34-'));expect(backups).toHaveLength(1);expect(JSON.parse(readFileSync(join(root,backups[0]),'utf8'))).toEqual(old);
+ await restart();expect(readdirSync(root).filter(name=>name.startsWith('pre-migration-v34-'))).toHaveLength(1);
 });

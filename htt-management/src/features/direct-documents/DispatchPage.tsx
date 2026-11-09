@@ -1,3 +1,4 @@
+import {CollectionProofPanel} from '../collection-proof/CollectionProofPanel';
 import { useState } from 'react';
 import { BusinessFrame } from '../business-workspace/MasterDataPages';
 import { Notice } from '../page-previews/PreviewWorkspace';
@@ -30,5 +31,5 @@ export function DispatchPage() {
                     catch (e) {
                         setError((e as Error).message);
                     }
-                }}>Reverse dispatch</button>}</Cell></tr>)}</SampleTable></Panel></BusinessFrame>;
+                }}>Reverse dispatch</button>}</Cell></tr>)}</SampleTable></Panel><CollectionProofPanel/></BusinessFrame>;
 }

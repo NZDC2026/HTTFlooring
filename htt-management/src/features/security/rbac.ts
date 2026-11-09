@@ -1,6 +1,6 @@
 /** Role-based authorization policy. Roles must come from a verified identity provider. */
 export const permissions = [
-  'payroll.read','payroll.manage','payroll.approve','payroll.post','purchases.return.read','purchases.return','documents.prepare','sales.read','sales.write','sales.manage','sales.payment','purchases.read','purchases.receive',
+  'sales.proof','payroll.read','payroll.manage','payroll.approve','payroll.post','purchases.return.read','purchases.return','documents.prepare','sales.read','sales.write','sales.manage','sales.payment','purchases.read','purchases.receive',
   'purchases.bill','purchases.void','inventory.read','inventory.cost.read','inventory.adjust',
   'accounting.read','accounting.post','accounting.periods','accounting.reopen','accounting.recover','audit.read','users.manage','contacts.write','purchases.write','purchases.payment','banking.read','banking.write','banking.reconcile',
 ] as const;
@@ -13,7 +13,7 @@ const policy: Record<Role, readonly Permission[]> = {
   FINANCE_ADMIN: ['payroll.read','payroll.manage','payroll.approve','payroll.post','purchases.return.read','purchases.return','documents.prepare','accounting.periods','accounting.reopen','sales.read','sales.manage','sales.payment','purchases.read','purchases.bill','purchases.void','inventory.read','inventory.cost.read','accounting.read','accounting.post','accounting.recover','audit.read','banking.read','banking.write','banking.reconcile','purchases.payment','purchases.write','contacts.write'],
   ACCOUNTANT: ['payroll.read','payroll.manage','payroll.approve','payroll.post','purchases.return.read','documents.prepare','banking.read','banking.reconcile','sales.read','sales.manage','purchases.read','inventory.read','inventory.cost.read','accounting.read','accounting.post','audit.read'],
   SALES: ['documents.prepare','contacts.write','sales.read','sales.write','inventory.read'],
-  WAREHOUSE: ['inventory.read','inventory.adjust','purchases.read','purchases.receive'],
+  WAREHOUSE: ['sales.proof','inventory.read','inventory.adjust','purchases.read','purchases.receive'],
   PURCHASING: ['purchases.return.read','purchases.return','contacts.write','purchases.write','purchases.read','purchases.receive','purchases.bill','inventory.read'],
   AUDITOR: ['purchases.return.read','banking.read','sales.read','purchases.read','inventory.read','inventory.cost.read','accounting.read','audit.read'],
 };

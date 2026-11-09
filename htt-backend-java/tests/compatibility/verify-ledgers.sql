@@ -211,8 +211,8 @@ DO $$ BEGIN
 END $$;
 
 DO $$ BEGIN
- IF (SELECT count(*) FROM platform.audit_events WHERE action='foundation.master_data_changed' AND entity_type='crm.customer_branches')<>4
- OR (SELECT count(*) FROM platform.audit_events WHERE action='foundation.master_data_changed' AND entity_type='crm.customer_branches' AND details->'before'='null'::jsonb AND details->'after'->>'Country'='AU' AND details->'after'->>'State'='NSW' AND details->'after'->'Suburb'='null'::jsonb)<>2
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='foundation.master_data_changed' AND entity_type='crm.customer_branches')<>6
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='foundation.master_data_changed' AND entity_type='crm.customer_branches' AND details->'before'='null'::jsonb AND details->'after'->>'Country'='AU' AND details->'after'->>'State'='NSW' AND details->'after'->'Suburb'='null'::jsonb)<>4
  OR (SELECT count(*) FROM platform.audit_events WHERE action='foundation.master_data_changed' AND entity_type='crm.customer_branches' AND details->'before'->>'country'='AU' AND details->'after'->>'Country'='NZ' AND details->'after'->>'Active'='false')<>2
  OR (SELECT count(*) FROM crm.customer_branches WHERE name LIKE 'Closed branch fixture %' AND customer_id='00000000-0000-0000-0000-000000000011' AND country='NZ' AND state IS NULL AND suburb IS NULL AND postcode='1010' AND NOT active AND version=2)<>2 THEN RAISE EXCEPTION 'CRM branch maintenance audit/state mismatch'; END IF;
 END $$;
@@ -592,4 +592,17 @@ END $$;
 DO $$ BEGIN
  IF (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_coordinates' AND actor_id='00000000-0000-0000-0000-000000000500')<>2
  THEN RAISE EXCEPTION 'Synthetic manual coordinate writes must execute once'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.geocode_jobs WHERE state='SUCCEEDED' AND attempts=1)<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_geocode' AND actor_id='00000000-0000-0000-0000-000000000500')<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_geocode_retry' AND actor_id='00000000-0000-0000-0000-000000000500')<>2
+ THEN RAISE EXCEPTION 'Synthetic geocode queue/retry/completion mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.customer_branches WHERE code LIKE 'JV_GEO_%' AND name LIKE 'Synthetic geocode branch %' AND country='AU' AND state='NSW' AND active AND version=1)<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='foundation.master_data_changed' AND entity_type='crm.customer_branches' AND actor_id='00000000-0000-0000-0000-000000000500' AND details->'before'='null'::jsonb)<>2
+ THEN RAISE EXCEPTION 'New synthetic geocode branches must be distinct audited creations'; END IF;
 END $$;

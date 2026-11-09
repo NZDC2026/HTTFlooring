@@ -1,3 +1,4 @@
+import '../../src/features/collection-proof/collectionProofRepository';
 import '../../src/features/stock-adjustments/stockAdjustmentRepository';
 import './yearEndRepository';
 export {assertYearEndIntegrity} from './yearEndRepository';
