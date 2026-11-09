@@ -141,4 +141,18 @@ describe('web authentication and durable business database', () => {
         expect((await request('status', {}, adminCookie)).body.value.session.user.username).toBe('admin');
         expect((await request('login', { username: 'admin', password: 'incorrect' })).body.ok).toBe(false);
     });
+    it('secures follow-up settings and rejects untrusted portal origins and links',async()=>{
+        const config={enabled:false,from:'dispatch@example.invalid',notificationEmail:'manager@example.invalid',portalOrigin:'https://portal.example.invalid',timezone:'Australia/Melbourne'};
+        expect((await request('dispatchFollowups.configure',config,adminCookie)).body.ok).toBe(true);
+        expect((await request('dispatchFollowups.view',{},adminCookie)).body.value.configuration.enabled).toBe(false);
+        const login=await request('login',{username:'reader',password});readerCookie=login.cookie;
+        expect((await request('dispatchFollowups.configure',config,readerCookie)).body.ok).toBe(false);
+        expect((await request('dispatchFollowups.reservations',{},readerCookie)).body.ok).toBe(true);
+        expect((await request('dispatchFollowups.view')).body.ok).toBe(false);
+        const portal=(originHeader:string)=>fetch(origin+'/api/dispatch-portal',{method:'POST',headers:{Origin:originHeader,'Content-Type':'application/json','X-HTT-Request':'1'},body:JSON.stringify({action:'view',input:{token:'0'.repeat(64)}})});
+        expect((await portal('https://evil.example')).status).toBe(403);
+        const allowed=await portal(config.portalOrigin);expect(allowed.headers.get('access-control-allow-origin')).toBe(config.portalOrigin);expect((await allowed.json()).ok).toBe(false);
+        expect((await request('status',{},adminCookie)).body.value.session.user.username).toBe('admin');
+    });
+
 });

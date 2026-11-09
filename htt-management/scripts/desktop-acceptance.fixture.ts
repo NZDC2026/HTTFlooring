@@ -1,10 +1,11 @@
+import env from '../config/environment.cjs';
 import {it,vi} from 'vitest';
 import {mkdirSync,writeFileSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 // Opt-in fixture generator; normal runs only check that no business profile is requested.
 it('keeps native acceptance seeding opt-in and outside the business profile',async()=>{
- const target=process.env.HTT_ACCEPTANCE_PROFILE;if(!target)throw new Error('Set HTT_ACCEPTANCE_PROFILE to a fresh temporary profile.');
+ const target=env.HTT_ACCEPTANCE_PROFILE;if(!target)throw new Error('Set HTT_ACCEPTANCE_PROFILE to a fresh temporary profile.');
  if(!target.startsWith(tmpdir())&&!target.startsWith('/private/tmp/'))throw new Error('Use an isolated temporary acceptance profile.');
  const root=join(target,'local-security');if(existsSync(root))throw new Error('Use a fresh acceptance profile.');mkdirSync(root,{recursive:true});
  vi.resetModules();vi.stubGlobal('__HTT_MAIN_HOST__',true);vi.stubGlobal('window',undefined);vi.stubGlobal('localStorage',undefined);

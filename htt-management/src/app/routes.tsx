@@ -1,3 +1,4 @@
+import { DispatchFollowupsPanel } from '../features/dispatch-followups/DispatchFollowupsPanel';
 import {PurchasePrintPage} from '../features/document-output/PurchasePrintPage';
 import { CustomerCreditReturnsPage } from '../features/customer-returns/CustomerCreditReturnsPage';
 import { StockAdjustmentsPage } from '../features/stock-adjustments/StockAdjustments';
@@ -98,6 +99,7 @@ export const appRoutes:RouteObject[] = [
             { path: 'payroll/leave', element: <LeavePage /> },
             { path: 'documents/upload', element: <DocumentUploadPage /> },
             { path: 'documents/:documentId', element: <DocumentDetailPage /> },
+            { path: 'settings/dispatch-followups', element: <DispatchFollowupsPanel /> },
             { path: 'settings/preferences', element: <SettingsOverviewPage key="preferences" /> },
             { path: 'settings/roles', element: <SettingsOverviewPage key="roles" /> },
             { path: 'settings/integrations', element: <SettingsOverviewPage key="integrations" /> },

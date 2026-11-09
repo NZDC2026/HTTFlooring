@@ -44,15 +44,20 @@ pnpm start:web
 
 ## 部署到服务器
 
-默认仅绑定本机。通过 HTTPS 反向代理部署时，例如：
+所有 Node 端环境配置统一列在项目根目录 `.env.example`。首次部署复制为 `.env`，然后在 `.env` 中修改服务器地址、数据目录和发件服务设置；`.env` 已被 Git 忽略，不要提交真实凭据。当前工作区 `.env` 已保留现有线上域名、端口、Secure Cookie 和数据目录。
 
 ```sh
-HOST=127.0.0.1 API_PORT=8787 \
-PUBLIC_ORIGIN=https://management.example.com COOKIE_SECURE=1 \
-HTT_DATA_DIR=/path/to/private/htt-data pnpm start:web
+cp .env.example .env
+# 编辑 .env，再构建、启动
+pnpm build:web
+pnpm start:web
 ```
 
-反向代理将该域名的流量转发到本机 8787。`PUBLIC_ORIGIN` 必须精确匹配浏览器来源，不带结尾斜杠；`COOKIE_SECURE=1` 启用 Secure + HttpOnly + SameSite=Strict 的会话 Cookie。服务端拒绝跨来源写请求及未授权业务操作。凭据不放到前端配置或浏览器 localStorage。部署本身未执行。
+统一入口为 `config/environment.cjs`，使用 Node 自带的 `.env` 解析和加载，不需要另装 dotenv。优先级为：终端/CI 环境变量 → `.env` → `.env.example` 中的非敏感默认值。打包后的 Electron 不从用户的当前目录加载 `.env`。Vite 客户端只接收显式生成的网页版标志，不注入服务器密钥。
+
+部署时 `.env` 中设置：`PUBLIC_ORIGIN` 为实际 HTTPS 来源（不带结尾斜杠），`COOKIE_SECURE=1`，`HOST=127.0.0.1`，`API_PORT=8787`；`HTT_DATA_DIR` 必须保持指向原有数据目录。反向代理继续转发到该端口。修改 `.env` 后重启；修改构建模式后重新构建。
+
+发件密钥 `RESEND_API_KEY`、桌面签名 `CSC_*` 和 Apple 公证凭据只供 Node 端读取，不要使用 `VITE_` 前缀。未配置的密钥留空。验收用 `HTT_ACCEPTANCE_PROFILE`、`HTT_G17_CASE`、`HTT_ROUTE_EVIDENCE` 默认留空，每轮测试临时指定全新的临时目录。`npm_execpath`、`VITE_DEV_SERVER_URL`、`HTT_VERIFY_ARTIFACT` 是工具动态提供的运行信息，不要填入固定机器路径。
 
 ## 验证
 

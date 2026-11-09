@@ -1,3 +1,4 @@
+import env from '../../config/environment.cjs';
 import { OperationalLog } from "./operationalLog";
 import { registerSecurityIpc } from "../security/registerSecurityIpc";
 import {
@@ -276,12 +277,10 @@ function createMainWindow(route = "/") {
     );
 
     if (
-        process.env
-            .VITE_DEV_SERVER_URL
+        env.VITE_DEV_SERVER_URL
     ) {
         window.loadURL(
-            process.env
-                .VITE_DEV_SERVER_URL,
+            env.VITE_DEV_SERVER_URL,
         );
     } else {
         window.loadFile(

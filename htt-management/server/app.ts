@@ -1,3 +1,9 @@
+import env from '../config/environment.cjs';
+import {commercialReservation} from '../src/features/dispatch-followups/stockReservations';
+import {visibleDocuments} from '../src/features/document-recycle/recycleState';
+import { DispatchFollowups } from './dispatchFollowups';
+import {snapshotRepositories} from '../src/features/security/repositoryHost';
+import type {SalesDocument} from '../src/features/sales/types/salesDocument';
 import { configureCaptureHelper } from '../electron/security/captureRecognizer';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
@@ -9,7 +15,7 @@ import { assertApprovedDesktopCommand } from '../src/features/security/optionalW
 import { WebStorage } from './storage';
 
 export function createWebApplication(options: { directory: string; staticDirectory?: string; publicOrigin?: string; secureCookie?: boolean }) {
-    configureCaptureHelper(resolve(process.env.HTT_OCR_HELPER || 'dist-ocr/htt-ocr'));
+    configureCaptureHelper(resolve(env.required('HTT_OCR_HELPER')));
     const storage = new WebStorage(options.directory);
     const security = new LocalSecurity(join(options.directory, 'security-v1.json'),
         (path, value) => storage.write(path, value), () => Date.now(),
@@ -17,6 +23,22 @@ export function createWebApplication(options: { directory: string; staticDirecto
     const business = new BusinessHost(join(options.directory, 'business-v1.json'), security, storage);
     business.restrictToApprovedScope();
     let queue = Promise.resolve();
+    const followupDocuments=()=>{const state=snapshotRepositories().sales as {quotes:SalesDocument[];salesOrders:SalesDocument[];invoices:SalesDocument[]}|undefined;return state?visibleDocuments([...state.quotes,...state.salesOrders,...state.invoices]):[];};
+    const followups=new DispatchFollowups(storage,{
+        documents:followupDocuments,
+        schedule:(id,date,actor,reason)=>{const d=followupDocuments().find(d=>d.id===id)!;security.runDispatchServiceSync(()=>business.command({repository:'sales',method:'scheduleDispatch',args:[id,date,d.awaitingCollection??false,d.deliveryBooked,{actor,reason}]}));},
+        expire:(id,date)=>{security.runDispatchServiceSync(()=>business.command({repository:'sales',method:'expireDispatchQuote',args:[id,date]}));},
+    });
+    // Only initialization joins the principal-sensitive request queue. Provider I/O must
+    // never hold that queue or a user's identity; business mutations use short sync scopes.
+    let followupWork:Promise<unknown>=Promise.resolve();let followupWorking=false;
+    const followupTimer=setInterval(()=>{
+        if(followupWorking)return;followupWorking=true;
+        const ready=queue.then(()=>security.runDispatchService(async()=>{if(storage.read(join(options.directory,'business-v1.json'))===undefined)return false;await business.initialize();return true;}));
+        queue=ready.then(()=>{},()=>{});
+        followupWork=ready.then(ok=>ok?followups.tick():undefined).catch(error=>console.error('Dispatch follow-up service:',error instanceof Error?error.message:'Failed')).finally(()=>{followupWorking=false;});
+    },60000);followupTimer.unref();
+
     const lastScans = new Map<string, number>();
     const attempts = new Map<string, { count: number; until: number }>();
     const cookieName = options.secureCookie ? '__Host-htt-session' : 'htt-session';
@@ -67,7 +89,10 @@ export function createWebApplication(options: { directory: string; staticDirecto
                 return business.view();
             }
             case 'business.bootstrap': await business.initialize(); business.scanRecurringDue(); return business.view();
-            case 'business.command': assertApprovedDesktopCommand(input); security.validateDeliveryAssignee(input); return business.command(input);
+            case 'dispatchFollowups.reservations': {security.require('inventory.read');const s=snapshotRepositories() as any;return (s.products?.products??[]).map((p:any)=>({productId:p.id,quantity:commercialReservation(p,followupDocuments(),s.fulfilments?.fulfilments??[])}));}
+            case 'dispatchFollowups.view': security.require('sales.read');return followups.view(input.documentId);
+            case 'dispatchFollowups.configure': security.require('users.manage');security.audit('dispatch.followups.configure','company','INTENT','users.manage');{const result=followups.configure(input);security.audit('dispatch.followups.configure','company','SUCCESS','users.manage');return result;}
+            case 'business.command': {assertApprovedDesktopCommand(input);security.validateDeliveryAssignee(input);const before=structuredClone(followupDocuments()),actor=security.principal();const result=business.command(input);followups.recordChanges(before,actor?.displayName||actor?.userId||'Staff');return result;}
             case 'business.recurring.scan': {
                 if (Object.keys(input).length) throw new Error('Recurring scan does not accept caller dates, actors or limits.');
                 security.require('inventory.read');
@@ -98,6 +123,17 @@ export function createWebApplication(options: { directory: string; staticDirecto
         }
     }
     const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+        if(req.url?.split('?')[0]==='/api/dispatch-portal'){
+            const origin=followups.view().configuration.portalOrigin.replace(/\/$/,'');
+            if(req.headers.origin!==origin){reply(res,403,{ok:false,error:'Portal origin not permitted.'});return;}
+            res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');
+            if(req.method==='OPTIONS'){res.setHeader('Access-Control-Allow-Methods','POST');res.setHeader('Access-Control-Allow-Headers','Content-Type, X-HTT-Request');res.writeHead(204);res.end();return;}
+            if(req.method!=='POST'||req.headers['x-htt-request']!=='1'||!req.headers['content-type']?.startsWith('application/json')){reply(res,403,{ok:false,error:'Invalid portal request.'});return;}
+            const rateKey='portal:'+req.socket.remoteAddress,rate=attempts.get(rateKey);if(rate&&rate.until>Date.now()&&rate.count>=30){reply(res,429,{ok:false,error:'Too many requests; try again in a minute.'});return;}attempts.set(rateKey,{count:rate&&rate.until>Date.now()?rate.count+1:1,until:rate&&rate.until>Date.now()?rate.until:Date.now()+60000});
+            try{let raw='';for await(const part of req){raw+=part.toString();if(raw.length>10000)throw Error('Request too large.');}const body=JSON.parse(raw);
+                const task=queue.then(()=>security.runDispatchService(async()=>{try{if(storage.read(join(options.directory,'business-v1.json'))===undefined)throw Error('Business service is not ready.');await business.initialize();if(body.action!=='view'&&body.action!=='update')throw Error('Unknown portal action.');const value=body.action==='view'?followups.portalView(body.input?.token):followups.portalUpdate(body.input);reply(res,200,{ok:true,value});}catch(error){reply(res,200,{ok:false,error:error instanceof Error?error.message:'Unable to update document.'});}}));queue=task.catch(()=>{});await task;
+            }catch{reply(res,400,{ok:false,error:'Invalid portal request.'});}return;
+        }
         if (req.url?.split('?')[0] !== '/api/security') {
             if (req.url?.startsWith('/api/')) { reply(res, 404, { ok: false, error: 'Unknown API route.' }); return; }
             if (!['GET', 'HEAD'].includes(req.method ?? '') || !options.staticDirectory) { reply(res, 404, { ok: false, error: 'Not found.' }); return; }
@@ -156,5 +192,5 @@ export function createWebApplication(options: { directory: string; staticDirecto
     });
     server.requestTimeout = 120_000;
     server.headersTimeout = 15_000;
-    return { server, close: () => new Promise<void>((done, reject) => server.close(error => { storage.close(); if (error) reject(error); else done(); })) };
+    return { server, close: () => new Promise<void>((done, reject) => {clearInterval(followupTimer);server.close(error => {void Promise.allSettled([queue,followupWork]).then(()=>{storage.close();if(error)reject(error);else done();});});}) };
 }

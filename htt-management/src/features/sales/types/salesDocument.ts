@@ -120,7 +120,9 @@ export interface SalesDocumentTotals {
     total: number;
 }
 
+export type DispatchDateHistory = {id:string;at:string;actor:string;source:'Management'|'Customer portal'|'Automation';action:string;before:string;after:string;reason:string};
 interface SalesDocumentBase {
+    dispatchHistory?: DispatchDateHistory[];
     paymentTerms?: import("../../payment-terms/paymentTerms").PaymentTerms;
     deliveryBooked?: boolean;
     expectedDispatchDate?: string;

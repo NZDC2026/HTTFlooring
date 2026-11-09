@@ -1,9 +1,10 @@
+import env from '../config/environment.cjs';
 import {it,expect,vi} from 'vitest';
 import {readFileSync,writeFileSync,realpathSync} from 'node:fs';
 import {join,resolve,sep} from 'node:path';
 import {tmpdir} from 'node:os';
 it('verifies only the isolated synthetic native S02-S04 profile after closing the app',async()=>{
- const raw=process.env.HTT_ACCEPTANCE_PROFILE;if(!raw)throw Error('Set the isolated temporary acceptance profile.');const target=resolve(raw);if(!target.startsWith(realpathSync(tmpdir())+sep)&&!target.startsWith('/private/tmp/'))throw Error('Temporary profiles only.');
+ const raw=env.HTT_ACCEPTANCE_PROFILE;if(!raw)throw Error('Set the isolated temporary acceptance profile.');const target=resolve(raw);if(!target.startsWith(realpathSync(tmpdir())+sep)&&!target.startsWith('/private/tmp/'))throw Error('Temporary profiles only.');
  const fixture=JSON.parse(readFileSync(join(target,'acceptance-case.json'),'utf8'));expect(fixture.synthetic).toBe(true);expect(fixture.stage).toBe('S02-S04');
  vi.resetModules();vi.stubGlobal('__HTT_MAIN_HOST__',true);vi.stubGlobal('window',undefined);vi.stubGlobal('localStorage',undefined);vi.stubGlobal('fetch',()=>{throw Error('No network in S02-S04 recovery proof');});
  const {LocalSecurity}=await import('../electron/security/localSecurity'),{BusinessHost}=await import('../electron/security/businessHost');const root=join(target,'local-security'),security=new LocalSecurity(join(root,'security-v1.json'));security.login({username:'qa.admin',password:'Desktop-Acceptance-4821'});const host=new BusinessHost(join(root,'business-v1.json'),security);await host.initialize();const backup=host.exportBackup(),s=backup.repositories as any,run=s.payroll.runs.find((r:any)=>r.id===fixture.runId),customer=s.customers.customers.find((c:any)=>c.id===fixture.customerId);

@@ -1,3 +1,4 @@
+import DispatchFollowupPage from "./pages/DispatchFollowupPage";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import AccountPage from "./pages/AccountPage";
 import ApplicationSubmittedPage from "./pages/ApplicationSubmittedPage";
@@ -25,6 +26,7 @@ export default function App() {
     <BrowserRouter>
       <ScrollToTop/><Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/follow-up" element={<DispatchFollowupPage/>} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 

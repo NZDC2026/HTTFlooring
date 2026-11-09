@@ -45,6 +45,15 @@ export class LocalSecurity {
         for (const [id, session] of this.sessions) if (session.idleUntil <= this.now() || session.absoluteUntil <= this.now()) this.sessions.delete(id);
         this.sessionKey = key;
     }
+    private dispatchService = false;
+    /** Host-only automation scope; never exposed as an assignable user role or HTTP action. */
+    async runDispatchService<T>(work:()=>Promise<T>):Promise<T>{
+        if(this.dispatchService)throw Error('Dispatch service already running.');
+        this.dispatchService=true;try{return await work();}finally{this.dispatchService=false;}
+    }
+    runDispatchServiceSync<T>(work:()=>T):T{
+        const previous=this.dispatchService;this.dispatchService=true;try{return work();}finally{this.dispatchService=previous;}
+    }
     private poisoned = false;
     private path: string;
     private save: (path: string, state: unknown) => void;
@@ -84,6 +93,7 @@ export class LocalSecurity {
         this.commit({ ...this.state, audit: [...this.state.audit, row] });
     }
     principal(): VerifiedPrincipal | null {
+        if(this.dispatchService&&!this.poisoned)return {userId:'SYSTEM:DISPATCH',displayName:'Dispatch automation',roles:['__DISPATCH_SERVICE__'],authenticated:true};
         if (this.poisoned || !this.session) return null;
         const now = this.now();
         const user = this.state.users.find(row => row.id === this.session!.userId);
@@ -93,7 +103,7 @@ export class LocalSecurity {
     require(permission: Permission): VerifiedPrincipal {
         const actor = this.principal();
         if (!hasPermission(actor, permission)) { this.audit('permission.denied', permission, 'DENIED', permission); throw new Error(`Permission denied: ${permission}`); }
-        this.session!.idleUntil = Math.min(this.now() + 30 * 60_000, this.session!.absoluteUntil);
+        if(!this.dispatchService)this.session!.idleUntil = Math.min(this.now() + 30 * 60_000, this.session!.absoluteUntil);
         return actor!;
     }
     status(): SecurityStatus {

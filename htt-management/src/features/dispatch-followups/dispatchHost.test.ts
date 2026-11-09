@@ -1,0 +1,22 @@
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+let root:string;let security:InstanceType<typeof import('../../../electron/security/localSecurity').LocalSecurity>;let host:InstanceType<typeof import('../../../electron/security/businessHost').BusinessHost>;
+const admin={username:'dispatch.admin',displayName:'Dispatch Admin',password:'dispatch-test-password-12345'};
+beforeEach(async()=>{vi.resetModules();root=mkdtempSync(join(tmpdir(),'htt-dispatch-'));const {LocalSecurity}=await import('../../../electron/security/localSecurity');const {BusinessHost}=await import('../../../electron/security/businessHost');security=new LocalSecurity(join(root,'security.json'));security.setup(admin);host=new BusinessHost(join(root,'business.json'),security);await host.initialize();});
+afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();rmSync(root,{recursive:true,force:true});});
+const cmd=(method:string,...args:unknown[])=>host.command({repository:'sales',method,args}).result as any;
+const state=(key:string)=>host.view().repositories[key] as any;
+it('records schedule history with verified identities; expires without changing stock or journals; survives restart without login',async()=>{
+ const product=state('products').products[0],customer=state('customers').customers[0];const q=cmd('createQuote',{customerId:customer.id,documentDate:'2026-11-01',expectedDispatchDate:'2026-11-08',lines:[{productId:product.id,unitId:product.baseUnitId,quantity:2}]});cmd('sendQuote',q.id);
+ cmd('scheduleDispatch',q.id,'2026-11-08',false,false);
+ expect(()=>cmd('scheduleDispatch',q.id,'2026-11-20',false,false,{actor:'Forged customer',reason:'Not allowed'})).toThrow(/identity/);
+ const before=structuredClone(state('inventory')),journals=structuredClone(state('journals'));
+ security.logout();
+ await security.runDispatchService(async()=>{expect(()=>security.require('users.manage')).toThrow();expect(()=>security.require('accounting.post')).toThrow();cmd('scheduleDispatch',q.id,'2026-11-20',false,false,{actor:'real.customer@example.invalid',reason:'Site not ready'});});
+ expect(security.principal()).toBeNull();security.login(admin);const next=state('sales').quotes.find((d:any)=>d.id===q.id);expect(next.dispatchHistory.at(-1).actor).toBe('real.customer@example.invalid');expect(next.dispatchHistory.at(-1).before).toBe('2026-11-08');
+ await security.runDispatchService(async()=>{cmd('expireDispatchQuote',q.id,'2026-11-20');});expect(state('sales').quotes.find((d:any)=>d.id===q.id).status).toBe('EXPIRED');expect(state('inventory')).toEqual(before);expect(state('journals')).toEqual(journals);
+ security.logout();const {BusinessHost}=await import('../../../electron/security/businessHost');host=new BusinessHost(join(root,'business.json'),security);await security.runDispatchService(async()=>{await host.initialize();expect(state('sales').quotes.find((d:any)=>d.id===q.id).dispatchHistory.at(-1).action).toContain('expired');});expect(security.principal()).toBeNull();
+});
+it('does not expose the internal service role to user accounts and clears identity on errors',async()=>{expect(()=>security.createUser({username:'forged.service',displayName:'Forge',password:admin.password,roles:['__DISPATCH_SERVICE__'] as never})).toThrow();const original=security.principal()!.userId;await expect(security.runDispatchService(async()=>{throw Error('test failure');})).rejects.toThrow('test failure');expect(security.principal()!.userId).toBe(original);});

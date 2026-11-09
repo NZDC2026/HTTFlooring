@@ -1,3 +1,4 @@
+import {trustedAuthorization} from '../../security/trustedAuthorization';
 import {validateSalesDiscountSnapshot} from './salesPricingService';
 import { isCustomerCreditHeld } from "../../credit-hold/creditHoldNotice";
 import { paymentDueDate, invoicePaymentTerms, salesDocumentPaymentTerms, validatePaymentTerms } from "../../payment-terms/paymentTerms";
@@ -157,13 +158,20 @@ function validateDispatchFields(d:{deliveryBooked?:boolean;expectedDispatchDate?
  if(d.deliveryBooked&&!d.expectedDispatchDate)throw Error('Delivery date is required when Delivery Booked is selected.');
 }
 export const salesRepository = {
-    scheduleDispatch(id:string,expectedDate:string,awaitingCollection:boolean,deliveryBooked?:boolean):SalesDocument {
+    expireDispatchQuote(id:string,expectedDate:string):Quote {
+        const doc=quotes.find(q=>q.id===id);
+        if(!doc||doc.expectedDispatchDate!==expectedDate||!['SENT','ACCEPTED'].includes(doc.status)||salesOrders.some(o=>o.sourceQuoteId===id))throw Error('Quote is no longer eligible for expiration.');
+        const at=new Date().toISOString();const next:Quote={...doc,status:'EXPIRED',updatedAt:at,dispatchHistory:[...(doc.dispatchHistory??[]),{id:crypto.randomUUID(),at,actor:'Dispatch automation',source:'Automation',action:'Quote expired — reservation released',before:doc.status,after:'EXPIRED',reason:'No update or conversion within seven days after follow-up email.'}]};commitQuotes(quotes.map(q=>q.id===id?next:q));return next;
+    },
+    scheduleDispatch(id:string,expectedDate:string,awaitingCollection:boolean,deliveryBooked?:boolean,portalChange?:{actor:string;reason:string}):SalesDocument {
         if(typeof id!=='string'||typeof expectedDate!=='string'||typeof awaitingCollection!=='boolean')throw Error('Invalid dispatch schedule.');
         const doc=salesRepository.getById(id);if(!doc)throw Error('Sales document not found.');
         if(['VOID','CANCELLED','DECLINED','EXPIRED'].includes(doc.status))throw Error('This document cannot be scheduled.');
         if(expectedDate)requireDateKey(expectedDate,'Expected dispatch date');
         validateDispatchFields({deliveryBooked:deliveryBooked??doc.deliveryBooked,expectedDispatchDate:expectedDate,awaitingCollection});
-        const next={...doc,deliveryBooked:deliveryBooked??doc.deliveryBooked,expectedDispatchDate:expectedDate||undefined,awaitingCollection,updatedAt:new Date().toISOString()};
+        const actor=trustedAuthorization.current();if(portalChange&&(actor?.userId!=='SYSTEM:DISPATCH'||!portalChange.actor||!portalChange.reason))throw Error('Invalid portal change identity.');
+        const history=doc.dispatchHistory??[];const dateChanged=(doc.expectedDispatchDate??(doc.type==='SALES_ORDER'?doc.requestedDeliveryDate:'')??'')!==expectedDate;
+        const next={...doc,dispatchHistory:dateChanged?[...history,{id:crypto.randomUUID(),at:new Date().toISOString(),actor:portalChange?.actor??actor?.displayName??actor?.userId??'Staff',source:portalChange?'Customer portal' as const:'Management' as const,action:portalChange?'Customer updated expected dispatch date':'Expected dispatch date changed',before:doc.expectedDispatchDate??(doc.type==='SALES_ORDER'?doc.requestedDeliveryDate:'')??'',after:expectedDate,reason:portalChange?.reason??'Updated in management'}]:history,deliveryBooked:deliveryBooked??doc.deliveryBooked,expectedDispatchDate:expectedDate||undefined,awaitingCollection,updatedAt:new Date().toISOString()};
         if(doc.type==='QUOTE')commitQuotes(quotes.map(d=>d.id===id?next as Quote:d));
         else if(doc.type==='SALES_ORDER')commitOrderDocuments(salesOrders.map(d=>d.id===id?next as SalesOrder:d));
         else commitInvoices(invoices.map(d=>d.id===id?next as Invoice:d));
@@ -2214,10 +2222,11 @@ function getLocalDateKey(
 }
 registerRepository("sales", {
     repository: salesRepository, read: "sales.read",
-    commands: {"scheduleDispatch":"sales.manage", "createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
+    commands: {"expireDispatchQuote":"sales.manage", "scheduleDispatch":"sales.manage", "createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
     validate: (value,snapshots) => {
         const saved=value as {quotes:Quote[];salesOrders:SalesOrder[];invoices:Invoice[]};
         for (const d of [...saved.quotes,...saved.salesOrders,...saved.invoices]) {
+            if(d.dispatchHistory!==undefined&&(!Array.isArray(d.dispatchHistory)||d.dispatchHistory.some(h=>!h.id||!Number.isFinite(Date.parse(h.at))||!['Management','Customer portal','Automation'].includes(h.source)||['actor','action','before','after','reason'].some(k=>typeof h[k as keyof typeof h]!=='string'))))throw Error('Invalid dispatch history.');
             validateDispatchFields(d);if(d.paymentTerms)validatePaymentTerms(d.paymentTerms);
             validateRecipientSnapshot(d.recipient);
             for (const l of d.lines) {validateSalesDiscountSnapshot(l);validateAreaSnapshot(l); validatePricingSnapshot(l);validateLineItemType(l,(snapshots.products as {products:import("../../inventory/types/product").Product[]}).products.find(p=>p.id===l.productId));}

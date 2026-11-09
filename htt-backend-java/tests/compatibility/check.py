@@ -4885,6 +4885,36 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 for backend in (first,second):
                     assert request(geo_path+'/navigation?provider=APPLE',report_actor,company,base=backend)[0]==409
             print('PASS: geocode queue/read/retry shared replay, synthetic worker completion, manual priority and native Google place-ID/Apple restrictions; no provider calls')
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                device_id=str(uuid.uuid4());device_path='/api/v1/crm/mobile/devices/'+device_id
+                registered=rule_write_retry('/api/v1/crm/mobile/devices',{'deviceId':device_id},first,second,{'deviceId':str(uuid.uuid4())},actor=other_report_actor)
+                assert registered[1]['lastSequence']==0,registered
+                path=device_path+'/collaboration-operations';note_id=str(uuid.uuid4())
+                create={'operationId':str(uuid.uuid4()),'sequence':1,'id':note_id,'action':'CREATE','kind':'NOTE','customerId':customer_id,'branchId':branch,'data':{'text':'Synthetic mobile collaboration café '+uuid.uuid4().hex,'visibility':'TEAM'}}
+                for backend in (first,second):
+                    assert request(path,other_report_actor,company,base=backend,payload={**create,'sequence':99},key='collab-sequence-'+uuid.uuid4().hex)[0]==409
+                    assert request(path,report_actor,company,base=backend,payload=create,key='collab-device-owner-'+uuid.uuid4().hex)[0]==403
+                created=rule_write_retry(path,create,first,second,{'sequence':99},status=200,actor=other_report_actor)
+                assert created[1]['status']=='APPLIED',created
+                update={'operationId':str(uuid.uuid4()),'sequence':2,'id':note_id,'action':'UPDATE','version':created[1]['entity']['version'],'data':{'text':'Synthetic mobile collaboration updated','visibility':'TEAM'}}
+                updated=rule_write_retry(path,update,second,first,{'sequence':99},status=200,actor=other_report_actor)
+                assert updated[1]['status']=='APPLIED',updated
+                stale=rule_write_retry(path,{**update,'operationId':str(uuid.uuid4()),'sequence':3},first,second,{'sequence':99},status=200,actor=other_report_actor)
+                assert stale[1]['status']=='CONFLICT' and stale[1]['serverVersion']==updated[1]['entity']['version'],stale
+                deletion={'operationId':str(uuid.uuid4()),'sequence':4,'id':note_id,'action':'DELETE','version':updated[1]['entity']['version']}
+                deleted=rule_write_retry(path,deletion,second,first,{'sequence':99},status=200,actor=other_report_actor)
+                assert deleted[1]['status']=='APPLIED' and deleted[1]['entity']['state']=='DELETED',deleted
+                board_id=str(uuid.uuid4());now=datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z')
+                board={'operationId':str(uuid.uuid4()),'sequence':5,'id':board_id,'action':'CREATE','kind':'BOARD','customerId':customer_id,'branchId':branch,'data':{'title':'Synthetic mobile board '+uuid.uuid4().hex,'placedAt':now}}
+                displayed=rule_write_retry(path,board,first,second,{'sequence':99},status=200,actor=other_report_actor)
+                assert displayed[1]['status']=='APPLIED',displayed
+                remove={'operationId':str(uuid.uuid4()),'sequence':6,'id':board_id,'action':'REMOVE','version':displayed[1]['entity']['version'],'data':{'reason':' Synthetic mobile removal '}}
+                removed=rule_write_retry(path,remove,second,first,{'sequence':99},status=200,actor=other_report_actor)
+                assert removed[1]['status']=='APPLIED' and removed[1]['entity']['state']=='REMOVED',removed
+                revoked=request(device_path,other_report_actor,company,base=first,key='collab-device-revoke-'+uuid.uuid4().hex,method='DELETE')
+                assert revoked[0]==200,revoked
+                assert request(path,other_report_actor,company,base=second,payload=create,key='collab-revoked-'+uuid.uuid4().hex)[0]==403
+            print('PASS: collaboration offline NOTE/BOARD create/update/delete/remove, strict shared device sequences, persisted conflicts and owner/revocation guards')
             print('PASS: independent CRM approval creates exactly one customer/exposure/owner assignment, AU branch and normalized linked contact with mixed replay')
             draft_read('/api/v1/crm/drafts?pageSize=1')
             draft_read('/api/v1/crm/drafts?state=DELETED&pageSize=100')

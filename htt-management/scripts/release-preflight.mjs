@@ -1,3 +1,4 @@
+import env from '../config/environment.cjs';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
@@ -16,7 +17,7 @@ export function validateRelease({pkg, node, pnpm, platform, env, tag, dirty}) {
  return errors;
 }
 export function runPnpm(args, options={}) {
- if(process.env.npm_execpath)return execFileSync(process.execPath,[process.env.npm_execpath,...args],options);
+ if(env.npm_execpath)return execFileSync(process.execPath,[env.npm_execpath,...args],options);
  if(process.platform==='win32')throw new Error('On Windows invoke through pnpm release:signed or pnpm release:check');
  return execFileSync('pnpm',args,options);
 }
@@ -24,12 +25,12 @@ export function preflight() {
  const pkg=JSON.parse(readFileSync('package.json','utf8'));
  const pnpm=runPnpm(['--version'],{encoding:'utf8'}).trim();
  const dirty=!!execFileSync('git',['status','--porcelain'],{encoding:'utf8'}).trim();
- const tag=process.env.HTT_RELEASE_TAG;
+ const tag=env.HTT_RELEASE_TAG;
  if(!tag||!/^v[0-9]+\.[0-9]+\.[0-9]+(?:-[\w.-]+)?$/.test(tag))throw new Error('Specify an existing vX.Y.Z release tag');
  const tagged=execFileSync('git',['rev-parse',`refs/tags/${tag}^{commit}`],{encoding:'utf8'}).trim();
  const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
  if(tagged!==head)throw new Error('Checkout must match the immutable release tag');
- const errors=validateRelease({pkg,node:process.versions.node,pnpm,platform:process.platform,env:process.env,tag:process.env.HTT_RELEASE_TAG,dirty});
+ const errors=validateRelease({pkg,node:process.versions.node,pnpm,platform:process.platform,env,tag:env.HTT_RELEASE_TAG,dirty});
  if(errors.length)throw new Error(errors.join('\n'));
  return pkg;
 }

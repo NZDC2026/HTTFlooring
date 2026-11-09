@@ -551,10 +551,10 @@ END $$;
 
 DO $$ BEGIN
  IF (SELECT count(*) FROM crm.mobile_devices WHERE actor_id='00000000-0000-0000-0000-000000000500' AND NOT active AND last_sequence=7)<>2
- OR (SELECT count(*) FROM crm.mobile_operations)<>14
- OR (SELECT count(*) FROM crm.mobile_operations WHERE response->>'status'='CONFLICT')<>4
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke')<>2
+ OR (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain' IS NULL)<>14
+ OR (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain' IS NULL AND response->>'status'='CONFLICT')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device' AND actor_id='00000000-0000-0000-0000-000000000500')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke' AND actor_id='00000000-0000-0000-0000-000000000500')<>2
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.push')<>14
  THEN RAISE EXCEPTION 'Mobile device, operation sequence, conflict persistence or audit mismatch'; END IF;
 END $$;
@@ -605,4 +605,14 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM crm.customer_branches WHERE code LIKE 'JV_GEO_%' AND name LIKE 'Synthetic geocode branch %' AND country='AU' AND state='NSW' AND active AND version=1)<>2
  OR (SELECT count(*) FROM platform.audit_events WHERE action='foundation.master_data_changed' AND entity_type='crm.customer_branches' AND actor_id='00000000-0000-0000-0000-000000000500' AND details->'before'='null'::jsonb)<>2
  THEN RAISE EXCEPTION 'New synthetic geocode branches must be distinct audited creations'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain'='COLLABORATION')<>12
+ OR (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain'='COLLABORATION' AND response->>'status'='CONFLICT')<>2
+ OR (SELECT count(*) FROM crm.mobile_devices WHERE actor_id='00000000-0000-0000-0000-000000000503' AND NOT active AND last_sequence=6)<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_push' AND actor_id='00000000-0000-0000-0000-000000000503')<>12
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device' AND actor_id='00000000-0000-0000-0000-000000000503')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke' AND actor_id='00000000-0000-0000-0000-000000000503')<>2
+ THEN RAISE EXCEPTION 'Collaboration device/domain operations and audit mismatch'; END IF;
 END $$;

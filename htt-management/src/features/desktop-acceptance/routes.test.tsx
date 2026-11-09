@@ -1,3 +1,4 @@
+import env from '../../../config/environment.cjs';
 import {writeFileSync} from 'node:fs';
 import {it,expect,vi,afterAll} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
@@ -13,7 +14,7 @@ import {appRoutes} from '../../app/routes';
 import type {RouteObject} from 'react-router-dom';
 function paths(rows:RouteObject[],parent=''):string[]{return rows.flatMap(r=>{const path=(parent+'/'+(r.path??'')).replace(/\/+/g,'/');return r.children?paths(r.children,path):r.index?[]:[path];});}
 const observations:{role:string;pattern:string;path:string;state:string}[]=[];
-afterAll(()=>{const target=process.env.HTT_ROUTE_EVIDENCE;if(target){if(!target.startsWith('/private/tmp/')&&!target.startsWith('/tmp/'))throw new Error('Use a temporary evidence file.');writeFileSync(target,JSON.stringify(observations,null,2));}});
+afterAll(()=>{const target=env.HTT_ROUTE_EVIDENCE;if(target){if(!target.startsWith('/private/tmp/')&&!target.startsWith('/tmp/'))throw new Error('Use a temporary evidence file.');writeFileSync(target,JSON.stringify(observations,null,2));}});
 export const patterns=paths(appRoutes).filter(p=>p!=='/*');
 for(const role of roles)for(const pattern of patterns){
  const path=pattern.replace(/:[A-Za-z]+/g,'missing-acceptance-record');

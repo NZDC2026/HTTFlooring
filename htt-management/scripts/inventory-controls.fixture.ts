@@ -1,9 +1,10 @@
+import env from '../config/environment.cjs';
 import {it,vi} from 'vitest';
 import {mkdirSync,existsSync,writeFileSync} from 'node:fs';
 import {isAbsolute,join,relative} from 'node:path';
 import {tmpdir} from 'node:os';
 it('creates only an explicitly requested fresh temporary inventory-control acceptance profile',async()=>{
- const target=process.env.HTT_ACCEPTANCE_PROFILE,kind=process.env.HTT_G17_CASE;
+ const target=env.HTT_ACCEPTANCE_PROFILE,kind=env.HTT_G17_CASE;
  if(!target||!['healthy','difference','missing-account'].includes(kind??''))throw new Error('Specify a fresh temporary HTT_ACCEPTANCE_PROFILE and HTT_G17_CASE.');
  if(!isAbsolute(target)||!['/private/tmp',tmpdir()].some(base=>{const r=relative(base,target);return r!==''&&!r.startsWith('..')&&!isAbsolute(r);}))throw new Error('Temporary acceptance profile required.');
  const root=join(target,'local-security');if(existsSync(root))throw new Error('Refusing existing profile.');mkdirSync(root,{recursive:true});

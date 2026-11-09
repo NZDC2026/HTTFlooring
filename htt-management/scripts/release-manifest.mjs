@@ -1,3 +1,4 @@
+import env from '../config/environment.cjs';
 import {inspectPackage} from './verify-desktop-package.mjs';
 import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync,writeFileSync} from 'node:fs';
@@ -16,7 +17,7 @@ if(signed){
   for(const file of files){if(!file.endsWith('.dmg'))throw new Error('Unexpected artifact on macOS');execFileSync('hdiutil',['verify',join(root,file)]);}
  }else if(platform==='win32'){
   inspectPackage({directory:join(root,'win-unpacked'),platform,arch:'x64',expectedVersion:sourceVersion});
-  for(const file of files){if(!file.endsWith('.exe'))throw new Error('Unexpected artifact on Windows');execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$s=Get-AuthenticodeSignature -LiteralPath $env:HTT_VERIFY_ARTIFACT; if($s.Status -ne 'Valid'){exit 1}"],{env:{...process.env,HTT_VERIFY_ARTIFACT:join(root,file)}});}
+  for(const file of files){if(!file.endsWith('.exe'))throw new Error('Unexpected artifact on Windows');execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',"$s=Get-AuthenticodeSignature -LiteralPath $env:HTT_VERIFY_ARTIFACT; if($s.Status -ne 'Valid'){exit 1}"],{env:env.childEnvironment({HTT_VERIFY_ARTIFACT:join(root,file)})});}
  }else throw new Error('Native signature verification required');
 }
 const porcelain=execFileSync('git',['status','--porcelain','--untracked-files=all'],{encoding:'utf8'}).trimEnd();

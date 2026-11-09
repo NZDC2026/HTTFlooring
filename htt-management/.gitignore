@@ -32,3 +32,8 @@ dist-ssr
 /dist-server/
 /dist-web/
 /web-data/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example

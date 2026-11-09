@@ -1,7 +1,8 @@
+import env from '../config/environment.cjs';
 import { it, vi } from 'vitest';
 import { mkdirSync, existsSync, writeFileSync } from 'node:fs'; import { join } from 'node:path'; import { tmpdir } from 'node:os';
 it('creates an opt-in isolated E02 review fixture without provider keys or network access', async () => {
- const target = process.env.HTT_ACCEPTANCE_PROFILE; if (!target || (!target.startsWith(tmpdir()) && !target.startsWith('/private/tmp/'))) throw Error('Use a new temporary HTT_ACCEPTANCE_PROFILE.');
+ const target = env.HTT_ACCEPTANCE_PROFILE; if (!target || (!target.startsWith(tmpdir()) && !target.startsWith('/private/tmp/'))) throw Error('Use a new temporary HTT_ACCEPTANCE_PROFILE.');
  const root = join(target, 'local-security'); if (existsSync(root)) throw Error('Use a fresh acceptance profile.'); mkdirSync(root, { recursive: true });
  vi.resetModules(); vi.stubGlobal('__HTT_MAIN_HOST__', true); vi.stubGlobal('window', undefined); vi.stubGlobal('localStorage', undefined);
  const { LocalSecurity } = await import('../electron/security/localSecurity'), { BusinessHost } = await import('../electron/security/businessHost');

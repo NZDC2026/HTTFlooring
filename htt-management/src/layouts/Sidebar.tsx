@@ -125,11 +125,6 @@ const sections = [
                 path: "/reports/purchase-posting-audit",
                 icon: FileText,
             },
-            {
-                label: "GRNI Outstanding",
-                path: "/reports/grni-outstanding",
-                icon: PackageCheck,
-            },
         ],
     },
 
