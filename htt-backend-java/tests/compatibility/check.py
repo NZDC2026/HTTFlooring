@@ -4329,11 +4329,13 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 return result
             customer_id='00000000-0000-0000-0000-000000000011'
             report_run_ids=[]
+            pdf_targets=[]
             for first,second in ((url,legacy_url),(legacy_url,url)):
                 operating_read('/api/v1/customers/'+customer_id+'/statement-preview?from=2026-01-01&to=2027-01-01',live=True)
                 statement=operating_capture('/api/v1/customers/'+customer_id+'/statements',{'from':'2026-01-01','to':'2027-01-01'},first,second,{'from':'2026-01-02'})
                 frozen=operating_read('/api/v1/customer-statements/'+statement[1]['id'])[1]
                 assert frozen==statement[1] and len(frozen['sha256'])==64 and frozen['version']==1,frozen
+                pdf_targets.append((statement[1]['id'],1,'CUSTOMER_STATEMENT'))
                 operating_read('/api/v1/customers/'+customer_id+'/statements?pageSize=1')
                 for kind in ('PURCHASING','ARAP','INVENTORY','BANKING','SALES'):
                     path=bas+'reports/operating?kind='+kind+'&from=2026-01-01&to=2027-01-01'
@@ -4447,6 +4449,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert visible['visibility']=='COMPANY' and visible['favourite'] is False,visible
                 pack=operating_capture('/api/v1/reports/packs',{'title':'Synthetic frozen café pack '+uuid.uuid4().hex,'items':[{'savedReportId':saved[1]['id'],'version':shared[1]['version']},{'definition':{'kind':'BALANCE_SHEET','filters':{'asOf':general_today}}}]},second,first,{'title':'Different frozen pack title'})
                 assert pack[0]==201,pack
+                pdf_targets.append((pack[1]['id'],1,'REPORT_PACK'))
                 assert designer_read('/api/v1/reports/packs/'+pack[1]['id'])[1]==pack[1] and len(pack[1]['sha256'])==64
                 designer_read('/api/v1/reports/packs/'+pack[1]['id'],other_report_actor,404)
                 designer_read('/api/v1/reports/packs?pageSize=1')
@@ -4981,6 +4984,183 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             task_read('/api/v1/crm/task-assignees?q='+'x'*101,422)
             task_read('/api/v1/crm/tasks/'+str(uuid.uuid4()),404)
             print('PASS: task typed create/update/start/complete/reopen/cancel/delete mixed replay, immutable scope, ordered native reads and deletion redaction')
+            for first,second in ((url,legacy_url),(legacy_url,url)):
+                device_id=str(uuid.uuid4());device_path='/api/v1/crm/mobile/devices/'+device_id
+                registered=rule_write_retry('/api/v1/crm/mobile/devices',{'deviceId':device_id},first,second,{'deviceId':str(uuid.uuid4())},actor=report_actor)
+                operations=device_path+'/task-operations';target=str(uuid.uuid4())
+                data={'title':'Synthetic offline task '+uuid.uuid4().hex,'assigneeId':'00000000-0000-0000-0000-000000000503','customerId':customer_id,'branchId':branch}
+                create={'operationId':str(uuid.uuid4()),'sequence':1,'id':target,'action':'CREATE','data':data}
+                for backend in (first,second):
+                    assert request(operations,report_actor,company,base=backend,payload={**create,'sequence':99},key='task-mobile-gap-'+uuid.uuid4().hex)[0]==409
+                    assert request(operations,other_report_actor,company,base=backend,payload=create,key='task-mobile-owner-'+uuid.uuid4().hex)[0]==403
+                created=rule_write_retry(operations,create,first,second,{'sequence':99},status=200,actor=report_actor)
+                assert created[1]['status']=='APPLIED',created
+                update={'operationId':str(uuid.uuid4()),'sequence':2,'id':target,'action':'UPDATE','version':created[1]['entity']['version'],'data':{**data,'title':data['title']+' updated'}}
+                updated=rule_write_retry(operations,update,second,first,{'sequence':99},status=200,actor=report_actor)
+                stale=rule_write_retry(operations,{**update,'operationId':str(uuid.uuid4()),'sequence':3},first,second,{'sequence':99},status=200,actor=report_actor)
+                assert stale[1]['status']=='CONFLICT' and stale[1]['serverVersion']==updated[1]['entity']['version'],stale
+                current=updated[1]['entity']
+                for sequence,action,state in ((4,'START','IN_PROGRESS'),(5,'COMPLETE','COMPLETED'),(6,'REOPEN','OPEN'),(7,'CANCEL','CANCELLED'),(8,'REOPEN','OPEN')):
+                    operation={'operationId':str(uuid.uuid4()),'sequence':sequence,'id':target,'action':action,'version':current['version']}
+                    result=rule_write_retry(operations,operation,first if sequence%2 else second,second if sequence%2 else first,{'sequence':99},status=200,actor=report_actor)
+                    assert result[1]['status']=='APPLIED' and result[1]['entity']['state']==state,result
+                    current=result[1]['entity']
+                deletion={'operationId':str(uuid.uuid4()),'sequence':9,'id':target,'action':'DELETE','version':current['version']}
+                key='task-mobile-delete-'+uuid.uuid4().hex
+                deleted=request(operations,report_actor,company,base=first,payload=deletion,key=key)
+                assert deleted[0]==200 and deleted[1]['status']=='APPLIED' and deleted[1]['entity']['state']=='DELETED',deleted
+                # Source cache guards intentionally hide all replay for deleted tasks.
+                for backend in (first,second):
+                    assert request(operations,report_actor,company,base=backend,payload=deletion,key=key)[0]==404
+                    assert request(operations,report_actor,company,base=backend,payload=create,key='task-deleted-create-'+uuid.uuid4().hex)[0]==404
+                revoked=request(device_path,report_actor,company,base=second,key='task-mobile-revoke-'+uuid.uuid4().hex,method='DELETE')
+                assert revoked[0]==200,revoked
+            print('PASS: task offline sequence/action processing, persisted conflicts, mixed replay and deleted-task cache redaction before replay')
+            def notification_read(path,status=200,actor=None):
+                a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a==b,(path,a,b)
+                return a
+            preferences=notification_read('/api/v1/crm/notification-preferences')[1]
+            assert preferences=={'pushEnabled':True,'tasksPush':True,'notesPush':True,'version':0},preferences
+            notification_task=request('/api/v1/crm/tasks',other_report_actor,company,base=legacy_url,payload={'id':str(uuid.uuid4()),'data':{'title':'Synthetic notification read '+uuid.uuid4().hex,'assigneeId':'00000000-0000-0000-0000-000000000500','customerId':customer_id,'branchId':branch}},key='notification-source-'+uuid.uuid4().hex)
+            assert notification_task[0]==201,notification_task
+            visible_messages=notification_read('/api/v1/crm/messages?unread=true&pageSize=100')[1]['items']
+            source_messages=[x for x in visible_messages if x['sourceId']==notification_task[1]['id']]
+            assert len(source_messages)==1,source_messages
+            message=source_messages[0];message_path='/api/v1/crm/messages/'+message['id']
+            assert notification_read(message_path)[1]==message
+            assert notification_read(message_path+'/push')[1]==[]
+            mark_path=message_path+'/read'
+            for backend in (url,legacy_url):
+                for body in ({},{'read':None}):
+                    assert request(mark_path,report_actor,company,base=backend,payload=body,key='read-required-'+uuid.uuid4().hex,version=message['version'],method='PUT')[0]==400
+            mark_key='message-read-shared-'+uuid.uuid4().hex
+            args={'payload':{'read':True},'key':mark_key,'version':message['version'],'method':'PUT'}
+            marked=request(mark_path,report_actor,company,**args)
+            assert marked[0]==200 and marked[1]['readAt'] is not None and marked[1]['version']==message['version']+1,marked
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                attempts=list(pool.map(lambda n:request(mark_path,report_actor,company,base=url if n%2 else legacy_url,**args),range(6)))
+            assert all(x==marked for x in attempts),attempts
+            assert request(mark_path,report_actor,company,base=legacy_url,**{**args,'payload':{'read':False}})[0]==409
+            unread=rule_write_retry(mark_path,{'read':False},legacy_url,url,{'read':True},marked[1]['version'],method='PUT',status=200,actor=report_actor)
+            assert unread[1]['readAt'] is None and unread[1]['version']==marked[1]['version']+1,unread
+            notification_read(message_path,404,other_report_actor)
+            notification_read(message_path+'/push',404,other_report_actor)
+            for query,status in (('pageSize=1',200),('unread=false',200),('unread=1',400),('page=0',422),('pageSize=101',422),('page=1.0',400)):
+                notification_read('/api/v1/crm/messages?'+query,status)
+            notification_read('/api/v1/crm/messages',403,general_reader)
+            note_body={'id':str(uuid.uuid4()),'kind':'NOTE','customerId':customer_id,'branchId':branch,'data':{'text':'Synthetic notification follow read '+uuid.uuid4().hex,'visibility':'TEAM'}}
+            note=request(collaboration_path,report_actor,company,base=legacy_url,payload=note_body,key='follow-read-fixture-'+uuid.uuid4().hex)
+            assert note[0]==201,note
+            follow_path='/api/v1/crm/notes/'+note[1]['id']+'/follow'
+            assert notification_read(follow_path)[1]['version']==0
+            assert notification_read(follow_path,actor=other_report_actor)[1]['version']==0
+            for backend in (url,legacy_url):
+                assert request(follow_path,other_report_actor,company,base=backend,payload={},key='follow-required-'+uuid.uuid4().hex,version=0,method='PUT')[0]==400
+            followed=rule_write_retry(follow_path,{'enabled':True},url,legacy_url,{'enabled':False},0,method='PUT',status=200,actor=other_report_actor)
+            assert followed[1]['enabled'] is True and followed[1]['version']==1,followed
+            unfollowed=rule_write_retry(follow_path,{'enabled':False},legacy_url,url,{'enabled':True},1,method='PUT',status=200,actor=other_report_actor)
+            assert unfollowed[1]['enabled'] is False and unfollowed[1]['version']==2,unfollowed
+            prefs_path='/api/v1/crm/notification-preferences'
+            off={'pushEnabled':False,'tasksPush':False,'notesPush':False}
+            for backend in (url,legacy_url):
+                assert request(prefs_path,report_actor,company,base=backend,payload={'pushEnabled':False,'tasksPush':False},key='prefs-required-'+uuid.uuid4().hex,version=0,method='PUT')[0]==400
+                assert request(prefs_path,report_actor,company,base=backend,payload=off,key='prefs-no-version-'+uuid.uuid4().hex,method='PUT')[0]==428
+            disabled=rule_write_retry(prefs_path,off,url,legacy_url,{'notesPush':True},0,method='PUT',status=200,actor=report_actor)
+            assert disabled[1]['version']==1 and disabled[1]['pushEnabled'] is False,disabled
+            on={'pushEnabled':True,'tasksPush':True,'notesPush':True}
+            restored=rule_write_retry(prefs_path,on,legacy_url,url,{'tasksPush':False},1,method='PUT',status=200,actor=report_actor)
+            assert restored[1]=={**on,'version':2} and notification_read(prefs_path)[1]==restored[1],restored
+
+            device=str(uuid.uuid4())
+            registered=request('/api/v1/crm/mobile/devices',other_report_actor,company,base=legacy_url,payload={'deviceId':device},key='subscription-read-fixture-'+uuid.uuid4().hex)
+            assert registered[0]==201,registered
+            subscription_path='/api/v1/crm/mobile/devices/'+device+'/push-subscription'
+            assert notification_read(subscription_path,actor=other_report_actor)[1]=={'deviceId':device,'enabled':False,'version':0}
+            token_one='synthetic-disabled-token-'+uuid.uuid4().hex
+            sub={'token':token_one,'platform':'WEB','enabled':False}
+            for backend in (url,legacy_url):
+                for patch,status in (({'token':'short'},422),({'token':'x'*4097},422),({'token':'x'*20+' '},422),({'platform':'web'},422),({'enabled':None},400)):
+                    invalid=request(subscription_path,other_report_actor,company,base=backend,payload={**sub,**patch},key='subscribe-invalid-'+uuid.uuid4().hex,version=0,method='PUT')
+                    assert invalid[0]==status,(patch,invalid)
+                assert request(subscription_path,other_report_actor,company,base=backend,payload={'token':token_one,'platform':'WEB'},key='subscribe-required-'+uuid.uuid4().hex,version=0,method='PUT')[0]==400
+            subscribed=rule_write_retry(subscription_path,sub,url,legacy_url,{'token':token_one+'different'},0,method='PUT',status=200,actor=other_report_actor)
+            assert subscribed[1]=={'deviceId':device,'platform':'WEB','enabled':False,'version':1},subscribed
+            rotated={'token':'synthetic-disabled-rotated-'+uuid.uuid4().hex,'platform':'IOS','enabled':False}
+            subscription_key='subscribe-rotation-'+uuid.uuid4().hex
+            subscription_args={'payload':rotated,'key':subscription_key,'version':1,'method':'PUT'}
+            changed=request(subscription_path,other_report_actor,company,base=legacy_url,**subscription_args)
+            assert changed[0]==200 and changed[1]=={'deviceId':device,'platform':'IOS','enabled':False,'version':2},changed
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                attempts=list(pool.map(lambda n:request(subscription_path,other_report_actor,company,base=url if n%2 else legacy_url,**subscription_args),range(6)))
+            assert all(x==changed for x in attempts),attempts
+            assert notification_read(subscription_path,actor=other_report_actor)[1]==changed[1]
+
+            enabled=rule_write_retry(subscription_path,{**rotated,'enabled':True},url,legacy_url,{'token':rotated['token']+'different'},2,method='PUT',status=200,actor=other_report_actor)
+            assert enabled[1]['enabled'] is True and enabled[1]['version']==3,enabled
+            push_task=request('/api/v1/crm/tasks',report_actor,company,base=legacy_url,payload={'id':str(uuid.uuid4()),'data':{'title':'Synthetic queued push '+uuid.uuid4().hex,'assigneeId':'00000000-0000-0000-0000-000000000503','customerId':customer_id,'branchId':branch}},key='push-source-fixture-'+uuid.uuid4().hex)
+            assert push_task[0]==201,push_task
+            push_messages=notification_read('/api/v1/crm/messages?pageSize=100',actor=other_report_actor)[1]['items']
+            push_message=next(x for x in push_messages if x['sourceId']==push_task[1]['id'])
+            push_status_path='/api/v1/crm/messages/'+push_message['id']+'/push'
+            jobs=notification_read(push_status_path,actor=other_report_actor)[1]
+            assert len(jobs)==1 and jobs[0]['state']=='PENDING',jobs
+            push_id=jobs[0]['jobId'];retry_path='/api/v1/crm/push/jobs/'+push_id+'/retry'
+            def push_complete_fixture(state):
+                assert state in ('FAILED','UNKNOWN')
+                fixture_container=os.environ.get('HTT_COMPAT_PG_CONTAINER','')
+                assert re.fullmatch(r'htt-java-compat-[0-9a-f]{12}',fixture_container)
+                expected=str(uuid.UUID(push_id))
+                sql="SET ROLE htt_worker; DO $$ DECLARE j uuid; l uuid; BEGIN SELECT job_id,lease INTO j,l FROM crm.claim_push(); IF j IS DISTINCT FROM '"+expected+"'::uuid THEN RAISE EXCEPTION 'Only current synthetic push job may be claimed'; END IF; PERFORM crm.load_push(j,l); PERFORM crm.finish_push(j,l,'"+state+"','synthetic_no_sender',NULL,0); END $$;"
+                done=subprocess.run(['docker','exec','-i',fixture_container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1'],input=sql,text=True,capture_output=True,timeout=20)
+                with (here/'push-state-fixture.log').open('a') as evidence:evidence.write(expected+' '+state+' SQL only; no sender/provider invoked\n'+done.stdout+done.stderr)
+                assert done.returncode==0,done.stderr
+            retry_replays=[]
+            for state,first,second in (('FAILED',url,legacy_url),('UNKNOWN',legacy_url,url)):
+                push_complete_fixture(state)
+                actual=notification_read(push_status_path,actor=other_report_actor)[1]
+                assert actual[0]['state']==state,actual
+                retry_body={'expectedState':state,'acceptDuplicateDelivery':state=='UNKNOWN'}
+                for backend in (first,second):
+                    assert request(retry_path,other_report_actor,company,base=backend,payload={'expectedState':state},key='push-required-'+uuid.uuid4().hex)[0]==400
+                    assert request(retry_path,report_actor,company,base=backend,payload=retry_body,key='push-not-recipient-'+uuid.uuid4().hex)[0]==404
+                    if state=='UNKNOWN':
+                        assert request(retry_path,other_report_actor,company,base=backend,payload={**retry_body,'acceptDuplicateDelivery':False},key='push-unknown-ack-'+uuid.uuid4().hex)[0]==422
+                retry_key='push-retry-shared-'+uuid.uuid4().hex
+                retry_args={'payload':retry_body,'key':retry_key}
+                result=request(retry_path,other_report_actor,company,base=first,**retry_args)
+                assert result==(200,{'id':push_id,'state':'RETRY'}),result
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    attempts=list(pool.map(lambda n:request(retry_path,other_report_actor,company,base=first if n%2 else second,**retry_args),range(6)))
+                assert all(x==result for x in attempts),attempts
+                assert request(retry_path,other_report_actor,company,base=second,**{**retry_args,'payload':{**retry_body,'acceptDuplicateDelivery':not retry_body['acceptDuplicateDelivery']}})[0]==409
+                retry_replays.append(retry_args)
+            disabled=rule_write_retry(subscription_path,{**rotated,'enabled':False},legacy_url,url,{'token':rotated['token']+'different'},3,method='PUT',status=200,actor=other_report_actor)
+            assert disabled[1]['version']==4 and disabled[1]['enabled'] is False,disabled
+            jobs=notification_read(push_status_path,actor=other_report_actor)[1]
+            assert len(jobs)==1 and jobs[0]['state']=='CANCELLED' and jobs[0]['attempts']==2,jobs
+            for backend in (url,legacy_url):
+                for retry_args in retry_replays:assert request(retry_path,other_report_actor,company,base=backend,**retry_args)[0]==404
+            deleted_push_task=request('/api/v1/crm/tasks/'+push_task[1]['id']+'/delete',report_actor,company,base=legacy_url,key='push-source-cleanup-'+uuid.uuid4().hex,version=push_task[1]['version'],method='POST')
+            assert deleted_push_task[0]==200,deleted_push_task
+            notification_read(push_status_path,404,other_report_actor)
+            print('PASS: local-only push queue/FAILED+UNKNOWN retry with explicit duplicate acknowledgement, mixed replay and subscription-disabled cancellation; SQL fixtures never invoke sender/provider')
+            notification_read(subscription_path,403,report_actor)
+            revoked=request('/api/v1/crm/mobile/devices/'+device,other_report_actor,company,base=legacy_url,key='subscription-read-revoke-'+uuid.uuid4().hex,method='DELETE')
+            assert revoked[0]==200,revoked
+            notification_read(subscription_path,403,other_report_actor)
+            for backend in (url,legacy_url):assert request(subscription_path,other_report_actor,company,base=backend,**subscription_args)[0]==403
+            deleted=request('/api/v1/crm/tasks/'+notification_task[1]['id']+'/delete',other_report_actor,company,base=legacy_url,key='notification-source-delete-'+uuid.uuid4().hex,version=notification_task[1]['version'],method='POST')
+            assert deleted[0]==200,deleted
+            notification_read(message_path,404)
+            notification_read(message_path+'/push',404)
+            for backend in (url,legacy_url):assert request(mark_path,report_actor,company,base=backend,**args)[0]==404
+            assert not any(x['sourceId']==notification_task[1]['id'] for x in notification_read('/api/v1/crm/messages?pageSize=100')[1]['items'])
+            deleted=request(collaboration_path+'/'+note[1]['id'],report_actor,company,base=legacy_url,key='follow-source-delete-'+uuid.uuid4().hex,version=note[1]['version'],method='DELETE')
+            assert deleted[0]==200,deleted
+            notification_read(follow_path,404)
+            print('PASS: recipient-only message/push-status reads, source-deletion redaction, active-note follows, preferences and owned active-device subscription defaults; disabled synthetic subscription rotation and revoked-cache rejection, no provider sends')
             print('PASS: independent CRM approval creates exactly one customer/exposure/owner assignment, AU branch and normalized linked contact with mixed replay')
             draft_read('/api/v1/crm/drafts?pageSize=1')
             draft_read('/api/v1/crm/drafts?state=DELETED&pageSize=100')
@@ -5303,6 +5483,143 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert request(export_path,report_actor,company,base=second,**{**args,'version':2})[0]==409
                 assert request(export_path,report_actor,company,base=second,**{**args,'key':'another-export-'+uuid.uuid4().hex})==queued
             print('PASS: all five frozen report families export exactly one local queued job per document/version, opposite-host shared replay, version and authorization guards; no export worker started')
+            def document_read(path,status=200,actor=None):
+                a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:assert a==b,(path,a,b)
+                return a
+            files_path='/api/v1/documents/'+flutter_visit+'/files'
+            visit_files=document_read(files_path+'?pageSize=100')[1]['items']
+            assert visit_files,visit_files
+            for query in ('','?pageSize=1','?page=2&pageSize=1'):
+                document_read(files_path+query)
+            for query,status in (('?page=0',422),('?pageSize=101',422),('?page=1.0',400)):
+                document_read(files_path+query,status)
+            document_read(files_path,403,general_reader)
+            for run_id in report_run_ids:
+                jobs_path='/api/v1/documents/'+run_id+'/jobs'
+                jobs=document_read(jobs_path)[1]['items']
+                assert len(jobs)==1 and jobs[0]['kind']=='EXPORT' and jobs[0]['state']=='QUEUED',jobs
+                assert document_read('/api/v1/document-jobs/'+jobs[0]['id'])[1]==jobs[0]
+                assert document_read('/api/v1/documents/'+run_id+'/files')[1]['items']==[]
+                document_read(jobs_path+'?pageSize=1')
+                document_read(jobs_path,403,general_reader)
+            document_read('/api/v1/document-jobs/'+str(uuid.uuid4()),404)
+            print('PASS: ordered document file/job listings and owned job details, source authorization and native pagination; existing synthetic clean uploads and frozen queued exports')
+            def fetch_private_file(file_id,backend,actor,range_header=None):
+                pace_backend(backend)
+                headers={'Authorization':'Bearer '+actor,'X-Company-Id':company}
+                if range_header:headers['Range']=range_header
+                req=urllib.request.Request(backend+'/api/v1/files/'+file_id+'/content',headers=headers)
+                try:
+                    with urllib.request.urlopen(req,timeout=10) as response:
+                        return response.status,response.read(),{name:response.headers.get(name) for name in ('Content-Type','Content-Length','Content-Disposition','Content-Security-Policy','Accept-Ranges','Content-Range')}
+                except urllib.error.HTTPError as error:return error.code,error.read(),{}
+            scanned_files=document_read('/api/v1/documents/'+visit_id+'/files?pageSize=100')[1]['items']
+            verified=[x for x in scanned_files if x['state']=='VERIFIED']
+            assert verified,scanned_files
+            for asset in verified:
+                path='/api/v1/files/'+asset['id']+'/content'
+                for range_header in (None,'bytes=0-2'):
+                    a=fetch_private_file(asset['id'],url,report_actor,range_header)
+                    b=fetch_private_file(asset['id'],legacy_url,report_actor,range_header)
+                    assert a[0]==200 and a==b,(asset,a[0],a[2],b[0],b[2])
+                    import hashlib
+                    assert len(a[1])==asset['sizeBytes'] and hashlib.sha256(a[1]).hexdigest()==asset['sha256'],asset
+                    assert a[2]['Content-Security-Policy']=="sandbox; default-src 'none'" and a[2]['Accept-Ranges'] is None and a[2]['Content-Range'] is None,a[2]
+                assert fetch_private_file(asset['id'],url,general_reader)[0]==fetch_private_file(asset['id'],legacy_url,general_reader)[0]==403
+            unknown=str(uuid.uuid4())
+            assert fetch_private_file(unknown,url,report_actor)[0]==fetch_private_file(unknown,legacy_url,report_actor)[0]==404
+            for asset in visit_files:
+                if asset['state']!='VERIFIED':
+                    assert fetch_private_file(asset['id'],url,report_actor)[0]==fetch_private_file(asset['id'],legacy_url,report_actor)[0]==409
+            print('PASS: private VERIFIED file bytes/hash/length/native disposition/CSP, ignored Range whole-body parity and access rejection')
+            revoke_asset=verified[0];revoke_path='/api/v1/files/'+revoke_asset['id']+'/revoke'
+            for backend in (url,legacy_url):
+                assert request(revoke_path,report_actor,company,base=backend,key='revoke-no-version-'+uuid.uuid4().hex,method='POST')[0]==428
+                assert request(revoke_path,report_actor,company,base=backend,key='revoke-stale-'+uuid.uuid4().hex,version=revoke_asset['version']+99,method='POST')[0]==409
+                assert request(revoke_path,general_reader,company,base=backend,key='revoke-cap-'+uuid.uuid4().hex,version=revoke_asset['version'],method='POST')[0]==403
+            revoked=draft_transition(revoke_path,url,legacy_url,revoke_asset['version'])
+            assert revoked==(200,{'id':revoke_asset['id']}),revoked
+            for backend in (url,legacy_url):
+                assert fetch_private_file(revoke_asset['id'],backend,report_actor)[0]==404
+                assert request(revoke_path,report_actor,company,base=backend,key='revoke-again-'+uuid.uuid4().hex,version=revoke_asset['version']+1,method='POST')[0]==409
+            remaining=document_read('/api/v1/documents/'+visit_id+'/files?pageSize=100')[1]['items']
+            assert not any(x['id']==revoke_asset['id'] for x in remaining),remaining
+            print('PASS: attachment revoke current-version and management guards, mixed retry, download denial and file-list redaction')
+            # All native workers are stopped: exercise frozen output requests without rendering or external delivery.
+            assert len(pdf_targets)==4,pdf_targets
+            # Select only existing finalized synthetic business documents; never alter their state.
+            selection="""SELECT coalesce(json_agg(row_to_json(x)),'[]'::json) FROM (
+              SELECT id,version,document_type FROM (
+                SELECT id,version,document_type,row_number() OVER(PARTITION BY document_type ORDER BY id) n
+                FROM platform.documents WHERE company_id='00000000-0000-0000-0000-000000000001'
+                AND document_type IN ('QUOTE','INVOICE','PURCHASE_ORDER') AND state IN ('CONFIRMED','POSTED')
+                AND number IS NOT NULL AND deleted_at IS NULL
+              ) d WHERE n<=2 ORDER BY document_type,id) x;"""
+            selected=subprocess.run(['docker','exec','-i',fixture_container,'psql','-U','htt_owner','-d','htt_java_test','-At','-v','ON_ERROR_STOP=1'],input=selection,text=True,capture_output=True,timeout=30)
+            assert selected.returncode==0,selected.stderr
+            financial_pdf_targets=json.loads(selected.stdout.strip())
+            assert len(financial_pdf_targets)==6,financial_pdf_targets
+            assert {x['document_type'] for x in financial_pdf_targets}=={'QUOTE','INVOICE','PURCHASE_ORDER'}
+            pdf_targets.extend((x['id'],x['version'],x['document_type']) for x in financial_pdf_targets)
+
+            for n,(doc_id,version,kind) in enumerate(pdf_targets):
+                path='/api/v1/documents/'+doc_id+'/pdf'
+                first,second=(url,legacy_url) if n%2==0 else (legacy_url,url)
+                for backend in (first,second):
+                    assert request(path,report_actor,company,base=backend,key='pdf-no-version-'+uuid.uuid4().hex,method='POST')[0]==428
+                    assert request(path,report_actor,company,base=backend,key='pdf-stale-'+uuid.uuid4().hex,version=version+99,method='POST')[0]==409
+                    assert request(path,general_reader,company,base=backend,key='pdf-cap-'+uuid.uuid4().hex,version=version,method='POST')[0]==403
+                    if kind=='REPORT_PACK':
+                        assert request(path,other_report_actor,company,base=backend,key='pdf-owner-'+uuid.uuid4().hex,version=version,method='POST')[0]==404
+                key='pdf-request-'+uuid.uuid4().hex
+                args={'key':key,'version':version,'method':'POST'}
+                queued=request(path,report_actor,company,base=first,**args)
+                assert queued[0]==202 and queued[1]['documentId']==doc_id and queued[1]['sourceVersion']==version,(kind,queued)
+                with ThreadPoolExecutor(max_workers=6) as pool:
+                    retries=list(pool.map(lambda i:request(path,report_actor,company,base=first if i%2 else second,**args),range(6)))
+                assert all(x==queued for x in retries),(queued,retries)
+                assert request(path,report_actor,company,base=second,**{**args,'version':version+99})[0]==409
+                assert request(path,report_actor,company,base=second,key='pdf-dedup-'+uuid.uuid4().hex,version=version,method='POST')==queued
+                jobs=document_read('/api/v1/documents/'+doc_id+'/jobs')[1]['items']
+                assert len(jobs)==1 and jobs[0]['id']==queued[1]['id'] and jobs[0]['kind']=='PDF' and jobs[0]['state']=='QUEUED' and jobs[0]['attempts']==0,jobs
+                assert document_read('/api/v1/document-jobs/'+queued[1]['id'])[1]==jobs[0]
+            print('PASS: frozen statement/report-pack PDF queue including six finalized quote/invoice/purchase-order snapshots, source privacy/version guards, mixed retry and unique-job dedup; no render or delivery')
+            # An explicit isolated failure-state fixture tests the retry API; no renderer or sender is invoked.
+            retry_job=jobs[0]
+            retry_path='/api/v1/document-jobs/'+retry_job['id']+'/retry'
+            reason={'reason':'  Synthetic document retry café  '}
+            for backend in (url,legacy_url):
+                assert request(retry_path,report_actor,company,base=backend,payload=reason,key='doc-retry-no-version-'+uuid.uuid4().hex)[0]==428
+                assert request(retry_path,general_reader,company,base=backend,payload=reason,key='doc-retry-cap-'+uuid.uuid4().hex,version=retry_job['version'])[0]==403
+                assert request(retry_path,report_actor,company,base=backend,payload={'reason':'  '},key='doc-retry-reason-'+uuid.uuid4().hex,version=retry_job['version'])[0]==422
+                assert request(retry_path,report_actor,company,base=backend,payload=reason,key='doc-retry-queued-'+uuid.uuid4().hex,version=retry_job['version'])[0]==409
+            failure_sql="UPDATE platform.document_jobs SET state='FAILED',last_error='synthetic_no_renderer' WHERE company_id='00000000-0000-0000-0000-000000000001' AND id='"+str(uuid.UUID(retry_job['id']))+"'::uuid AND kind='PDF' AND state='QUEUED' AND created_by='00000000-0000-0000-0000-000000000500' RETURNING id;"
+            failed=subprocess.run(['docker','exec','-i',fixture_container,'psql','-U','htt_owner','-d','htt_java_test','-At','-v','ON_ERROR_STOP=1'],input=failure_sql,text=True,capture_output=True,timeout=30)
+            (here/'document-retry-state-fixture.log').write_text(failed.stdout+failed.stderr)
+            assert failed.returncode==0 and retry_job['id'] in failed.stdout,failed.stderr
+            failed_job=document_read('/api/v1/document-jobs/'+retry_job['id'])[1]
+            assert failed_job['state']=='FAILED',failed_job
+            key='document-retry-'+uuid.uuid4().hex
+            args={'payload':reason,'key':key,'version':failed_job['version']}
+            for backend in (url,legacy_url):
+                assert request(retry_path,report_actor,company,base=backend,**{**args,'key':'doc-retry-stale-'+uuid.uuid4().hex,'version':failed_job['version']+99})[0]==409
+            retried=request(retry_path,report_actor,company,base=url,**args)
+            assert retried==(202,{'id':retry_job['id']}),retried
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                retries=list(pool.map(lambda n:request(retry_path,report_actor,company,base=url if n%2 else legacy_url,**args),range(6)))
+            assert all(x==retried for x in retries),retries
+            assert request(retry_path,report_actor,company,base=legacy_url,**{**args,'payload':{'reason':'Changed reason'}})[0]==409
+            after_retry=document_read('/api/v1/document-jobs/'+retry_job['id'])[1]
+            assert after_retry['state']=='QUEUED' and after_retry['attempts']==0 and after_retry['lastError'] is None,after_retry
+            assert request(retry_path,report_actor,company,base=legacy_url,payload=reason,key='doc-retry-again-'+uuid.uuid4().hex,version=after_retry['version'])[0]==409
+            print('PASS: document job FAILED-only/current-version retry, normalized reason shared-key concurrency and queued-state rejection; synthetic failure fixture, no renderer or sender')
+
+
+
+
+
         finally:
             legacy.terminate()
             legacy.wait(timeout=15)

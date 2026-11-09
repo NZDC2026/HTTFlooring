@@ -58,6 +58,34 @@ describe('Procurement batches',()=>{
   expect(JSON.parse(mixed.invoiceDrafts).map((d:any)=>d.role)).toEqual(['Materials','Customs Clearance']);
   const again=command('workspace_procurement','save',mixed,mixed.revision);expect(JSON.parse(again.invoiceDrafts).map((d:any)=>d.id)).toEqual(JSON.parse(mixed.invoiceDrafts).map((d:any)=>d.id));
  });
+ it('lists saved expense drafts and synchronizes shared-editor changes, approval and posting',async()=>{
+  const supplierId=state('suppliers').suppliers[0].id;
+  const documents=Object.fromEntries(['freight','customs'].map(key=>[key,{mode:'manual',invoice:'SYNC-'+key,invoiceDate:'2026-11-09',dueDate:'2026-12-09',manual:JSON.stringify({supplierId,lines:[{description:key,quantity:2,unitSymbol:'Charge',unitCost:50,taxRate:.1}]})}]));
+  const originalBills=JSON.stringify(state('supplierBills'));
+  let batch=command('workspace_procurement','save',{name:'Shared drafts',status:'Open',links:'[]',documents:JSON.stringify({materials:{},...documents})});
+  const own=JSON.parse(batch.invoiceDrafts).find((d:any)=>d.role==='Freight');
+  let entry=state('expenseBillDrafts').drafts.find((d:any)=>d.id===own.expenseDraftId);
+  expect(entry.status).toBe('DRAFT');expect(state('expenseBillDrafts').drafts).toHaveLength(2);
+  expect(JSON.stringify(state('supplierBills'))).toBe(originalBills);
+  entry=command('expenseBillDrafts','save',{id:entry.id,expectedRevision:entry.revision,operationId:entry.operationId,payload:{...entry.payload,supplierInvoiceNumber:'SYNC-FREIGHT-EDITED',lines:entry.payload.lines.map((l:any)=>({...l,unitCost:110,priceBasis:'Inclusive'}))}});
+  const stale=batch;batch=state('workspace_procurement').records.find((b:any)=>b.id===batch.id);
+  expect(Number(batch.revision)).toBeGreaterThan(Number(stale.revision));
+  const synchronized=JSON.parse(batch.invoiceDrafts).find((d:any)=>d.id===own.id);
+  expect(synchronized.supplierInvoiceNumber).toBe('SYNC-FREIGHT-EDITED');
+  expect(synchronized.manual.lines[0]).toMatchObject({unitCost:110,priceBasis:'Inclusive'});
+  expect(JSON.parse(batch.documents).freight.invoice).toBe('SYNC-FREIGHT-EDITED');
+  expect(()=>command('workspace_procurement','save',stale,stale.revision)).toThrow();
+  batch=command('workspace_procurement','save',batch,batch.revision);
+  expect(state('expenseBillDrafts').drafts).toHaveLength(2);
+  entry=state('expenseBillDrafts').drafts.find((d:any)=>d.id===entry.id);
+  entry=command('expenseBillDrafts','approve',entry.id,entry.revision);
+  expect(JSON.parse(state('workspace_procurement').records[0].invoiceDrafts).find((d:any)=>d.id===own.id).status).toBe('APPROVED');
+  entry=command('expenseBillDrafts','post',entry.id,entry.revision);
+  const posted=JSON.parse(state('workspace_procurement').records[0].invoiceDrafts).find((d:any)=>d.id===own.id);
+  expect(posted).toMatchObject({status:'POSTED',billId:entry.documentId});
+  expect(state('supplierBills').supplierBills.find((b:any)=>b.id===entry.documentId).totals.total).toBe(220);
+  await restart();expect(JSON.parse(state('workspace_procurement').records[0].invoiceDrafts).find((d:any)=>d.id===own.id).billId).toBe(entry.documentId);
+ });
  it('migrates v35 without changing existing orders',async()=>{
   const original=state('purchaseOrders');
   const file=join(root,'business.json');const db=JSON.parse(readFileSync(file,'utf8'));

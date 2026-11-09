@@ -38,6 +38,30 @@ class TaskWrites {
    return write(scope,request,id,action,QuoteDrafts.map("id",id,"version",version),action.toUpperCase(Locale.ROOT),version,"{}",200);
   }));
  }
+ @PostMapping("/api/v1/crm/mobile/devices/{device}/task-operations")
+ ResponseEntity<String> push(@PathVariable UUID device,@RequestBody Operation input,@AuthenticationPrincipal Jwt token,HttpServletRequest request){
+  var scope=staff.require(token,request.getHeader("X-Company-Id"),"crm.mobile.sync");return response(staff.inCompany(scope,rid(request),()->{
+   query("SELECT crm.require_mobile_device(:device),crm.require_mobile('crm.tasks.read'),crm.require_mobile('crm.tasks.write')",Map.of("device",device)).query((r,n)->0).single();
+   check(input.operationId!=null&&!ZERO.equals(input.operationId)&&input.id!=null&&!ZERO.equals(input.id)&&input.sequence>0,"operation","Stable IDs and positive sequence required.");
+   check(input.action!=null&&Set.of("CREATE","UPDATE","START","COMPLETE","CANCEL","REOPEN","DELETE").contains(input.action),"action","Invalid action.");
+   Map<String,Object> data=null;
+   if(!input.action.equals("CREATE")){guard(input.id);if(!input.action.equals("DELETE"))live(input.id);check(input.version!=null&&input.version>0,"version","Expected version required.");}
+   if(input.action.equals("CREATE")||input.action.equals("UPDATE")){data=normalize(input.data);query("SELECT crm.authorize_task_data(CAST(:data AS jsonb))",Map.of("data",QuotePricing.value(data))).query((r,n)->0).single();}
+   query("SELECT crm.task_offline_cache_guard(:id)",Map.of("id",input.id)).query((r,n)->0).single();
+   var operation=QuoteDrafts.map("domain","TASK","id",input.id,"action",input.action,"version",input.version,"data",data);
+   return writes.execute(scope,"POST /crm/task-notifications/push",request.getHeader("Idempotency-Key"),QuotePricing.value(QuoteDrafts.map("device",device,"operationId",input.operationId,"sequence",input.sequence,"request",operation)),()->{
+    String body=query("SELECT crm.task_push(:device,:op,:seq,CAST(:request AS jsonb))::text",Map.of("device",device,"op",input.operationId,"seq",input.sequence,"request",QuotePricing.value(operation))).query(String.class).single();
+    audit.record(scope,"crm.tasks_push","crm_task_notification",input.id,rid(request),Map.of());return new IdempotentWrite.StoredResponse(200,body);
+   });
+  }));
+ }
+ @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown=true)
+ static final class Operation {
+  @com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public UUID operationId=ZERO;
+  @com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public long sequence;
+  @com.fasterxml.jackson.annotation.JsonSetter(nulls=com.fasterxml.jackson.annotation.Nulls.FAIL) public UUID id=ZERO;
+  public String action;public Long version;public Data data;
+ }
  private IdempotentWrite.StoredResponse write(StaffScope.CompanyAccess scope,HttpServletRequest request,UUID id,String action,Object input,String command,Long version,String data,int status){
   return writes.execute(scope,"POST /crm/task-notifications/"+action,request.getHeader("Idempotency-Key"),QuotePricing.value(input),()->{
    String body=query("SELECT crm.task_command(:id,:action,CAST(:version AS bigint),CAST(:data AS jsonb))::text",QuoteDrafts.map("id",id,"action",command,"version",version,"data",data)).query(String.class).single();

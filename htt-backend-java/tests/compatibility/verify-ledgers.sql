@@ -553,8 +553,8 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM crm.mobile_devices WHERE actor_id='00000000-0000-0000-0000-000000000500' AND NOT active AND last_sequence=7)<>2
  OR (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain' IS NULL)<>14
  OR (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain' IS NULL AND response->>'status'='CONFLICT')<>4
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device' AND actor_id='00000000-0000-0000-0000-000000000500')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke' AND actor_id='00000000-0000-0000-0000-000000000500')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device' AND actor_id='00000000-0000-0000-0000-000000000500')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke' AND actor_id='00000000-0000-0000-0000-000000000500')<>4
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.push')<>14
  THEN RAISE EXCEPTION 'Mobile device, operation sequence, conflict persistence or audit mismatch'; END IF;
 END $$;
@@ -578,7 +578,7 @@ END $$;
 
 DO $$ BEGIN
  IF (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_update')<>3
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_delete')<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_delete')<>2
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_remove' AND actor_id='00000000-0000-0000-0000-000000000500')<>1
  THEN RAISE EXCEPTION 'Collaboration updates, deletion and removal must execute once'; END IF;
 END $$;
@@ -612,15 +612,15 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain'='COLLABORATION' AND response->>'status'='CONFLICT')<>2
  OR (SELECT count(*) FROM crm.mobile_devices WHERE actor_id='00000000-0000-0000-0000-000000000503' AND NOT active AND last_sequence=6)<>2
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.collaboration_push' AND actor_id='00000000-0000-0000-0000-000000000503')<>12
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device' AND actor_id='00000000-0000-0000-0000-000000000503')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke' AND actor_id='00000000-0000-0000-0000-000000000503')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device' AND actor_id='00000000-0000-0000-0000-000000000503')<>3
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke' AND actor_id='00000000-0000-0000-0000-000000000503')<>3
  THEN RAISE EXCEPTION 'Collaboration device/domain operations and audit mismatch'; END IF;
 END $$;
 
 DO $$ BEGIN
- IF (SELECT count(*) FROM crm.tasks WHERE creator_id='00000000-0000-0000-0000-000000000500' AND state='DELETED')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_create')<>2
- OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_delete')<>2
+ IF (SELECT count(*) FROM crm.tasks WHERE creator_id='00000000-0000-0000-0000-000000000500' AND state='DELETED')<>5
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_create')<>4
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_delete')<>4
  THEN RAISE EXCEPTION 'Task read fixtures and deletion must be auditable once'; END IF;
 END $$;
 
@@ -631,4 +631,100 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_cancel')<>2
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_reopen')<>4
  THEN RAISE EXCEPTION 'Task state transitions must execute once across shared retries'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain'='TASK')<>18
+ OR (SELECT count(*) FROM crm.mobile_operations WHERE request->>'domain'='TASK' AND response->>'status'='CONFLICT')<>2
+ OR (SELECT count(*) FROM crm.mobile_devices WHERE actor_id='00000000-0000-0000-0000-000000000500' AND NOT active AND last_sequence=9)<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_push' AND actor_id='00000000-0000-0000-0000-000000000500')<>18
+ THEN RAISE EXCEPTION 'Offline task sequence/action/conflict/audit mismatch'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.tasks WHERE creator_id='00000000-0000-0000-0000-000000000503' AND state='DELETED')<>1
+ OR (SELECT count(*) FROM crm.mobile_devices WHERE actor_id='00000000-0000-0000-0000-000000000503' AND NOT active AND last_sequence=0)<>1
+ OR (SELECT count(*) FROM crm.push_subscriptions WHERE actor_id='00000000-0000-0000-0000-000000000503' AND NOT enabled AND version=4 AND platform='IOS' AND token_hash=sha256(convert_to(token,'UTF8')))<>1
+ OR (SELECT count(*) FROM crm.push_jobs WHERE state='CANCELLED' AND attempts=2)<>1
+ OR EXISTS(SELECT 1 FROM crm.push_jobs WHERE state IN('PENDING','RETRY','PROCESSING'))
+ THEN RAISE EXCEPTION 'Notification fixtures must be cleaned up with only a disabled synthetic subscription and no push jobs'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_read')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_follow')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_preferences')<>2
+ OR (SELECT count(*) FROM crm.notification_preferences WHERE actor_id='00000000-0000-0000-0000-000000000500' AND version=2 AND push_enabled AND tasks_push AND notes_push)<>1
+ OR (SELECT count(*) FROM crm.note_follows WHERE actor_id='00000000-0000-0000-0000-000000000503' AND version=2 AND NOT enabled)<>1
+ THEN RAISE EXCEPTION 'Notification writes must execute once and restore preferences/follow defaults'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.push_subscriptions)<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_subscribe')<>4
+ THEN RAISE EXCEPTION 'Disabled subscription registration/rotation must execute once'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.push_jobs)<>1
+ OR (SELECT count(*) FROM crm.push_attempts WHERE state='FAILED' AND error='synthetic_no_sender')<>1
+ OR (SELECT count(*) FROM crm.push_attempts WHERE state='UNKNOWN' AND error='synthetic_no_sender')<>1
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_retry')<>2
+ THEN RAISE EXCEPTION 'Synthetic push retry/uncertainty acknowledgment must execute once without sending'; END IF;
+END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='documents.attachment_revoked' AND actor_id='00000000-0000-0000-0000-000000000500')<>1
+ OR (SELECT count(*) FROM platform.file_assets a JOIN platform.files f ON f.company_id=a.company_id AND f.id=a.file_id WHERE a.revoked_at IS NOT NULL AND a.revoked_by='00000000-0000-0000-0000-000000000500' AND a.kind='ATTACHMENT' AND f.state='VERIFIED' AND f.version=3)<>1
+ THEN RAISE EXCEPTION 'Synthetic attachment must revoke exactly once with retained verified bytes and incremented version'; END IF;
+END $$;
+
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.document_jobs WHERE kind='PDF' AND created_by='00000000-0000-0000-0000-000000000500')<>10
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='documents.pdf_requested' AND actor_id='00000000-0000-0000-0000-000000000500')<>10
+ OR EXISTS(SELECT 1 FROM platform.document_jobs j JOIN platform.documents d ON d.company_id=j.company_id AND d.id=j.document_id
+ WHERE j.kind='PDF' AND j.created_by='00000000-0000-0000-0000-000000000500'
+ AND (j.state<>'QUEUED' OR j.attempts<>0 OR j.source_version<>d.version OR j.output_file_id IS NOT NULL
+ OR CASE d.document_type
+ WHEN 'CUSTOMER_STATEMENT' THEN j.payload IS DISTINCT FROM (SELECT snapshot FROM accounting.customer_statements WHERE id=d.id AND company_id=d.company_id)
+ WHEN 'REPORT_PACK' THEN j.payload IS DISTINCT FROM (SELECT p.snapshot||jsonb_build_object('snapshotHash',p.sha256) FROM reporting.packs p WHERE p.company_id=d.company_id AND p.id=d.id)
+ ELSE NOT (j.payload->>'number'=d.number AND (j.payload->>'sourceVersion')::bigint=d.version AND j.payload->>'businessDate'=d.business_date::text AND j.payload->>'currency'='AUD' AND j.payload->>'templateVersion'='1' AND jsonb_typeof(j.payload->'lines')='array' AND jsonb_typeof(j.payload->'net')='string' AND jsonb_typeof(j.payload->'tax')='string' AND jsonb_typeof(j.payload->'gross')='string') END))
+ THEN RAISE EXCEPTION 'Ten synthetic frozen PDF requests must retain exact snapshots, one audit each, and remain unprocessed'; END IF;
+END $$;
+
+
+DO $$ DECLARE j record; head record; expected_lines jsonb; source_issuer jsonb; expected_title text; BEGIN
+ FOR j IN SELECT job.payload,d.* FROM platform.document_jobs job JOIN platform.documents d ON d.company_id=job.company_id AND d.id=job.document_id
+ WHERE job.kind='PDF' AND job.created_by='00000000-0000-0000-0000-000000000500' AND d.document_type IN ('QUOTE','INVOICE','PURCHASE_ORDER') LOOP
+ SELECT jsonb_build_object('name',name,'abn',abn,'country',country,'currency',base_currency,'gstRegistered',gst_registered) INTO source_issuer FROM core.companies WHERE id=j.company_id;
+ IF j.document_type='QUOTE' THEN
+ SELECT customer_snapshot party,notes,net,tax,gross,expires_on::text term INTO STRICT head FROM sales.quotes WHERE id=j.id AND company_id=j.company_id;
+ SELECT coalesce(jsonb_agg(jsonb_build_object('snapshot',l.snapshot,'quantity',l.quantity,'unitPrice',l.unit_price,'net',l.net,'tax',l.tax,'gross',l.gross,'taxRate',l.tax_rate) ORDER BY dl.line_no),'[]') INTO expected_lines FROM sales.quote_lines l JOIN platform.document_lines dl ON dl.company_id=l.company_id AND dl.id=l.id WHERE l.quote_id=j.id AND l.company_id=j.company_id;
+ expected_title:='QUOTATION';
+ ELSIF j.document_type='INVOICE' THEN
+ SELECT customer_snapshot party,''::text notes,net,tax,gross,due_on::text term INTO STRICT head FROM sales.invoices WHERE id=j.id AND company_id=j.company_id;
+ SELECT issuer_snapshot,CASE WHEN title='TAX_INVOICE' THEN 'TAX INVOICE' ELSE 'INVOICE' END INTO source_issuer,expected_title FROM sales.invoices WHERE id=j.id AND company_id=j.company_id;
+ SELECT coalesce(jsonb_agg(jsonb_build_object('snapshot',l.snapshot,'quantity',l.quantity,'unitPrice',(l.snapshot->>'unitPrice')::numeric,'net',l.net,'tax',l.tax,'gross',l.gross,'taxRate',l.tax_rate) ORDER BY dl.line_no),'[]') INTO expected_lines FROM sales.invoice_lines l JOIN platform.document_lines dl ON dl.company_id=l.company_id AND dl.id=l.id WHERE l.invoice_id=j.id AND l.company_id=j.company_id;
+ ELSE
+ SELECT supplier_snapshot party,notes,net,tax,gross,expected_on::text term INTO STRICT head FROM purchase.orders WHERE id=j.id AND company_id=j.company_id;
+ SELECT coalesce(jsonb_agg(jsonb_build_object('snapshot',l.snapshot,'quantity',l.quantity,'unitPrice',l.unit_cost,'net',l.net,'tax',l.tax,'gross',l.gross,'taxRate',l.tax_rate) ORDER BY dl.line_no),'[]') INTO expected_lines FROM purchase.order_lines l JOIN platform.document_lines dl ON dl.company_id=l.company_id AND dl.id=l.id WHERE l.order_id=j.id AND l.company_id=j.company_id;
+ expected_title:='PURCHASE ORDER';
+ END IF;
+ IF j.payload->'party' IS DISTINCT FROM head.party OR j.payload->'issuer' IS DISTINCT FROM source_issuer
+ OR j.payload->>'notes' IS DISTINCT FROM head.notes OR j.payload->>'term' IS DISTINCT FROM head.term
+ OR j.payload->>'title' IS DISTINCT FROM expected_title OR (j.payload->>'net')::numeric<>head.net
+ OR (j.payload->>'tax')::numeric<>head.tax OR (j.payload->>'gross')::numeric<>head.gross
+ OR j.payload->>'termLabel' IS DISTINCT FROM (CASE j.document_type WHEN 'QUOTE' THEN 'Valid until' WHEN 'INVOICE' THEN 'Due date' ELSE 'Expected delivery' END)
+ OR j.payload->>'filename' IS DISTINCT FROM left(regexp_replace(j.number,'[^a-zA-Z0-9_-]','_','g'),100)||'-v'||j.version||'.pdf'
+ OR (SELECT jsonb_agg(jsonb_build_object('snapshot',l->'snapshot','quantity',(l->>'quantity')::numeric,'unitPrice',(l->>'unitPrice')::numeric,'net',(l->>'net')::numeric,'tax',(l->>'tax')::numeric,'gross',(l->>'gross')::numeric,'taxRate',(l->>'taxRate')::numeric) ORDER BY n) FROM jsonb_array_elements(j.payload->'lines') WITH ORDINALITY a(l,n)) IS DISTINCT FROM expected_lines
+ OR EXISTS(SELECT 1 FROM jsonb_array_elements(j.payload->'lines') a(l) CROSS JOIN unnest(ARRAY['quantity','unitPrice','net','tax','gross','taxRate']) k WHERE jsonb_typeof(l->k)<>'string')
+ THEN RAISE EXCEPTION 'Financial PDF snapshot diverges from frozen source document %',j.id; END IF;
+ END LOOP;
+END $$;
+
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='documents.work_retried' AND actor_id='00000000-0000-0000-0000-000000000500' AND details->>'reason'='Synthetic document retry café')<>1
+ THEN RAISE EXCEPTION 'Synthetic document retry must audit one normalized reason'; END IF;
 END $$;

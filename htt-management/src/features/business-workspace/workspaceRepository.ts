@@ -1,3 +1,8 @@
+import {purchaseDueDate,purchaseDefaults} from '../purchase-settings/purchaseDefaults';
+import {supplierRepository} from '../contacts/data/supplierRepository';
+import {onProcurementExpenseDraftChange} from '../procurement/invoiceDraftEvents';
+import {readDocuments} from '../procurement/procurementDocuments';
+import type {ProcurementInvoiceDraft} from '../procurement/procurementDrafts';
 import {expenseDraftRepository,type ExpensePayload} from '../direct-documents/managedDocumentRepository';
 import {readInvoiceDrafts,refreshInvoiceDrafts} from '../procurement/procurementDrafts';
 import {supplierBillRepository} from '../purchases/data/supplierBillRepository';
@@ -25,9 +30,17 @@ import { trustedAuthorization } from '../security/trustedAuthorization';
 import { accountRepository } from '../accounting/data/accountRepository';
 import { customerRepository } from '../contacts/data/customerRepository';
 import { getProductById, getProductUnit } from '../inventory/data/mockProducts';
-import { configurationRows, type ConfigRow } from './configurationState';
+import { configurationRows, taxSnapshot, type ConfigRow } from './configurationState';
 import type { Permission } from '../security/rbac';
 import type { AccountSystemRole } from '../accounting/types/account';
+let procurementExpenseWrite=false;
+function procurementExpensePayload(draft:ProcurementInvoiceDraft):ExpensePayload{
+ if(!draft.manual||draft.role==='Materials')throw Error('A freight / clearance manual invoice is required.');
+ const account=accountRepository.getAll().find(a=>a.active&&a.type==='EXPENSE'&&a.allowManualPosting&&(draft.role==='Freight'?a.systemRole==='FREIGHT':a.systemRole==='OPERATING_EXPENSE'));
+ if(!account)throw Error('Configure the freight / operating expense account before saving.');
+ return {kind:'EXPENSE',supplierId:draft.manual.supplierId,supplierInvoiceNumber:draft.supplierInvoiceNumber,documentDate:draft.billDate,dueDate:draft.dueDate||purchaseDueDate(draft.billDate,purchaseDefaults(supplierRepository.getById(draft.manual.supplierId))),fx:draft.manual.fx,lines:draft.manual.lines.map(l=>{const tax=configurationRows['tax-codes']?.find(t=>t.status==='Active'&&(!l.taxCode||t.code===l.taxCode)&&Math.abs(Number(t.rate)/100-l.taxRate)<1e-8);if(!tax)throw Error('Configure an active tax code matching the invoice GST rate.');return {description:l.description,quantity:l.quantity,unitCost:l.unitCost,accountId:l.accountId??account.id,taxCode:tax.code,priceBasis:l.priceBasis??'Exclusive'};})};
+}
+function ensureProcurementExpenseDrafts(text:string){const drafts=readInvoiceDrafts(text);procurementExpenseWrite=true;try{for(const draft of drafts){if(!draft.manual||draft.role==='Materials'||draft.status!=='DRAFT')continue;const prior=draft.expenseDraftId?expenseDraftRepository.getAll().find(d=>d.id===draft.expenseDraftId):undefined;const payload=procurementExpensePayload(draft);if(prior&&prior.status!=='DRAFT')throw Error('The linked invoice is no longer a draft. Reload the batch.');const entry=prior&&JSON.stringify(prior.payload)===JSON.stringify(payload)?prior:expenseDraftRepository.save({operationId:'procurement:'+draft.id,...(prior?{id:prior.id,expectedRevision:prior.revision}:{}),payload});draft.expenseDraftId=entry.id;if(entry.payload.kind==='EXPENSE')draft.dueDate=entry.payload.dueDate??'';}return JSON.stringify(drafts);}finally{procurementExpenseWrite=false;}}
 const strings = z.record(z.string(), z.string().max(20000));
 const systemRoles: AccountSystemRole[] = ['BANK', 'ACCOUNTS_RECEIVABLE', 'INVENTORY', 'GRNI', 'PURCHASE_PRICE_VARIANCE', 'GST_RECEIVABLE', 'ACCOUNTS_PAYABLE', 'GST_PAYABLE', 'SALES_REVENUE', 'COST_OF_GOODS_SOLD', 'PURCHASES', 'FREIGHT', 'OPERATING_EXPENSE', 'RETAINED_EARNINGS', 'OWNERS_EQUITY'];
 const now = () => new Date().toISOString();
@@ -253,7 +266,7 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
                 const displayName = existing?.status === 'Completed' ? existing.completedByName : trustedAuthorization.current()?.displayName;
                 if (displayName) row.completedByName = displayName;
             }
-        } if(domain==='procurement'){if(raw.invoiceDrafts!==undefined&&raw.invoiceDrafts!==(existing?.invoiceDrafts??''))throw Error('Invoice drafts are managed by the server.');const docs=JSON.parse(row.documents||'{}');for(const meta of Object.values(docs) as Record<string,string>[]){if(meta.mode==='manual'){const manual=JSON.parse(meta.manual||'{}');if(!(snapshotRepositories().suppliers as {suppliers:{id:string;status:string}[]}).suppliers.some(s=>s.id===manual.supplierId&&s.status==='ACTIVE'))throw Error('Choose an active supplier for each manual invoice.');}}row.invoiceDrafts=JSON.stringify(refreshInvoiceDrafts({...row,code:row.code,links:row.links},readInvoiceDrafts(existing?.invoiceDrafts),(snapshotRepositories().purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,businessDateKey(timestamp)));} validate(domain, row, configurationRows[domain]); configurationRows[domain] = [...configurationRows[domain].filter(r => r.id !== row.id), row]; log(domain, row, existing ? 'Updated' : 'Created'); emit(); return row; },
+        } if(domain==='procurement'){if(raw.invoiceDrafts!==undefined&&raw.invoiceDrafts!==(existing?.invoiceDrafts??''))throw Error('Invoice drafts are managed by the server.');const docs=JSON.parse(row.documents||'{}');for(const meta of Object.values(docs) as Record<string,string>[]){if(meta.mode==='manual'){const manual=JSON.parse(meta.manual||'{}');if(!(snapshotRepositories().suppliers as {suppliers:{id:string;status:string}[]}).suppliers.some(s=>s.id===manual.supplierId&&s.status==='ACTIVE'))throw Error('Choose an active supplier for each manual invoice.');}}row.invoiceDrafts=JSON.stringify(refreshInvoiceDrafts({...row,code:row.code,links:row.links},readInvoiceDrafts(existing?.invoiceDrafts),(snapshotRepositories().purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,businessDateKey(timestamp)));row.invoiceDrafts=ensureProcurementExpenseDrafts(row.invoiceDrafts);} validate(domain, row, configurationRows[domain]); configurationRows[domain] = [...configurationRows[domain].filter(r => r.id !== row.id), row]; log(domain, row, existing ? 'Updated' : 'Created'); emit(); return row; },
         reviewInvoice(id:string,draftId:string,action:'approve'|'post',expectedRevision:string){
             if(domain!=='procurement')throw Error('Not a procurement batch.');if(!['approve','post'].includes(action))throw Error('Invalid invoice review action.');
             const principal=trustedAuthorization.require(action==='approve'?'accounting.post':'purchases.bill');
@@ -263,10 +276,9 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
             if(!draft.supplierInvoiceNumber.trim()||(!draft.manual&&(!draft.lines.some(l=>l.quantity>0))))throw Error('Complete the invoice reference and lines before review.');
             if(draft.manual){const supplier=(snapshotRepositories().suppliers as {suppliers:{id:string;status:string}[]}).suppliers.find(s=>s.id===draft.manual!.supplierId);if(!supplier||supplier.status!=='ACTIVE')throw Error('Choose an active supplier.');}
 
+            if(draft.expenseDraftId){const entry=expenseDraftRepository.getAll().find(d=>d.id===draft.expenseDraftId);if(!entry)throw Error('Linked Supplier Invoice draft not found.');if(action==='approve')expenseDraftRepository.approve(entry.id,entry.revision);else expenseDraftRepository.post(entry.id,entry.revision);return repository.getById(id)!;}
             if(action==='approve'){if(draft.status!=='DRAFT')return row;if(draft.manual&&draft.role!=='Materials'){
-                const account=accountRepository.getAll().find(a=>a.active&&a.type==='EXPENSE'&&a.allowManualPosting&&(draft.role==='Freight'?a.systemRole==='FREIGHT':a.systemRole==='OPERATING_EXPENSE'));
-                if(!account)throw Error('Configure the freight / operating expense account before approving.');
-                const payload:ExpensePayload={kind:'EXPENSE',supplierId:draft.manual.supplierId,supplierInvoiceNumber:draft.supplierInvoiceNumber,documentDate:draft.billDate,...(draft.dueDate?{dueDate:draft.dueDate}:{}),fx:draft.manual.fx,lines:draft.manual.lines.map(l=>{const tax=configurationRows['tax-codes'].find(t=>t.status==='Active'&&Math.abs(Number(t.rate)/100-l.taxRate)<1e-8);if(!tax)throw Error('Configure an active tax code matching the invoice GST rate.');return {description:l.description,quantity:l.quantity,unitCost:l.unitCost,accountId:account.id,taxCode:tax.code,priceBasis:'Exclusive' as const};})};
+                const payload=procurementExpensePayload(draft);
                 const entry=expenseDraftRepository.save({operationId:'procurement:'+draft.id,payload});const approved=expenseDraftRepository.approve(entry.id,entry.revision);draft.expenseDraftId=approved.id;
             }draft.status='APPROVED';draft.approvedBy=principal.userId;draft.approvedAt=now();}
             else {if(draft.status!=='APPROVED')throw Error('Accounting approval is required before posting.');if(draft.manual&&draft.role==='Materials')throw Error('Match this material invoice to received purchase-order lines in the purchase billing workflow before posting; stock is not posted as an expense.');
@@ -337,3 +349,15 @@ function validateConfigurationReferences(domain: string, value: unknown, snapsho
             throw new Error('Backup bank-rule tax reference is invalid.');
     }
 }
+
+onProcurementExpenseDraftChange(entry=>{
+ if(procurementExpenseWrite||!entry.operationId.startsWith('procurement:')||entry.payload.kind!=='EXPENSE')return;
+ for(const row of configurationRows.procurement??[]){const drafts=readInvoiceDrafts(row.invoiceDrafts),draft=drafts.find(d=>d.expenseDraftId===entry.id);if(!draft)continue;
+  const payload=entry.payload;const docs=readDocuments(row.documents);const key=draft.role==='Freight'?'freight':'customs';
+  const manual={supplierId:payload.supplierId,...(payload.fx?{fx:payload.fx}:{}),lines:payload.lines.map((l,i)=>({accountId:l.accountId,taxCode:l.taxCode,description:l.description,quantity:l.quantity,unitSymbol:draft.manual?.lines[i]?.unitSymbol??'Charge',unitCost:l.unitCost,taxRate:entry.lines[i].taxRate??taxSnapshot(l.taxCode).taxRate,priceBasis:l.priceBasis??'Exclusive'}))};
+  draft.manual=manual;draft.supplierInvoiceNumber=payload.supplierInvoiceNumber;draft.billDate=payload.documentDate;draft.dueDate=payload.dueDate??'';draft.status=entry.status;
+  if(entry.status==='APPROVED'){draft.approvedBy=entry.history.at(-1)?.actorId;draft.approvedAt=entry.updatedAt;}if(entry.status==='DRAFT'){delete draft.approvedBy;delete draft.approvedAt;}if(entry.documentId)draft.billId=entry.documentId;
+  docs[key]={...docs[key],mode:'manual',manual:JSON.stringify(manual),invoice:payload.supplierInvoiceNumber,invoiceDate:payload.documentDate,dueDate:payload.dueDate??''};
+  const updated={...row,documents:JSON.stringify(docs),invoiceDrafts:JSON.stringify(drafts),revision:String(Number(row.revision)+1),updatedAt:now()};configurationRows.procurement=configurationRows.procurement.map(r=>r.id===row.id?updated:r);log('procurement',updated,'Supplier Invoice '+entry.status);emit();
+ }
+});

@@ -20,6 +20,13 @@ describe('Procurement document sections',()=>{
  const html=renderToStaticMarkup(<>{procurementRoles.map((role,i)=><ProcurementDocumentSection key={role} kind={(['materials','freight','customs'] as const)[i]} documents={readDocuments(batch.documents)} sample orders={parseProcurementLinks(batch.links).filter(l=>l.role===role).map(l=>orders.find(o=>o.id===l.orderId)!)}/>)}<ProcurementAllocation links={batch.links} documents={batch.documents} orders={orders}/></>);
  for(const text of ['MAT-INV-SAMPLE-2026-108','FRT-SAMPLE-108','CLR-SAMPLE-108','SEA FREIGHT','Port Service Charge','45,795.00','26.43'])expect(html).toContain(text);
  });
+ it('shows saved selected quantity and allocation while retaining excluded sample products in details',()=>{
+ const {batches,orders}=procurementSamples();const b=batches.find(b=>b.id==='sample-open')!;
+ const totals=procurementTotals({links:b.links,documents:b.documents},orders);
+ expect(totals.qty).toBe(1752.8);expect(totals.selectedQty).toBe(1732.8);expect(totals.landedCost).toBeCloseTo(45795/1732.8);
+ const html=renderToStaticMarkup(<><ProcurementDocumentSection kind="materials" documents={readDocuments(b.documents)} sample orders={[]}/><ProcurementAllocation links={b.links} documents={b.documents} orders={orders}/></>);
+ for(const text of ['Included','Excluded','Selected Qty','1,752.8','1,732.8','26.43'])expect(html).toContain(text);
+ });
  it('retains compatibility with existing batches and rejects malformed documents',()=>{
  expect(readDocuments()).toEqual({materials:{},freight:{},customs:{}});
  expect(()=>readDocuments('{"materials":42}')).toThrow();

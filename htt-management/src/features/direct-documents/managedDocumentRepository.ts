@@ -1,3 +1,4 @@
+import {notifyProcurementExpenseDraftChange} from '../procurement/invoiceDraftEvents';
 import {documentPaymentTermsSchema,salesDocumentPaymentTerms} from '../payment-terms/paymentTerms';
 import { fxSchema, validateFx } from "../currency/currency";
 import {checkedCaptureSource} from '../bill-capture/captureEvidence';
@@ -167,6 +168,7 @@ function repo(kind: 'sales' | 'expense') {
             salesDrafts = [...salesDrafts.filter(d => d.id !== row.id), row];
         else
             billDrafts = [...billDrafts.filter(d => d.id !== row.id), row];
+        if(kind==='expense')notifyProcurementExpenseDraftChange(row);
         emit();
         return row;
     }

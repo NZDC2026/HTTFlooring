@@ -31,6 +31,16 @@ class ApiSecurity {
                 .authorizeHttpRequests(requests -> {
                     requests.requestMatchers(HttpMethod.GET, "/health/live", "/health/ready").permitAll();
                     if (staffConfigured && !databaseUrl.isBlank()) {
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/documents/*/pdf").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/files/*/revoke").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/document-jobs/*/retry").authenticated();
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/files/*/content").authenticated();
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/documents/*/files", "/api/v1/documents/*/jobs", "/api/v1/document-jobs/*").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/crm/push/jobs/*/retry").authenticated();
+                        requests.requestMatchers(HttpMethod.PUT, "/api/v1/crm/mobile/devices/*/push-subscription").authenticated();
+                        requests.requestMatchers(HttpMethod.PUT, "/api/v1/crm/messages/*/read", "/api/v1/crm/notes/*/follow", "/api/v1/crm/notification-preferences").authenticated();
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/crm/messages", "/api/v1/crm/messages/*", "/api/v1/crm/messages/*/push", "/api/v1/crm/notes/*/follow", "/api/v1/crm/notification-preferences", "/api/v1/crm/mobile/devices/*/push-subscription").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/crm/mobile/devices/*/task-operations").authenticated();
                         requests.requestMatchers(HttpMethod.POST, "/api/v1/crm/tasks", "/api/v1/crm/tasks/*/start", "/api/v1/crm/tasks/*/complete", "/api/v1/crm/tasks/*/cancel", "/api/v1/crm/tasks/*/reopen", "/api/v1/crm/tasks/*/delete").authenticated();
                         requests.requestMatchers(HttpMethod.PUT, "/api/v1/crm/tasks/*").authenticated();
                         requests.requestMatchers(HttpMethod.GET, "/api/v1/crm/tasks", "/api/v1/crm/tasks/*", "/api/v1/crm/tasks/*/history", "/api/v1/crm/task-assignees", "/api/v1/crm/action-centre").authenticated();

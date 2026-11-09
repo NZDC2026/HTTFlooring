@@ -1,0 +1,42 @@
+[
+  {
+    "filename": "simple.png",
+    "status": 200,
+    "contentType": "image/png",
+    "disposition": "attachment; filename=simple.png; filename*=UTF-8''simple.png",
+    "acceptRanges": null,
+    "contentRange": null,
+    "length": 8,
+    "sha256": "4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6"
+  },
+  {
+    "filename": "synthetic file.png",
+    "status": 200,
+    "contentType": "image/png",
+    "disposition": "attachment; filename=\"synthetic file.png\"; filename*=UTF-8''synthetic%20file.png",
+    "acceptRanges": null,
+    "contentRange": null,
+    "length": 8,
+    "sha256": "4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6"
+  },
+  {
+    "filename": "caf\u00e9 + ~*.png",
+    "status": 200,
+    "contentType": "image/png",
+    "disposition": "attachment; filename=\"caf_ + ~*.png\"; filename*=UTF-8''caf%C3%A9%20+%20~%2A.png",
+    "acceptRanges": null,
+    "contentRange": null,
+    "length": 8,
+    "sha256": "4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6"
+  },
+  {
+    "filename": "\u65e5\u672c\u8a9e.png",
+    "status": 200,
+    "contentType": "image/png",
+    "disposition": "attachment; filename=___.png; filename*=UTF-8''%E6%97%A5%E6%9C%AC%E8%AA%9E.png",
+    "acceptRanges": null,
+    "contentRange": null,
+    "length": 8,
+    "sha256": "4c4b6a3be1314ab86138bef4314dde022e600960d8689a2c8f8631802d20dab6"
+  }
+]

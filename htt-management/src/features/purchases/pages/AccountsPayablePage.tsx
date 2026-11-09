@@ -1,3 +1,4 @@
+import {SupplierInvoiceDraftList} from '../../procurement/SupplierInvoiceDraftList';
 import { DataTable } from '../../../components/data-table/DataTable';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
@@ -166,7 +167,7 @@ export function AccountsPayablePage() {
                     </p>
 
                     <h1 className="font-display text-[34px] leading-tight">
-                        Accounts Payable
+                        Supplier Invoices
                     </h1>
 
                     <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
@@ -232,6 +233,8 @@ export function AccountsPayablePage() {
                     </div>
                 </div>
             </div>
+
+            <SupplierInvoiceDraftList/>
 
             <div className="mb-5 grid grid-cols-4 gap-4">
                 <MetricCard
