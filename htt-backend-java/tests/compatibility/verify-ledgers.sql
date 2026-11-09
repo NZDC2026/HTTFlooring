@@ -623,3 +623,12 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_delete')<>2
  THEN RAISE EXCEPTION 'Task read fixtures and deletion must be auditable once'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_update')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_start')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_complete')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_cancel')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_reopen')<>4
+ THEN RAISE EXCEPTION 'Task state transitions must execute once across shared retries'; END IF;
+END $$;

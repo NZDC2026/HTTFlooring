@@ -1,3 +1,8 @@
+import {expenseDraftRepository,type ExpensePayload} from '../direct-documents/managedDocumentRepository';
+import {readInvoiceDrafts,refreshInvoiceDrafts} from '../procurement/procurementDrafts';
+import {supplierBillRepository} from '../purchases/data/supplierBillRepository';
+import {businessDateKey} from '../../lib/businessDate';
+import {validateProcurement} from '../procurement/procurementRules';
 function validateInternalTaskSource(input:Record<string,string>,snapshots:Record<string,any>){
  if(input.sourceQuoteId&&!snapshots.sales?.quotes.some((q:any)=>q.id===input.sourceQuoteId&&q.customerId===input.customerId))throw Error('Task quote must belong to the selected customer.');
  if(input.sourceSalesDraftId&&!snapshots.managedSalesDocuments?.drafts.some((d:any)=>d.id===input.sourceSalesDraftId&&d.payload.customerId===input.customerId))throw Error('Task draft must belong to the selected customer.');
@@ -32,6 +37,7 @@ export const workspaceDomains: Record<string, {
     required: string[];
     fields: string[];
 }> = {
+    procurement: {read:'purchases.read',write:'purchases.write',required:['code','links'],fields:['code','links','notes','documents','invoiceDrafts']},
     'tax-codes': { read: 'inventory.read', write: 'accounting.post', required: ['code', 'rate', 'collected', 'paid'], fields: ['code', 'rate', 'collected', 'paid', 'basis', 'report'] },
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },
     promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
@@ -71,6 +77,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
         requiredText(input[key], key);
     if (!['Active', 'Inactive', 'Open', 'In progress', 'Completed'].includes(input.status ?? 'Active'))
         throw new Error('Invalid business status.');
+    if(domain==='procurement'){readInvoiceDrafts(input.invoiceDrafts);validateProcurement(input,rows,checkReferences?(snapshotRepositories().purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders:undefined,checkReferences?(snapshotRepositories().supplierBills as {supplierBills:import('../purchases/types/supplierBill').SupplierBill[]}).supplierBills:undefined);}
     if (domain === 'tax-codes') {
         money(input.rate, 'Tax rate');
         if (input.basis && !['Exclusive','Inclusive'].includes(input.basis))
@@ -236,7 +243,7 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
             repository.previewBulkStatus(input);batchContext={batchId:input.operationId,batchRequest:request};try{return {batchId:input.operationId,records:input.rows.map(r=>repository.setStatus(r.id,input.status,r.expectedRevision))};}finally{batchContext=undefined;}
         },
         getAll: () => configurationRows[domain], getById: (id: string) => configurationRows[domain].find(r => r.id === id),
-        save(raw: Record<string, string>, expectedRevision?: string) { const input = strings.parse(raw), existing = configurationRows[domain].find(r => r.id === input.id); if (existing && existing.revision !== expectedRevision)
+        save(raw: Record<string, string>, expectedRevision?: string) { const input = strings.parse(raw), existing = configurationRows[domain].find(r => r.id === input.id); if(domain==='procurement'){if(input.id&&!existing)throw Error('Batch no longer exists.');input.code=existing?.code??'PB-'+String(Math.max(0,...configurationRows[domain].map(r=>Number(r.code.slice(3))))+1).padStart(6,'0');} if (existing && existing.revision !== expectedRevision)
             throw new Error('Record changed. Reload before saving.'); if (!existing && expectedRevision !== undefined)
             throw new Error('Record no longer exists.'); const timestamp = now(), row: ConfigRow = { ...input, id: existing?.id ?? crypto.randomUUID(), name: input.name.trim(), status: input.status ?? (domain === 'tasks' ? 'Open' : 'Active'), revision: String(Number(existing?.revision ?? '0') + 1), createdAt: existing?.createdAt ?? timestamp, updatedAt: timestamp }; if (domain === 'tasks') {
             delete row.completedAt; delete row.completedBy; delete row.completedByName;
@@ -246,13 +253,33 @@ export const workspaceRepositories = Object.fromEntries(Object.keys(workspaceDom
                 const displayName = existing?.status === 'Completed' ? existing.completedByName : trustedAuthorization.current()?.displayName;
                 if (displayName) row.completedByName = displayName;
             }
-        } validate(domain, row, configurationRows[domain]); configurationRows[domain] = [...configurationRows[domain].filter(r => r.id !== row.id), row]; log(domain, row, existing ? 'Updated' : 'Created'); emit(); return row; },
+        } if(domain==='procurement'){if(raw.invoiceDrafts!==undefined&&raw.invoiceDrafts!==(existing?.invoiceDrafts??''))throw Error('Invoice drafts are managed by the server.');const docs=JSON.parse(row.documents||'{}');for(const meta of Object.values(docs) as Record<string,string>[]){if(meta.mode==='manual'){const manual=JSON.parse(meta.manual||'{}');if(!(snapshotRepositories().suppliers as {suppliers:{id:string;status:string}[]}).suppliers.some(s=>s.id===manual.supplierId&&s.status==='ACTIVE'))throw Error('Choose an active supplier for each manual invoice.');}}row.invoiceDrafts=JSON.stringify(refreshInvoiceDrafts({...row,code:row.code,links:row.links},readInvoiceDrafts(existing?.invoiceDrafts),(snapshotRepositories().purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,businessDateKey(timestamp)));} validate(domain, row, configurationRows[domain]); configurationRows[domain] = [...configurationRows[domain].filter(r => r.id !== row.id), row]; log(domain, row, existing ? 'Updated' : 'Created'); emit(); return row; },
+        reviewInvoice(id:string,draftId:string,action:'approve'|'post',expectedRevision:string){
+            if(domain!=='procurement')throw Error('Not a procurement batch.');if(!['approve','post'].includes(action))throw Error('Invalid invoice review action.');
+            const principal=trustedAuthorization.require(action==='approve'?'accounting.post':'purchases.bill');
+            const row=repository.getById(id);if(!row||row.revision!==expectedRevision)throw Error('Record changed. Reload before saving.');
+            const drafts=readInvoiceDrafts(row.invoiceDrafts),draft=drafts.find(d=>d.id===draftId);if(!draft)throw Error('Invoice draft not found.');
+            if(draft.status==='POSTED')return row;
+            if(!draft.supplierInvoiceNumber.trim()||(!draft.manual&&(!draft.lines.some(l=>l.quantity>0))))throw Error('Complete the invoice reference and lines before review.');
+            if(draft.manual){const supplier=(snapshotRepositories().suppliers as {suppliers:{id:string;status:string}[]}).suppliers.find(s=>s.id===draft.manual!.supplierId);if(!supplier||supplier.status!=='ACTIVE')throw Error('Choose an active supplier.');}
+
+            if(action==='approve'){if(draft.status!=='DRAFT')return row;if(draft.manual&&draft.role!=='Materials'){
+                const account=accountRepository.getAll().find(a=>a.active&&a.type==='EXPENSE'&&a.allowManualPosting&&(draft.role==='Freight'?a.systemRole==='FREIGHT':a.systemRole==='OPERATING_EXPENSE'));
+                if(!account)throw Error('Configure the freight / operating expense account before approving.');
+                const payload:ExpensePayload={kind:'EXPENSE',supplierId:draft.manual.supplierId,supplierInvoiceNumber:draft.supplierInvoiceNumber,documentDate:draft.billDate,...(draft.dueDate?{dueDate:draft.dueDate}:{}),fx:draft.manual.fx,lines:draft.manual.lines.map(l=>{const tax=configurationRows['tax-codes'].find(t=>t.status==='Active'&&Math.abs(Number(t.rate)/100-l.taxRate)<1e-8);if(!tax)throw Error('Configure an active tax code matching the invoice GST rate.');return {description:l.description,quantity:l.quantity,unitCost:l.unitCost,accountId:account.id,taxCode:tax.code,priceBasis:'Exclusive' as const};})};
+                const entry=expenseDraftRepository.save({operationId:'procurement:'+draft.id,payload});const approved=expenseDraftRepository.approve(entry.id,entry.revision);draft.expenseDraftId=approved.id;
+            }draft.status='APPROVED';draft.approvedBy=principal.userId;draft.approvedAt=now();}
+            else {if(draft.status!=='APPROVED')throw Error('Accounting approval is required before posting.');if(draft.manual&&draft.role==='Materials')throw Error('Match this material invoice to received purchase-order lines in the purchase billing workflow before posting; stock is not posted as an expense.');
+                if(!draft.manual&&(draft.purchaseOrderIds??[draft.purchaseOrderId]).length!==1)throw Error('Match the multiple purchase orders to this invoice before posting.');
+                const bill=draft.expenseDraftId?(()=>{const entry=expenseDraftRepository.getAll().find(d=>d.id===draft.expenseDraftId)!;const posted=expenseDraftRepository.post(entry.id,entry.revision);return {id:posted.documentId!};})():supplierBillRepository.create({purchaseOrderId:draft.purchaseOrderId,supplierInvoiceNumber:draft.supplierInvoiceNumber,billDate:draft.billDate,dueDate:draft.dueDate,lines:draft.lines.filter(l=>l.quantity>0)});draft.status='POSTED';draft.billId=bill.id;}
+            const updated={...row,invoiceDrafts:JSON.stringify(drafts),revision:String(Number(row.revision)+1),updatedAt:now()};configurationRows[domain]=configurationRows[domain].map(r=>r.id===id?updated:r);log(domain,updated,action==='approve'?'Invoice draft approved':'Invoice draft posted');emit();return updated;
+        },
         setStatus(id: string, status: string, expectedRevision: string) { const row = repository.getById(id); if (!row)
             throw new Error('Record was not found.'); return repository.save({ ...row, status }, expectedRevision); },
         addNote(id: string, note: string) { const row = repository.getById(id); if (!row || domain !== 'tasks' || !note.trim() || note.length > 4000)
             throw new Error('A valid task note is required.'); log(domain, { ...row, note: note.trim() }, 'Note added'); emit(); },
     };
-    registerRepository('workspace_' + domain.replaceAll('-', '_'), { validate: (value, snapshots) => { validateConfigurationSnapshot(domain, value); validateConfigurationReferences(domain, value, snapshots); }, repository, read: workspaceDomains[domain].read, commands: { previewBulkStatus:workspaceDomains[domain].write, bulkStatus:workspaceDomains[domain].write, run: domain==='custom-reports'?'accounting.read':null, generate: domain==='report-packs'?'accounting.read':null, save: workspaceDomains[domain].write, setStatus: workspaceDomains[domain].write, addNote: domain === 'tasks' ? 'sales.write' : null }, snapshot: () => ({ records: configurationRows[domain], history: configurationHistory[domain] }), restore: value => { validateConfigurationSnapshot(domain, value); configurationRows[domain] = value.records; configurationHistory[domain] = value.history; }, publish: emit });
+    registerRepository('workspace_' + domain.replaceAll('-', '_'), { validate: (value, snapshots) => { validateConfigurationSnapshot(domain, value); validateConfigurationReferences(domain, value, snapshots); }, repository, read: workspaceDomains[domain].read, commands: { reviewInvoice:domain==='procurement'?'purchases.read':null, previewBulkStatus:workspaceDomains[domain].write, bulkStatus:workspaceDomains[domain].write, run: domain==='custom-reports'?'accounting.read':null, generate: domain==='report-packs'?'accounting.read':null, save: workspaceDomains[domain].write, setStatus: workspaceDomains[domain].write, addNote: domain === 'tasks' ? 'sales.write' : null }, snapshot: () => ({ records: configurationRows[domain], history: configurationHistory[domain] }), restore: value => { validateConfigurationSnapshot(domain, value); configurationRows[domain] = value.records; configurationHistory[domain] = value.history; }, publish: emit });
     return [domain, repository];
 }));
 export function validateConfigurationSnapshot(domain: string, value: unknown) { const snapshot = z.object({ records: z.array(strings), history: z.array(strings) }).strict().parse(value); const ids = new Set<string>(); for (const row of snapshot.records) {
@@ -295,6 +322,7 @@ function validateConfigurationReferences(domain: string, value: unknown, snapsho
         records: ConfigRow[];
     }).records;
     for (const row of records) {
+        if(domain==='procurement')validateProcurement(row,records,(snapshots.purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,(snapshots.supplierBills as {supplierBills:import('../purchases/types/supplierBill').SupplierBill[]}).supplierBills);
         if(domain==='tasks'){validateInternalTaskSource(row,snapshots as Record<string,any>);const sales=snapshots.sales as {salesOrders:TaskDocument[];invoices:TaskDocument[]};validateTaskDocument(row.documentType,row.documentId,row.customerId,sales.salesOrders,sales.invoices,'customerId');}
         if (row.customerId && !customers.some(c => c.id === row.customerId))
             throw new Error('Backup workspace customer reference is invalid.');

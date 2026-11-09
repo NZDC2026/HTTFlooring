@@ -1,3 +1,4 @@
+import {ProcurementPage} from '../features/procurement/ProcurementPage';
 import {InvoiceRemindersPage} from '../features/invoice-reminders/InvoiceRemindersPage';
 import { DispatchFollowupsPanel } from '../features/dispatch-followups/DispatchFollowupsPanel';
 import {PurchasePrintPage} from '../features/document-output/PurchasePrintPage';
@@ -36,7 +37,6 @@ import { InvoiceDetailPage } from "../features/sales/pages/InvoiceDetailPage";
 import { CustomerStatementPage } from "../features/sales/pages/CustomerStatementPage";
 import { CreditNoteDetailPage } from "../features/sales/pages/CreditNoteDetailPage";
 import { AgedReceivablesPage } from "../features/reports/pages/AgedReceivablesPage";
-import { PurchaseAccountingReconciliationPage } from "../features/purchases/pages/PurchaseAccountingReconciliationPage";
 import { GrniOutstandingReportPage } from "../features/purchases/pages/GrniOutstandingReportPage";
 import { AgedPayablesPage } from "../features/reports/pages/AgedPayablesPage";
 import { PurchaseOrdersPage } from "../features/purchases/pages/PurchaseOrdersPage";
@@ -99,6 +99,7 @@ export const appRoutes:RouteObject[] = [
             { path: 'payroll/leave', element: <LeavePage /> },
             { path: 'documents/upload', element: <DocumentUploadPage /> },
             { path: 'documents/:documentId', element: <DocumentDetailPage /> },
+            { path: 'procurement', element: <ProcurementPage /> },
             { path: 'sales/invoice-reminders', element: <InvoiceRemindersPage /> },
             { path: 'settings/dispatch-followups', element: <DispatchFollowupsPanel /> },
             { path: 'settings/preferences', element: <SettingsOverviewPage key="preferences" /> },
@@ -380,7 +381,7 @@ export const appRoutes:RouteObject[] = [
             },
             {
                 path: "reports/purchase-accounting-reconciliation",
-                element: <PurchaseAccountingReconciliationPage />,
+                element: <Navigate to="/purchases" replace />,
             },
             {
                 path: "reports/purchase-posting-audit",

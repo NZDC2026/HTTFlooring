@@ -45,7 +45,7 @@ export const workflowSamples = [
     workflow("Goods receipt", /^\/purchases(?:$|\/goods-receipts|\/[^/]+\/receive)/,
         ["GR-SAMPLE-012", "PO-SAMPLE-033 · 20 of 40 cartons received", "Part received"],
         ["GR-SAMPLE-011", "PO-SAMPLE-032 · all 40 cartons received at Melbourne", "Received"]),
-    workflow("Purchase bills", /^\/(?:contacts\/suppliers(?:\/|$)|purchases(?:$|\/bills|\/expense-bills|\/[^/]+\/bill|\/payables|\/statements)|reports\/(?:aged-payables|purchase-accounting-reconciliation|grni-outstanding)|accounting\/reconciliation\/ap)/,
+    workflow("Purchase bills", /^\/(?:contacts\/suppliers(?:\/|$)|purchases(?:$|\/bills|\/expense-bills|\/[^/]+\/bill|\/payables|\/statements)|reports\/(?:aged-payables|grni-outstanding)|accounting\/reconciliation\/ap)/,
         ["BILL-SAMPLE-034", "Oak Wholesale · $4,400.00 outstanding · due 12 Nov 2026", "Open"],
         ["BILL-SAMPLE-033", "Trade Flooring Supply · $2,750.00 paid on 03 Nov 2026", "Paid"]),
     workflow("Supplier payments", /^\/(?:contacts\/suppliers(?:\/|$)|purchases(?:$|\/payments|\/payables|\/statements))/,

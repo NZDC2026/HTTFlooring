@@ -4939,7 +4939,9 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 if n:
                     now=datetime.datetime.now(datetime.timezone.utc)
                     data.update({'dueAt':(now+datetime.timedelta(days=1)).isoformat(),'reminderAt':(now+datetime.timedelta(hours=1)).isoformat()})
-                created=request('/api/v1/crm/tasks',report_actor,company,base=legacy_url,payload={'id':str(uuid.uuid4()),'data':data},key='task-read-fixture-'+uuid.uuid4().hex)
+                first,second=(url,legacy_url) if n==0 else (legacy_url,url)
+                task_body={'id':str(uuid.uuid4()),'data':data}
+                created=rule_write_retry('/api/v1/crm/tasks',task_body,first,second,{'data':{**data,'title':'Different same-key task'}},actor=report_actor)
                 assert created[0]==201,created
                 path='/api/v1/crm/tasks/'+created[1]['id']
                 assert task_read(path)[1]==created[1]
@@ -4949,7 +4951,23 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert created[1] in listed,listed
                 task_read('/api/v1/crm/tasks?'+urllib.parse.urlencode({'assigneeId':data['assigneeId'],'customerId':customer_id,'dueBefore':'2030-01-01T00:00:00Z'}))
                 task_read('/api/v1/crm/action-centre')
-                deleted=request(path+'/delete',report_actor,company,base=legacy_url,key='task-read-delete-'+uuid.uuid4().hex,version=created[1]['version'],method='POST')
+                for backend in (first,second):
+                    immutable=request(path,report_actor,company,base=backend,payload={**data,'customerId':approved_customer,'branchId':approved_branch},key='task-immutable-'+uuid.uuid4().hex,version=created[1]['version'],method='PUT')
+                    assert immutable[0]==422,immutable
+                updated=rule_write_retry(path,{**data,'title':data['title']+' updated','description':' café + task '},second,first,{'title':'Different task update'},created[1]['version'],method='PUT',status=200,actor=report_actor)
+                started=draft_transition(path+'/start',first,second,updated[1]['version'])
+                assert started[1]['state']=='IN_PROGRESS',started
+                completed=draft_transition(path+'/complete',second,first,started[1]['version'])
+                assert completed[1]['state']=='COMPLETED',completed
+                for backend in (first,second):
+                    invalid=request(path,report_actor,company,base=backend,payload=data,key='task-closed-update-'+uuid.uuid4().hex,version=completed[1]['version'],method='PUT')
+                    assert invalid[0]==409,invalid
+                reopened=draft_transition(path+'/reopen',first,second,completed[1]['version'])
+                assert reopened[1]['state']=='OPEN',reopened
+                cancelled=draft_transition(path+'/cancel',second,first,reopened[1]['version'])
+                assert cancelled[1]['state']=='CANCELLED',cancelled
+                reopened=draft_transition(path+'/reopen',first,second,cancelled[1]['version'])
+                deleted=draft_transition(path+'/delete',second,first,reopened[1]['version'])
                 assert deleted[0]==200 and deleted[1]['state']=='DELETED',deleted
                 assert task_read(path)[1]==deleted[1] and deleted[1]['title'] is None and deleted[1]['description'] is None
                 task_read(path+'/history',404)
@@ -4962,7 +4980,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             task_read('/api/v1/crm/tasks?state=DELETED',422)
             task_read('/api/v1/crm/task-assignees?q='+'x'*101,422)
             task_read('/api/v1/crm/tasks/'+str(uuid.uuid4()),404)
-            print('PASS: task assignee directory/list/detail/history/action-centre ordered native reads and deleted redaction; local legacy task writes only')
+            print('PASS: task typed create/update/start/complete/reopen/cancel/delete mixed replay, immutable scope, ordered native reads and deletion redaction')
             print('PASS: independent CRM approval creates exactly one customer/exposure/owner assignment, AU branch and normalized linked contact with mixed replay')
             draft_read('/api/v1/crm/drafts?pageSize=1')
             draft_read('/api/v1/crm/drafts?state=DELETED&pageSize=100')

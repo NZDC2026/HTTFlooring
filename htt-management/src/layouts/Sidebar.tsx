@@ -58,6 +58,7 @@ const sections = [
                 path: "/sales/credit-returns",
                 icon: ReceiptText,
             },
+            {label:"Procurement",path:"/procurement",icon:PackageCheck},
             {
                 label: "Purchases",
                 path: "/purchases",
@@ -77,7 +78,7 @@ const sections = [
     },
 
     {
-        label: "Finance",
+        label: "Account",
         items: [
             {
                 label: "Banking",
@@ -99,26 +100,10 @@ const sections = [
                 path: "/payroll",
                 icon: UsersRound,
             },
-        ],
-    },
-
-    {
-        label: "Insights",
-        items: [
-            {
-                label: "Report library",
-                path: "/reports/library",
-                icon: BarChart3,
-            },
             {
                 label: "Reports",
                 path: "/reports",
                 icon: BarChart3,
-            },
-            {
-                label: "Purchase Reconciliation",
-                path: "/reports/purchase-accounting-reconciliation",
-                icon: PackageCheck,
             },
         ],
     },
@@ -175,6 +160,7 @@ export function Sidebar() {
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
         if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
+        if(path==='/procurement')return 'purchases.read';
         if(path==='/tasks'||path==='/sales/credit-returns')return 'sales.read';
         if(path==='/settings/employees')return 'users.manage';
         if(path==='/settings/trash')return 'users.manage';
