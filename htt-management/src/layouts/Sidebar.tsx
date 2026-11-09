@@ -120,11 +120,6 @@ const sections = [
                 path: "/reports/purchase-accounting-reconciliation",
                 icon: PackageCheck,
             },
-            {
-                label: "Purchase Posting Audit",
-                path: "/reports/purchase-posting-audit",
-                icon: FileText,
-            },
         ],
     },
 

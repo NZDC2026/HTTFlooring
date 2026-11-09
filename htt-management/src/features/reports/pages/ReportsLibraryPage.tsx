@@ -25,7 +25,6 @@ const reports: { name: string; group: string; description: string; path: string;
  { name: 'Inventory to GL', group: 'Inventory', description: 'Cost movements reconciled with inventory control.', path: '/inventory/reconciliation', permission: 'inventory.cost.read' },
  { name: 'GRNI outstanding', group: 'Purchasing', description: 'Received goods awaiting supplier bill matching.', path: '/reports/grni-outstanding', permission: 'purchases.read' },
  { name: 'Purchase reconciliation', group: 'Purchasing', description: 'Purchase documents and accounting integration.', path: '/reports/purchase-accounting-reconciliation', permission: 'purchases.read' },
- { name: 'Purchase posting audit', group: 'Purchasing', description: 'Posting operations, recovery states and evidence.', path: '/reports/purchase-posting-audit', permission: 'purchases.read' },
  { name: 'Finance controls', group: 'Controls', description: 'Consolidated consistency checks and drill-downs.', path: '/accounting/finance-controls', permission: 'accounting.read' },
 ];
 export function ReportsLibraryPage() {

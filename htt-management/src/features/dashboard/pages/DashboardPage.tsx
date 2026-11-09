@@ -1,3 +1,5 @@
+import {PurchasePostingAlerts} from '../../purchases/components/PurchasePostingAlerts';
+import {InvoiceReminderSummary} from '../../invoice-reminders/InvoiceRemindersPage';
 import { DispatchFollowupNotifications } from '../../dispatch-followups/DispatchFollowupsPanel';
 import { TaxPayrollCards } from "../components/TaxPayrollCards";
 import { useDashboardBasis } from "../data/useDashboardBasis";
@@ -86,7 +88,7 @@ export function DashboardPage() {
             </div>
         </div>
         <p className="mb-3 text-xs text-[var(--color-text-secondary)]">{basis === "cash" ? "Cash: actual money received and paid, excluding opening balances and transfers between cash accounts." : "Accrual: unpaid invoice balances by invoice date and unpaid purchase bills by due date. Current-month bill totals include bills due later this month."} {includeGst ? "Including GST." : "Excluding recorded GST."} Cash balance remains the actual bank balance. Dashboard choices do not change transaction or GST settings.</p>
-        <DispatchFollowupNotifications/><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <PurchasePostingAlerts/><InvoiceReminderSummary/><DispatchFollowupNotifications/><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[...basisDashboard.metrics, dashboard.metrics[3]].map((metric) => <MetricCard key={metric.label} metric={metric}/>)}
         </div>
         <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[2fr_1fr]">

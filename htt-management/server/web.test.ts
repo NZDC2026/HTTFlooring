@@ -35,6 +35,20 @@ describe('web authentication and durable business database', () => {
         expect(Object.keys(bootstrap.body.value.repositories).length).toBeGreaterThan(10);
         expect((await request('setup', { username: 'other', displayName: 'Other', password })).body.ok).toBe(false);
     });
+    it('previews unpaid invoice and customer statement batches without emailing or changing financial balances', async () => {
+        expect((await request('invoiceReminders.view')).body.ok).toBe(false);
+        const call=async(repository:string,method:string,...args:unknown[])=>{const r=await request('business.command',{repository,method,args},adminCookie);expect(r.body.ok,JSON.stringify(r.body)).toBe(true);return r.body.value.result;};
+        let view=(await request('business.view',{},adminCookie)).body.value.repositories;
+        const c=view.customers.customers[0],p=view.products.products[0];
+        const loc=await call('customers','addLocation',c.id,{name:'Reminder test store',addressLine1:'42 Test Road',addressLine2:'',suburb:'Test',state:'NSW',postcode:'2000',country:'AU',phone:'',isPrimary:false});
+        const contact=await call('customers','addContact',c.id,{firstName:'Accounts',lastName:'Test',jobTitle:'Accounts',email:'reminder@example.test',phone:'',mobile:'',locationId:loc.id,isAccounting:true,isPrimary:false});
+        const draft=await call('managedSalesDocuments','save',{operationId:crypto.randomUUID(),payload:{kind:'INVOICE',customerId:c.id,locationId:loc.id,accountingContactId:contact.id,documentDate:'2026-10-10',dueDate:'2026-10-11',lines:[{productId:p.id,unitId:p.baseUnitId,quantity:2,unitPrice:100,priceBasis:'Exclusive'}]}});
+        const approved=await call('managedSalesDocuments','approve',draft.id,draft.revision),posted=await call('managedSalesDocuments','post',draft.id,approved.revision);
+        view=(await request('business.view',{},adminCookie)).body.value.repositories;const before=JSON.stringify([view.sales,view.customerPayments,view.customerCredits,view.journals]);
+        const list=await request('invoiceReminders.view',{},adminCookie);expect(list.body.ok).toBe(true);expect(list.body.value.rows).toContainEqual(expect.objectContaining({id:posted.documentId,amount:220,email:'reminder@example.test'}));
+        for(const mode of ['INVOICE','STATEMENT']){const preview=await request('invoiceReminders.preview',{mode,ids:[posted.documentId]},adminCookie);expect(preview.body.ok,JSON.stringify(preview.body)).toBe(true);expect(preview.body.value.mails[0].html).toContain(mode==='INVOICE'?'Discount':'Customer statement');expect(preview.body.value.mails[0].to).toBe('reminder@example.test');}
+        view=(await request('business.view',{},adminCookie)).body.value.repositories;expect(JSON.stringify([view.sales,view.customerPayments,view.customerCredits,view.journals])).toBe(before);
+    });
     it('keeps browser sessions and permissions isolated, including concurrent requests', async () => {
         expect((await request('users.create', { username: 'reader', displayName: 'Reader', password, roles: ['SALES'] }, adminCookie)).body.ok).toBe(true);
         const login = await request('login', { username: 'reader', password });

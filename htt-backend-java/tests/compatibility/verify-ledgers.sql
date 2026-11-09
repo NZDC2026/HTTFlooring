@@ -616,3 +616,10 @@ DO $$ BEGIN
  OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.device_revoke' AND actor_id='00000000-0000-0000-0000-000000000503')<>2
  THEN RAISE EXCEPTION 'Collaboration device/domain operations and audit mismatch'; END IF;
 END $$;
+
+DO $$ BEGIN
+ IF (SELECT count(*) FROM crm.tasks WHERE creator_id='00000000-0000-0000-0000-000000000500' AND state='DELETED')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_create')<>2
+ OR (SELECT count(*) FROM platform.audit_events WHERE action='crm.tasks_delete')<>2
+ THEN RAISE EXCEPTION 'Task read fixtures and deletion must be auditable once'; END IF;
+END $$;

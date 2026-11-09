@@ -1,3 +1,12 @@
+import {InvoiceReminders} from './invoiceReminders';
+import {reminderRows} from '../src/features/invoice-reminders/rules';
+import {businessSettings} from '../src/features/business-workspace/configurationState';
+import {businessDateKey} from '../src/lib/businessDate';
+import {buildCustomerStatement} from '../src/features/sales/data/customerStatementService';
+import {renderStatement} from '../src/features/external-services/statementHtml';
+import {statementSchema} from '../src/features/external-services/contract';
+import {renderOutputHtml} from '../src/features/document-output/outputHtml';
+import type {PreparedOutput} from '../src/features/document-output/outputRepository';
 import env from '../config/environment.cjs';
 import {commercialReservation} from '../src/features/dispatch-followups/stockReservations';
 import {visibleDocuments} from '../src/features/document-recycle/recycleState';
@@ -29,6 +38,23 @@ export function createWebApplication(options: { directory: string; staticDirecto
         schedule:(id,date,actor,reason)=>{const d=followupDocuments().find(d=>d.id===id)!;security.runDispatchServiceSync(()=>business.command({repository:'sales',method:'scheduleDispatch',args:[id,date,d.awaitingCollection??false,d.deliveryBooked,{actor,reason}]}));},
         expire:(id,date)=>{security.runDispatchServiceSync(()=>business.command({repository:'sales',method:'expireDispatchQuote',args:[id,date]}));},
     });
+    const reminderSnapshot=()=>snapshotRepositories() as any;
+    const invoiceReminders=new InvoiceReminders(storage,{
+        rows:()=>{const s=reminderSnapshot();return reminderRows(followupDocuments(),s.customerPayments?.payments??[],s.customerCredits?.allocations??[],s.customers?.customers??[],businessDateKey(new Date().toISOString()));},
+        fingerprint:()=>{const s=reminderSnapshot();return JSON.stringify([businessDateKey(new Date().toISOString()),followupDocuments(),s.customerPayments,s.customerCredits,s.customers,businessSettings()]);},
+        document:(mode,rows)=>{
+            const s=reminderSnapshot(),today=businessDateKey(new Date().toISOString());
+            if(mode==='INVOICE'){
+                const d=followupDocuments().find(d=>d.id===rows[0].id)!;
+                const artifact=(business.command({repository:'preparedSalesOutputs',method:'prepare',args:[{operationId:randomBytes(16).toString('hex'),sourceId:d.id,kind:'INVOICE',expectedUpdatedAt:d.updatedAt}]}).result) as PreparedOutput;
+                return {html:renderOutputHtml({...artifact,amountDue:rows[0].amount}),filename:d.documentNumber.replace(/[^a-z0-9_-]/gi,'_')+'.html'};
+            }
+            const customer=s.customers.customers.find((c:any)=>c.id===rows[0].customerId),fromDate='1900-01-01';
+            const report=buildCustomerStatement({customerId:customer.id,documents:followupDocuments().filter(d=>!/sample/i.test(d.documentNumber)),payments:s.customerPayments.payments.filter((p:any)=>!/sample/i.test(p.paymentNumber??p.reference??'')),creditNotes:s.customerCredits.creditNotes.filter((c:any)=>!/sample/i.test(c.creditNoteNumber)),fromDate,toDate:today});
+            const a=statementSchema.parse({id:'reminder-statement',operationId:'reminder-statement',ownerId:security.principal()!.userId,kind:'CUSTOMER_STATEMENT',sourceId:customer.id,sourceRevision:'0'.repeat(64),documentNumber:'STATEMENT-'+customer.code+'-'+today,fromDate,toDate:today,customerName:customer.businessName,issuerName:businessSettings().companyName,currency:businessSettings().currency,recipient:{accountingEmail:rows[0].email},subject:'Customer statement',body:'Account statement',template:{paper:'A4'},openingBalance:report.openingBalance,closingBalance:report.closingBalance,totalDebits:report.totalDebits,totalCredits:report.totalCredits,entries:report.entries.map(({date,reference,description,debit,credit,balance})=>({date,reference,description,debit,credit,balance}))});
+            return {html:renderStatement(a),filename:'Statement-'+customer.code+'-'+today+'.html'};
+        },
+    });
     // Only initialization joins the principal-sensitive request queue. Provider I/O must
     // never hold that queue or a user's identity; business mutations use short sync scopes.
     let followupWork:Promise<unknown>=Promise.resolve();let followupWorking=false;
@@ -36,7 +62,7 @@ export function createWebApplication(options: { directory: string; staticDirecto
         if(followupWorking)return;followupWorking=true;
         const ready=queue.then(()=>security.runDispatchService(async()=>{if(storage.read(join(options.directory,'business-v1.json'))===undefined)return false;await business.initialize();return true;}));
         queue=ready.then(()=>{},()=>{});
-        followupWork=ready.then(ok=>ok?followups.tick():undefined).catch(error=>console.error('Dispatch follow-up service:',error instanceof Error?error.message:'Failed')).finally(()=>{followupWorking=false;});
+        followupWork=ready.then(ok=>ok?Promise.all([followups.tick(),invoiceReminders.tick()]):undefined).catch(error=>console.error('Dispatch follow-up service:',error instanceof Error?error.message:'Failed')).finally(()=>{followupWorking=false;});
     },60000);followupTimer.unref();
 
     const lastScans = new Map<string, number>();
@@ -90,6 +116,10 @@ export function createWebApplication(options: { directory: string; staticDirecto
             }
             case 'business.bootstrap': await business.initialize(); business.scanRecurringDue(); return business.view();
             case 'dispatchFollowups.reservations': {security.require('inventory.read');const s=snapshotRepositories() as any;return (s.products?.products??[]).map((p:any)=>({productId:p.id,quantity:commercialReservation(p,followupDocuments(),s.fulfilments?.fulfilments??[])}));}
+            case 'invoiceReminders.view': security.require('sales.read');return invoiceReminders.view();
+            case 'invoiceReminders.configure': security.require('users.manage');{const result=invoiceReminders.configure(input);security.audit('invoice.reminders.configure','company','SUCCESS','users.manage');return result;}
+            case 'invoiceReminders.preview': security.require('documents.prepare');security.require('sales.read');return invoiceReminders.preview(input,security.principal()!.userId);
+            case 'invoiceReminders.queue': security.require('documents.prepare');security.require('sales.read');{const result=invoiceReminders.queue(input);security.audit('invoice.reminders.queue',result.id,'SUCCESS','documents.prepare');return result;}
             case 'dispatchFollowups.view': security.require('sales.read');return followups.view(input.documentId);
             case 'dispatchFollowups.configure': security.require('users.manage');security.audit('dispatch.followups.configure','company','INTENT','users.manage');{const result=followups.configure(input);security.audit('dispatch.followups.configure','company','SUCCESS','users.manage');return result;}
             case 'business.command': {assertApprovedDesktopCommand(input);security.validateDeliveryAssignee(input);const before=structuredClone(followupDocuments()),actor=security.principal();const result=business.command(input);followups.recordChanges(before,actor?.displayName||actor?.userId||'Staff');return result;}

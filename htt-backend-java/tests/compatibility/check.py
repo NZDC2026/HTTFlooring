@@ -4792,7 +4792,9 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert denied[0]==403,denied
                 invalid=request(visit_path+'/checkout',report_actor,company,base=backend,payload={**checkout,'checkOut':{**checkout['checkOut'],'accuracyMetres':'0'}},key='visit-accuracy-'+uuid.uuid4().hex,version=visit['version'])
                 assert invalid[0]==422,invalid
-                before=datetime.datetime.fromisoformat(visit['data']['checkIn']['capturedAt'].replace('Z','+00:00'))-datetime.timedelta(seconds=1)
+                captured=visit['data']['checkIn']['capturedAt']
+                captured=re.sub(r'\.(\d{1,9})(?=[+-]\d{2}:\d{2}$|Z$)',lambda m:'.'+m.group(1)[:6].ljust(6,'0'),captured)
+                before=datetime.datetime.fromisoformat(captured.replace('Z','+00:00'))-datetime.timedelta(seconds=1)
                 invalid=request(visit_path+'/checkout',report_actor,company,base=backend,payload={**checkout,'checkOut':{**checkout['checkOut'],'capturedAt':before.isoformat()}},key='visit-before-'+uuid.uuid4().hex,version=visit['version'])
                 assert invalid[0]==422,invalid
             closed=rule_write_retry(visit_path+'/checkout',checkout,url,legacy_url,{'notes':'Different checkout'},visit['version'],status=200,actor=report_actor)
@@ -4915,6 +4917,52 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
                 assert revoked[0]==200,revoked
                 assert request(path,other_report_actor,company,base=second,payload=create,key='collab-revoked-'+uuid.uuid4().hex)[0]==403
             print('PASS: collaboration offline NOTE/BOARD create/update/delete/remove, strict shared device sequences, persisted conflicts and owner/revocation guards')
+            def task_read(path,status=200,actor=None):
+                a=request(path,actor or report_actor,company);b=request(path,actor or report_actor,company,base=legacy_url)
+                assert a[0]==b[0]==status,(path,a,b)
+                if status==200:
+                    if path=='/api/v1/crm/action-centre':
+                        stable=[]
+                        for _,raw in (a,b):
+                            body=dict(raw);stamp=body.pop('asOf')
+                            padded=re.sub(r'\.(\d{1,9})(?=[+-]\d{2}:\d{2}$|Z$)',lambda m:'.'+m.group(1)[:6].ljust(6,'0'),stamp)
+                            instant=datetime.datetime.fromisoformat(padded.replace('Z','+00:00'))
+                            assert abs((datetime.datetime.now(datetime.timezone.utc)-instant).total_seconds())<60,raw
+                            stable.append(body)
+                        assert stable[0]==stable[1],(path,a,b)
+                    else:assert a==b,(path,a,b)
+                return a
+            assignees=task_read('/api/v1/crm/task-assignees?customerId='+customer_id)[1]['items']
+            assert any(x['userId']=='00000000-0000-0000-0000-000000000503' for x in assignees),assignees
+            for n in range(2):
+                data={'title':'Synthetic task read café '+uuid.uuid4().hex,'assigneeId':'00000000-0000-0000-0000-000000000503','customerId':customer_id,'branchId':branch,'priority':'HIGH'}
+                if n:
+                    now=datetime.datetime.now(datetime.timezone.utc)
+                    data.update({'dueAt':(now+datetime.timedelta(days=1)).isoformat(),'reminderAt':(now+datetime.timedelta(hours=1)).isoformat()})
+                created=request('/api/v1/crm/tasks',report_actor,company,base=legacy_url,payload={'id':str(uuid.uuid4()),'data':data},key='task-read-fixture-'+uuid.uuid4().hex)
+                assert created[0]==201,created
+                path='/api/v1/crm/tasks/'+created[1]['id']
+                assert task_read(path)[1]==created[1]
+                task_read(path+'/history')
+                assert task_read(path,actor=other_report_actor)[1]==created[1]
+                listed=task_read('/api/v1/crm/tasks?state=OPEN&pageSize=100')[1]['items']
+                assert created[1] in listed,listed
+                task_read('/api/v1/crm/tasks?'+urllib.parse.urlencode({'assigneeId':data['assigneeId'],'customerId':customer_id,'dueBefore':'2030-01-01T00:00:00Z'}))
+                task_read('/api/v1/crm/action-centre')
+                deleted=request(path+'/delete',report_actor,company,base=legacy_url,key='task-read-delete-'+uuid.uuid4().hex,version=created[1]['version'],method='POST')
+                assert deleted[0]==200 and deleted[1]['state']=='DELETED',deleted
+                assert task_read(path)[1]==deleted[1] and deleted[1]['title'] is None and deleted[1]['description'] is None
+                task_read(path+'/history',404)
+            for path in ('/api/v1/crm/tasks','/api/v1/crm/task-assignees'):
+                task_read(path+'?pageSize=1')
+                task_read(path+'?page=0',422)
+                task_read(path+'?pageSize=101',422)
+                task_read(path+'?page=1.0',400)
+                task_read(path,403,general_reader)
+            task_read('/api/v1/crm/tasks?state=DELETED',422)
+            task_read('/api/v1/crm/task-assignees?q='+'x'*101,422)
+            task_read('/api/v1/crm/tasks/'+str(uuid.uuid4()),404)
+            print('PASS: task assignee directory/list/detail/history/action-centre ordered native reads and deleted redaction; local legacy task writes only')
             print('PASS: independent CRM approval creates exactly one customer/exposure/owner assignment, AU branch and normalized linked contact with mixed replay')
             draft_read('/api/v1/crm/drafts?pageSize=1')
             draft_read('/api/v1/crm/drafts?state=DELETED&pageSize=100')

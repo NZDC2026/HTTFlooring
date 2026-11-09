@@ -1,3 +1,4 @@
+import {InvoiceRemindersPage} from '../features/invoice-reminders/InvoiceRemindersPage';
 import { DispatchFollowupsPanel } from '../features/dispatch-followups/DispatchFollowupsPanel';
 import {PurchasePrintPage} from '../features/document-output/PurchasePrintPage';
 import { CustomerCreditReturnsPage } from '../features/customer-returns/CustomerCreditReturnsPage';
@@ -36,7 +37,6 @@ import { CustomerStatementPage } from "../features/sales/pages/CustomerStatement
 import { CreditNoteDetailPage } from "../features/sales/pages/CreditNoteDetailPage";
 import { AgedReceivablesPage } from "../features/reports/pages/AgedReceivablesPage";
 import { PurchaseAccountingReconciliationPage } from "../features/purchases/pages/PurchaseAccountingReconciliationPage";
-import { PurchasePostingAuditPage } from "../features/purchases/pages/PurchasePostingAuditPage";
 import { GrniOutstandingReportPage } from "../features/purchases/pages/GrniOutstandingReportPage";
 import { AgedPayablesPage } from "../features/reports/pages/AgedPayablesPage";
 import { PurchaseOrdersPage } from "../features/purchases/pages/PurchaseOrdersPage";
@@ -99,6 +99,7 @@ export const appRoutes:RouteObject[] = [
             { path: 'payroll/leave', element: <LeavePage /> },
             { path: 'documents/upload', element: <DocumentUploadPage /> },
             { path: 'documents/:documentId', element: <DocumentDetailPage /> },
+            { path: 'sales/invoice-reminders', element: <InvoiceRemindersPage /> },
             { path: 'settings/dispatch-followups', element: <DispatchFollowupsPanel /> },
             { path: 'settings/preferences', element: <SettingsOverviewPage key="preferences" /> },
             { path: 'settings/roles', element: <SettingsOverviewPage key="roles" /> },
@@ -383,7 +384,7 @@ export const appRoutes:RouteObject[] = [
             },
             {
                 path: "reports/purchase-posting-audit",
-                element: <PurchasePostingAuditPage />,
+                element: <Navigate to="/purchases" replace />,
             },
             {
                 path: "reports/grni-outstanding",
