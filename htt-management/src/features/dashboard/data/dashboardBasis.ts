@@ -19,7 +19,7 @@ export type DashboardBasis = "cash" | "accrual";
 export interface DashboardBasisInput extends FinanceOverviewActivity {
     accounts: Account[]; journals: JournalEntry[]; banks: BankAccount[];
     documents: SalesDocument[]; bills: SupplierBill[];
-    date: string; basis: DashboardBasis; includeGst: boolean; currency: string;
+    from?: string; date: string; basis: DashboardBasis; includeGst: boolean; currency: string;
 }
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const netRatio = (totals: { subtotal: number; total: number }) => totals.total ? totals.subtotal / totals.total : 1;
@@ -86,17 +86,22 @@ export function calculateDashboardBasis(input: DashboardBasisInput) {
     const chart: MonthlyFinancialData[] = Array.from({ length: 6 }, (_, index) => {
         const d = new Date(Date.UTC(year, month - 6 + index, 1));
         const day = index === 5 ? Number(date.slice(8, 10)) : undefined;
-        const current = period(d.getUTCFullYear(), d.getUTCMonth(), day);
+        const monthFrom=d.toISOString().slice(0,10),monthTo=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);
+        const current = input.from ? totals(input.from>monthFrom?input.from:monthFrom,date<monthTo?date:monthTo,date<monthTo?date:monthTo) : period(d.getUTCFullYear(), d.getUTCMonth(), day);
         const prior = period(d.getUTCFullYear() - 1, d.getUTCMonth(), day);
         return { month: d.toLocaleString("en", { month: "short", timeZone: "UTC" }), ...current, lastYearRevenue: prior.revenue, lastYearExpenses: prior.expenses };
     });
-    const current = chart[5], previous = chart[4];
+    const start=input.from??date.slice(0,7)+'-01';
+    const days=Math.round((Date.parse(date)-Date.parse(start))/86400000)+1;
+    const priorTo=new Date(Date.parse(start)-86400000).toISOString().slice(0,10);
+    const priorFrom=new Date(Date.parse(start)-days*86400000).toISOString().slice(0,10);
+    const current=totals(start,date,date),previous=totals(priorFrom,priorTo,priorTo);
     const money = (n: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency }).format(n);
     const change = (n: number, prior: number) => prior ? round((n - prior) / Math.abs(prior) * 100) : 0;
     const tax = includeGst ? "Incl. GST" : "Excl. GST";
     const metrics: DashboardMetric[] = [
         { label: basis === "cash" ? "Cash received" : "Accounts receivable", value: money(current.revenue), change: change(current.revenue, previous.revenue), description: `${tax} · ${basis === "cash" ? "By receipt date" : "Unpaid invoice balances by invoice date"}` },
-        { label: basis === "cash" ? "Cash paid" : "Accounts payable", value: money(current.expenses), change: change(current.expenses, previous.expenses), description: `${tax} · ${basis === "cash" ? "By payment date" : "Unpaid bills due in selected month"}` },
+        { label: basis === "cash" ? "Cash paid" : "Accounts payable", value: money(current.expenses), change: change(current.expenses, previous.expenses), description: `${tax} · ${basis === "cash" ? "By payment date" : "Unpaid bills due in selected period"}` },
         { label: basis === "cash" ? "Net cash flow" : "Net receivables / payables", value: money(round(current.revenue - current.expenses)), change: change(current.revenue - current.expenses, previous.revenue - previous.expenses), description: basis === "cash" ? "Cash received less cash paid" : "Selected-period receivables less payables" },
     ];
     const breakdown: DashboardBreakdown = {

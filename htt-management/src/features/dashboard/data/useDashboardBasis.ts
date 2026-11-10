@@ -13,6 +13,6 @@ export function useDashboardBasis(input: Omit<DashboardBasisInput, "documents" |
     const creditAllocations = useSyncExternalStore(creditNoteRepository.subscribe, creditNoteRepository.getAllocationSnapshot, creditNoteRepository.getAllocationSnapshot);
     const supplierPayments = useSyncExternalStore(supplierPaymentRepository.subscribe, supplierPaymentRepository.getSnapshot, supplierPaymentRepository.getSnapshot);
     const supplierCreditAllocations = useSyncExternalStore(supplierCreditRepository.subscribe, supplierCreditRepository.getAllocationSnapshot, supplierCreditRepository.getAllocationSnapshot);
-    const { accounts, journals, banks, date, basis, includeGst, currency } = input;
-    return useMemo(() => calculateDashboardBasis({ accounts, journals, banks, date, basis, includeGst, currency, documents, bills, payments, creditAllocations, supplierPayments, supplierCreditAllocations }), [accounts, journals, banks, date, basis, includeGst, currency, documents, bills, payments, creditAllocations, supplierPayments, supplierCreditAllocations]);
+    const { accounts, journals, banks, date, from, basis, includeGst, currency } = input;
+    return useMemo(() => calculateDashboardBasis({ accounts, journals, banks, date, from, basis, includeGst, currency, documents, bills, payments, creditAllocations, supplierPayments, supplierCreditAllocations }), [accounts, journals, banks, date, from, basis, includeGst, currency, documents, bills, payments, creditAllocations, supplierPayments, supplierCreditAllocations]);
 }

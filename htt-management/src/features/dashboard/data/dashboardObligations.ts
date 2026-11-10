@@ -2,8 +2,7 @@ import type { Account } from "../../accounting/types/account";
 import type { JournalEntry } from "../../accounting/types/journalEntry";
 import type { PayrollState } from "../../payroll/data/payrollModel";
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-export function dashboardGst(accounts: Account[], journals: JournalEntry[], date: string) {
-    const from = `${date.slice(0, 7)}-01`;
+export function dashboardGst(accounts: Account[], journals: JournalEntry[], date: string, from = `${date.slice(0, 7)}-01`) {
     const collectedIds = new Set(accounts.filter(account => account.systemRole === "GST_PAYABLE").map(account => account.id));
     const paidIds = new Set(accounts.filter(account => account.systemRole === "GST_RECEIVABLE").map(account => account.id));
     let collected = 0, paid = 0;

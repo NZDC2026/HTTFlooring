@@ -1,3 +1,4 @@
+import {DateRangePicker} from '../../../components/date-range/DateRangePicker';
 import { warnCreditHold } from "../../credit-hold/warnCreditHold";
 import { ReportContext } from '../../report-settings/ReportContext';
 import { reportMoney } from '../../report-settings/reportPresentation';
@@ -206,60 +207,7 @@ export function CustomerStatementPage() {
 
             <div className="mb-5 flex flex-wrap items-end justify-between gap-4 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-white p-4 shadow-[var(--shadow-xs)] print:hidden">
                 <div className="flex flex-wrap items-end gap-4">
-                    <label className="block">
-                        <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--color-text-muted)]">
-                            From Date
-                        </span>
-
-                        <input
-                            type="date"
-                            value={
-                                fromDate
-                            }
-                            max={
-                                toDate
-                            }
-                            onChange={(
-                                event,
-                            ) =>
-                                setFromDate(
-                                    event
-                                        .target
-                                        .value,
-                                )
-                            }
-                            className="h-10 rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)]"
-                        />
-                    </label>
-
-                    <label className="block">
-                        <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--color-text-muted)]">
-                            To Date
-                        </span>
-
-                        <input
-                            type="date"
-                            value={
-                                toDate
-                            }
-                            min={
-                                fromDate
-                            }
-                            max={
-                                today
-                            }
-                            onChange={(
-                                event,
-                            ) =>
-                                setToDate(
-                                    event
-                                        .target
-                                        .value,
-                                )
-                            }
-                            className="h-10 rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm outline-none transition focus:border-[var(--color-primary)]"
-                        />
-                    </label>
+                    <DateRangePicker from={fromDate} to={toDate} allowEmpty={false} onChange={r=>{setFromDate(r.from);setToDate(r.to);}}/>
 
                     <div className="pb-2 text-xs text-[var(--color-text-muted)]">
                         Statement period{" "}

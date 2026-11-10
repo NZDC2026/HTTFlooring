@@ -1,3 +1,4 @@
+import {DateRangePicker} from '../../../components/date-range/DateRangePicker';
 import { reportMoney } from '../../report-settings/reportPresentation';
 import { ReportContext } from '../../report-settings/ReportContext';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -31,9 +32,7 @@ import {
     CardContent,
 } from "../../../components/ui/Card";
 
-import {
-    Input,
-} from "../../../components/ui/Input";
+
 
 import {
     useAccounts,
@@ -172,45 +171,7 @@ export function GeneralLedgerReportPage() {
                             </select>
                         </Field>
 
-                        <Field
-                            label="From"
-                        >
-                            <Input
-                                type="date"
-                                value={
-                                    fromDate
-                                }
-                                onChange={(
-                                    event,
-                                ) =>
-                                    setFromDate(
-                                        event
-                                            .target
-                                            .value,
-                                    )
-                                }
-                            />
-                        </Field>
-
-                        <Field
-                            label="To"
-                        >
-                            <Input
-                                type="date"
-                                value={
-                                    toDate
-                                }
-                                onChange={(
-                                    event,
-                                ) =>
-                                    setToDate(
-                                        event
-                                            .target
-                                            .value,
-                                    )
-                                }
-                            />
-                        </Field>
+                        <DateRangePicker from={fromDate} to={toDate} allowEmpty={false} onChange={r=>{setFromDate(r.from);setToDate(r.to);}}/>
                     </div>
                 </CardContent>
             </Card>
@@ -535,27 +496,6 @@ export function GeneralLedgerReportPage() {
     );
 }
 
-function Field({
-    label,
-    children,
-}: {
-    label:
-    string;
-
-    children:
-    ReactNode;
-}) {
-    return (
-        <label className="block">
-            <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-                {label}
-            </span>
-
-            {children}
-        </label>
-    );
-}
-
 function SummaryCard({
     label,
     value,
@@ -711,3 +651,23 @@ function getToday() {
 
 const inputClass =
     "h-10 w-full rounded-lg border border-[var(--color-border)] bg-white px-3 text-sm outline-none transition hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-soft)]";
+function Field({
+    label,
+    children,
+}: {
+    label:
+    string;
+
+    children:
+    ReactNode;
+}) {
+    return (
+        <label className="block">
+            <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+                {label}
+            </span>
+
+            {children}
+        </label>
+    );
+}

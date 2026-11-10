@@ -33,7 +33,7 @@ it('sample roles model the four views without changing real permissions',()=>{
 
 it('renders reception operations and the three right-side panels without owner financials',()=>{
  identity.roles=['SALES'];const html=render();
- for(const label of ["Today&#x27;s Tasks",'Customer Follow-ups','Incoming Shipments','Quick Access','Recent Activity','Inventory Quick Check','Open Orders Status','Containers','delayed'])expect(html).toContain(label);
+ for(const label of ["Tasks (Selected Period)",'Customer Follow-ups','Incoming Shipments','Quick Access','Recent Activity','Inventory Quick Check','Open Orders Status','Containers','delayed'])expect(html).toContain(label);
  for(const label of ['Gross Profit','Cash Balance','Finance Summary'])expect(html).not.toContain(label);
  expect(html).toContain('/sales/drafts/invoices/new');expect(html).toContain('Sample complete');
 });

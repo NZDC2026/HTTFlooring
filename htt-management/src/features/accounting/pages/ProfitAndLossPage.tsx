@@ -1,3 +1,4 @@
+import {DateRangePicker} from '../../../components/date-range/DateRangePicker';
 import { reportMoney } from '../../report-settings/reportPresentation';
 import { ReportContext } from '../../report-settings/ReportContext';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -27,9 +28,7 @@ import {
     CardContent,
 } from "../../../components/ui/Card";
 
-import {
-    Input,
-} from "../../../components/ui/Input";
+
 
 import {
     useProfitAndLoss,
@@ -116,45 +115,7 @@ export function ProfitAndLossPage() {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
-                    <Field
-                        label="From"
-                    >
-                        <Input
-                            type="date"
-                            value={
-                                fromDate
-                            }
-                            onChange={(
-                                event,
-                            ) =>
-                                setFromDate(
-                                    event
-                                        .target
-                                        .value,
-                                )
-                            }
-                        />
-                    </Field>
-
-                    <Field
-                        label="To"
-                    >
-                        <Input
-                            type="date"
-                            value={
-                                toDate
-                            }
-                            onChange={(
-                                event,
-                            ) =>
-                                setToDate(
-                                    event
-                                        .target
-                                        .value,
-                                )
-                            }
-                        />
-                    </Field>
+                    <DateRangePicker from={fromDate} to={toDate} allowEmpty={false} onChange={r=>{setFromDate(r.from);setToDate(r.to);}}/>
                 </div>
             </div>
 
@@ -456,27 +417,6 @@ function StatementSection({
                 </table>
             </div>
         </section>
-    );
-}
-
-function Field({
-    label,
-    children,
-}: {
-    label:
-    string;
-
-    children:
-    ReactNode;
-}) {
-    return (
-        <label className="block min-w-44">
-            <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-                {label}
-            </span>
-
-            {children}
-        </label>
     );
 }
 

@@ -1,7 +1,8 @@
+import {DateRangePicker} from '../../../components/date-range/DateRangePicker';
 import {useListState} from '../../../hooks/useListState';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Banknote, ChartNoAxesCombined, ShoppingCart, Layers, Zap, Plus, ClipboardList, CalendarDays } from "lucide-react";
+import { Banknote, ChartNoAxesCombined, ShoppingCart, Layers, Zap, Plus, ClipboardList } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { businessSettings } from "../../business-workspace/configurationState";
 import { businessDateKey, fiscalYearStart } from "../../../lib/businessDate";
@@ -42,7 +43,7 @@ export function CustomerSalesTab({customer}:{customer:Customer}) {
  const metric=[{label:"Total Sales",value:money(summary.sales),old:previous.sales,current:summary.sales,icon:ChartNoAxesCombined},{label:"Orders",value:String(summary.orders),old:previous.orders,current:summary.orders,icon:ShoppingCart},{label:"Avg. Order Value",value:money(summary.average),old:previous.average,current:summary.average,icon:Layers},{label:"Payments Received",value:money(summary.payments),old:previous.payments,current:summary.payments,icon:Banknote}];
  return <div className="space-y-4">
  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6dfd6] bg-[#f8f5ef] p-3">
- <div className="flex flex-wrap items-center gap-2"><CalendarDays size={17} className="text-green-800"/><span className="mr-2 text-sm font-semibold">Reporting period</span>{["1 month","3 months","YTD"].map(p=><button key={p} className={`rounded-lg border px-3 py-2 text-sm ${p===period?"border-green-800 bg-green-800 text-white":"border-[#e4ddd3] bg-white"}`} onClick={()=>{setPeriod(p);setRange(presetRange(p,today));}}>{p}</button>)}<label className="ml-2 text-xs">From <input aria-label="Sales period start" type="date" value={range.from} max={range.to||undefined} onChange={e=>{setPeriod("Custom");setRange({...range,from:e.target.value});}} className="ml-1 rounded-lg border bg-white p-2"/></label><label className="text-xs">To <input aria-label="Sales period end" type="date" value={range.to} min={range.from||undefined} onChange={e=>{setPeriod("Custom");setRange({...range,to:e.target.value});}} className="ml-1 rounded-lg border bg-white p-2"/></label></div>
+ <DateRangePicker from={range.from} to={range.to} allowEmpty={false} label="Reporting period" onChange={r=>{setPeriod('Custom');setRange(r);}}/>
  <label className="flex items-center gap-2 text-xs text-amber-800"><input type="checkbox" checked={sample} onChange={e=>setSample(e.target.checked)}/>Sample preview · Read-only</label></div>
  {!valid?<p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">Choose a valid start and end date.</p>:<>
  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{metric.map(m=><div key={m.label} className={`${panel} flex items-start gap-4 p-5`}><m.icon size={29} className={m.label==="Orders"?"text-amber-600":"text-green-800"}/><div className="min-w-0 flex-1"><p className="text-xs font-semibold">{m.label} ({period})</p><div className="mt-1 flex flex-wrap items-end justify-between gap-2"><strong className="text-[26px] tracking-tight">{m.value}</strong><span title="Compared with the preceding period of equal length" className={`rounded-lg px-2 py-1 text-xs ${m.current<m.old?"bg-red-50 text-red-700":"bg-green-50 text-green-800"}`}>{m.old?`${((m.current-m.old)/Math.abs(m.old)*100)>=0?"+":""}${((m.current-m.old)/Math.abs(m.old)*100).toFixed(0)}%`:m.current?"New":"—"}</span></div></div></div>)}</div>

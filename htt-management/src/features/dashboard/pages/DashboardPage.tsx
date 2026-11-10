@@ -1,3 +1,4 @@
+import { DateRangePicker } from '../../../components/date-range/DateRangePicker';
 import {PurchasePostingAlerts} from '../../purchases/components/PurchasePostingAlerts';
 import {InvoiceReminderSummary} from '../../invoice-reminders/InvoiceRemindersPage';
 import { DispatchFollowupNotifications } from '../../dispatch-followups/DispatchFollowupsPanel';
@@ -7,7 +8,7 @@ import type { DashboardBasis } from "../data/dashboardBasis";
 import {presentationWorkflows} from '../../security/optionalWorkflows';
 import {businessSettings} from '../../business-workspace/configurationState';
 import { useState } from "react";
-import { ArrowRight, CalendarDays } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "../../../components/ui/Button";
 import { BankReconciliationCard } from "../components/BankReconciliationCard";
@@ -32,14 +33,11 @@ export function DashboardPage() {
     const bankAccounts = useBankAccounts();
     const today = new Date().toLocaleDateString("en-CA", { timeZone: businessSettings().timezone, year: "numeric", month: "2-digit", day: "2-digit" });
     const currentMonth = today.slice(0, 7);
-    const [reportingPeriod, setReportingPeriod] = useState(currentMonth);
-    const [reportYear, reportMonth] = reportingPeriod.split("-").map(Number);
-    const reportingDate = reportingPeriod === currentMonth
-        ? today
-        : new Date(Date.UTC(reportYear, reportMonth, 0)).toISOString().slice(0, 10);
+    const [range,setRange]=useState({from:currentMonth+'-01',to:today});
+    const reportingDate=range.to,reportingPeriod=range.from+' – '+range.to;
     const currency = businessSettings().currency;
     const dashboard = useMemo(() => buildLiveDashboard(accounts, journals, reportingDate, bankAccounts, currency), [accounts, journals, reportingDate, bankAccounts, currency]);
-    const basisDashboard = useDashboardBasis({ accounts, journals, banks: bankAccounts, date: reportingDate, basis, includeGst, currency: businessSettings().currency });
+    const basisDashboard = useDashboardBasis({ accounts, journals, banks: bankAccounts, date: reportingDate, from:range.from, basis, includeGst, currency: businessSettings().currency });
     return <div className="pb-8">
         <div className="mb-3 grid items-stretch gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <div className="flex min-w-0 flex-col">
@@ -52,32 +50,7 @@ export function DashboardPage() {
             <TasksCard/>
         </div>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 text-xs">
-            <div role="group" aria-label="Reporting period" className="flex flex-wrap items-center gap-2 font-medium">
-                <CalendarDays size={15} aria-hidden="true"/>
-                <span>Reporting period:</span>
-                <select
-                    aria-label="Reporting month"
-                    value={reportingPeriod.slice(5, 7)}
-                    onChange={(event) => setReportingPeriod(`${reportYear}-${event.target.value}`)}
-                    className="h-9 rounded-lg border border-[var(--color-border)] bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                >
-                    {Array.from({ length: 12 }, (_, index) => {
-                        const month = String(index + 1).padStart(2, "0");
-                        return <option key={month} value={month} disabled={`${reportYear}-${month}` > currentMonth}>{new Date(Date.UTC(2026, index, 1)).toLocaleString("en", { month: "long", timeZone: "UTC" })}</option>;
-                    })}
-                </select>
-                <select
-                    aria-label="Reporting year"
-                    value={reportYear}
-                    onChange={(event) => {
-                        const period = `${event.target.value}-${reportingPeriod.slice(5, 7)}`;
-                        setReportingPeriod(period > currentMonth ? currentMonth : period);
-                    }}
-                    className="h-9 rounded-lg border border-[var(--color-border)] bg-white px-3 text-xs tabular-nums focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                >
-                    {Array.from({ length: Number(currentMonth.slice(0, 4)) - 1899 }, (_, index) => Number(currentMonth.slice(0, 4)) - index).map(year => <option key={year} value={year}>{year}</option>)}
-                </select>
-            </div>
+            <DateRangePicker from={range.from} to={range.to} allowEmpty={false} label="Reporting period" onChange={setRange}/>
             <div className="flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2">Accounting method
                     <select aria-label="Dashboard accounting method" value={basis} onChange={event => setBasis(event.target.value as DashboardBasis)} className="h-9 rounded-lg border border-[var(--color-border)] bg-white px-3">
