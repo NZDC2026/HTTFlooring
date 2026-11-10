@@ -145,13 +145,24 @@ class WarehouseHomeScreen extends StatelessWidget {
           actionsPadding: const EdgeInsets.only(right: 6),
           iconTheme: const IconThemeData(color: Colors.white, size: 22),
           automaticallyImplyLeading: false,
-          title: const Row(children: [
-            CrmBrandMark(),
-            SizedBox(width: 8),
-            Expanded(child: Text('HTT Flooring CRM | Warehouse',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
-              maxLines: 1, overflow: TextOverflow.ellipsis)),
-          ]),
+          title: const Row(
+            children: [
+              CrmBrandMark(),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'HTT Flooring CRM | Warehouse',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
           actions: [
             IconButton(
               constraints: const BoxConstraints.tightFor(width: 30, height: 40),
