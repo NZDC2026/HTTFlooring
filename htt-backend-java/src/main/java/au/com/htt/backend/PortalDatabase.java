@@ -34,6 +34,7 @@ class PortalDatabase implements AutoCloseable {
 
     String read(String sql, java.util.Map<String, ?> parameters) {
         return transaction.execute(status -> {
+            jdbc.sql("SET LOCAL TimeZone = 'UTC'").update();
             jdbc.sql("SET LOCAL statement_timeout = '10s'").update();
             jdbc.sql("SET LOCAL lock_timeout = '3s'").update();
             return jdbc.sql(sql).params(parameters).query(String.class).single();

@@ -28,3 +28,7 @@ it('validates exhausted historical FIFO layers as well as current stock',()=>{in
 
 it('validates historical FIFO evidence after a later switch to moving weighted average',()=>{incoming(2,10);issue(2);const p=policies.requireByProductId(productId);policies.setMethod({productId,method:'MOVING_WEIGHTED_AVERAGE',expectedUpdatedAt:p.updatedAt,reason:'Prospective zero-stock switch'});incoming(2,20);const snap=snapshotRepositories();(snap.costMovements as any).movements.find((m:any)=>m.costingMethod==='FIFO'&&m.quantityBase<0).valueChange=-19;expect(()=>validateRegisteredSnapshots(snap)).toThrow(/FIFO/);});
 it('rejects a forged targeted layer removal that could bypass FIFO order',()=>{incoming(2,10);incoming(2,20);issue(1);const snap=structuredClone(movements.getAll());snap[0].fifoReturnLayerId=snap[1].id;expect(()=>fifoLayers(snap)).toThrow(/customer return evidence/);});
+it('defaults a newly created product policy to FIFO',()=>{
+ policies.ensureProductPolicy('new-fifo-product','new-unit',true);
+ expect(policies.requireByProductId('new-fifo-product').costingMethod).toBe('FIFO');
+});

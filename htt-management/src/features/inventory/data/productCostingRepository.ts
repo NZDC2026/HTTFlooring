@@ -71,7 +71,7 @@ export const productCostingRepository =
     ensureProductPolicy(productId: string, baseUnitId: string, active: boolean) {
         const existing = policies.find(p => p.productId === productId);
         const now = new Date().toISOString();
-        const policy: ProductCostingPolicy = { productId, baseUnitId, active: active ? existing?.active ?? true : false, costingMethod: existing?.costingMethod ?? "MOVING_WEIGHTED_AVERAGE", ...(existing?.methodHistory?{methodHistory:existing.methodHistory}:{}), createdAt: existing?.createdAt ?? now, updatedAt: now };
+        const policy: ProductCostingPolicy = { productId, baseUnitId, active: active ? existing?.active ?? true : false, costingMethod: existing?.costingMethod ?? "FIFO", ...(existing?.methodHistory?{methodHistory:existing.methodHistory}:{}), createdAt: existing?.createdAt ?? now, updatedAt: now };
         policies = [...policies.filter(p => p.productId !== productId), policy];
         emitChange();
         return policy;

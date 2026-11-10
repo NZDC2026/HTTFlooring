@@ -52,6 +52,8 @@ class StaffApiErrors {
                         "Order changed, is not confirmed, or quantity exceeds the delivered uninvoiced remainder.", requestId, false);
                 case "HT422" -> sqlError(422, "invoice_validation", sqlMessage(sql), requestId, false);
                 case "HT404" -> sqlError(404, "not_found", "Resource is unavailable in this scope.", requestId, false);
+                case "HC409" -> sqlError(409, "portal_conflict", sqlMessage(sql), requestId, false);
+                case "HC422" -> sqlError(422, "portal_validation", sqlMessage(sql), requestId, false);
                 case "HP409" -> sqlError(409, "purchase_conflict", sqlMessage(sql), requestId, false);
                 case "HP422" -> sqlError(422, "purchase_validation", sqlMessage(sql), requestId, false);
                 case "HI409" -> sqlError(409, "inventory_control_conflict", sqlMessage(sql), requestId, false);
