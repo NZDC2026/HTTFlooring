@@ -184,15 +184,7 @@ export function Sidebar() {
         >
             <div className="flex h-20 items-center px-5">
                 <div className="flex items-center gap-3">
-                    <div
-                        className="
-              flex h-9 w-9 items-center justify-center
-              rounded-lg border border-white/50
-              text-xs font-semibold tracking-wide
-            "
-                    >
-                        HT
-                    </div>
+                    <span className="htt-brand-symbol" aria-label="HTT brand mark"><i/><i/></span>
 
                     <div>
                         <div className="text-sm font-semibold tracking-wide">

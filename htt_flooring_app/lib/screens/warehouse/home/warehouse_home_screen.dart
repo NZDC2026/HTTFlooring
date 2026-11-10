@@ -10,6 +10,7 @@ import '../../../services/app_session.dart';
 import '../../../services/inventory_service.dart';
 import '../../../services/warehouse_order_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/design/crm_design.dart';
 import '../returns/customer_returns_screen.dart';
 import '../../sales/home/reminder_calendar_screen.dart';
 import 'warehouse_activities_screen.dart';
@@ -131,27 +132,26 @@ class WarehouseHomeScreen extends StatelessWidget {
     return Theme(
       data: Theme.of(context).copyWith(
         textTheme: Theme.of(context).textTheme
-            .apply(fontFamily: 'Arial', bodyColor: const Color(0xFF101916)),
+            .apply(fontFamily: 'Arial', bodyColor: AppColors.text),
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F3ED),
+        backgroundColor: AppColors.background,
         appBar: AppBar(
+          backgroundColor: AppColors.green,
+          foregroundColor: Colors.white,
           toolbarHeight: 54,
           actionsIconTheme: const IconThemeData(size: 21),
           titleSpacing: 16,
           actionsPadding: const EdgeInsets.only(right: 6),
           iconTheme: const IconThemeData(color: Colors.white, size: 22),
           automaticallyImplyLeading: false,
-          title: const Text(
-            'HTT Flooring CRM  |  Warehouse',
-            style: TextStyle(
-              fontFamily: 'sans-serif',
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          title: const Row(children: [
+            CrmBrandMark(),
+            SizedBox(width: 8),
+            Expanded(child: Text('HTT Flooring CRM | Warehouse',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+              maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ]),
           actions: [
             IconButton(
               constraints: const BoxConstraints.tightFor(width: 30, height: 40),
@@ -181,434 +181,419 @@ class WarehouseHomeScreen extends StatelessWidget {
             ),
           ],
         ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-          children: [
-            SizedBox(
-              height: 88,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const Positioned(
-                    right: -16,
-                    top: -14,
-                    bottom: -12,
-                    width: 230,
-                    child: _ReferencePhoto(
-                      region: Rect.fromLTWH(395, 180, 429, 155),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFF7F3ED),
-                            const Color(0xFFF7F3ED).withValues(alpha: 0.9),
-                            const Color(0xFFF7F3ED).withValues(alpha: 0),
-                          ],
-                          stops: const [0, 0.35, 0.8],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Good morning,',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        session.userName,
-                        style: const TextStyle(
-                          fontSize: 29,
-                          height: 1.05,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.location_on_outlined,
-                            size: 17,
-                            color: AppColors.copper,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            'Warehouse · ${session.regionName} Store',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.copper,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              readOnly: true,
-              onTap: () => open(const WarehouseOrdersScreen()),
-              textInputAction: TextInputAction.search,
-              onSubmitted: (query) =>
-                  open(WarehouseOrdersScreen(initialQuery: query.trim())),
-              decoration: InputDecoration(
-                hintText: 'Search Order No. / Customer',
-                hintStyle: const TextStyle(fontSize: 13),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(28),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  tooltip: 'Scan Product',
-                  icon: const _WarehouseSymbol(
-                    icon: Icons.qr_code_scanner,
-                    color: AppColors.green,
-                    size: 21,
-                  ),
-                  onPressed: () => open(const WarehouseProductEntryScreen()),
-                ),
-                filled: true,
-                fillColor: AppColors.card,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 32),
-                    ),
-                    onPressed: () => open(
-                      const WarehouseOrdersScreen(
-                        initialFilter: WarehouseOrderStatus.readyForDispatch,
-                      ),
-                    ),
-                    icon: const Icon(Icons.local_shipping_outlined, size: 17),
-                    label: const Text(
-                      'Dispatch',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFFDFA),
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      minimumSize: const Size(0, 32),
-                    ),
-                    onPressed:
-                        onOpenCalendar ??
-                        () => open(const ReminderCalendarScreen()),
-                    child: const Text(
-                      'Activities',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFFDFA),
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      minimumSize: const Size(0, 32),
-                    ),
-                    onPressed: () => open(
-                      const PickingListScreen(
-                        operation: WarehouseOperationList.todaysPickups,
-                      ),
-                    ),
-                    child: const Text(
-                      'Scheduled Pickups',
-                      maxLines: 1,
-                      style: TextStyle(fontSize: 11),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Material(
-              color: AppColors.copperLight,
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(
-                  color: AppColors.copper.withValues(alpha: 0.35),
-                ),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: AppColors.copper,
-                  size: 26,
-                ),
-                title: const Text(
-                  'Warehouse Alerts',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                ),
-                subtitle: Text(
-                  '$urgent urgent pickup · $shortages stock shortage · $pendingCollection pending collection',
-                  style: const TextStyle(fontSize: 10),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+        body: CrmBackdrop(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            children: [
+              SizedBox(
+                height: 88,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Badge(
-                      backgroundColor: AppColors.copper,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      label: Text(
-                        '${urgent + shortages + pendingCollection} Alerts',
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Good morning,',
+                          style: TextStyle(
+                            fontSize: 17,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          session.userName,
+                          style: const TextStyle(
+                            fontSize: 29,
+                            color: Colors.white,
+                            height: 1.05,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_outlined,
+                              size: 17,
+                              color: Colors.white70,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Warehouse · ${session.regionName} Store',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right, size: 19),
                   ],
                 ),
-                onTap: showAlerts,
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Expanded(child: _Heading('Today’s Operations')),
-                TextButton(
-                  onPressed: () => open(const WarehouseOrdersScreen()),
-                  child: const Text('View All Orders ›'),
+              const SizedBox(height: 8),
+              TextField(
+                readOnly: true,
+                onTap: () => open(const WarehouseOrdersScreen()),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (query) =>
+                    open(WarehouseOrdersScreen(initialQuery: query.trim())),
+                decoration: InputDecoration(
+                  hintText: 'Search Order No. / Customer',
+                  hintStyle: const TextStyle(fontSize: 13),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(28),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    tooltip: 'Scan Product',
+                    icon: const _WarehouseSymbol(
+                      icon: Icons.qr_code_scanner,
+                      color: AppColors.green,
+                      size: 21,
+                    ),
+                    onPressed: () => open(const WarehouseProductEntryScreen()),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.card,
                 ),
-              ],
-            ),
-            _grid(
-              context,
-              columns: 3,
-              children: [
-                _tile(
-                  title: 'To Pick',
-                  value: orders.toPickCount,
-                  icon: Icons.inventory_2_outlined,
-                  color: AppColors.copper,
-                  background: AppColors.copperLight,
-                  onTap: () => open(const PickingListScreen()),
-                ),
-                _tile(
-                  title: 'Preparing',
-                  value: orders.preparingCount,
-                  icon: Icons.shopping_cart_outlined,
-                  color: Colors.blue.shade800,
-                  background: Colors.blue.shade50,
-                  onTap: () => open(
-                    const PickingListScreen(
-                      operation: WarehouseOperationList.picking,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      onPressed: () => open(
+                        const WarehouseOrdersScreen(
+                          initialFilter: WarehouseOrderStatus.readyForDispatch,
+                        ),
+                      ),
+                      icon: const Icon(Icons.local_shipping_outlined, size: 17),
+                      label: const Text(
+                        'Dispatch',
+                        style: TextStyle(fontSize: 11),
+                      ),
                     ),
                   ),
-                ),
-                _tile(
-                  title: 'Ready',
-                  value: pickups
-                      .where(
-                        (order) =>
-                            order.status == WarehouseOrderStatus.prepared ||
-                            order.status ==
-                                WarehouseOrderStatus.readyForDispatch,
-                      )
-                      .length,
-                  icon: Icons.check_circle_outline,
-                  color: AppColors.success,
-                  background: AppColors.successLight,
-                  onTap: () => open(
-                    const PickingListScreen(
-                      operation: WarehouseOperationList.readyForPickup,
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: AppColors.card,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      onPressed:
+                          onOpenCalendar ??
+                          () => open(const ReminderCalendarScreen()),
+                      child: const Text(
+                        'Activities',
+                        style: TextStyle(fontSize: 11),
+                      ),
                     ),
                   ),
-                ),
-                _tile(
-                  title: 'Scheduled Pickups',
-                  value: pickups.length,
-                  icon: Icons.local_shipping_outlined,
-                  color: Colors.indigo.shade700,
-                  background: Colors.indigo.shade50,
-                  onTap: () => open(
-                    const PickingListScreen(
-                      operation: WarehouseOperationList.todaysPickups,
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: AppColors.card,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      onPressed: () => open(
+                        const PickingListScreen(
+                          operation: WarehouseOperationList.todaysPickups,
+                        ),
+                      ),
+                      child: const Text(
+                        'Scheduled Pickups',
+                        maxLines: 1,
+                        style: TextStyle(fontSize: 11),
+                      ),
                     ),
                   ),
-                ),
-                _tile(
-                  title: 'Dispatched',
-                  value: dispatched,
-                  icon: Icons.local_shipping_outlined,
-                  background: AppColors.successLight,
-                  onTap: () => open(
-                    const PickingListScreen(
-                      operation: WarehouseOperationList.dispatched,
-                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Material(
+                color: AppColors.copperLight,
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(
+                    color: AppColors.copper.withValues(alpha: 0.35),
                   ),
                 ),
-                _tile(
-                  title: 'Pending Collection',
-                  value: pendingCollection,
-                  icon: Icons.schedule,
-                  background: AppColors.copperLight,
-                  onTap: () => open(
-                    const PickingListScreen(
-                      operation: WarehouseOperationList.pendingCollection,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 2,
+                  ),
+                  leading: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.copper,
+                    size: 26,
+                  ),
+                  title: const Text(
+                    'Warehouse Alerts',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    '$urgent urgent pickup · $shortages stock shortage · $pendingCollection pending collection',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Badge(
+                        backgroundColor: AppColors.copper,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        label: Text(
+                          '${urgent + shortages + pendingCollection} Alerts',
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right, size: 19),
+                    ],
+                  ),
+                  onTap: showAlerts,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Expanded(child: _Heading('Today’s Operations')),
+                  TextButton(
+                    onPressed: () => open(const WarehouseOrdersScreen()),
+                    child: const Text('View All Orders ›'),
+                  ),
+                ],
+              ),
+              _grid(
+                context,
+                columns: 3,
+                children: [
+                  _tile(
+                    title: 'To Pick',
+                    value: orders.toPickCount,
+                    icon: Icons.inventory_2_outlined,
+                    color: AppColors.copper,
+                    background: AppColors.copperLight,
+                    onTap: () => open(const PickingListScreen()),
+                  ),
+                  _tile(
+                    title: 'Preparing',
+                    value: orders.preparingCount,
+                    icon: Icons.shopping_cart_outlined,
+                    color: Colors.blue.shade800,
+                    background: Colors.blue.shade50,
+                    onTap: () => open(
+                      const PickingListScreen(
+                        operation: WarehouseOperationList.picking,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _NextPickup(
-              order: next,
-              onTap: next == null
-                  ? null
-                  : () => open(
+                  _tile(
+                    title: 'Ready',
+                    value: pickups
+                        .where(
+                          (order) =>
+                              order.status == WarehouseOrderStatus.prepared ||
+                              order.status ==
+                                  WarehouseOrderStatus.readyForDispatch,
+                        )
+                        .length,
+                    icon: Icons.check_circle_outline,
+                    color: AppColors.success,
+                    background: AppColors.successLight,
+                    onTap: () => open(
+                      const PickingListScreen(
+                        operation: WarehouseOperationList.readyForPickup,
+                      ),
+                    ),
+                  ),
+                  _tile(
+                    title: 'Scheduled Pickups',
+                    value: pickups.length,
+                    icon: Icons.local_shipping_outlined,
+                    color: Colors.indigo.shade700,
+                    background: Colors.indigo.shade50,
+                    onTap: () => open(
                       const PickingListScreen(
                         operation: WarehouseOperationList.todaysPickups,
                       ),
                     ),
-            ),
-            const SizedBox(height: 14),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.history),
-                    title: const Text('Recent Activities'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => open(const WarehouseActivitiesScreen()),
                   ),
-                  if (recent.isEmpty)
-                    for (final entry in const [
-                      (
-                        'Dispatched',
-                        'SO-10546 · City Timber Floors',
-                        '9:30 AM',
-                        Icons.local_shipping_outlined,
-                        AppColors.success,
+                  _tile(
+                    title: 'Dispatched',
+                    value: dispatched,
+                    icon: Icons.local_shipping_outlined,
+                    background: AppColors.successLight,
+                    onTap: () => open(
+                      const PickingListScreen(
+                        operation: WarehouseOperationList.dispatched,
                       ),
-                      (
-                        'Picked',
-                        'SO-10547 · Oakwood Interiors',
-                        '8:55 AM',
-                        Icons.inventory_2_outlined,
-                        Colors.blue,
-                      ),
-                      (
-                        'Check-in',
-                        'ABC Flooring · BXA-728',
-                        '8:22 AM',
-                        Icons.person_pin_circle_outlined,
-                        AppColors.copper,
-                      ),
-                    ])
-                      ListTile(
-                        leading: Icon(entry.$4, color: entry.$5),
-                        title: Text(
-                          '${entry.$1} · Demo',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(
-                          entry.$2,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        trailing: Text(
-                          entry.$3,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                      ),
-                  for (final order in recent.take(3))
-                    ListTile(
-                      leading: const Icon(
-                        Icons.check_circle_outline,
-                        color: AppColors.success,
-                      ),
-                      title: Text(
-                        order.completedAt != null
-                            ? 'Dispatched'
-                            : 'Pickup confirmed',
-                      ),
-                      subtitle: Text('${order.number} · ${order.customerName}'),
-                      trailing: Text(
-                        DateFormat.jm().format(
-                          (order.completedAt ?? order.pickupConfirmedAt!)
-                              .toLocal(),
-                        ),
-                      ),
-                      onTap: () => open(PrepareOrderScreen(orderId: order.id)),
                     ),
+                  ),
+                  _tile(
+                    title: 'Pending Collection',
+                    value: pendingCollection,
+                    icon: Icons.schedule,
+                    background: AppColors.copperLight,
+                    onTap: () => open(
+                      const PickingListScreen(
+                        operation: WarehouseOperationList.pendingCollection,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: _Heading('Quick Actions'),
-            ),
-            _grid(
-              context,
-              columns: 3,
-              children: [
-                _tile(
-                  title: 'Scan Product',
-                  icon: Icons.qr_code_scanner,
-                  onTap: () => open(const WarehouseProductEntryScreen()),
+              const SizedBox(height: 12),
+              _NextPickup(
+                order: next,
+                onTap: next == null
+                    ? null
+                    : () => open(
+                        const PickingListScreen(
+                          operation: WarehouseOperationList.todaysPickups,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 14),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.history),
+                      title: const Text('Recent Activities'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => open(const WarehouseActivitiesScreen()),
+                    ),
+                    if (recent.isEmpty)
+                      for (final entry in const [
+                        (
+                          'Dispatched',
+                          'SO-10546 · City Timber Floors',
+                          '9:30 AM',
+                          Icons.local_shipping_outlined,
+                          AppColors.success,
+                        ),
+                        (
+                          'Picked',
+                          'SO-10547 · Oakwood Interiors',
+                          '8:55 AM',
+                          Icons.inventory_2_outlined,
+                          Colors.blue,
+                        ),
+                        (
+                          'Check-in',
+                          'ABC Flooring · BXA-728',
+                          '8:22 AM',
+                          Icons.person_pin_circle_outlined,
+                          AppColors.copper,
+                        ),
+                      ])
+                        ListTile(
+                          leading: Icon(entry.$4, color: entry.$5),
+                          title: Text(
+                            '${entry.$1} · Demo',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Text(
+                            entry.$2,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          trailing: Text(
+                            entry.$3,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
+                    for (final order in recent.take(3))
+                      ListTile(
+                        leading: const Icon(
+                          Icons.check_circle_outline,
+                          color: AppColors.success,
+                        ),
+                        title: Text(
+                          order.completedAt != null
+                              ? 'Dispatched'
+                              : 'Pickup confirmed',
+                        ),
+                        subtitle: Text(
+                          '${order.number} · ${order.customerName}',
+                        ),
+                        trailing: Text(
+                          DateFormat.jm().format(
+                            (order.completedAt ?? order.pickupConfirmedAt!)
+                                .toLocal(),
+                          ),
+                        ),
+                        onTap: () =>
+                            open(PrepareOrderScreen(orderId: order.id)),
+                      ),
+                  ],
                 ),
-                _tile(
-                  title: 'Preparing List',
-                  icon: Icons.format_list_bulleted,
-                  onTap: () => open(const PickingListScreen()),
-                ),
-                _tile(
-                  title: 'Damage Stock',
-                  icon: Icons.verified_user_outlined,
-                  onTap: () => open(const DamageStockScreen()),
-                ),
-                _tile(
-                  title: 'Goods Receiving',
-                  icon: Icons.add_box_outlined,
-                  onTap: () =>
-                      open(const WarehouseProductEntryScreen(receiving: true)),
-                ),
-                _tile(
-                  title: 'Inventory Lookup',
-                  icon: Icons.manage_search,
-                  onTap: () => open(const WarehouseInventoryScreen()),
-                ),
-                _tile(
-                  title: 'Return',
-                  icon: Icons.assignment_return_outlined,
-                  onTap: () => open(const CustomerReturnsScreen()),
-                ),
-              ],
-            ),
-          ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: _Heading('Quick Actions'),
+              ),
+              _grid(
+                context,
+                columns: 3,
+                children: [
+                  _tile(
+                    title: 'Scan Product',
+                    icon: Icons.qr_code_scanner,
+                    onTap: () => open(const WarehouseProductEntryScreen()),
+                  ),
+                  _tile(
+                    title: 'Preparing List',
+                    icon: Icons.format_list_bulleted,
+                    onTap: () => open(const PickingListScreen()),
+                  ),
+                  _tile(
+                    title: 'Damage Stock',
+                    icon: Icons.verified_user_outlined,
+                    onTap: () => open(const DamageStockScreen()),
+                  ),
+                  _tile(
+                    title: 'Goods Receiving',
+                    icon: Icons.add_box_outlined,
+                    onTap: () => open(
+                      const WarehouseProductEntryScreen(receiving: true),
+                    ),
+                  ),
+                  _tile(
+                    title: 'Inventory Lookup',
+                    icon: Icons.manage_search,
+                    onTap: () => open(const WarehouseInventoryScreen()),
+                  ),
+                  _tile(
+                    title: 'Return',
+                    icon: Icons.assignment_return_outlined,
+                    onTap: () => open(const CustomerReturnsScreen()),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -621,7 +606,11 @@ class WarehouseHomeScreen extends StatelessWidget {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final count = constraints.maxWidth < 320 && columns > 2 ? 3 : columns;
+        final count = constraints.maxWidth < 420
+            ? (columns > 2 ? 2 : columns)
+            : constraints.maxWidth < 760 && columns > 3
+            ? 3
+            : columns;
         final width = (constraints.maxWidth - (count - 1) * 8) / count;
         return Wrap(
           spacing: 8,
@@ -660,8 +649,8 @@ class WarehouseHomeScreen extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFFFFFDFA),
-              operation ? background : const Color(0xFFFAF7F2),
+              AppColors.card,
+              operation ? background : AppColors.background,
             ],
           ),
           boxShadow: operation
@@ -748,7 +737,7 @@ class _NextPickup extends StatelessWidget {
               .clamp(0.0, 1.0)
               .toDouble();
     return Material(
-      color: const Color(0xFF00432E),
+      color: AppColors.green,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -809,8 +798,8 @@ class _NextPickup extends StatelessWidget {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  const Color(0xFF00432E),
-                                  const Color(0xFF00432E).withValues(alpha: 0),
+                                  AppColors.green,
+                                  AppColors.green.withValues(alpha: 0),
                                 ],
                               ),
                             ),

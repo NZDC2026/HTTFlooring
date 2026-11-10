@@ -5,7 +5,7 @@ import '../screens/warehouse/inventory/warehouse_inventory_screen.dart';
 import '../screens/warehouse/more/warehouse_more_screen.dart';
 import '../screens/warehouse/orders/warehouse_orders_screen.dart';
 import '../screens/sales/home/reminder_calendar_screen.dart';
-import '../theme/app_theme.dart';
+import '../widgets/design/crm_design.dart';
 
 class WarehouseNavigation extends StatefulWidget {
   const WarehouseNavigation({super.key});
@@ -31,15 +31,13 @@ class _WarehouseNavigationState extends State<WarehouseNavigation> {
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: screens),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: CrmBottomNavigation(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
-        backgroundColor: AppColors.card,
-        indicatorColor: AppColors.successLight,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

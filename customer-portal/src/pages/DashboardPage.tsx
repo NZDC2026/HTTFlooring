@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowUpRight, MapPin, Search } from "lucide-react";
+import { AlertCircle, ArrowUpRight, MapPin, Search, Package, FileText, Truck, Wallet } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import { useInvoiceLedger } from "../data/ledger";
@@ -59,6 +59,12 @@ export default function DashboardPage() {
                 </section>
 
                 <section className="dashboard-content">
+                    <nav className="portal-quick-actions" aria-label="Customer quick actions">
+                        <Link to="/inventory"><Package size={22}/>Check stock</Link>
+                        <Link to="/quotes"><FileText size={22}/>My quotes</Link>
+                        <Link to="/orders"><Truck size={22}/>Track orders</Link>
+                        <Link to="/invoices"><Wallet size={22}/>Invoices &amp; payments</Link>
+                    </nav>
                     <div className="account-summary-cards dashboard-account-summary">
                         <div><small>Outstanding</small><strong>{money(outstanding)}</strong><span>{outstandingCount} {outstandingCount === 1 ? "invoice" : "invoices"}</span></div>
                         <div className="overdue-summary"><small>Overdue</small><strong>{money(overdue)}</strong><span>{overdueCount} {overdueCount === 1 ? "invoice" : "invoices"}</span></div>

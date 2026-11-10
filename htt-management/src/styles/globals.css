@@ -78,13 +78,11 @@ a {
     font-variant-numeric: tabular-nums;
 }
 
-/* HTT editorial heading */
+/* HTT dashboard heading */
 
 .font-display {
-    font-family:
-        Georgia,
-        "Times New Roman",
-        serif;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-weight: 700;
 
     letter-spacing: -0.025em;
 }
@@ -173,3 +171,42 @@ a {
 @media screen and (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Three-portal shell: retain desktop navigation; expose every permitted route on mobile. */
+.htt-mobile-menu,.htt-navigation-backdrop {display:none}
+:where(a,button,input,select,textarea):focus-visible {outline:3px solid var(--htt-info);outline-offset:3px}
+@media(max-width:760px){
+ .htt-mobile-menu{display:grid;place-items:center;position:fixed;top:12px;left:12px;width:40px;height:40px;z-index:60;border-radius:10px;background:var(--htt-primary);color:white}
+ .htt-navigation:not(.is-open){visibility:hidden}
+ .htt-navigation aside{z-index:50;padding-top:64px;max-width:85vw}
+ .htt-navigation-backdrop{display:block;position:fixed;inset:0;z-index:40;background:#10182866}
+ #root main.min-h-screen{padding-left:0}
+ #root header.fixed{left:0;padding-left:64px;padding-right:12px}
+ #root main.min-h-screen>div{padding:16px}
+}
+
+/* Compact topbar keeps all account actions reachable by horizontal scrolling. */
+@media(max-width:760px){
+ #root header.fixed>h1{display:none}
+ #root header.fixed>div{min-width:0;max-width:100%;overflow-x:auto;flex-shrink:1;scrollbar-width:thin}
+ #root header.fixed button[aria-label="Search workspace"]{width:36px;min-width:36px;padding:10px;flex-shrink:0;margin-right:0}
+ #root header.fixed button[aria-label="Search workspace"] span,#root header.fixed button[aria-label="Search workspace"] kbd{display:none}
+ #root header.fixed a{flex-shrink:0}
+}
+.owner-dashboard{color:var(--htt-text);background:var(--htt-surface);border-color:var(--htt-border);font-family:inherit}
+.owner-banner{background:var(--htt-surface);border-color:var(--htt-border)}
+.owner-banner h1{background:var(--htt-primary);box-shadow:none}
+.owner-panel{border-color:var(--htt-border);box-shadow:var(--htt-shadow)}
+.owner-panel h2>svg{color:var(--htt-primary)}
+
+/* Reception reference styling; finance retains its own dashboard content. */
+.htt-brand-symbol{display:block;position:relative;width:36px;height:40px;transform:rotate(40deg);flex-shrink:0}
+.htt-brand-symbol i{position:absolute;top:7px;left:4px;width:13px;height:34px;border-radius:4px;background:linear-gradient(#21e795,#00a96b)}
+.htt-brand-symbol i+i{left:19px;top:0;background:linear-gradient(#18ba7a,#007248)}
+.htt-navigation>aside{background:radial-gradient(ellipse at 0 90%,#08775544,transparent 60%),var(--htt-primary)}
+.htt-navigation nav a[aria-current="page"]{background:linear-gradient(110deg,#079557bb,#0b80547a);box-shadow:inset 0 0 0 1px #4ed08b44;color:white}
+.owner-dashboard{background:linear-gradient(145deg,#f6fbf9,#fff 45%)}
+.owner-banner h1{background:none;color:var(--htt-text);padding:0;border-radius:0}
+.owner-welcome{background:radial-gradient(ellipse at 75% 0,#d9efe566,transparent 70%)}
+.owner-metric,.reception-metric{border:1px solid #fff;box-shadow:0 3px 9px #063e3315}
+.owner-panel,.reception-panel{border-radius:16px;box-shadow:0 3px 9px #063e3310}

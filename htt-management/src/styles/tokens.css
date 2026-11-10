@@ -1,44 +1,45 @@
+@import "./htt-tokens.css";
 :root {
     /* Brand */
-    --color-primary: #12352d;
-    --color-primary-hover: #0b2822;
-    --color-primary-soft: #e8eeeb;
+    --color-primary: var(--htt-primary);
+    --color-primary-hover: var(--htt-primary-hover);
+    --color-primary-soft: var(--htt-primary-soft);
 
-    --color-accent: #b96d3a;
-    --color-accent-hover: #a45e31;
-    --color-accent-soft: #f5e9df;
+    --color-accent: var(--htt-success);
+    --color-accent-hover: var(--htt-primary-hover);
+    --color-accent-soft: var(--htt-success-soft);
 
     /* Background */
-    --color-background: #f4f1eb;
-    --color-background-subtle: #f8f6f2;
+    --color-background: var(--htt-background);
+    --color-background-subtle: var(--htt-background);
 
     /* Surfaces */
-    --color-surface: #ffffff;
-    --color-surface-muted: #eeeae2;
-    --color-surface-hover: #f7f4ef;
+    --color-surface: var(--htt-surface);
+    --color-surface-muted: var(--htt-primary-soft);
+    --color-surface-hover: var(--htt-background);
 
     /* Text */
-    --color-text-primary: #20231f;
-    --color-text-secondary: #6f746d;
-    --color-text-muted: #92968f;
+    --color-text-primary: var(--htt-text);
+    --color-text-secondary: var(--htt-muted);
+    --color-text-muted: var(--htt-muted);
     --color-text-inverse: #ffffff;
 
     /* Border */
-    --color-border: #ddd7cd;
-    --color-border-strong: #c9c1b5;
+    --color-border: var(--htt-border);
+    --color-border-strong: var(--htt-muted);
 
     /* Semantic */
-    --color-success: #237a57;
-    --color-success-soft: #e6f2ec;
+    --color-success: var(--htt-success);
+    --color-success-soft: var(--htt-success-soft);
 
-    --color-warning: #c18a25;
-    --color-warning-soft: #faf1dc;
+    --color-warning: var(--htt-warning);
+    --color-warning-soft: var(--htt-warning-soft);
 
-    --color-danger: #a7443e;
-    --color-danger-soft: #f8e8e6;
+    --color-danger: var(--htt-danger);
+    --color-danger-soft: var(--htt-danger-soft);
 
-    --color-info: #4e6f78;
-    --color-info-soft: #e8f0f2;
+    --color-info: var(--htt-info);
+    --color-info-soft: var(--htt-info-soft);
 
     /* Shadows */
     --shadow-xs:

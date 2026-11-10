@@ -1,0 +1,34 @@
+:root { --green:var(--htt-primary); --green-light:var(--htt-primary-hover); --ivory:var(--htt-background); --white:var(--htt-surface); --border:var(--htt-border); --muted:var(--htt-muted); --copper:var(--htt-success); --copper-light:var(--htt-primary-soft); color:var(--htt-text); }
+.dashboard h1,.dashboard h2,.dashboard h3 {font-family:inherit;font-weight:700;letter-spacing:-.025em}
+.dashboard-hero {height:auto;padding:32px 6% 20px;background:var(--htt-background)}
+.dashboard-hero h1 {font-size:clamp(26px,3vw,36px);margin-bottom:16px;line-height:1.2}
+.dashboard-content {padding-top:16px;max-width:1600px;margin:auto}
+.portal-nav a.active {border-color:#8fdfb3;background:#ffffff0d}
+.portal-nav a {padding-inline:6px;min-height:44px}
+.dashboard-account-summary>div,.dashboard-account-summary>a,.search-large,.category-card,.collection-card {border-radius:var(--htt-radius);box-shadow:var(--htt-shadow);overflow:hidden}
+.dashboard-account-summary>div:first-child {background:var(--htt-info-soft)}
+.dashboard-account-summary .overdue-summary {background:var(--htt-danger-soft)}
+.dashboard-account-summary .credit-summary {background:var(--htt-success-soft)}
+.dashboard-account-summary strong {font-variant-numeric:tabular-nums}
+.portal-quick-actions {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:22px 0}
+.portal-quick-actions a {display:flex;align-items:center;gap:12px;padding:18px;background:white;border:1px solid var(--htt-border);border-radius:var(--htt-radius);font-weight:600;color:var(--htt-primary);min-height:64px}
+.portal-quick-actions a:hover {background:var(--htt-primary-soft)}
+.portal-quick-actions svg {flex-shrink:0}
+:where(a,button,input,select,textarea):focus-visible {outline:3px solid var(--htt-info);outline-offset:3px}
+@media(max-width:760px){.portal-quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.portal-quick-actions a{padding:14px;font-size:13px}.dashboard-hero{padding-top:24px}.dashboard-account-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-account-summary>*{min-width:0}.dashboard-account-summary .payment-attention{grid-column:1/-1}.dashboard-account-summary strong{overflow-wrap:anywhere}.portal-nav{scrollbar-width:thin}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+
+/* Reference identity: ordinary customer website, with its existing horizontal navigation. */
+.brand-mark{position:relative;border:0;display:inline-block;flex-shrink:0;transform:rotate(40deg);font-size:0}
+.brand-mark::before,.brand-mark::after{content:"";position:absolute;width:12px;height:33px;border-radius:4px;background:linear-gradient(#28e599,#00a768);left:4px;top:4px}
+.brand-mark::after{left:18px;top:-3px;background:linear-gradient(#17bf84,#007d51)}
+.public-header{background:linear-gradient(90deg,#003d2eea,#003d2e99);border-bottom:1px solid #ffffff25}
+.home .hero-content h1{font-family:inherit;font-weight:750;letter-spacing:-.045em}
+.hero-content em,.auth-message em{color:#91e4bd}
+.home-cta,.outline-button,.transparent-button{border-radius:12px}
+.home-cta:first-child{background:linear-gradient(120deg,#008954,#006b43);border-color:transparent;color:white}
+.public-gallery>a{background:white;border:1px solid var(--htt-border);border-radius:16px;overflow:hidden;box-shadow:0 3px 10px #063e330b}
+.public-gallery h3,.public-gallery p{padding-inline:16px}
+.dashboard-hero{background:radial-gradient(ellipse at 80% 0,#d9efe5,transparent 65%),var(--htt-background)}
+.portal-quick-actions a{background:linear-gradient(145deg,#fff,#f3fbf7);box-shadow:0 3px 8px #063e3310}
+.account-summary-cards>div,.account-summary-cards>a{border:1px solid #ffffff;box-shadow:0 3px 9px #063e3312}

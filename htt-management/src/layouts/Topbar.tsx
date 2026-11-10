@@ -100,6 +100,7 @@ export function Topbar() {
                 </a>}
                 <button
                     onClick={() => navigate('/search')}
+                    aria-label="Search workspace"
                     className="
             mr-2 flex h-9 w-[180px] xl:w-[280px] items-center gap-2
             rounded-lg border border-[var(--color-border)]

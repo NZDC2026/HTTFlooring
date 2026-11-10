@@ -11,6 +11,7 @@ import '../../../services/customer_location_service.dart';
 import '../../../services/customer_service.dart';
 import '../../../services/sales_session.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/design/crm_design.dart';
 
 import '../customers/customer_map_screen.dart';
 import '../customers/customer_detail_screen.dart';
@@ -145,10 +146,11 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: AppColors.darkGreen,
+        backgroundColor: AppColors.green,
+        foregroundColor: Colors.white,
         title: const Row(
           children: [
-            Icon(Icons.layers_outlined, color: Colors.white, size: 23),
+            CrmBrandMark(),
             SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -156,6 +158,7 @@ class HomeScreen extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'sans-serif',
+                  color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
@@ -181,279 +184,324 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Good morning,'),
-                  Text(
-                    session.salespersonName,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    '${session.regionName} Store',
-                    style: const TextStyle(color: AppColors.copper),
-                  ),
-                ],
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.calendar_today_outlined, size: 16),
-                label: Text(DateFormat('EEE, d MMM yyyy').format(today)),
-                onPressed: () => onNavigateToTab(3),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _panel(
+      body: CrmBackdrop(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('My Sales (MTD) · Demo'),
-                      Text(
-                        r'$42,580',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
+                      const Text(
+                        'Good morning,',
+                        style: TextStyle(color: Colors.white70, fontSize: 15),
+                      ),
+                      const SizedBox(height: 3),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          session.salespersonName,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                      Text(
-                        '+18.6% vs last month',
-                        style: TextStyle(
-                          color: AppColors.success,
-                          fontSize: 11,
-                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              '${session.regionName} Store',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Target'),
-                    Text(
-                      r'$65,000',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                SizedBox(
+                  width: 158,
+                  child: ActionChip(
+                    color: const WidgetStatePropertyAll(Color(0xFF255C49)),
+                    shape: const StadiumBorder(),
+                    side: const BorderSide(color: Colors.white70),
+                    labelStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
                     ),
-                  ],
+                    avatar: const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    label: Text(DateFormat('EEE, d MMM yyyy').format(today)),
+                    onPressed: () => onNavigateToTab(3),
+                  ),
                 ),
-                const SizedBox(width: 10),
-                const SizedBox.square(
-                  dimension: 44,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: 0.655,
-                        color: AppColors.success,
-                        backgroundColor: AppColors.border,
-                        strokeWidth: 4,
-                      ),
-                      Text(
-                        '66%',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+              ],
+            ),
+            const SizedBox(height: 14),
+            _panel(
+              Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('My Sales (MTD) · Demo'),
+                        Text(
+                          r'$42,580',
+                          style: TextStyle(
+                            fontSize: 30,
+                            color: AppColors.green,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
+                        Text(
+                          '+18.6% vs last month',
+                          style: TextStyle(
+                            color: AppColors.success,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Target'),
+                      Text(
+                        r'$65,000',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  const SizedBox.square(
+                    dimension: 58,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          value: 0.655,
+                          color: AppColors.success,
+                          backgroundColor: AppColors.border,
+                          strokeWidth: 7,
+                        ),
+                        Text(
+                          '66%',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _dashboardGrid([
-            _summaryCard(
-              icon: Icons.event_available_outlined,
-              title: 'Due Today',
-              value: '${showDemo ? 3 : dueToday.length}',
-              color: AppColors.copper,
-              tint: AppColors.warningLight,
-              onTap: () => _openTaskList(context, 'Due Today', dueToday),
-            ),
-            _summaryCard(
-              icon: Icons.warning_amber_rounded,
-              title: 'Overdue',
-              value: '${showDemo ? 2 : overdue.length}',
-              color: AppColors.danger,
-              tint: AppColors.dangerLight,
-              onTap: () => _openTaskList(context, 'Overdue', overdue),
-            ),
-            _summaryCard(
-              icon: Icons.calendar_today_outlined,
-              title: 'Today’s Visits',
-              value: '${showDemo ? 2 : visits.length}',
-              color: AppColors.success,
-              tint: AppColors.successLight,
-              onTap: () => onNavigateToTab(3),
-            ),
-            _summaryCard(
-              icon: Icons.people_outline,
-              title: 'Due for Visit',
-              value: '${visitReminders.length}',
-              color: const Color(0xFF1659A3),
-              tint: const Color(0xFFE4EEF9),
-              onTap: openVisitReminders,
-            ),
-          ], maxColumns: 4),
-          const SizedBox(height: 12),
-          _dashboardCard(
-            title:
-                'Customers Not Visited in 30+ Days (${visitReminders.length})',
-            action: 'View All',
-            onAction: openVisitReminders,
-            children: [
-              if (visitReminders.isEmpty)
-                const Text(
-                  'No customers with a recorded visit 30 or more days ago.',
-                  style: TextStyle(color: AppColors.muted, fontSize: 13),
-                ),
-              for (final entry in visitReminders.take(3)) reminderTile(entry),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _dashboardCard(
-            title: showDemo ? 'My Tasks · Demo' : 'My Tasks (${tasks.length})',
-            action: 'View All',
-            onAction: () => _openTaskList(context, 'My Tasks', tasks),
-            children: [
-              if (showDemo) ...[
-                _dashboardStatusTile(
-                  'Payment Follow-up',
-                  'ABC Flooring · INV-10548 (AUD 8,750)',
-                  Icons.schedule,
-                  status: 'Due Today',
-                ),
-                _dashboardStatusTile(
-                  'Sample Delivery',
-                  'City Timber Floors · Heritage samples',
-                  Icons.local_shipping_outlined,
-                  status: 'Today',
-                  color: AppColors.success,
-                  tint: AppColors.successLight,
-                ),
-                _dashboardStatusTile(
-                  'Quotation Follow-up',
-                  'Northern Floors · New project',
-                  Icons.warning_amber_rounded,
-                  status: 'Overdue',
-                  color: AppColors.danger,
-                  tint: AppColors.dangerLight,
-                ),
-              ],
-              for (final preview in taskPreviews)
-                _taskTile(context, preview, Icons.pending_actions_outlined),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _dashboardCard(
-            title: showDemo
-                ? 'Today’s Visits (2) · Demo'
-                : 'Today’s Visits (${visits.length})',
-            action: 'View Calendar',
-            onAction: () => onNavigateToTab(3),
-            children: [
-              if (showDemo) ...[
-                _visitTile(
-                  context,
-                  'ABC Flooring',
-                  '15 George Street, Sydney',
-                  '10:30 AM',
-                  customer: customerService.customers
-                      .where(
-                        (customer) =>
-                            customer.businessName == 'ABC Flooring' &&
-                            session.canAccessRegion(customer.region),
-                      )
-                      .firstOrNull,
-                ),
-                const Divider(height: 1),
-                _visitTile(
-                  context,
-                  'City Timber Floors',
-                  '88 Victoria Road, Parramatta',
-                  '2:00 PM',
-                ),
-              ],
-              if (!showDemo && visits.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'No visits scheduled today',
+            const SizedBox(height: 12),
+            _dashboardGrid([
+              _summaryCard(
+                icon: Icons.event_available_outlined,
+                title: 'Due Today',
+                value: '${showDemo ? 3 : dueToday.length}',
+                color: AppColors.success,
+                tint: AppColors.successLight,
+                onTap: () => _openTaskList(context, 'Due Today', dueToday),
+              ),
+              _summaryCard(
+                icon: Icons.warning_amber_rounded,
+                title: 'Overdue',
+                value: '${showDemo ? 2 : overdue.length}',
+                color: AppColors.danger,
+                tint: AppColors.dangerLight,
+                onTap: () => _openTaskList(context, 'Overdue', overdue),
+              ),
+              _summaryCard(
+                icon: Icons.calendar_today_outlined,
+                title: 'Today’s Visits',
+                value: '${showDemo ? 2 : visits.length}',
+                color: const Color(0xFF0765B5),
+                tint: const Color(0xFFE7F3FF),
+                onTap: () => onNavigateToTab(3),
+              ),
+              _summaryCard(
+                icon: Icons.people_outline,
+                title: 'Due for Visit',
+                value: '${visitReminders.length}',
+                color: const Color(0xFF6925C9),
+                tint: const Color(0xFFF2E9FF),
+                onTap: openVisitReminders,
+              ),
+            ], maxColumns: 4),
+            const SizedBox(height: 12),
+            _dashboardCard(
+              title:
+                  'Customers Not Visited in 30+ Days (${visitReminders.length})',
+              action: 'View All',
+              onAction: openVisitReminders,
+              children: [
+                if (visitReminders.isEmpty)
+                  const Text(
+                    'No customers with a recorded visit 30 or more days ago.',
                     style: TextStyle(color: AppColors.muted, fontSize: 13),
                   ),
+                for (final entry in visitReminders.take(3)) reminderTile(entry),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _dashboardCard(
+              title: showDemo
+                  ? 'My Tasks · Demo'
+                  : 'My Tasks (${tasks.length})',
+              action: 'View All',
+              onAction: () => _openTaskList(context, 'My Tasks', tasks),
+              children: [
+                if (showDemo) ...[
+                  _dashboardStatusTile(
+                    'Payment Follow-up',
+                    'ABC Flooring · INV-10548 (AUD 8,750)',
+                    Icons.schedule,
+                    status: 'Due Today',
+                  ),
+                  _dashboardStatusTile(
+                    'Sample Delivery',
+                    'City Timber Floors · Heritage samples',
+                    Icons.local_shipping_outlined,
+                    status: 'Today',
+                    color: AppColors.success,
+                    tint: AppColors.successLight,
+                  ),
+                  _dashboardStatusTile(
+                    'Quotation Follow-up',
+                    'Northern Floors · New project',
+                    Icons.warning_amber_rounded,
+                    status: 'Overdue',
+                    color: AppColors.danger,
+                    tint: AppColors.dangerLight,
+                  ),
+                ],
+                for (final preview in taskPreviews)
+                  _taskTile(context, preview, Icons.pending_actions_outlined),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _dashboardCard(
+              title: showDemo
+                  ? 'Today’s Visits (2) · Demo'
+                  : 'Today’s Visits (${visits.length})',
+              action: 'View Calendar',
+              onAction: () => onNavigateToTab(3),
+              children: [
+                if (showDemo) ...[
+                  _visitTile(
+                    context,
+                    'ABC Flooring',
+                    '15 George Street, Sydney',
+                    '10:30 AM',
+                    customer: customerService.customers
+                        .where(
+                          (customer) =>
+                              customer.businessName == 'ABC Flooring' &&
+                              session.canAccessRegion(customer.region),
+                        )
+                        .firstOrNull,
+                  ),
+                  const Divider(height: 1),
+                  _visitTile(
+                    context,
+                    'City Timber Floors',
+                    '88 Victoria Road, Parramatta',
+                    '2:00 PM',
+                  ),
+                ],
+                if (!showDemo && visits.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No visits scheduled today',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                  ),
+                for (final visit in visits)
+                  _visitTile(
+                    context,
+                    visit.customer!.businessName,
+                    visit.customer!.address,
+                    'Today',
+                    customer: visit.customer,
+                    onTap: () => _openTask(context, visit),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Quick Access',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            _dashboardGrid([
+              _quickAction(
+                icon: Icons.location_on_outlined,
+                title: 'Check In',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(builder: (_) => const SalesVisitScreen()),
                 ),
-              for (final visit in visits)
-                _visitTile(
-                  context,
-                  visit.customer!.businessName,
-                  visit.customer!.address,
-                  'Today',
-                  customer: visit.customer,
-                  onTap: () => _openTask(context, visit),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Quick Access',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          _dashboardGrid([
-            _quickAction(
-              icon: Icons.location_on_outlined,
-              title: 'Check In',
-              onTap: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(builder: (_) => const SalesVisitScreen()),
               ),
-            ),
-            _quickAction(
-              icon: Icons.people_outline,
-              title: 'Find Customers',
-              onTap: () => onNavigateToTab(1),
-            ),
-            _quickAction(
-              icon: Icons.inventory_2_outlined,
-              title: 'Inventory Lookup',
-              onTap: () => onNavigateToTab(2),
-            ),
-            _quickAction(
-              icon: Icons.edit_outlined,
-              title: 'Add Note',
-              onTap: () => _addActivity(context, followUp: false),
-            ),
-            _quickAction(
-              icon: Icons.event_available_outlined,
-              title: 'Add Follow-up',
-              onTap: () => _addActivity(context, followUp: true),
-            ),
-            _quickAction(
-              icon: Icons.location_searching,
-              title: 'Nearby Customers',
-              onTap: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const CustomerMapScreen(initialDistanceKm: 20),
+              _quickAction(
+                icon: Icons.people_outline,
+                title: 'Find Customers',
+                onTap: () => onNavigateToTab(1),
+              ),
+              _quickAction(
+                icon: Icons.inventory_2_outlined,
+                title: 'Inventory Lookup',
+                onTap: () => onNavigateToTab(2),
+              ),
+              _quickAction(
+                icon: Icons.edit_outlined,
+                title: 'Add Note',
+                onTap: () => _addActivity(context, followUp: false),
+              ),
+              _quickAction(
+                icon: Icons.event_available_outlined,
+                title: 'Add Follow-up',
+                onTap: () => _addActivity(context, followUp: true),
+              ),
+              _quickAction(
+                icon: Icons.location_searching,
+                title: 'Nearby Customers',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const CustomerMapScreen(initialDistanceKm: 20),
+                  ),
                 ),
               ),
-            ),
-          ], maxColumns: 3),
-        ],
+            ], maxColumns: 3),
+          ],
+        ),
       ),
     );
   }
@@ -533,7 +581,7 @@ class HomeScreen extends StatelessWidget {
     IconData icon, {
     required String status,
     Color color = AppColors.copper,
-    Color tint = AppColors.warningLight,
+    Color tint = AppColors.successLight,
   }) {
     return Column(
       children: [
@@ -596,10 +644,10 @@ class HomeScreen extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: tint,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         child: Text(
           label,
           style: TextStyle(
@@ -706,6 +754,16 @@ class HomeScreen extends StatelessWidget {
         children: [
           Row(
             children: [
+              Icon(
+                title.startsWith('Customers')
+                    ? Icons.people_outline
+                    : title.startsWith('My Tasks')
+                    ? Icons.event_available_outlined
+                    : Icons.calendar_today_outlined,
+                color: AppColors.green,
+                size: 23,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
@@ -790,30 +848,54 @@ class HomeScreen extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11),
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+      tint: tint,
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 13),
     );
   }
 
   Widget _panel(
     Widget child, {
     VoidCallback? onTap,
-    EdgeInsets padding = const EdgeInsets.all(12),
+    Color? tint,
+    EdgeInsets padding = const EdgeInsets.all(15),
   }) {
-    return Material(
-      color: AppColors.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.border),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14002E21),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(padding: padding, child: child),
+      child: Material(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, tint ?? const Color(0xFFFFFDFC)],
+            ),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(padding: padding, child: child),
+          ),
+        ),
       ),
     );
   }
