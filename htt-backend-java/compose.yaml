@@ -1,0 +1,64 @@
+name: htt-java
+services:
+  db:
+    image: postgres:17-alpine
+    command: ["postgres", "-c", "max_locks_per_transaction=256"]
+    environment:
+      POSTGRES_DB: htt
+      POSTGRES_USER: htt_owner
+      POSTGRES_PASSWORD: ${HTT_OWNER_PASSWORD:?required}
+      HTT_APP_PASSWORD: ${HTT_APP_PASSWORD:?required}
+      HTT_WORKER_PASSWORD: ${HTT_WORKER_PASSWORD:?required}
+      HTT_PORTAL_PASSWORD: ${HTT_PORTAL_PASSWORD:?required}
+    ports: ["127.0.0.1:${HTT_DB_PORT:-55433}:5432"]
+    volumes:
+      - htt_java_data:/var/lib/postgresql/data
+      - ./infra/init-db.sh:/docker-entrypoint-initdb.d/10-htt.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U htt_owner -d htt"]
+      interval: 3s
+      retries: 30
+  migrate:
+    build: {context: ., target: migrations}
+    environment:
+      HTT_MIGRATION_DATABASE_URL: jdbc:postgresql://db:5432/htt
+      HTT_MIGRATION_DATABASE_PASSWORD: ${HTT_OWNER_PASSWORD:?required}
+    depends_on: {db: {condition: service_healthy}}
+    restart: "no"
+  api:
+    build: {context: ., target: api}
+    environment:
+      SERVER_PORT: 8080
+      HTT_STAFF_DATABASE_URL: jdbc:postgresql://db:5432/htt
+      HTT_STAFF_DATABASE_PASSWORD: ${HTT_APP_PASSWORD:?required}
+      HTT_PORTAL_DATABASE_URL: jdbc:postgresql://db:5432/htt
+      HTT_PORTAL_DATABASE_PASSWORD: ${HTT_PORTAL_PASSWORD:?required}
+      HTT_STAFF_AUTHORITY: ${HTT_STAFF_AUTHORITY:-}
+      HTT_STAFF_AUDIENCE: ${HTT_STAFF_AUDIENCE:-}
+      HTT_STAFF_MODE: ${HTT_STAFF_MODE:-Oidc}
+      HTT_PORTAL_AUTHORITY: ${HTT_PORTAL_AUTHORITY:-}
+      HTT_PORTAL_AUDIENCE: ${HTT_PORTAL_AUDIENCE:-}
+      HTT_PORTAL_MODE: ${HTT_PORTAL_MODE:-Oidc}
+      HTT_DOCUMENTS_MAIL_FROM: ${HTT_DOCUMENTS_MAIL_FROM:-}
+    ports: ["127.0.0.1:${HTT_API_PORT:-5081}:8080"]
+    depends_on: {migrate: {condition: service_completed_successfully}}
+  worker:
+    build: {context: ., target: worker}
+    environment:
+      HTT_WORKER_DATABASE_URL: jdbc:postgresql://db:5432/htt
+      HTT_WORKER_DATABASE_PASSWORD: ${HTT_WORKER_PASSWORD:?required}
+      HTT_BANKFEEDS_ENABLED: ${HTT_BANKFEEDS_ENABLED:-false}
+      HTT_BANKFEEDS_ENDPOINT: ${HTT_BANKFEEDS_ENDPOINT:-}
+      HTT_BANKFEEDS_API_KEY: ${HTT_BANKFEEDS_API_KEY:-}
+      HTT_CARD_OCR_ENDPOINT: ${HTT_CARD_OCR_ENDPOINT:-}
+      HTT_CARD_OCR_API_KEY: ${HTT_CARD_OCR_API_KEY:-}
+      HTT_GEOCODE_API_KEY: ${HTT_GEOCODE_API_KEY:-}
+      HTT_PUSH_PROJECT_ID: ${HTT_PUSH_PROJECT_ID:-}
+      HTT_PUSH_CLIENT_EMAIL: ${HTT_PUSH_CLIENT_EMAIL:-}
+      HTT_PUSH_PRIVATE_KEY_PEM: ${HTT_PUSH_PRIVATE_KEY_PEM:-}
+      HTT_MAIL_API_KEY: ${HTT_MAIL_API_KEY:-}
+      HTT_CLAMAV_HOST: ${HTT_CLAMAV_HOST:-}
+      HTT_CLAMAV_PORT: ${HTT_CLAMAV_PORT:-3310}
+    depends_on: {migrate: {condition: service_completed_successfully}}
+volumes:
+  htt_java_data:

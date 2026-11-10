@@ -1,0 +1,7 @@
+﻿"HTT REPORT","TRIAL_BALANCE"
+"Snapshot SHA256","synthetic"
+"Metadata","{""kind"":""TRIAL_BALANCE"",""snapshotHash"":""synthetic"",""label"":""caf\u00E9 \u003Ctag\u003E \u0026 \u0027quoted\u0027 \u002B \u0022double\u0022"",""from"":""2026-01-01"",""value"":1.20}"
+
+"Name","Amount"
+"'  =HYPERLINK(1)","-1.20"
+"'​@SUM(1)","0.00"

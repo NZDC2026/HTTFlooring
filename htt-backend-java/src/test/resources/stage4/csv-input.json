@@ -1,0 +1,1 @@
+{"kind":"TRIAL_BALANCE","snapshotHash":"synthetic","label":"café <tag> & 'quoted' + \"double\"","from":"2026-01-01","value":1.20,"columns":[{"key":"name","label":"Name","type":"text"},{"key":"amount","label":"Amount","type":"decimal"}],"rows":[{"name":"  =HYPERLINK(1)","amount":"-1.20"},{"name":"​@SUM(1)","amount":"0.00"}]}

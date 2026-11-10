@@ -1,0 +1,38 @@
+name: Java backend verification
+on:
+  pull_request:
+    paths: ['htt-backend-java/**', '.github/workflows/java-backend.yml']
+  push:
+    paths: ['htt-backend-java/**', '.github/workflows/java-backend.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: htt-backend-java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: htt-backend-java/pom.xml
+      - run: mvn --batch-mode verify
+      - name: Fresh database migration and repeatability
+        run: python3 tests/stage4/migrations.py
+      - name: Build API, worker and explicit migration images
+        run: |
+          docker build --target api -t htt-java-api:ci .
+          docker build --target worker -t htt-java-worker:ci .
+          docker build --target migrations -t htt-java-migrations:ci .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: java-verification
+          path: |
+            htt-backend-java/target/surefire-reports/
+            htt-backend-java/target/stage4/

@@ -1,0 +1,124 @@
+{
+  "status": "PASSED",
+  "scope": "All stages 0–4 accepted locally using isolated synthetic data. No real cutover or external provider writes.",
+  "stages": {
+    "0": {
+      "status": "PASSED",
+      "legacyIntegrationTests": 2627
+    },
+    "1": {
+      "status": "PASSED",
+      "evidence": "Accepted signed API, tenant/portal scope and readiness; retained in stage 3 full suites"
+    },
+    "2": {
+      "status": "PASSED",
+      "focusedUploadRun": "htt-backend-java/target/compatibility/33d13ad12ed74f87a4000e9a464bc326",
+      "stalledStatus": 400,
+      "absoluteDeadlineStatus": 500,
+      "absoluteDeadlineSeconds": 30,
+      "rejectedWritesPersisted": false
+    },
+    "3": {
+      "status": "PASSED",
+      "record": "local-chat-workspace/outputs/stage3-acceptance.json",
+      "existingApiFilesUnchanged": 177,
+      "entryPointChange": "Only explicit migration/worker process dispatch added before original API startup"
+    },
+    "4": {
+      "status": "PASSED",
+      "tests": {
+        "tests": 45,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "deployment": {
+        "status": "PASSED",
+        "network": "internal, isolated, disposable",
+        "javaApi": {
+          "live": 200,
+          "ready": 200,
+          "anonymousStaff": 401
+        },
+        "legacyRollbackApi": {
+          "live": 200,
+          "ready": 200,
+          "anonymousStaff": 401
+        },
+        "migrationRepeatable": true,
+        "legacyHistoryCompatible": true,
+        "pdfRendered": 10,
+        "csvExported": 10,
+        "queuePreservedAcrossRollback": true,
+        "grantRollbackVerified": true,
+        "staleAndExpiredLeaseRejected": true,
+        "scannerCleanAndMalwareVerified": true,
+        "pdfTextVerified": 10,
+        "realSystemChanged": false
+      },
+      "images": {
+        "api": {
+          "tag": "htt-java-stage4-api:local",
+          "id": "sha256:9322bd1207b1e6f4494c3522a25e822db09a3d6125b091c174c5073113a566d8",
+          "jarSha256": "acccb3e276358b0ed9aa56c251675adb7c23a599abaf5a849e03f4c5d8e4a106"
+        },
+        "worker": {
+          "tag": "htt-java-stage4-worker:local",
+          "id": "sha256:ac7ec37c436c741abfdd035331fdfa6fa9a676dc89cec354b307bf68b3898bf4",
+          "jarSha256": "acccb3e276358b0ed9aa56c251675adb7c23a599abaf5a849e03f4c5d8e4a106"
+        },
+        "migrations": {
+          "tag": "htt-java-stage4-migrations:local",
+          "id": "sha256:8ff494c967a7205e1a37685c0b2c91355acda0b339701573d0fdecdd046a274c",
+          "jarSha256": "acccb3e276358b0ed9aa56c251675adb7c23a599abaf5a849e03f4c5d8e4a106"
+        }
+      },
+      "ci": {
+        "workflow": ".github/workflows/java-backend.yml",
+        "yamlValidated": true,
+        "localWorkflowCommands": "PASSED",
+        "remoteRun": "Not triggered; no remote writes"
+      },
+      "sourceArchiveSha256": "db18d15476a922f642f014c948cadb1dc4c114884ca3fc21e91ba1708eb1e48a"
+    }
+  },
+  "allAcceptancePassed": true,
+  "legacy": {
+    "originalPath": "htt-backend",
+    "finalPath": "htt-backend-c#",
+    "entriesBefore": 349,
+    "contentsVerifiedBeforeRename": true,
+    "renamed": true,
+    "contentsUnchanged": true,
+    "entriesAfter": 349,
+    "originalPathExists": false,
+    "postRenameCiPathCheck": "PASSED: 56 migrations, repeatable, legacy SQL hashes identical using htt-backend-c# fallback",
+    "trackedFilesVerifiedUnchanged": 324
+  },
+  "automation": "htt-java deleted previously and not recreated",
+  "realSystemChanged": false,
+  "externalProviderWrites": false,
+  "evidenceDirectory": "local-chat-workspace/outputs/stage4-final-evidence",
+  "completedAtUtc": "2026-11-10T05:20:32.712161+00:00",
+  "recordNote": "Historical local acceptance evidence; referenced target artifacts and chat workspace archives are not included in Git. No production rollout or remote CI run is claimed.",
+  "stage3Runs": {
+    "CASH": {
+      "fullRunId": "37fc8c25f56c4ecfa6dc38f25cb0cfd2",
+      "httpScenarioGroups": 105,
+      "snapshotSha256": "cbcc0eba4a02adcd5f995a0b269b60046b9e647325c179a764541ff90d196097",
+      "focusedRuns": {
+        "batch": "00604ae3e50d41f49f8e55337584f4bb",
+        "mail": "8c6d896ead114228a150f6476970f2ec"
+      }
+    },
+    "NON_CASH": {
+      "fullRunId": "a60cd793245c45278bf7f640dff60ea1",
+      "httpScenarioGroups": 105,
+      "snapshotSha256": "7bb5c3b9998f0524bd5c49c5cbc6c353aab39cd611e23aaf3332175c71354b87",
+      "focusedRuns": {
+        "batch": "2bf1e58c4fda4320bb7ff01034dc4932",
+        "mail": "a53862d4c5ef444385609cdaf40862f7"
+      }
+    }
+  }
+}
