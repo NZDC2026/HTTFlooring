@@ -1,3 +1,4 @@
+import { nextSupplierCode } from "./supplierCode";
 import { shipmentWarehouse } from '../../incoming-shipments/shipmentWarehouse';
 import { shipmentInput, shipmentReceiptInput, shipmentSchema, buildShipmentLines, type Shipment } from "../../incoming-shipments/shipmentModel";
 import { resolveCommand } from "../../security/repositoryHost";
@@ -63,39 +64,7 @@ function createId(
 }
 
 function createSupplierCode() {
-    const numbers =
-        suppliers
-            .map(
-                (supplier) => {
-                    const match =
-                        supplier.code.match(
-                            /(\d+)$/,
-                        );
-
-                    return match
-                        ? Number.parseInt(
-                            match[1],
-                            10,
-                        )
-                        : 0;
-                },
-            )
-            .filter(
-                Number.isFinite,
-            );
-
-    const nextNumber =
-        Math.max(
-            0,
-            ...numbers,
-        ) + 1;
-
-    return `SUP-${nextNumber
-        .toString()
-        .padStart(
-            4,
-            "0",
-        )}`;
+    return nextSupplierCode(suppliers);
 }
 
 function normalizeOptional(

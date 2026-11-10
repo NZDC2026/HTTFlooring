@@ -380,6 +380,7 @@ export function CustomersPage() {
                         onClick={() =>
                             navigate(
                                 "/contacts/customers/new",
+                                { state: { customerCount: profiles.length } },
                             )
                         }
                     >

@@ -343,6 +343,7 @@ export function SuppliersPage() {
                         onClick={() =>
                             navigate(
                                 "/contacts/suppliers/new",
+                                { state: { supplierCount: profiles.length } },
                             )
                         }
                     >

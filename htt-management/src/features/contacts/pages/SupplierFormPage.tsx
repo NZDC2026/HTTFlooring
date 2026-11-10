@@ -6,6 +6,7 @@ import {
 import {
     Navigate,
     useNavigate,
+    useLocation,
     useParams,
 } from "react-router-dom";
 
@@ -36,6 +37,8 @@ interface Props {
 export function SupplierFormPage({
     mode,
 }: Props) {
+    const location = useLocation();
+    const supplierCount = (location.state as { supplierCount?: number } | null)?.supplierCount;
     const navigate =
         useNavigate();
 
@@ -173,6 +176,7 @@ export function SupplierFormPage({
 
             <div className="max-w-[980px]">
                 <SupplierForm
+                    supplierCount={supplierCount}
                     statusTarget="supplier-form-status"
                     supplier={
                         supplier

@@ -6,6 +6,7 @@ import {
     Link,
     Navigate,
     useNavigate,
+    useLocation,
     useParams,
 } from "react-router-dom";
 
@@ -28,6 +29,8 @@ export function CustomerFormPage({
     mode,
 }: CustomerFormPageProps) {
     const navigate = useNavigate();
+    const location = useLocation();
+    const count = (location.state as { customerCount?: number } | null)?.customerCount;
 
     const { customerId } = useParams();
 
@@ -121,6 +124,7 @@ export function CustomerFormPage({
             >Edit accountant contact</Link>}
             <div className="max-w-[1200px]">
                 <CustomerForm
+                    customerCount={count}
                     statusTarget="customer-form-status"
                     customer={customer}
                     submitLabel={

@@ -1,3 +1,5 @@
+import { nextSupplierCode } from "../data/supplierCode";
+import { useSuppliers } from "../data/useSuppliers";
 import { FormHeaderSlot } from "./FormHeaderSlot";
 import { supplierContacts } from "../data/accountContacts";
 import { AccountContactsEditor } from "./AccountContactsEditor";
@@ -42,6 +44,7 @@ import type {
 
 interface Props {
     supplier?: Supplier;
+    supplierCount?: number;
 
     statusTarget?: string;
 
@@ -79,11 +82,13 @@ const textareaClassName = `
 
 export function SupplierForm({
     supplier,
+    supplierCount,
     statusTarget,
     submitLabel,
     onSubmit,
     onCancel,
 }: Props) {
+    const suppliers = useSuppliers();
     const {
         register,
         watch,
@@ -241,7 +246,9 @@ export function SupplierForm({
 
                     </div>
 
+                    {!supplier && <details className="mb-4 text-xs text-amber-900"><summary>Sample · Supplier codes · Read-only</summary><p className="mt-2">3 suppliers → VIC-SUP-0004 (Melbourne) / NSW-SUP-0004 (Sydney). Sample codes are not saved.</p></details>}
                     <div className="grid grid-cols-2 gap-x-5 gap-y-5">
+                        <FormField label="Supplier Code"><Input value={supplier?.code ?? nextSupplierCode(suppliers, supplierCount)} readOnly title="Preview; the server confirms a unique code when saved." /></FormField>
                         <FormField
                             label="Business Name"
                             required
