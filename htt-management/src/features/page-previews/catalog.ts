@@ -140,7 +140,7 @@ const allPreviewModules = [
   }
 ] as const;
 export const previewModules=allPreviewModules.filter(m=>m.id!=='payment-batches'||optionalWorkflows.electronicPayments);
-export const previewGroups=[...new Set(previewModules.map(m=>m.group)), 'Sales & purchases','Settings'];
+export const previewGroups=[...new Set(previewModules.map(m=>m.group)), 'Sales & purchases','System','Settings'];
 export const settingsForms:Record<string,{title:string;path:string;permission:Permission;description:string}>={
  business:{title:'Financial year, GST & branding',path:'/settings/financial',permission:'accounting.read',description:'Local business, tax, numbering and immutable PNG branding.'},
  sales:{title:'Sales settings',path:'/settings/sales',permission:'accounting.read',description:optionalWorkflows.onlineCollection?'Local sales numbering and defaults; optional Resend and Stripe configuration is available in Communications.':'Local sales numbering and defaults; optional email configuration is available in Communications.'},

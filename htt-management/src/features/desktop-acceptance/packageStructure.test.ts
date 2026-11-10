@@ -1,5 +1,5 @@
 import {it,expect,afterEach} from 'vitest';
-import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createRequire} from 'node:module';
@@ -11,7 +11,22 @@ function pe(machine=0x8664){const b=Buffer.alloc(160);b.write('MZ');b.writeUInt3
 async function fixture(omit?:string){
  const root=mkdtempSync(join(tmpdir(),'htt-package-'));roots.push(root);const source=join(root,'source'),directory=join(root,'package'),resources=join(directory,'resources');mkdirSync(resources,{recursive:true});
  for(const name of ['package.json','dist/index.html','dist-electron/index.js','dist-electron/index.mjs']){if(name===omit)continue;const p=join(source,name);mkdirSync(join(p,'..'),{recursive:true});writeFileSync(p,name==='package.json'?JSON.stringify({version:'0.1.0',main:'dist-electron/index.js'}):'synthetic');}
- await asar.createPackage(source,join(resources,'app.asar'));writeFileSync(join(resources,'icon.png'),'synthetic');writeFileSync(join(directory,'HTT Flooring Management System.exe'),pe());return {directory,resources,platform:'win32',arch:'x64',expectedVersion:'0.1.0'};
+ await asar.createPackage(source,join(resources,'app.asar'));
+ // asar resolves after stream.end(), before its final data has necessarily flushed.
+ // Wait for the declared archive payload, rather than inspect a partially written fixture.
+ let complete=false;
+ for(let attempt=0;attempt<200;attempt++){
+  const bytes=readFileSync(join(resources,'app.asar'));
+  if(bytes.length>=8){const headerSize=bytes.readUInt32LE(4);if(bytes.length>=8+headerSize){
+   const header=JSON.parse(bytes.subarray(16,16+bytes.readUInt32LE(12)).toString());
+   const payload=(files:any):number=>Math.max(0,...Object.values(files).map((f:any)=>f.files?payload(f.files):Number(f.offset??0)+Number(f.size??0)));
+   complete=bytes.length>=8+headerSize+payload(header.files);
+  }}
+  if(complete)break;
+  await new Promise(resolve=>setTimeout(resolve,5));
+ }
+ if(!complete)throw Error('ASAR fixture did not finish writing');
+writeFileSync(join(resources,'icon.png'),'synthetic');writeFileSync(join(directory,'HTT Flooring Management System.exe'),pe());return {directory,resources,platform:'win32',arch:'x64',expectedVersion:'0.1.0'};
 }
 it('accepts a complete Windows package without claiming runtime or signature validation',async()=>expect(inspectPackage(await fixture()).scope).toBe('structural-package-check-only'));
 it('rejects the observed cross-build macOS helper leak',async()=>{const f=await fixture();mkdirSync(join(f.resources,'ocr'));writeFileSync(join(f.resources,'ocr/htt-ocr'),'Mach-O');expect(()=>inspectPackage(f)).toThrow(/must not ship/);});

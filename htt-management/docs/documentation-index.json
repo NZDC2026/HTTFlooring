@@ -467,7 +467,27 @@
     ]
   },
   {
+    "path": "docs/WEB-APPLICATION.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
     "path": "docs/WORKFLOW-ACCEPTANCE-20261021.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/dispatch-followups.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/invoice-reminders.md",
+    "status": "current",
+    "followUps": []
+  },
+  {
+    "path": "docs/procurement.md",
     "status": "current",
     "followUps": []
   }

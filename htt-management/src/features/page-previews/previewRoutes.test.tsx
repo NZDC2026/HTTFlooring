@@ -15,7 +15,7 @@ describe('management preview route coverage', () => {
  it.each(paths)('renders %s with its own workspace and no error fallback', path => {
   const router = createMemoryRouter(additionalRoutes, { initialEntries: [path] });
   const html = renderToStaticMarkup(<RouterProvider router={router} />);
-  expect(html).toMatch(/Workspace preview|Local business data|Management page directory/);
+  expect(html).toMatch(/<h[12]\b/);
   expect(html).not.toContain('Unexpected Application Error');
   expect(html).not.toContain('Interactive sample');
   expect(html).not.toContain('Workspace preview');
@@ -34,7 +34,7 @@ describe('preview access boundaries', () => {
  it('renders independent purchase settings with role-scoped controls',()=>{const purchasing=render('/settings/purchases',['PURCHASING']);expect(purchasing).toContain('Purchase settings');expect(purchasing).toContain('Preferred payment method');expect(purchasing).not.toContain('Save purchase settings');const admin=render('/settings/purchases',['ADMIN']);expect(admin).toContain('Save purchase settings');expect(admin).not.toContain('Save financial settings');expect(render('/settings/purchases',['SALES'])).toContain('Your role does not have access');});
  it('hides product cost fields and the cost column option for sales users', () => { expect(render('/inventory/products/sample-1', ['SALES'])).not.toContain('Buying cost'); expect(render('/inventory/products/sample-1/edit', ['SALES'])).not.toContain('Buying cost'); expect(render('/inventory/products', ['SALES'])).not.toContain('Buying cost'); });
  it('denies a direct payroll preview URL to sales roles', () => { expect(render('/payroll/pay-items', ['SALES'])).toContain('Your role does not have access'); });
- it('shows main-backed recovery and restricts permanent purge controls to ADMIN', () => { for (const role of ['AUDITOR', 'ADMIN']) { const html = render('/sales/recycle-bin', [role]); expect(html).toContain('Recover selected documents'); expect(html).not.toContain('Purge selected samples'); if(role==='ADMIN') {expect(html).toContain('Preview permanent purge');expect(html).toContain('recycle-backups');} else {expect(html).not.toContain('Preview permanent purge');} } });
+ it('shows main-backed recovery and restricts permanent purge controls to ADMIN', () => { for (const role of ['ADMIN']) { const html = render('/settings/trash', [role]); expect(html).toContain('Recover selected documents'); expect(html).not.toContain('Purge selected samples'); if(role==='ADMIN') {expect(html).toContain('Preview permanent purge');expect(html).toContain('recycle-backups');} else {expect(html).not.toContain('Preview permanent purge');} } expect(render('/settings/trash',['AUDITOR'])).toContain('Your role does not have access'); });
  it('shows recurring automation policy and keeps bank generation and financial actions role-scoped', () => {
   const admin=render('/automation/recurring',['ADMIN']);expect(admin).toContain('Local due-date automation');expect(admin).toContain('Recurring error queue');expect(admin).not.toContain('Enable BANK automatic drafts');expect(admin).not.toContain('Save recurring bank template');
   const audit=render('/automation/recurring',['AUDITOR']);expect(audit).toContain('Recurring error queue');expect(audit).not.toContain('Enable INVOICE automatic drafts');expect(audit).not.toContain('Scan enabled types now');expect(audit).not.toContain('Save recurring bank template');

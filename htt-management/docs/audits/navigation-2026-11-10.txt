@@ -9,16 +9,24 @@ Fixed
 - Removed unused visit notification counter and duplicated navigation matching. Renamed an event handler incorrectly named like a Hook.
 - Preserved existing read-only Sample previews and business data. Navigation can be checked with existing Sample Credit / Return and Incoming Shipment pages.
 
-Verification
-- Production web build and TypeScript check passed.
-- Lint passed with warnings still present.
-- Final navigation/table/back/dashboard regression: 53 tests passed.
+Verification (follow-up completed 2026-11-10)
+- Full regression: 265 files, 4294 tests passed; no failed or skipped tests.
+- Focused former failures: 7 files, 1803 tests passed.
 - Web authentication and durable business database: 10 tests passed.
-- Full-suite baseline: 263 files, 4270 tests; 4138 passed, 122 failed, 10 skipped before fixes.
-- After fixes, route/preview suite: 1723 passed, 22 failed. Remaining assertions include obsolete Accounting periods sidebar entry, old page headings, standalone preview routing and workspace directory drift.
+- TypeScript check and production web build passed.
+- Lint completed with existing warnings (no errors).
+- Online service restarted with the existing .env and web-data directory.
+- Public index matches the production build exactly; public security status returns initialized=true and session=null.
 
-Not resolved by this change
-- Full suite is not green. Contact review validation and finance foundation have failing tests requiring further diagnosis.
-- Desktop package test fixtures fail JSON parsing under the current environment.
-- Table capability inventory and documentation/route directory contracts need reconciliation with prior UI changes.
-- Existing lint warnings remain. No blanket deletion of business workflows, audit records or financial data was performed.
+Follow-up fixes
+- Updated old Accounting periods/sidebar, sales numbering and page-heading assertions to current requirements, preserving permission and business checks.
+- Contact review now tests a genuinely missing required name; a single-name contact is valid in the unified contact model.
+- Finance due-date assertion uses customer payment terms, as required by the document defaults.
+- Directory now includes the System group and verifies actual registered app routes.
+- Desktop package fixtures wait for the ASAR payload to finish writing before inspection, fixing an intermittent truncated JSON race.
+- Regenerated table capability inventory for current surfaces and registered the missing current documentation.
+- Preserved existing read-only Sample coverage and temporary public Sample preview. No live business, inventory or financial records were changed.
+
+Remaining limitations
+- Existing lint warnings and Node version/experimental localStorage warnings remain; these do not fail the verified checks.
+- Passing automated regression does not guarantee every possible manual workflow is defect-free.
