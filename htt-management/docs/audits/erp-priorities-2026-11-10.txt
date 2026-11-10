@@ -1,0 +1,28 @@
+ERP priority review — 2026-11-10
+
+Applied fixes
+- Dashboard pending dispatch alert shares the Sales awaiting-dispatch calculation, de-duplicates order/invoice chains, and opens the live filtered register, clearing unrelated saved filters.
+- Dashboard metrics follow business currency; impossible calendar dates are rejected before report calculation.
+- Previous/current purchase prices use saved ex-GST supplier bill line amounts rather than reconstructing gross quantities times price. Zero-cost lines remain zero. Missing historical subtotals retain the legacy fallback.
+- Purchase price comparison labels and amounts follow business currency.
+
+Existing capabilities checked, not newly implemented in this change
+- Inventory: integer boxes round up from requested coverage; decimal area calculation; unit-priced accessories; posted receipts and active invoiced dispatches only.
+- Purchases: receipts, supplier bills, GRNI/price variance, void/recovery and accounting reconciliation.
+- Banking: statement/reconciliation evidence and saved reconciliation chains.
+- Accounting and Reports: ledger/report calculations and existing period controls.
+- Customers and Sales: credit/payment allocations, customer data and document/dispatch calculations.
+
+Verification
+- 98 relevant test files, 682 tests passed.
+- TypeScript and production web build passed; lint completed with warnings, no errors.
+- Server started using existing .env and web-data. Local index matches built index.
+- Public verification FAILED: Cloudflare 530 / error 1033. No cloudflared process or local tunnel configuration was found. Application is available locally at http://127.0.0.1:8787; public tunnel must be restored before public availability can be claimed.
+
+Sample preview
+- Dashboard > Tasks & Alerts > Sample · Dispatch reminders · Read-only: pending and dispatched examples, excluded from live counts and notifications.
+- Product details > Overview: existing Sample purchase price increase/decrease and supplier-invoice previews preserved.
+- Existing Sales/Purchases/Banking/Reports read-only Samples preserved.
+
+Scope
+This review implements the concrete issues found above; it does not certify full MYOB parity, external bank integrations or every manual workflow. No live business or financial data was rewritten.

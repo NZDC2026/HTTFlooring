@@ -37,7 +37,8 @@ export function DashboardPage() {
     const reportingDate = reportingPeriod === currentMonth
         ? today
         : new Date(Date.UTC(reportYear, reportMonth, 0)).toISOString().slice(0, 10);
-    const dashboard = useMemo(() => buildLiveDashboard(accounts, journals, reportingDate, bankAccounts), [accounts, journals, reportingDate, bankAccounts]);
+    const currency = businessSettings().currency;
+    const dashboard = useMemo(() => buildLiveDashboard(accounts, journals, reportingDate, bankAccounts, currency), [accounts, journals, reportingDate, bankAccounts, currency]);
     const basisDashboard = useDashboardBasis({ accounts, journals, banks: bankAccounts, date: reportingDate, basis, includeGst, currency: businessSettings().currency });
     return <div className="pb-8">
         <div className="mb-3 grid items-stretch gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

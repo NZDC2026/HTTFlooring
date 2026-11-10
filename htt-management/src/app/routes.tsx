@@ -450,6 +450,10 @@ export const appRoutes:RouteObject[] = [
                 element: <CustomerDetailPage />,
             },
             {
+                path: "contacts/customers/:customerId/rebate",
+                element: <CustomerDetailPage />,
+            },
+            {
                 path: "contacts/customers/:customerId/pricing",
                 element: <CustomerDetailPage />,
             },

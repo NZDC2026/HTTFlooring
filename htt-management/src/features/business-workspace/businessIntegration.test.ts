@@ -61,7 +61,7 @@ describe('local business integration through the trusted desktop host', () => {
     it('denies a sales session direct product and accounting configuration writes', () => { const { product } = fixture(); const user = security.createUser({ username: 'integration.sales', displayName: 'Sales', password: admin.password, roles: ['SALES'] }); security.login({ username: user.username, password: admin.password }); const before = readFileSync(join(root, 'business.json'), 'utf8'); expect(() => command('products', 'save', product, 0)).toThrow(/Permission denied/); expect(() => command('workspace_tax_codes', 'save', {})).toThrow(/Permission denied/); expect(state('workspace_linked_accounts')).toEqual({ records: [], history: [] }); expect(state('products').products).not.toHaveLength(0); expect(readFileSync(join(root, 'business.json'), 'utf8')).toBe(before); });
     it('rolls back a failed configuration change and rejects malformed backup records before commit', () => { const snapshot = host.exportBackup(); snapshot.repositories.workspace_tax_codes = { records: [{ id: 'bad', name: 'bad', rate: '999', revision: '1', code: 'BAD', collected: 'x', paid: 'y' }], history: [] }; const { checksum, ...payload } = snapshot; const bad = { ...payload, checksum: createHash('sha256').update(JSON.stringify(payload)).digest('hex') }; const before = readFileSync(join(root, 'business.json'), 'utf8'); expect(() => host.prepareRestore(JSON.stringify(bad))).toThrow(); expect(() => command('workspace_promotions', 'save', { name: 'Invalid' })).toThrow(); expect(readFileSync(join(root, 'business.json'), 'utf8')).toBe(before); });
     it('migrates a schema-3 snapshot and restores old backups without retaining new configuration', async () => { const baseline = host.exportBackup() as any; const legacyKeys = Object.keys(baseline.repositories).filter(k => k === 'products' || k.startsWith('workspace_')); for (const k of legacyKeys)
-        delete baseline.repositories[k]; baseline.schemaVersion = 3; delete baseline.checksum; baseline.checksum = createHash('sha256').update(JSON.stringify(baseline)).digest('hex'); writeFileSync(join(root, 'business.json'), JSON.stringify(baseline)); await restart(); expect(host.exportBackup().schemaVersion).toBe(36); const { product, customer } = fixture(); command('workspace_promotions', 'save', promotion(product, customer)); const preview = host.prepareRestore(JSON.stringify(baseline)); await host.restoreBackup(preview.token); await restart(); expect(state('workspace_promotions').records).toEqual([]); expect(state('products').products).toHaveLength(6); });
+        delete baseline.repositories[k]; baseline.schemaVersion = 3; delete baseline.checksum; baseline.checksum = createHash('sha256').update(JSON.stringify(baseline)).digest('hex'); writeFileSync(join(root, 'business.json'), JSON.stringify(baseline)); await restart(); expect(host.exportBackup().schemaVersion).toBe(37); const { product, customer } = fixture(); command('workspace_promotions', 'save', promotion(product, customer)); const preview = host.prepareRestore(JSON.stringify(baseline)); await host.restoreBackup(preview.token); await restart(); expect(state('workspace_promotions').records).toEqual([]); expect(state('products').products).toHaveLength(6); });
     it('generates filtered reports from the posted bank repository and matches only active saved rules', async () => {
         const accounts = state('accounts').accounts, expense = accounts.find((a: any) => a.systemRole === 'OPERATING_EXPENSE');
         const transaction = command('bankTransactions', 'createTransaction', { bankAccountId: 'bank_001', transactionDate: '2026-10-10', direction: 'MONEY_OUT', amount: 45, offsetAccountId: expense.id, description: 'OFFICE stationery', reference: 'INV-45' });
@@ -117,4 +117,20 @@ describe('local business integration through the trusted desktop host', () => {
         expect(productCostingRepository.getByProductId(newProduct.id)).toMatchObject({ active: true, baseUnitId: newProduct.baseUnitId });
         expect(state('stock').balances.some((b: any) => b.productId === newProduct.id)).toBe(false);
     });
+});
+
+it('persists customer rebate CRUD independently of invoices, with concurrency and target validation',async()=>{
+ const {product,customer}=fixture(),raw={name:'Monthly rebate',status:'Active',customerId:customer.id,productId:product.id,starts:'2026-01-01',ends:'2026-12-31',cycle:'Monthly',rate:'1',minArea:'100',minSales:'1000'};
+ const invoices=JSON.stringify(state('sales'));
+ const created=command('workspace_rebates','save',raw);
+ expect(()=>command('workspace_rebates','save',{...raw,rate:'-1'})).toThrow();
+ expect(()=>command('workspace_rebates','save',raw)).toThrow(/already covers/);
+ expect(()=>command('workspace_rebates','save',{...created,salesEnabled:'true',salesContactId:''},created.revision)).toThrow(/contact/);
+ expect(()=>command('workspace_rebates','save',{...created,salesEnabled:'true',salesContactId:'other-customer-contact'},created.revision)).toThrow(/contact/);
+ const edited=command('workspace_rebates','save',{...created,rate:'2',salesEnabled:'true',salesContactId:customer.contacts[0].id},created.revision);
+ expect(()=>command('workspace_rebates','save',{...created,rate:'3'},created.revision)).toThrow(/changed/);
+ await restart();expect(state('workspace_rebates').records[0]).toMatchObject({rate:'2',salesEnabled:'true',salesContactId:customer.contacts[0].id});
+ command('workspace_rebates','save',{...edited,deleted:'true'},edited.revision);
+ expect(state('workspace_rebates').records[0].deleted).toBe('true');
+ expect(state('workspace_rebates').history).toHaveLength(3);expect(JSON.stringify(state('sales'))).toBe(invoices);
 });

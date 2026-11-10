@@ -72,6 +72,7 @@ class StaffScope {
                     .param("actor", membership.actorId().toString())
                     .param("request", requestId)
                     .query((row, number) -> row.getString(1)).single();
+            DocumentLifecycle.visible(jdbc);
             return action.get();
         });
     }

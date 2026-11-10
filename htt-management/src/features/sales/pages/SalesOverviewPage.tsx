@@ -56,6 +56,13 @@ export function SalesOverviewPage() {
     const [dateTo, setDateTo] = useListState("src/features/sales/pages/SalesOverviewPage.tsx:dateTo", "");
     const [preview, setPreview] = useState<SalesDocument | null>(null);
     useEffect(() => {
+        if(entrySearch.get('awaitingDispatch')!=='1') return;
+        setSample(false);setSpecial('awaiting');setTab('ALL');setStatus('ALL');setQuery('');
+        setCustomerFilter('ALL');setFulfilmentFilter('ALL');setDocumentTypeFilter('ALL');
+        const next=new URLSearchParams(entrySearch);next.delete('awaitingDispatch');setEntrySearch(next,{replace:true});
+    },[entrySearch,setEntrySearch,setSample,setSpecial,setTab,setStatus,setQuery,setCustomerFilter,setFulfilmentFilter,setDocumentTypeFilter]);
+
+    useEffect(() => {
         if (!preview) return;
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") setPreview(null);

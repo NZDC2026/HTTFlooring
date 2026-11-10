@@ -1,3 +1,5 @@
+import { useSalesDocuments } from '../../sales/data/useSalesDocuments';
+import { salesOverviewMetrics } from '../../sales/data/salesOverviewMetrics';
 import { useSuppliers } from "../../contacts/data/useSuppliers";
 import { shipmentStatus } from "../../incoming-shipments/shipmentModel";
 import { usePurchaseOrders } from "../../purchases/data/usePurchaseOrders";
@@ -17,6 +19,9 @@ export function TasksCard() {
  const today = new Date().toLocaleDateString("en-CA", {timeZone:businessSettings().timezone});
  const data = useFinanceOverview(today);
  const orders = usePurchaseOrders();
+ const documents = useSalesDocuments();
+ const canReadSales = usePermission("sales.read");
+ const awaiting = canReadSales ? salesOverviewMetrics(documents,today).awaitingCount : 0;
  const canReadPurchases = usePermission("purchases.read");
  const suppliers=useSuppliers();
  const savedShipments=suppliers.flatMap(s=>(s.shipments??[]).map(shipment=>({supplier:s.businessName,shipment})));
@@ -39,6 +44,7 @@ export function TasksCard() {
  const followups = records.filter(task => !["Completed", "Inactive"].includes(task.status) &&
      (task.orderId ? deliveryScope === "team" || task.owner === session?.user.id : task.due <= today));
  const tasks = [
+  {title:`${awaiting} awaiting dispatch`,description:"Booked deliveries and collections · linked documents counted once",path:"/sales?awaitingDispatch=1",active:awaiting>0},
  ...hub.rows.filter(t=>t.source==='supplier'&&t.status!=='Completed'&&t.due&&t.due<=today).map(t=>({title:t.name,description:`${t.account} · ${t.due<today?'Overdue':'Due today'} · ${t.due}`,path:'/tasks?task='+encodeURIComponent(t.id),active:true})),
  ...followups.map(t=>({title:t.name,description:t.orderId ? `${t.deliveryAt.replace('T',' ')} · ${t.ownerName} · ${t.deliveryAddress}` : `${t.due<today?'Overdue':'Due today'} · ${t.due} · ${t.priority}`,path:t.orderId ? `/sales/orders/${t.orderId}` : `/tasks/${t.id}`,active:true})),
   {title:`${data.overdueInvoiceCount} overdue invoices`, description:`${fmt(data.overdueReceivables)} requires follow-up`, path:"/sales", active:data.overdueInvoiceCount>0},
@@ -68,6 +74,7 @@ export function TasksCard() {
              <ChevronRight size={15} className="shrink-0 text-[var(--color-text-muted)]" aria-hidden="true"/>
          </Link>) : <p className="py-2 text-sm text-[var(--color-text-secondary)]">No tasks or alerts in this view.</p>}
      </div>
+ {canReadSales && <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px]"><summary className="cursor-pointer font-semibold text-amber-900">Sample · Dispatch reminders · Read-only</summary><p className="mt-1 text-orange-700">Sample · SO-0004725 / INV-0004725 · Delivery booked · 1 awaiting dispatch</p><p className="mt-1 text-green-700">Sample · SO-0004726 / INV-0004726 · Dispatched · Reminder cleared</p><p className="mt-1 text-amber-900">Linked documents count once. Samples are excluded from live counts and notifications.</p></details>}
  {canReadPurchases && <section className="mt-2 border-t border-[var(--color-border)] pt-2" aria-label="Incoming shipment reminders">
      <div className="flex items-center justify-between gap-2">
          <h3 className="text-xs font-semibold">Incoming Shipment <span className="text-[var(--color-text-muted)]">({shipments.length})</span></h3>

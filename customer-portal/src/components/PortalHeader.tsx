@@ -17,6 +17,7 @@ export default function PortalHeader() {
                 <NavLink to="/quotes">Quotes</NavLink>
                 <NavLink to="/orders">Orders</NavLink>
                 <NavLink to="/invoices">Invoices</NavLink>
+                <NavLink to="/rebates">Rebate</NavLink>
                 <NavLink to="/account">My Account</NavLink>
             </nav>
 

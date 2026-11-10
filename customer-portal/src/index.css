@@ -1213,3 +1213,15 @@ select:not([multiple]):not([size]):disabled{cursor:not-allowed;opacity:.55}
 @media(min-width:1001px) and (max-width:1250px){.portal-header{grid-template-columns:auto 1fr auto;padding-inline:3%}.portal-nav{justify-content:center;gap:18px}.account-menu>div{max-width:140px}.account-menu strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 
 .sales-document-reference{display:flex;align-items:center;gap:12px;padding-bottom:12px}.sales-document-reference small{color:#777}
+
+.rebate-table-scroll{overflow-x:auto;background:#fff;border:1px solid var(--border)}
+.rebate-table{width:100%;min-width:850px;border-collapse:collapse;text-align:left}
+.rebate-table th{background:#f4f1eb;color:#666;font-size:13px;font-weight:600;padding:16px 20px}
+.rebate-table td{padding:20px;border-top:1px solid var(--border);vertical-align:middle}
+.rebate-table td:first-child{width:32%}.rebate-table td strong,.rebate-table td a,.rebate-table td small{display:block}
+.rebate-table td a{margin-top:6px;color:var(--copper)}.rebate-table td a:hover{text-decoration:underline}
+.rebate-table td small{margin-top:6px;color:#777;font-size:12px}.rebate-rate{color:var(--green);font-size:18px}
+.rebate-note{color:#777;font-size:13px;line-height:1.6;margin-top:22px}
+@media(min-width:1001px) and (max-width:1400px){.portal-nav{gap:16px}.portal-header{padding-inline:3%;column-gap:14px}.account-menu>div{max-width:130px}.account-menu strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+
+.rebate-calculation-controls{display:flex;align-items:center;gap:24px;margin-bottom:24px}.rebate-calculation-controls label{display:flex;flex-direction:column;gap:8px;white-space:nowrap}.rebate-calculation-controls input{padding:10px;border:1px solid var(--border);background:white}.rebate-calculation-controls p{color:#777;font-size:13px;line-height:1.6}.rebate-sources{font-size:12px;margin-top:10px}.rebate-sources summary{cursor:pointer;color:var(--copper)}.rebate-table{min-width:1100px}@media(max-width:650px){.rebate-calculation-controls{align-items:flex-start;flex-direction:column;gap:4px}}

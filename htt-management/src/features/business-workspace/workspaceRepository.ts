@@ -54,6 +54,7 @@ export const workspaceDomains: Record<string, {
     procurement: {read:'purchases.read',write:'purchases.write',required:['code','links'],fields:['code','links','notes','documents','invoiceDrafts']},
     'tax-codes': { read: 'inventory.read', write: 'accounting.post', required: ['code', 'rate', 'collected', 'paid'], fields: ['code', 'rate', 'collected', 'paid', 'basis', 'report'] },
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },
+    rebates: { read: 'sales.read', write: 'sales.write', required: ['customerId','productId','starts','ends','cycle','rate','minArea','minSales'], fields: ['customerId','productId','starts','ends','cycle','rate','minArea','minSales','salesEnabled','salesContactId','deleted'] },
     promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['customerIds','customerTypes','campaignId', 'deleted', 'productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
     jobs: { read: 'accounting.read', write: 'accounting.post', required: ['code', 'customerId', 'starts', 'ends', 'budget', 'costBudget'], fields: ['code', 'customerId', 'owner', 'starts', 'ends', 'budget', 'costBudget'] },
     tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'taskType', 'documentType', 'documentId', 'sourceQuoteId', 'sourceSalesDraftId', 'completedAt', 'completedBy', 'completedByName', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
@@ -136,6 +137,17 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             account(input.accountId, type);
         if (rows.some(r => r.id !== input.id && r.role === input.role))
             throw new Error('A linked account role may only have one mapping.');
+    }
+    if (domain === 'rebates') {
+        if (!validDate(input.starts) || !validDate(input.ends) || input.starts > input.ends) throw Error('Choose a valid rebate date range.');
+        if (!['Monthly','Quarterly'].includes(input.cycle)) throw Error('Choose Monthly or Quarterly.');
+        for (const key of ['rate','minArea','minSales']) money(input[key], key);
+        if (input.salesEnabled && !['true','false'].includes(input.salesEnabled)) throw Error('Invalid Sales option.');
+        if (input.salesEnabled === 'true' && !input.salesContactId) throw Error('Select a customer contact for Sales.');
+        if (checkReferences && input.salesEnabled === 'true' && !customerRepository.getById(input.customerId)?.contacts.some(c=>c.id===input.salesContactId)) throw Error('Sales contact must belong to this customer.');
+        if (Number(input.rate) <= 0) throw Error('Rebate per m² must be greater than zero.');
+        if (input.status === 'Active' && input.deleted !== 'true' && rows.some(r=>r.id!==input.id&&r.status==='Active'&&r.deleted!=='true'&&r.customerId===input.customerId&&r.productId===input.productId&&r.starts<=input.ends&&r.ends>=input.starts)) throw Error('An active rebate already covers this product and date range. Edit that rule or choose non-overlapping dates.');
+        if (checkReferences && (!customerRepository.getById(input.customerId) || !getProductById(input.productId))) throw Error('Select a valid customer and product.');
     }
     if (domain === 'promotions') {
         readPromotionAudience(input.customerTypes);
@@ -354,6 +366,7 @@ function validateConfigurationReferences(domain: string, value: unknown, snapsho
     for (const row of records) {
         if(domain==='procurement')validateProcurement(row,records,(snapshots.purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,(snapshots.supplierBills as {supplierBills:import('../purchases/types/supplierBill').SupplierBill[]}).supplierBills);
         if(domain==='tasks'){validateInternalTaskSource(row,snapshots as Record<string,any>);const sales=snapshots.sales as {salesOrders:TaskDocument[];invoices:TaskDocument[]};validateTaskDocument(row.documentType,row.documentId,row.customerId,sales.salesOrders,sales.invoices,'customerId');}
+        if(domain==='rebates'&&(!customers.some(c=>c.id===row.customerId)||!products.some(p=>p.id===row.productId)))throw Error('Backup rebate reference is invalid.');
         if(domain==='promotions'&&readPromotionCustomerIds(row.customerIds).some(id=>!customers.some(c=>c.id===id)))throw Error('Backup promotion customer reference is invalid.');
         if (row.customerId && !customers.some(c => c.id === row.customerId))
             throw new Error('Backup workspace customer reference is invalid.');

@@ -1,3 +1,5 @@
+import { requireDateKey } from '../../../lib/businessDate';
+import { businessSettings } from '../../business-workspace/configurationState';
 import type { Account } from "../../accounting/types/account";
 import type { JournalEntry } from "../../accounting/types/journalEntry";
 import type { BankAccount } from "../../banking/types/bankAccount";
@@ -7,10 +9,8 @@ import type { DashboardMetric, MonthlyFinancialData } from "./mockDashboard";
 
 const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
-export function buildLiveDashboard(accounts: Account[], journals: JournalEntry[], today: string, bankAccounts: BankAccount[] = []) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || Number.isNaN(Date.parse(`${today}T00:00:00Z`))) {
-        throw new Error("Dashboard date must be a valid YYYY-MM-DD date.");
-    }
+export function buildLiveDashboard(accounts: Account[], journals: JournalEntry[], today: string, bankAccounts: BankAccount[] = [], currency = businessSettings().currency) {
+    requireDateKey(today, "Dashboard date");
     const start = `${today.slice(0, 7)}-01`;
     const year = Number(today.slice(0, 4));
     const month = Number(today.slice(5, 7));
@@ -35,7 +35,7 @@ export function buildLiveDashboard(accounts: Account[], journals: JournalEntry[]
     }, 0);
     const otherCash = journals.filter(j => j.journalDate <= today).flatMap(j => j.lines).filter(line => otherCashIds.has(line.accountId)).reduce((sum, line) => sum + line.debit - line.credit, 0);
     const cash = round(configuredCash + otherCash);
-    const fmt = (n: number) => new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(n);
+    const fmt = (n: number) => new Intl.NumberFormat("en-NZ", { style: "currency", currency }).format(n);
     const previous = periods[4];
     const change = (value: number, prior: number) => prior === 0 ? 0 : Math.round(((value - prior) / Math.abs(prior)) * 1000) / 10;
     const metrics: DashboardMetric[] = [

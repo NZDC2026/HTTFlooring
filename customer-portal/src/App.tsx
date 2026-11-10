@@ -1,3 +1,4 @@
+import RebatePage from "./pages/RebatePage";
 import SalesDocumentsPage from "./pages/SalesDocumentsPage";
 import DispatchFollowupPage from "./pages/DispatchFollowupPage";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="/invoices/credits/:id" element={<CreditDetailPage />} />
         <Route path="/invoices/returns/:id" element={<ReturnDetailPage />} />
         <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+        <Route path="/rebates" element={<RebatePage />} />
         <Route path="/account" element={<AccountPage />} />
         </Route>
         <Route path="*" element={<main className="submitted-page"><div className="submitted-card"><h1>Page not found</h1><p>The page may have moved.</p><a href="/">Back to HTT Flooring</a></div></main>}/>

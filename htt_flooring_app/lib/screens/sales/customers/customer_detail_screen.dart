@@ -15,6 +15,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/customer_product_sales_card.dart';
 import '../pricing/customer_pricing_screen.dart';
 import 'customer_displays_screen.dart';
+import 'customer_rebates_screen.dart';
 import 'customer_invoices_screen.dart';
 import 'customer_map_screen.dart';
 import 'customer_notes_screen.dart';
@@ -665,6 +666,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           ),
           Expanded(
             child: _detailTab('Displays', onTap: () => _openDisplays(customer)),
+          ),
+          Expanded(
+            child: _detailTab(
+              'Rebate',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => CustomerRebatesScreen(customer: customer),
+                ),
+              ),
+            ),
           ),
         ],
       ),

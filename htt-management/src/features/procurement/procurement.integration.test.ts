@@ -95,6 +95,6 @@ describe('Procurement batches',()=>{
   writeFileSync(file,JSON.stringify(db));await restart();
   expect(state('workspace_procurement').records).toEqual([]);
   expect(state('purchaseOrders')).toEqual(original);
-  expect(JSON.parse(readFileSync(file,'utf8')).schemaVersion).toBe(36);
+  expect(JSON.parse(readFileSync(file,'utf8')).schemaVersion).toBe(37);
  });
 });

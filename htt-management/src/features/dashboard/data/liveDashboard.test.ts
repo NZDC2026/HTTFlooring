@@ -14,3 +14,14 @@ it("clamps the prior February comparison to its final valid day", () => {
     buildLiveDashboard([], [], "2024-02-29");
     expect(pnl).toHaveBeenCalledWith([], [], "2023-02-01", "2023-02-28");
 });
+
+it('formats every metric in the requested business currency',()=>{
+ for(const currency of ['AUD','USD','CNY']) {
+  const result=buildLiveDashboard([],[],"2026-11-10",[],currency);
+  expect(result.metrics.map(m=>m.value)).toEqual([125,40,85,0].map(value=>new Intl.NumberFormat('en-NZ',{style:'currency',currency}).format(value)));
+ }
+});
+it('rejects impossible calendar dates before calculating reports',()=>{
+ expect(()=>buildLiveDashboard([],[],"2026-02-30")).toThrow(/valid YYYY-MM-DD/);
+ expect(pnl).not.toHaveBeenCalled();
+});

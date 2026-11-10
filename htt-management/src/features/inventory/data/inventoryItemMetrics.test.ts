@@ -19,3 +19,10 @@ describe('inventory item metrics',()=>{
   expect(inventoryItemMetrics(product,[],[bill('2026-11-01',50,'OPEN','missing')],'ALL').lastPurchasePrice).toBeUndefined();
  });
 });
+
+it('uses saved ex-GST bill amounts for both purchase price comparisons, including zero-cost lines',()=>{
+ const previous={...bill('2026-10-01',40),id:'previous',lines:[{...bill('2026-10-01',40).lines[0],lineSubtotal:160}]};
+ const current={...bill('2026-11-01',50),id:'current',lines:[{...bill('2026-11-01',50).lines[0],lineSubtotal:200}]};
+ expect(inventoryItemMetrics(product,balances,[previous,current],'ALL')).toMatchObject({currentPurchasePrice:20,previousPurchasePrice:16,lastPurchasePrice:20,currentPurchaseBillId:'current',previousPurchaseBillId:'previous'});
+ expect(inventoryItemMetrics(product,balances,[{...current,lines:[{...current.lines[0],lineSubtotal:0}]}],'ALL').currentPurchasePrice).toBe(0);
+});

@@ -39,6 +39,19 @@ class ApiSecurity {
                         requests.requestMatchers(HttpMethod.POST, "/api/v1/payroll/records", "/api/v1/payroll/records/*/submit", "/api/v1/payroll/records/*/calculate", "/api/v1/payroll/records/*/approve", "/api/v1/payroll/records/*/lock", "/api/v1/payroll/records/*/stp_preview").authenticated();
                         requests.requestMatchers(HttpMethod.PUT, "/api/v1/payroll/records/*").authenticated();
                         requests.requestMatchers(HttpMethod.POST, "/api/v1/recurring/templates", "/api/v1/recurring/templates/*/change", "/api/v1/recurring/runs/*/review").authenticated();
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/documents/trash", "/api/v1/documents/*/lifecycle").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/documents/*/trash", "/api/v1/documents/*/restore").authenticated();
+                        requests.requestMatchers(HttpMethod.DELETE, "/api/v1/documents/*").authenticated();
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/incentives/programs", "/api/v1/incentives/programs/*", "/api/v1/incentives/ledger", "/api/v1/incentives/me", "/api/v1/incentives/runs/*").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/incentives/programs", "/api/v1/incentives/programs/*/policies", "/api/v1/incentives/policies/*/approve", "/api/v1/incentives/periods", "/api/v1/incentives/periods/*/review", "/api/v1/incentives/runs", "/api/v1/incentives/runs/*/approve", "/api/v1/incentives/runs/*/reject", "/api/v1/incentives/settlements", "/api/v1/incentives/offsets").authenticated();
+                        requests.requestMatchers(HttpMethod.PUT, "/api/v1/incentives/programs/*/enabled", "/api/v1/incentives/programs/*/display-grants").authenticated();
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/portal-access/*", "/api/v1/portal/catalog/products/*").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/customers/*/portal-access", "/api/v1/portal/catalog/products/*").authenticated();
+                        requests.requestMatchers(HttpMethod.PUT, "/api/v1/portal-access/*", "/api/v1/portal/catalog/products/*").authenticated();
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/search", "/api/v1/inventory/valuation", "/api/v1/customers/*/advances", "/api/v1/suppliers/*/advances", "/api/v1/warehouse/purchase-orders", "/api/v1/warehouse/purchase-orders/*", "/api/v1/accounting/grni").authenticated();
+
+
+
 
                         requests.requestMatchers(HttpMethod.GET, "/api/v1/files/*/content").authenticated();
                         requests.requestMatchers(HttpMethod.GET, "/api/v1/documents/*/files", "/api/v1/documents/*/jobs", "/api/v1/document-jobs/*").authenticated();

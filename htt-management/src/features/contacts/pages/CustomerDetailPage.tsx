@@ -1,3 +1,4 @@
+import {CustomerRebateTab} from "../../rebates/CustomerRebateTab";
 import { formatCustomerAddress } from "../data/customerAddresses";
 import { paymentTermsLabel } from "../../payment-terms/paymentTerms";
 import { DeliveryTasks } from "../../delivery-tasks/DeliveryTasks";
@@ -69,7 +70,8 @@ type CustomerTab =
     | "contacts"
     | "pricing"
     | "sales"
-    | "activity";
+    | "activity"
+    | "rebate";
 
 type EditorState =
     | {
@@ -339,6 +341,7 @@ export function CustomerDetailPage() {
                     >
                         Notes &amp; Tasks
                     </Tab>
+                    <Tab active={activeTab === "rebate"} onClick={() => goToTab("rebate")}>Rebate</Tab>
                 </div>
 
                 {activeTab === "overview" && canReadSales && <CustomerOverviewSales customer={customer}/>}
@@ -404,6 +407,8 @@ export function CustomerDetailPage() {
                         }
                     />
                 )}
+
+                {activeTab === "rebate" && <CustomerRebateTab customerId={customer.id}/>}
 
                 {activeTab === "pricing" && (
                     <CustomerPricingTab
@@ -1006,6 +1011,7 @@ function ContactDetail({
 function getActiveTab(
     pathname: string,
 ): CustomerTab {
+    if (pathname.endsWith("/rebate")) return "rebate";
     if (pathname.endsWith("/locations")) {
         return "locations";
     }
