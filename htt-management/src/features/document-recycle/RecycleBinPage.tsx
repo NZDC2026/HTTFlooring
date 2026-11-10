@@ -1,3 +1,4 @@
+import {useListState} from '../../hooks/useListState';
 import { useSearchParams } from "react-router-dom";
 import { useEffect, useState } from 'react';
 import { BusinessFrame } from '../business-workspace/MasterDataPages';
@@ -10,7 +11,7 @@ export function RecycleBinPage() {
     useRecycleVersion();
     const [params]=useSearchParams();
     const { session } = useSecurity(), principal = session ? { userId: session.user.id, roles: session.user.roles, authenticated: true as const } : null, identity = session?.user.id + ':' + session?.user.roles.join(','), readable = (r: RecycleRow) => hasPermission(principal, r.kind === 'Purchase order' || r.kind === 'Expense bill draft' ? 'purchases.read' : 'sales.read');
-    const [rows, setRows] = useState<RecycleRow[]>([]), [state, setState] = useState(params.get('state')==='active'?'Active documents':'Trash'), [kind, setKind] = useState('All'), [query, setQuery] = useState(params.get('recordId')??''), [selected, setSelected] = useState<string[]>([]), [reason, setReason] = useState(''), [confirmed, setConfirmed] = useState(false), [operationId, setOperationId] = useState(() => crypto.randomUUID()), [error, setError] = useState(''), [notice, setNotice] = useState(''), [page, setPage] = useState(0), [detail, setDetail] = useState<{
+    const [rows, setRows] = useState<RecycleRow[]>([]), [state, setState] = useState(params.get('state')==='active'?'Active documents':'Trash'), [kind, setKind] = useListState("src/features/document-recycle/RecycleBinPage.tsx:kind", 'All'), [query, setQuery] = useListState("src/features/document-recycle/RecycleBinPage.tsx:query", params.get('recordId')??''), [selected, setSelected] = useState<string[]>([]), [reason, setReason] = useState(''), [confirmed, setConfirmed] = useState(false), [operationId, setOperationId] = useState(() => crypto.randomUUID()), [error, setError] = useState(''), [notice, setNotice] = useState(''), [page, setPage] = useListState("src/features/document-recycle/RecycleBinPage.tsx:page", 0), [detail, setDetail] = useState<{
         row: RecycleRow;
         value: unknown;
     }>();

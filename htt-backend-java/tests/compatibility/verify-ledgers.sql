@@ -728,3 +728,10 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM platform.audit_events WHERE action='documents.work_retried' AND actor_id='00000000-0000-0000-0000-000000000500' AND details->>'reason'='Synthetic document retry café')<>1
  THEN RAISE EXCEPTION 'Synthetic document retry must audit one normalized reason'; END IF;
 END $$;
+
+
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM platform.document_jobs WHERE kind='EMAIL' AND created_by='00000000-0000-0000-0000-000000000500')
+ OR EXISTS(SELECT 1 FROM platform.audit_events WHERE action='documents.email_requested' AND actor_id='00000000-0000-0000-0000-000000000500')
+ THEN RAISE EXCEPTION 'Unconfigured synthetic sender must never queue mail or audit a successful request'; END IF;
+END $$;

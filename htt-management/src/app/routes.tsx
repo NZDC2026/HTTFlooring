@@ -1,3 +1,4 @@
+import {BankingTransactionsPage} from '../features/banking/pages/BankingSubpages';
 import {PromotionPage} from '../features/promotions/PromotionPage';
 import {ProcurementPage} from '../features/procurement/ProcurementPage';
 import {InvoiceRemindersPage} from '../features/invoice-reminders/InvoiceRemindersPage';
@@ -265,6 +266,11 @@ export const appRoutes:RouteObject[] = [
                 element: (
                     <BankingPage />
                 ),
+            },
+            {
+                path: "banking/transactions", element: <BankingTransactionsPage/>
+            },
+            {path: "banking/reconciliation", element: <BankingTransactionsPage reconciliation/>
             },
             {
                 path: "banking/accounts/:bankAccountId",

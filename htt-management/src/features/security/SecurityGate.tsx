@@ -1,4 +1,4 @@
-import { isWeb } from './webBridge';
+import { isWeb, publicPreview } from './webBridge';
 import {retiredWorkflowPath} from './optionalWorkflows';
 import { BusinessRecoveryPanel } from './BusinessRecoveryPanel';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
@@ -50,7 +50,7 @@ export function SecurityGate({ children }: { children: ReactNode }) {
         finally { setBusy(false); }
     }
     if (restartRequired) return <main className="p-10"><h1 className="text-2xl font-semibold">Business data restored</h1><p className="mt-4">{isWeb ? 'Restart the web server, then reload this page. Accounts and security audit history are preserved.' : 'Quit and reopen the desktop application before continuing. Your local accounts and security audit history are preserved.'}</p></main>;
-    if (ready && status.session) return children;
+    if (ready && status.session) return <>{publicPreview && <div role="status" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">Sample · Public preview · Read-only · No live business data or notifications</div>}{children}</>;
     return <main className="flex min-h-screen items-center justify-center bg-[var(--color-background)] p-6"><section className="w-full max-w-md rounded-xl border bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold text-[var(--color-primary)]">HTT Management · {isWeb ? 'Web' : 'Local desktop'}</p>
         <h1 className="mt-3 text-2xl font-semibold">{!loaded ? 'Checking local session…' : status.initialized ? 'Sign in' : 'Create the first administrator'}</h1>

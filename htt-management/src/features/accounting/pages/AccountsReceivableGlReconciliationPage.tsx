@@ -1,9 +1,9 @@
+import {useState} from 'react';
 import { reportMoney } from '../../report-settings/reportPresentation';
 import { ReportContext } from '../../report-settings/ReportContext';
 import {businessDateKey} from '../../../lib/businessDate';
 import {
-    useState,
-} from "react";
+    } from "react";
 
 import {
     ArrowLeft,
@@ -43,8 +43,7 @@ export function AccountsReceivableGlReconciliationPage() {
     const [
         asOfDate,
         setAsOfDate,
-    ] = useState(
-        getToday(),
+    ] = useState(getToday(),
     );
 
     const reconciliation =

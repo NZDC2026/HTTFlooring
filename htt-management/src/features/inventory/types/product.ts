@@ -65,6 +65,8 @@ export interface Product {
 
     status: ProductStatus;
 
+    /** Imported reference cost per base unit; not an inventory valuation. */
+    referenceCostPrice?: number;
     revision?: number;
     itemType?: "STOCK" | "NON_STOCK" | "SERVICE";
     buyEnabled?: boolean;

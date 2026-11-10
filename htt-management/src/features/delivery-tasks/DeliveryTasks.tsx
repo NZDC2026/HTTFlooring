@@ -145,7 +145,7 @@ export function DeliveryReminder() {
         };
     }, []);
     const task = session && document.visibilityState === "visible" ? records.find(record =>
-        record.orderId && record.owner === session.user.id && record.status !== "Completed" && record.status !== "Inactive" &&
+        record.reminderAt && record.reminderTimeZone && record.owner === session.user.id && record.status !== "Completed" && record.status !== "Inactive" &&
         record.reminderAt <= taskLocalTime(now, record.reminderTimeZone) &&
         (!record.snoozedUntil || Date.parse(record.snoozedUntil) <= now.getTime()),
     ) : undefined;
@@ -153,9 +153,10 @@ export function DeliveryReminder() {
 
     return <DeliveryReminderDialog
         name={task.name}
-        deliveryAt={task.deliveryAt}
+        title={task.orderId ? "Delivery reminder" : "Task reminder"}
+        deliveryAt={task.deliveryAt || task.reminderAt}
         timeZone={task.reminderTimeZone}
-        address={task.deliveryAddress}
+        address={task.deliveryAddress || task.notes}
         onSnooze={() => {
             try {
                 tasks.save({ ...task, snoozedUntil: new Date(Date.now() + 15 * 60_000).toISOString() }, task.revision);
@@ -167,8 +168,9 @@ export function DeliveryReminder() {
     />;
 }
 
-export function DeliveryReminderDialog({ name, deliveryAt, timeZone, address, sample, onSnooze, onComplete, onClose }: {
+export function DeliveryReminderDialog({ name, deliveryAt, timeZone, address, title = "Delivery reminder", sample, onSnooze, onComplete, onClose }: {
     name: string;
+    title?: string;
     deliveryAt: string;
     timeZone: string;
     address: string;
@@ -180,7 +182,7 @@ export function DeliveryReminderDialog({ name, deliveryAt, timeZone, address, sa
     const titleId = useId();
     return <div className="fixed inset-0 z-[60] grid place-items-center bg-black/25 p-4">
         <section role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-full max-w-md rounded-xl border bg-white p-5 shadow-lg">
-            <h2 id={titleId} className="font-display text-xl">Delivery reminder {sample && <span className="rounded bg-amber-100 px-2 py-1 font-sans text-xs text-amber-900">Sample</span>}</h2>
+            <h2 id={titleId} className="font-display text-xl">{title} {sample && <span className="rounded bg-amber-100 px-2 py-1 font-sans text-xs text-amber-900">Sample</span>}</h2>
             <p className="mt-3 font-medium">{name}</p>
             <p className="mt-1 text-sm">{deliveryAt.replace("T", " ")} · {timeZone}</p>
             <p className="mt-1 break-words text-sm">{address}</p>

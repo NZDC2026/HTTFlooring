@@ -1,3 +1,4 @@
+import {useListState} from '../../hooks/useListState';
 import {salesOverviewSamples} from '../sales/data/salesOverviewMetrics';
 import {CreditPrintButton} from './CreditPrintButton';
 import {salesDisplayDate} from '../sales/data/salesRegisterView';
@@ -26,7 +27,7 @@ export const customerCreditReturnSamples=[
 export function CustomerCreditReturnsPage(){
  const documents=useSalesDocuments(),credits=useCreditNotes(),customers=useCustomers(),returns=useCustomerReturns();
  const canRead=usePermission('sales.read'),canWrite=usePermission('sales.payment'),canCost=usePermission('inventory.cost.read');
- const [sample,setSample]=useState(false),[tab,setTab]=useState('Credits'),[query,setQuery]=useState(''),[filter,setFilter]=useState('All'),[newCredit,setNewCredit]=useState(false),[invoiceId,setInvoice]=useState(''),[applyId,setApply]=useState(''),[error,setError]=useState(''),[sampleId,setSampleId]=useState(''),[sampleApplied,setSampleApplied]=useState(false),[sampleEditor,setSampleEditor]=useState(false);
+ const [sample,setSample]=useListState("src/features/customer-returns/CustomerCreditReturnsPage.tsx:sample", false),[tab,setTab]=useListState("src/features/customer-returns/CustomerCreditReturnsPage.tsx:tab", 'Credits'),[query,setQuery]=useListState("src/features/customer-returns/CustomerCreditReturnsPage.tsx:query", ''),[filter,setFilter]=useListState("src/features/customer-returns/CustomerCreditReturnsPage.tsx:filter", 'All'),[newCredit,setNewCredit]=useState(false),[invoiceId,setInvoice]=useState(''),[applyId,setApply]=useState(''),[error,setError]=useState(''),[sampleId,setSampleId]=useState(''),[sampleApplied,setSampleApplied]=useState(false),[sampleEditor,setSampleEditor]=useState(false);
  const invoices=documents.filter((d):d is Invoice=>d.type==='INVOICE'&&!['DRAFT','VOID'].includes(d.status));
  const invoice=invoices.find(i=>i.id===invoiceId),applying=credits.find(c=>c.id===applyId),customerName=(id:string)=>customers.find(c=>c.id===id)?.businessName??id;
  const live=credits.map(c=>({id:c.id,customer:customerName(c.customerId),invoice:documents.find(d=>d.id===c.sourceInvoiceId)?.documentNumber??c.sourceInvoiceId,credit:c.creditNoteNumber,date:c.creditDate,total:c.totals.total,applied:c.amountApplied,available:c.status==='VOID'?0:c.amountAvailable,state:c.status==='VOID'?'Void':c.status==='DRAFT'?'Draft':c.amountAvailable>0?'Credit available':'Applied to invoice',description:c.reason}));

@@ -1,3 +1,4 @@
+import {sidebarOwner,pathWithin,accountingSubmenuActive} from './navigationState';
 import { useEffect, useState } from "react";
 import {presentationPathEnabled} from '../features/security/optionalWorkflows';
 import {businessSettings} from '../features/business-workspace/configurationState';
@@ -92,11 +93,6 @@ const sections = [
                 icon: CircleDollarSign,
             },
             {
-                label: "Accounting periods",
-                path: "/accounting/periods",
-                icon: CircleDollarSign,
-            },
-            {
                 label: "Payroll",
                 path: "/payroll",
                 icon: UsersRound,
@@ -151,21 +147,21 @@ const sections = [
 export function Sidebar() {
     useWorkspaceRecords('settings');
     const { session } = useSecurity();
-    const { pathname } = useLocation();
-    const inSuppliers = pathname === "/contacts/supplier-dashboard" || pathname === "/contacts/suppliers" || pathname.startsWith("/contacts/suppliers/");
-    const inCustomers=pathname==='/contacts'||pathname==='/contacts/list'||pathname.startsWith('/contacts/customers/')||pathname.startsWith('/contacts/review');
+    const { pathname, search: locationSearch } = useLocation();
+    const owner=sidebarOwner(pathname);
+    const inSuppliers=owner==='/contacts/supplier-dashboard';
+    const inCustomers=owner==='/contacts';
     const inInventory=pathname==='/inventory'||pathname.startsWith('/inventory/');
-    const [expanded,setExpanded]=useState({customers:inCustomers,suppliers:inSuppliers,inventory:inInventory});
-    useEffect(()=>{if(inCustomers)setExpanded(value=>({...value,customers:true}));if(inSuppliers)setExpanded(value=>({...value,suppliers:true}));if(inInventory)setExpanded(value=>({...value,inventory:true}));},[pathname,inCustomers,inSuppliers,inInventory]);
+    const [expanded,setExpanded]=useState({customers:inCustomers,suppliers:inSuppliers,inventory:inInventory,accounting:pathWithin(pathname,'/accounting')});
+    useEffect(()=>{if(inCustomers)setExpanded(value=>({...value,customers:true}));if(inSuppliers)setExpanded(value=>({...value,suppliers:true}));if(inInventory)setExpanded(value=>({...value,inventory:true}));if(owner==='/accounting')setExpanded(value=>({...value,accounting:true}));},[pathname,inCustomers,inSuppliers,inInventory,owner]);
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
     const permissionForPath = (path: string): Permission | undefined => {
-        if(path==='/automation/recurring'||path==='/tools/import-export')return 'inventory.read';
+        if(path==='/tools/import-export')return 'inventory.read';
         if(path==='/promotions')return 'sales.read';
         if(path==='/procurement')return 'purchases.read';
         if(path==='/tasks'||path==='/sales/credit-returns')return 'sales.read';
         if(path==='/settings/employees')return 'users.manage';
         if(path==='/settings/trash')return 'users.manage';
-        if(path==='/reports/library')return 'inventory.read';
         if (path.startsWith('/reports/purchase') || path.startsWith('/reports/grni') || path.startsWith('/purchases')) return 'purchases.read';
         if (path === '/payroll') return 'payroll.read';
         if (path === '/dashboard' || path.startsWith('/accounting')) return 'accounting.read';
@@ -222,6 +218,11 @@ export function Sidebar() {
                             <div className="space-y-1">
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
+                                    if(item.path==='/accounting'){
+                                        const children=[['Overview','/accounting'],['Chart of Accounts','/accounting?view=accounts'],['Journal Entries','/accounting/journals'],['Bank Reconciliation','/banking'],['Period Closing','/accounting/periods'],['GST / BAS','/reports/tax-summary'],['Financial Reports','/reports?category=Financial']];
+                                        const active=pathWithin(pathname,'/accounting');
+                                        return <div key={item.path}><div className={cn('flex h-10 items-center rounded-lg text-[13px] font-medium',active?'bg-white/12 text-white':'text-white/65')}><NavLink to="/accounting" onClick={()=>setExpanded(v=>({...v,accounting:true}))} className="flex flex-1 items-center gap-3 py-2 pl-3"><Icon size={17}/><span>Accounting</span></NavLink><button type="button" aria-label={`${expanded.accounting?'Collapse':'Expand'} Accounting`} aria-expanded={expanded.accounting} onClick={()=>setExpanded(v=>({...v,accounting:!v.accounting}))} className="mr-1 grid size-8 place-items-center"><ChevronDown size={14} className={expanded.accounting?'rotate-180':''}/></button></div>{expanded.accounting&&<nav aria-label="Accounting submenu" className="ml-5 mt-1 border-l border-white/15 pl-3">{children.map(([label,path])=><Link key={label} to={path} className={cn('block rounded-lg px-3 py-2 text-xs',owner==='/accounting'&&accountingSubmenuActive(pathname,locationSearch,path)?'bg-white/10 font-semibold text-white':'text-white/60 hover:bg-white/7')}>{label}</Link>)}</nav>}</div>;
+                                    }
                                     if(item.path==='/inventory'){
                                         const children=[{label:'Sold',path:'/inventory/sold',permission:'sales.read' as Permission},{label:'Bought',path:'/inventory/bought',permission:'purchases.read' as Permission},{label:'Damage Stock',path:'/inventory/damage',permission:'inventory.read' as Permission},{label:'Stock Adjustments',path:'/inventory/adjustments',permission:'inventory.read' as Permission}].filter(child=>hasPermission(principal,child.permission));
                                         return <div key={item.path}><div className={cn('group flex h-10 items-center rounded-lg text-[13px] font-medium transition',inInventory?'bg-white/12 text-white':'text-white/65 hover:bg-white/7 hover:text-white')}><NavLink to="/inventory" end onClick={()=>setExpanded(v=>({...v,inventory:true}))} className="flex min-w-0 flex-1 items-center gap-3 py-2 pl-3"><Icon size={17} strokeWidth={1.8} className={inInventory?'text-[var(--color-accent)]':'text-white/55'}/><span>Inventory</span></NavLink>{!!children.length&&<button type="button" aria-label={`${expanded.inventory?'Collapse':'Expand'} Inventory`} aria-expanded={expanded.inventory} aria-controls="sidebar-inventory-submenu" onClick={()=>setExpanded(v=>({...v,inventory:!v.inventory}))} className="mr-1 grid size-8 place-items-center rounded-md hover:bg-white/10"><ChevronDown size={14} className={cn('transition-transform',expanded.inventory?'rotate-180':'')}/></button>}</div>{expanded.inventory&&!!children.length&&<nav id="sidebar-inventory-submenu" aria-label="Inventory submenu" className="ml-5 mt-1 border-l border-white/15 pl-3">{children.map(child=><NavLink key={child.path} to={child.path} end className={({isActive})=>cn('block rounded-lg px-3 py-2 text-xs transition',isActive?'bg-white/10 font-semibold text-white':'text-white/60 hover:bg-white/7 hover:text-white')}>{child.label}</NavLink>)}</nav>}</div>;
@@ -243,37 +244,33 @@ export function Sidebar() {
                                         </div>;
                                     }
 
+                                    const active=owner===item.path;
                                     return (
-                                        <NavLink
+                                        <Link
                                             key={item.path}
                                             to={item.path}
-                                            end={(item.path === "/purchases" && pathname === "/purchases/incoming-shipments") || item.path === "/reports" || item.path === "/settings" || (item.path === "/contacts" && inSuppliers)}
-                                            className={({ isActive }) =>
-                                                cn(
+                                            aria-current={active ? "page" : undefined}
+                                            className={cn(
                                                     "group flex h-10 items-center gap-3 rounded-lg px-3",
                                                     "text-[13px] font-medium transition",
-                                                    (isActive || (item.path === "/contacts/supplier-dashboard" && inSuppliers))
+                                                    active
                                                         ? "bg-white/12 text-white"
                                                         : "text-white/65 hover:bg-white/7 hover:text-white",
                                                 )
                                             }
                                         >
-                                            {({ isActive }) => (
-                                                <>
-                                                    <Icon
+                                            <Icon
                                                         size={17}
                                                         strokeWidth={1.8}
                                                         className={
-                                                            (isActive || (item.path === "/contacts/supplier-dashboard" && inSuppliers))
+                                                            active
                                                                 ? "text-[var(--color-accent)]"
                                                                 : "text-white/55 group-hover:text-white"
                                                         }
                                                     />
 
                                                     <span>{item.label}</span>
-                                                </>
-                                            )}
-                                        </NavLink>
+                                        </Link>
                                     );
                                 })}
                             </div>

@@ -1,3 +1,4 @@
+import {productTransferFields} from '../../src/features/data-transfer/productTransferFields';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { registerRepository, snapshotRepositories, restoreRepositories } from '../../src/features/security/repositoryHost';
@@ -97,6 +98,7 @@ function apply(dataset: Dataset, mode: TransferSource['mode'], values: Record<st
         throw new Error('Create mode does not accept existing IDs or record tokens. Choose Update by ID.');
     if (mode === 'Update by ID' && values.externalId && values.externalId !== canonical(dataset, current!).externalId)
         throw new Error('External source IDs cannot be reassigned by an update. Keep the export value or leave it blank.');
+    if(dataset==='Products') values=productTransferFields(values,mode==='Update by ID'?current?.raw as Product:undefined);
     const old = mode === 'Update by ID' ? current : undefined, before = old ? canonical(dataset, old) : null, v = typed(dataset, values, old);
     let result: any;
     if (dataset === 'Customers') {
@@ -115,7 +117,7 @@ function apply(dataset: Dataset, mode: TransferSource['mode'], values: Record<st
         result = old ? supplierRepository.update(old.id, data) : supplierRepository.create(data);
     }
     else if (dataset === 'Products') {
-        const units = z.array(z.object({ id: z.string().max(200).optional(), code: z.enum(['M2', 'LM', 'BOX', 'PIECE', 'ROLL', 'BUCKET', 'HOUR', 'JOB']), name: z.string().trim().min(1).max(120), symbol: z.string().min(1).max(40), conversionToBase: z.number().finite().positive(), basePrice: z.number().finite().nonnegative(), isBaseUnit: z.boolean(), active: z.boolean() }).strict()).min(1).max(100).parse(JSON.parse(String(v.unitsJson)));
+        const units = z.array(z.object({ id: z.string().max(200).optional(), code: z.enum(['M2', 'LM', 'BOX', 'PIECE', 'ROLL', 'BUCKET', 'HOUR', 'JOB']), name: z.string().trim().min(1).max(120), symbol: z.string().min(1).max(40), conversionToBase: z.number().finite().positive(), basePrice: z.number().finite().nonnegative(), tradePrice:z.number().finite().nonnegative().optional(), publicPrice:z.number().finite().nonnegative().optional(), vipPrice:z.number().finite().nonnegative().optional(), vvipPrice:z.number().finite().nonnegative().optional(), containerPrice:z.number().finite().nonnegative().optional(), isBaseUnit: z.boolean(), active: z.boolean() }).strict()).min(1).max(100).parse(JSON.parse(String(v.unitsJson)));
         const existing = old?.raw as Product | undefined, newUnits = units.map(u => {
             let unitId = crypto.randomUUID() as string;
             if (existing) {
@@ -139,9 +141,10 @@ function apply(dataset: Dataset, mode: TransferSource['mode'], values: Record<st
         if (rest.taxCode === '')
             delete rest.taxCode;
         if (existing)
-            for (const key of ['brand', 'collection', 'description', 'itemType', 'buyEnabled', 'sellEnabled', 'reorderPoint', 'targetStock', 'wholePacks', 'taxCode'])
+            for (const key of ['brand', 'collection', 'description', 'itemType', 'buyEnabled', 'sellEnabled', 'reorderPoint', 'targetStock', 'wholePacks', 'taxCode', 'referenceCostPrice'])
                 if (!Object.hasOwn(values, key) && existing[key as keyof Product] === undefined)
                     delete rest[key];
+        if(rest.referenceCostPrice==='')delete rest.referenceCostPrice;else if(rest.referenceCostPrice!==undefined)rest.referenceCostPrice=numeric(String(rest.referenceCostPrice),'Cost Price');
         const product = productSchema.parse({ ...rest, id: old?.id ?? crypto.randomUUID(), baseUnitId: baseUnit.id, units: newUnits, createdAt: existing?.createdAt ?? at, updatedAt: at }) as Product;
         result = productRepository.save(product, existing?.revision ?? (old ? 0 : undefined));
     }
@@ -262,7 +265,7 @@ export const transferRepository = {
     template(dataset: Dataset) {
         dataset = z.enum(datasets).parse(dataset);
         actor(dataset);
-        const columns = fields(dataset).filter(k => !['id', 'recordToken'].includes(k)), sample: Record<string, string> = { _format: formatTag, externalId: 'replace-with-stable-source-id', ...Object.fromEntries(Object.entries(defaults[dataset]).map(([k, v]) => [k, String(v)])) };
+        const columns = fields(dataset).filter(k => !['id', 'recordToken', ...(dataset==='Products'?['unitsJson','baseUnitCode','referenceCostPrice']:[])].includes(k)), sample: Record<string, string> = { _format: formatTag, externalId: 'replace-with-stable-source-id', ...Object.fromEntries(Object.entries(defaults[dataset]).map(([k, v]) => [k, String(v)])) };
         if (dataset === 'Customers' || dataset === 'Suppliers')
             sample.businessName = 'Replace company name';
         if (dataset === 'Suppliers')
@@ -284,6 +287,7 @@ export const transferRepository = {
             sample.sku = 'REPLACE-SKU';
             sample.name = 'Replace product name';
         }
+        if(dataset==='Products'){sample.unit='Box';sample.coveragePerUnit='2.166';sample.sellingPrice='68.50';sample.costPrice='26.50';}
         return encodeCsv([columns, columns.map(k => sample[k] ?? '')]);
     }
 };

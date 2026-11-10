@@ -5615,6 +5615,21 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
             assert after_retry['state']=='QUEUED' and after_retry['attempts']==0 and after_retry['lastError'] is None,after_retry
             assert request(retry_path,report_actor,company,base=legacy_url,payload=reason,key='doc-retry-again-'+uuid.uuid4().hex,version=after_retry['version'])[0]==409
             print('PASS: document job FAILED-only/current-version retry, normalized reason shared-key concurrency and queued-state rejection; synthetic failure fixture, no renderer or sender')
+            mail_doc,mail_version,_=pdf_targets[0]
+            mail_path='/api/v1/documents/'+mail_doc+'/emails'
+            mail={'pdfJobId':retry_job['id'],'to':[' Synthetic@Example.Invalid ','synthetic@example.invalid'],'subject':' Synthetic café mail ','message':' Synthetic body'+chr(13)+chr(10)+'second line'+chr(9)+'end '}
+            for backend in (url,legacy_url):
+                assert request(mail_path,report_actor,company,base=backend,payload=mail,key='mail-no-version-'+uuid.uuid4().hex)[0]==428
+                assert request(mail_path,general_reader,company,base=backend,payload=mail,key='mail-cap-'+uuid.uuid4().hex,version=mail_version)[0]==403
+                for patch in ({'to':[]},{'to':['bad-address']},{'to':['']},{'to':['a@example.invalid']*11},{'subject':'bad'+chr(10)+'subject'},{'subject':' '},{'message':'bad'+chr(0)+'body'},{'attachmentIds':['00000000-0000-0000-0000-000000000000']},{'attachmentIds':[retry_job['id'],retry_job['id']]}):
+                    rejected=request(mail_path,report_actor,company,base=backend,payload={**mail,**patch},key='mail-validation-'+uuid.uuid4().hex,version=mail_version)
+                    assert rejected[0]==422,(patch,rejected)
+                key='mail-unconfigured-'+uuid.uuid4().hex
+                for version in (mail_version,mail_version+99):
+                    unconfigured=request(mail_path,report_actor,company,base=backend,payload=mail,key=key,version=version)
+                    assert unconfigured[0]==503 and json.loads(unconfigured[1])['code']=='mail_not_configured',unconfigured
+            print('PASS: document email recipient/body/attachment validation, permissions and unconfigured-sender guard before version callback; no email queued or sent')
+
 
 
 

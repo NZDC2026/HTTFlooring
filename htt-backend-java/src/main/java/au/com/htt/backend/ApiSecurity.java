@@ -34,6 +34,12 @@ class ApiSecurity {
                         requests.requestMatchers(HttpMethod.POST, "/api/v1/documents/*/pdf").authenticated();
                         requests.requestMatchers(HttpMethod.POST, "/api/v1/files/*/revoke").authenticated();
                         requests.requestMatchers(HttpMethod.POST, "/api/v1/document-jobs/*/retry").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/documents/*/emails").authenticated();
+                        requests.requestMatchers(HttpMethod.GET, "/api/v1/workbench/finance", "/api/v1/workbench/sales", "/api/v1/workbench/office", "/api/v1/workbench/customers/*", "/api/v1/workbench/banks", "/api/v1/workbench/warehouse", "/api/v1/accounting/reconciliation", "/api/v1/payroll/report", "/api/v1/payroll/records", "/api/v1/payroll/records/*", "/api/v1/recurring/templates", "/api/v1/recurring/templates/*", "/api/v1/recurring/runs", "/api/v1/recurring/runs/*").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/payroll/records", "/api/v1/payroll/records/*/submit", "/api/v1/payroll/records/*/calculate", "/api/v1/payroll/records/*/approve", "/api/v1/payroll/records/*/lock", "/api/v1/payroll/records/*/stp_preview").authenticated();
+                        requests.requestMatchers(HttpMethod.PUT, "/api/v1/payroll/records/*").authenticated();
+                        requests.requestMatchers(HttpMethod.POST, "/api/v1/recurring/templates", "/api/v1/recurring/templates/*/change", "/api/v1/recurring/runs/*/review").authenticated();
+
                         requests.requestMatchers(HttpMethod.GET, "/api/v1/files/*/content").authenticated();
                         requests.requestMatchers(HttpMethod.GET, "/api/v1/documents/*/files", "/api/v1/documents/*/jobs", "/api/v1/document-jobs/*").authenticated();
                         requests.requestMatchers(HttpMethod.POST, "/api/v1/crm/push/jobs/*/retry").authenticated();

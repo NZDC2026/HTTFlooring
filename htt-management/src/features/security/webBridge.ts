@@ -1,12 +1,25 @@
+import { snapshotRepositories } from './repositoryHost';
 import type { SecurityReply } from './securityContract';
 export const isWeb = import.meta.env.VITE_WEB_ONLY === '1';
+export const publicPreview = isWeb && import.meta.env.VITE_PUBLIC_PREVIEW === '1';
 export function downloadWebFile(value: unknown, name: string, type = 'application/json'): void {
     const blob = value instanceof Blob ? value : new Blob([JSON.stringify(value, null, 2)], { type });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url; link.download = name; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-if (isWeb && !window.securityBridge) {
+if (publicPreview) {
+    // Public previews use renderer sample state only; never request the live database.
+    for (const key of Object.keys(localStorage)) if (key.startsWith('htt')) localStorage.removeItem(key);
+    window.securityBridge = { request(action): SecurityReply {
+        if (action === 'status') return { ok: true, value: { initialized: true, session: { user: { id: 'public-sample-preview', username: 'sample', displayName: 'Sample Preview', roles: ['ADMIN'], active: true }, expiresAt: '2099-01-01T00:00:00Z' } } };
+        if (action === 'business.bootstrap' || action === 'business.view') return { ok: true, value: { repositories: snapshotRepositories(), storage: {} } };
+        if (action === 'preferences.columnOrder.get') return { ok: true, value: null };
+        return { ok: false, error: 'Sample preview is read-only. Changes and notifications are disabled.' };
+    } };
+    window.location.hash = '/dashboard';
+}
+if (isWeb && !publicPreview && !window.securityBridge) {
     window.securityBridge = {
         request(action, input): SecurityReply {
             // Compatibility transport for the existing synchronous repository contract.

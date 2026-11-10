@@ -1,3 +1,4 @@
+import {useListState} from '../../hooks/useListState';
 import {CustomerSearchSelect} from '../sales/components/CustomerSearchSelect';
 import {useCustomers} from '../contacts/data/useCustomers';
 import {ProductSearchSelect,ProductSearchSample} from '../../components/product-search/ProductSearchSelect';
@@ -17,7 +18,7 @@ const input='w-full rounded-lg border border-stone-300 bg-white p-2 text-sm';
 const card='rounded-xl border border-stone-200 bg-white p-5';
 export function PromotionPage(){
  const rows=useWorkspaceRecords('promotions'),customers=useCustomers(),products=useProducts(),read=usePermission('sales.read'),write=usePermission('sales.write');
- const [sample,setSample]=useState(false),[form,setForm]=useState<Form>(),[selected,setSelected]=useState<string>(),[query,setQuery]=useState(''),[filter,setFilter]=useState('All'),[message,setMessage]=useState(''),[now,setNow]=useState(Date.now());
+ const [sample,setSample]=useListState("src/features/promotions/PromotionPage.tsx:sample", false),[form,setForm]=useState<Form>(),[selected,setSelected]=useState<string>(),[query,setQuery]=useListState("src/features/promotions/PromotionPage.tsx:query", ''),[filter,setFilter]=useListState("src/features/promotions/PromotionPage.tsx:filter", 'All'),[message,setMessage]=useState(''),[now,setNow]=useState(Date.now());
  useEffect(()=>{const id=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(id);},[]);
  const sampleRows:ConfigRow[]=products.slice(0,3).flatMap((_,i)=>products.slice(0,3).map((p,n)=>({id:`sample-${i}-${n}`,campaignId:`sample-${i}`,customerIds:JSON.stringify(i===1?customers.slice(0,2).map(c=>c.id):[]),customerTypes:JSON.stringify(i===0?['Flooring Retailer']:i===1?['Builder','Installer']:['Flooring Retailer','Designer']),name:['Summer launch · Sample','Flooring special · Sample','October clearance · Sample'][i],status:'Active',revision:'1',createdAt:new Date(now).toISOString(),updatedAt:new Date(now).toISOString(),starts:new Date(now+[2,-2,-10][i]*86400000).toISOString(),ends:new Date(now+[9,5,-3][i]*86400000).toISOString(),productId:p.id,unitId:p.baseUnitId,price:String([49,35,24][n]-i*2),priority:'10',policy:'Promotion first'})));
  const campaigns=promotionCampaigns(sample?sampleRows:rows),active=campaigns.find(c=>c.id===selected),money=(n:number)=>new Intl.NumberFormat('en-AU',{style:'currency',currency:businessSettings().currency}).format(n);

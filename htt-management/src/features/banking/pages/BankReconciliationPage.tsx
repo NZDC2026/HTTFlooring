@@ -1,3 +1,4 @@
+import {BankingFrame} from './BankingFrame';
 import {bankJournalPostedAsAt} from '../data/reconciliationChainEvidence';
 import {useJournalEntries} from '../../accounting/data/useAccounting';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -52,14 +53,14 @@ import {
     calculateBankReconciliation,
 } from "../data/bankReconciliationService";
 
-export function BankReconciliationPage() {
+export function BankReconciliationPage(){return <BankingFrame title="Bank Reconciliation" tab="Reconciliation"><BankReconciliationContent/></BankingFrame>;}
+export function BankReconciliationContent({accountId}:{accountId?:string}) {
     const proofJournals=useJournalEntries(),proofJournalById=new Map(proofJournals.map(j=>[j.id,j]));
     const navigate =
         useNavigate();
 
-    const {
-        bankAccountId,
-    } = useParams();
+    const {bankAccountId:routeId}=useParams();
+    const bankAccountId=accountId??routeId;
 
     const operationIdRef = useRef<string | null>(null);
     const submittingRef = useRef(false);

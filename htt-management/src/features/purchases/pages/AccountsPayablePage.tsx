@@ -1,3 +1,4 @@
+import {useListState} from '../../../hooks/useListState';
 import {SupplierInvoiceDraftList} from '../../procurement/SupplierInvoiceDraftList';
 import { DataTable } from '../../../components/data-table/DataTable';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -13,8 +14,7 @@ import {
 
 import {
     useMemo,
-    useState,
-} from "react";
+    } from "react";
 
 import {
     useNavigate,
@@ -51,21 +51,21 @@ export function AccountsPayablePage() {
     const [
         asOfDate,
         setAsOfDate,
-    ] = useState(
+    ] = useListState("src/features/purchases/pages/AccountsPayablePage.tsx:asOfDate", 
         getToday(),
     );
 
     const [
         search,
         setSearch,
-    ] = useState("");
+    ] = useListState("src/features/purchases/pages/AccountsPayablePage.tsx:search", "");
 
     const [
         filter,
         setFilter,
-    ] = useState<
+    ] = useListState<
         "ALL" | "OVERDUE"
-    >("ALL");
+    >("src/features/purchases/pages/AccountsPayablePage.tsx:filter", "ALL");
 
     const bills =
         useSupplierBills();

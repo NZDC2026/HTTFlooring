@@ -6,9 +6,9 @@ export const datasets = ['Customers', 'Suppliers', 'Customer branches', 'Custome
 export type Dataset = typeof datasets[number];
 export const modes = ['Create', 'Update by ID'] as const;
 export const formatTag = 'HTT-CSV-1';
-export const productDefaults = { sku: '', name: '', category: 'Other', brand: '', collection: '', description: '', status: 'ACTIVE', itemType: 'STOCK', buyEnabled: true, sellEnabled: true, reorderPoint: 0, targetStock: 0, wholePacks: true, taxCode: 'GST', baseUnitCode: 'PIECE', unitsJson: JSON.stringify([{ code: 'PIECE', name: 'Each', symbol: 'each', conversionToBase: 1, basePrice: 0, isBaseUnit: true, active: true }]) };
+export const productDefaults = { sku: '', name: '', category: 'Other', brand: '', collection: '', description: '', status: 'ACTIVE', itemType: 'STOCK', buyEnabled: true, sellEnabled: true, reorderPoint: 0, targetStock: 0, wholePacks: true, taxCode: 'GST', referenceCostPrice: '', baseUnitCode: 'PIECE', unitsJson: JSON.stringify([{ code: 'PIECE', name: 'Each', symbol: 'each', conversionToBase: 1, basePrice: 0, isBaseUnit: true, active: true }]) };
 export const defaults: Record<Dataset, Record<string, string | number | boolean>> = { Customers: reviewDefaults.Customer, Suppliers: { currency: 'AUD', businessName: '', tradingName: '', abn: '', status: 'ACTIVE', email: '', phone: '', website: '', contactName: '', addressLine1: '', addressLine2: '', suburb: '', state: '', postcode: '', country: '', paymentTermsDays: 30, paymentTermsType: "DAYS", taxRegistered: false, notes: '' }, 'Customer branches': { customerId: '', ...reviewDefaults.Branch }, 'Customer contacts': { customerId: '', ...reviewDefaults.Contact }, Products: productDefaults };
-export const fields = (dataset: Dataset) => ['_format', 'id', 'recordToken', 'externalId', ...Object.keys(defaults[dataset])];
+export const fields = (dataset: Dataset) => ['_format', 'id', 'recordToken', 'externalId', ...Object.keys(defaults[dataset]), ...(dataset==='Products'?['unit','coveragePerUnit','sellingPrice','costPrice']:[])];
 export const permissions: Record<Dataset, {
     read: Permission;
     write: Permission;

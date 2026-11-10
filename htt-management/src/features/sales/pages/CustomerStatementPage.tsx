@@ -358,7 +358,7 @@ export function CustomerStatementPage() {
                                 )}
                             </div>
 
-                            <div className="mt-5 print:hidden">
+                            <div className="mt-5 print:hidden"><Button variant="secondary" onClick={()=>navigate('/sales/invoice-reminders?filter=All&mode=STATEMENT&customers='+encodeURIComponent(customer.id))}>Email Statement</Button>
                                 <Button
                                     variant="secondary"
                                     onClick={() => {warnCreditHold(customer.id,'Print customer statement');window.print();}}

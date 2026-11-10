@@ -58,8 +58,7 @@ export function ReceiveGoodsPage() {
     const [
         siteId,
         setSiteId,
-    ] = useState(
-        activeSites[0]?.id ??
+    ] = useState(activeSites[0]?.id ??
         "",
     );
 

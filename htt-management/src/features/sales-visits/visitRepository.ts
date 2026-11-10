@@ -18,9 +18,9 @@ const finishSchema = z.object({ id: text, expectedRevision: z.number().int().pos
 const historySchema = z.object({ id: text, action: text, actorId: text, at: timestamp, note: z.string().optional() }).strict();
 const visitSchema = z.object({ id: text, operationId: text, creationFingerprint: z.string().min(1).max(3000), name: text, customerId: text, customerName: text, locationId: text.optional(), locationName: z.string().max(200).optional(), locationNote: z.string().max(500), plannedDate: date, status: z.enum(['Planned', 'Checked in', 'Completed', 'Cancelled']), revision: z.number().int().positive(), ownerId: text, createdAt: timestamp, updatedAt: timestamp, checkInAt: timestamp.optional(), checkInBy: text.optional(), checkOutAt: timestamp.optional(), checkOutBy: text.optional(), outcome: note.optional(), completionFingerprint: z.string().optional(), followupTaskId: text.optional(), history: z.array(historySchema).min(1) }).strict();
 export type Visit = z.infer<typeof visitSchema>;
-let visits: Visit[] = [], version = 0;
+let visits: Visit[] = [];
 const listeners = new Set<() => void>();
-const emit = () => { version++; listeners.forEach(f => f()); };
+const emit = () => { listeners.forEach(f => f()); };
 const actor = () => trustedAuthorization.require('sales.write').userId, now = () => new Date().toISOString();
 const log = (action: string, actorId: string, at: string, note?: string) => ({ id: crypto.randomUUID(), action, actorId, at, ...(note ? { note } : {}) });
 function get(id: string) { const row = visits.find(v => v.id === id); if (!row)

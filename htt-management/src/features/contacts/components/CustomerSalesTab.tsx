@@ -1,3 +1,4 @@
+import {useListState} from '../../../hooks/useListState';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Banknote, ChartNoAxesCombined, ShoppingCart, Layers, Zap, Plus, ClipboardList, CalendarDays } from "lucide-react";
@@ -22,8 +23,8 @@ function presetRange(preset:string,today:string):SalesRange {
 export function CustomerSalesTab({customer}:{customer:Customer}) {
  const navigate=useNavigate(),documents=useCustomerSalesDocuments(customer.id),payments=useCustomerPayments(customer.id),credits=useCreditNotes(),allocations=useCreditAllocations();
  const today=businessDateKey(new Date().toISOString());
- const [period,setPeriod]=useState("YTD"),[range,setRange]=useState<SalesRange>(()=>presetRange("YTD",today));
- const [sample,setSample]=useState(false),[filter,setFilter]=useState<keyof typeof labels>("ALL"),[search,setSearch]=useState(""),[creatingQuote,setCreatingQuote]=useState(false),[agingOpen,setAgingOpen]=useState(false);
+ const [period,setPeriod]=useListState("src/features/contacts/components/CustomerSalesTab.tsx:period", "YTD"),[range,setRange]=useListState<SalesRange>("src/features/contacts/components/CustomerSalesTab.tsx:range", ()=>presetRange("YTD",today));
+ const [sample,setSample]=useListState("src/features/contacts/components/CustomerSalesTab.tsx:sample", false),[filter,setFilter]=useListState<keyof typeof labels>("src/features/contacts/components/CustomerSalesTab.tsx:filter", "ALL"),[search,setSearch]=useListState("src/features/contacts/components/CustomerSalesTab.tsx:search", ""),[creatingQuote,setCreatingQuote]=useState(false),[agingOpen,setAgingOpen]=useState(false);
  const valid=!!range.from&&!!range.to&&range.from<=range.to;
  const safeRange=valid?range:presetRange("YTD",today);
  const liveRows:SalesPeriodRow[]=[...documents.map(d=>({id:d.id,date:d.documentDate,number:d.documentNumber,type:d.type,status:d.status,reference:d.customerReference||"—",amount:d.totals.total,path:`/sales/${d.type==="QUOTE"?"quotes":d.type==="SALES_ORDER"?"orders":"invoices"}/${d.id}`})),...payments.map(p=>({id:p.id,date:p.paymentDate,number:p.paymentNumber,type:"PAYMENT" as const,status:p.status,reference:p.reference||"—",amount:p.amount}))];

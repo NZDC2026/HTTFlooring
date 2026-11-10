@@ -1,3 +1,4 @@
+import {useListState} from '../../../hooks/useListState';
 import { reportMoney } from '../../report-settings/reportPresentation';
 import { ReportContext } from '../../report-settings/ReportContext';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -98,7 +99,7 @@ export function InventoryValuationPage() {
     const [
         asOfDate,
         setAsOfDate,
-    ] = useState(
+    ] = useListState("src/features/inventory/pages/InventoryValuationPage.tsx:asOfDate", 
         getToday(),
     );
 

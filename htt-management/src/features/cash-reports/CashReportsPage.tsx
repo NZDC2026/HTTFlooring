@@ -1,3 +1,4 @@
+import {useListState} from '../../hooks/useListState';
 import { reportSettings } from '../report-settings/reportPresentation';
 import { preferredReportCurrency } from '../report-settings/reportPresentation';
 import { reportNumber } from '../report-settings/reportPresentation';
@@ -18,10 +19,10 @@ export function CashReportsPage({ banking = false }: {
     const banks = useSyncExternalStore(bankAccountRepository.subscribe, bankAccountRepository.getSnapshot, bankAccountRepository.getSnapshot);
     const journals = useSyncExternalStore(journalEntryRepository.subscribe, journalEntryRepository.getSnapshot, journalEntryRepository.getSnapshot);
     const today = businessDateKey(new Date().toISOString());
-    const [from, setFrom] = useState(fiscalYearStart(today)), [to, setTo] = useState(today);
+    const [from, setFrom] = useListState("src/features/cash-reports/CashReportsPage.tsx:from", fiscalYearStart(today)), [to, setTo] = useListState("src/features/cash-reports/CashReportsPage.tsx:to", today);
     const currencies = [...new Set(banks.map(b => b.currency))].sort();
     const [currency, setCurrency] = useState(() => preferredReportCurrency(businessSettings().currency,currencies));
-    const [bankId, setBankId] = useState(''), [page, setPage] = useState(0);
+    const [bankId, setBankId] = useState(''), [page, setPage] = useListState("src/features/cash-reports/CashReportsPage.tsx:page", 0);
     let report: ReturnType<typeof calculateCashReport> | undefined, error = '';
     try {
         report = calculateCashReport({ bankAccounts: banks, journalEntries: journals, from, to, currency, bankIds: bankId ? [bankId] : undefined });

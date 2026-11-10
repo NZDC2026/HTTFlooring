@@ -1,4 +1,4 @@
-import { useState } from "react";
+import {useListState} from '../../../hooks/useListState';
 import { Link } from "react-router-dom";
 import { Users, Store, CirclePause, UserPlus, Coins, TriangleAlert, ChartNoAxesCombined, Trophy, CalendarDays, TrendingUp, ShoppingCart, Package, RefreshCw, Search, ListTodo } from "lucide-react";
 import { ComposedChart, Bar, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -19,7 +19,7 @@ const growth=(now:number,prior:number)=>prior===0?(now>0?'New':'—'):`${now>=pr
 export function CustomerDashboardPage(){
  const customers=useCustomers(),documents=useSalesDocuments(),payments=usePayments(),credits=useCreditNotes(),allocations=useCreditAllocations(),tasks=useWorkspaceRecords('tasks');
  const canWrite=usePermission('contacts.write'),canTask=usePermission('sales.write');
- const [sample,setSample]=useState(false),[period,setPeriod]=useState('YTD'),[search,setSearch]=useState('');
+ const [sample,setSample]=useListState("src/features/contacts/pages/CustomerDashboardPage.tsx:sample", false),[period,setPeriod]=useListState("src/features/contacts/pages/CustomerDashboardPage.tsx:period", 'YTD'),[search,setSearch]=useListState("src/features/contacts/pages/CustomerDashboardPage.tsx:search", '');
  const today=businessDateKey(new Date().toISOString()),from=period==='30 days'?daysAgo(today,29):period==='12 months'?daysAgo(today,364):fiscalYearStart(today);
  const actual=customerDashboard(customers,documents,credits,from,today);
  const seed=[{id:'sample-1',name:'Sample Maple Flooring Store',purchases:486250,previousPurchases:412076,orders:28},{id:'sample-2',name:'Sample Urban Floors Pty Ltd',purchases:372900,previousPurchases:332946,orders:21},{id:'sample-3',name:'Sample Riverside Flooring',purchases:318640,previousPurchases:250898,orders:19},{id:'sample-4',name:'Sample Melbourne Floor Gallery',purchases:297880,previousPurchases:273284,orders:17},{id:'sample-5',name:'Sample Westside Timber & Floors',purchases:246310,previousPurchases:232368,orders:14}];

@@ -129,3 +129,10 @@ it('preserves absent product overrides on partial updates and clears a mapped ta
     commit(updateSource('Products', id, { taxCode: '' }));
     expect(state('products').products.find((p: any) => p.id === id).taxCode).toBeUndefined();
 });
+it('imports friendly unit, coverage and reference cost fields, retaining stock and financial balances',()=>{
+ const beforeStocks=structuredClone(state('stock')), beforeCosts=structuredClone(state('costBalances'));
+ const run=commit(source('Products',[{externalId:'friendly-box',sku:'SAMPLE-IMPORT-BOX',name:'Sample boxed oak',unit:'Box',coveragePerUnit:'2.166',sellingPrice:'50',costPrice:'25'}]));
+ const p=state('products').products.find((p:any)=>p.id===run.results[0].recordId);
+ expect(p.referenceCostPrice).toBe(25);expect(p.units.find((u:any)=>u.code==='BOX')).toMatchObject({conversionToBase:2.166,basePrice:108.3});
+ expect(beforeStocks).toBeDefined();expect(state('stock')).toEqual(beforeStocks);expect(state('costBalances')).toEqual(beforeCosts);
+});

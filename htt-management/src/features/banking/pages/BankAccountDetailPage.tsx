@@ -1,3 +1,4 @@
+import {BankingFrame} from './BankingFrame';
 import {usePermission} from '../../security/usePermission';
 import { DataTable } from '../../../components/data-table/DataTable';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -40,14 +41,14 @@ import {
     useBankRegister,
 } from "../data/useBanking";
 
-export function BankAccountDetailPage() {
+export function BankAccountDetailPage(){return <BankingFrame title="Transactions" tab="Transactions"><BankAccountRegisterContent/></BankingFrame>;}
+export function BankAccountRegisterContent({accountId}:{accountId?:string}) {
     const canReconcile=usePermission('banking.reconcile');
     const navigate =
         useNavigate();
 
-    const {
-        bankAccountId,
-    } = useParams();
+    const {bankAccountId:routeId}=useParams();
+    const bankAccountId=accountId??routeId;
 
     const [
         asOfDate,

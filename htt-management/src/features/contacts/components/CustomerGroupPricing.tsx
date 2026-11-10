@@ -1,5 +1,5 @@
+import {useState} from 'react';
 import { priceCatalogue } from "../data/priceCatalogue";
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useProducts } from "../../business-workspace/productRepository";
 import { usePermission } from "../../security/usePermission";

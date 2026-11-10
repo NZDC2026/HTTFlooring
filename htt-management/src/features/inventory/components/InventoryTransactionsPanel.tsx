@@ -1,5 +1,7 @@
+import {useRef} from 'react';
+import {useListState} from '../../../hooks/useListState';
 import type { Product } from '../types/product';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Layers, DollarSign, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts';
@@ -16,8 +18,9 @@ const qty=(n:number)=>n.toLocaleString('en-AU',{maximumFractionDigits:3});const 
 export function InventoryTransactionsPanel({mode,sample,site,product}:{mode:'Sold'|'Bought';sample:boolean;site:string;product?:Product}){
  const today=businessDateKey(new Date().toISOString());
  const initial={from:today.slice(0,7)+'-01',to:today,category:'All',party:'All',search:''};
- const [filter,setFilter]=useState(initial),[applied,setApplied]=useState(initial),[preset,setPreset]=useState('1 month'),[page,setPage]=useState(0);
- useEffect(()=>{setFilter(initial);setApplied(initial);setPreset('1 month');setPage(0);},[sample,product?.id]);
+ const [filter,setFilter]=useListState(`inventory-transactions:${mode}:${product?.id??"all"}:filter`, initial),[applied,setApplied]=useListState('src/features/inventory/components/InventoryTransactionsPanel.tsx:applied', initial),[preset,setPreset]=useListState(`inventory-transactions:${mode}:${product?.id??"all"}:preset`, '1 month'),[page,setPage]=useListState(`inventory-transactions:${mode}:${product?.id??"all"}:page`, 0);
+ const previousContext=useRef({sample,productId:product?.id});
+ useEffect(()=>{if(previousContext.current.sample===sample&&previousContext.current.productId===product?.id)return;previousContext.current={sample,productId:product?.id};setFilter(initial);setApplied(initial);setPreset('1 month');setPage(0);},[sample,product?.id]);
  const products=useProducts(),documents=useSalesDocuments(),receipts=useGoodsReceipts(),customers=useCustomers();
  const fulfilments=useSyncExternalStore(salesFulfilmentRepository.subscribe,salesFulfilmentRepository.getSnapshot,salesFulfilmentRepository.getSnapshot);
  const canRead=usePermission(mode==='Sold'?'sales.read':'purchases.read'),canCost=usePermission('inventory.cost.read'),canAdjust=usePermission('inventory.adjust');

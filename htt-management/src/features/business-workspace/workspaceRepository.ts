@@ -56,7 +56,7 @@ export const workspaceDomains: Record<string, {
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },
     promotions: { read: 'sales.read', write: 'sales.write', required: ['productId', 'unitId', 'starts', 'ends', 'price', 'priority', 'policy'], fields: ['customerIds','customerTypes','campaignId', 'deleted', 'productId', 'unitId', 'customerId', 'starts', 'ends', 'price', 'priority', 'policy'] },
     jobs: { read: 'accounting.read', write: 'accounting.post', required: ['code', 'customerId', 'starts', 'ends', 'budget', 'costBudget'], fields: ['code', 'customerId', 'owner', 'starts', 'ends', 'budget', 'costBudget'] },
-    tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'documentType', 'documentId', 'sourceQuoteId', 'sourceSalesDraftId', 'completedAt', 'completedBy', 'completedByName', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
+    tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['customerId', 'owner', 'due', 'priority', 'notes', 'taskType', 'documentType', 'documentId', 'sourceQuoteId', 'sourceSalesDraftId', 'completedAt', 'completedBy', 'completedByName', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil'] },
     'bank-rules': { read: 'banking.read', write: 'banking.write', required: ['field', 'operator', 'value', 'accountId', 'taxCode'], fields: ['field', 'operator', 'value', 'accountId', 'taxCode', 'enabled', 'conditions', 'match', 'priority', 'automatic', 'bankAccountId'] },
     templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
@@ -163,6 +163,8 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
             throw new Error('Job code must be unique.');
     }
     if (domain === 'tasks') {
+        if(input.taskType&&!['Follow-up','Site Visit','Sample','Payment','Enquiry','Complaint','Delivery','Other'].includes(input.taskType))throw Error('Invalid task type.');
+        if(input.reminderAt&&(!validTaskLocalTime(input.reminderAt)||!input.reminderTimeZone))throw Error('Enter a valid reminder time and timezone.');
         if(checkReferences)validateInternalTaskSource(input as Record<string,string>,snapshotRepositories() as Record<string,any>);
         if(checkReferences){const sales=snapshotRepositories().sales as {salesOrders:TaskDocument[];invoices:TaskDocument[]};validateTaskDocument(input.documentType,input.documentId,input.customerId,sales.salesOrders,sales.invoices,'customerId');}
         if (checkReferences && input.id && ((snapshotRepositories().salesVisits as {visits:{followupTaskId?:string;customerId:string}[]}|undefined)?.visits??[]).some(v=>v.followupTaskId===input.id&&v.customerId!==input.customerId)) throw new Error('A visit follow-up must retain the visit customer.');

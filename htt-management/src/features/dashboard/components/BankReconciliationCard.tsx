@@ -2,7 +2,7 @@ import {businessSettings} from '../../business-workspace/configurationState';
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "../../../components/ui/Card";
 import { useFinanceOverview } from "../data/useFinanceOverview";
-const fmt = (n: number) => new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(n);
+const fmt = (n: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: businessSettings().currency }).format(n);
 export function BankReconciliationCard() {
  const today = new Date().toLocaleDateString("en-CA", {timeZone:businessSettings().timezone});
  const data = useFinanceOverview(today);

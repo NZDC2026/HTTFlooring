@@ -1,5 +1,5 @@
+import {useListState} from '../../../hooks/useListState';
 import { shipmentStatus } from "../../incoming-shipments/shipmentModel";
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Users, Truck, ClipboardList, TriangleAlert, Clock, Layers, Ship, ChartNoAxesColumnIncreasing } from "lucide-react";
 import { useSuppliers } from "../data/useSuppliers";
@@ -20,7 +20,7 @@ export function SupplierDashboardPage() {
     const suppliers=useSuppliers(), bills=useSupplierBills(), payments=useSupplierPayments();
     const credits=useSupplierCredits(), allocations=useSupplierCreditAllocations(), orders=usePurchaseOrders();
     const canRead=usePermission("purchases.read"), canCreate=usePermission("contacts.write");
-    const [sample,setSample]=useState(false);
+    const [sample,setSample]=useListState("src/features/contacts/pages/SupplierDashboardPage.tsx:sample", false);
     const today=businessDateKey(new Date().toISOString()), start=fiscalYearStart(today);
     const money=(value:number)=>new Intl.NumberFormat("en-AU",{style:"currency",currency:businessSettings().currency}).format(value);
     const dated=(offset:number)=>{const d=new Date(`${today}T12:00:00Z`);d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10);};

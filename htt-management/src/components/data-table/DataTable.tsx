@@ -1,3 +1,4 @@
+import {useListState} from '../../hooks/useListState';
 import { isWeb } from "../../features/security/webBridge";
 import { nativeRequest } from "../../features/security/repositoryHost";
 import { GripVertical } from "lucide-react";
@@ -15,13 +16,14 @@ import { usePermission } from '../../features/security/usePermission';
 import type { DataTableCapabilities,DataTablePaginationConfig,DataTableSearchConfig } from './types';
 interface DataTableProps<TData>{renderRowDetails?:(row:TData)=>ReactNode;defaultColumnVisibility?:VisibilityState;data:TData[];columns:ColumnDef<TData,unknown>[];search?:DataTableSearchConfig<TData>;pagination?:DataTablePaginationConfig;capabilities?:DataTableCapabilities<TData>;emptyTitle?:string;emptyDescription?:string;onRowClick?:(row:TData)=>void;}
 export function DataTable<TData>({data,columns,defaultColumnVisibility,search,pagination,capabilities,emptyTitle='No results found',emptyDescription='Try adjusting your search or filters.',onRowClick,renderRowDetails}:DataTableProps<TData>){
- const [sorting,setSorting]=useState<SortingState>([]),[query,setQuery]=useState(''),[columnVisibility,setColumnVisibility]=useState<VisibilityState>(defaultColumnVisibility ?? {}),[rowSelection,setRowSelection]=useState<RowSelectionState>({}),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [columnVisibility,setColumnVisibility]=useState<VisibilityState>(defaultColumnVisibility ?? {}),[rowSelection,setRowSelection]=useState<RowSelectionState>({}),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const { session } = useSecurity();
- const route = window.location.hash.split("?")[0] || window.location.pathname;
+ const route = typeof window === "undefined" ? "" : window.location.hash.split("?")[0] || window.location.pathname;
  const tableId = capabilities?.id ?? JSON.stringify(columns.map(column =>
   column.id ?? ("accessorKey" in column ? column.accessorKey : typeof column.header === "string" ? column.header : ""),
  ));
  const accountTable = JSON.stringify([route, tableId]);
+ const [sorting,setSorting]=useListState<SortingState>(`table:${tableId}:sorting`,[]),[query,setQuery]=useListState(`table:${tableId}:query`,''),[savedPagination,setPagination]=useListState(`table:${tableId}:pagination`,{pageIndex:0,pageSize:Math.max(1,Math.min(500,pagination?.pageSize??10))});
  const orderKey = session ? `htt:table-column-order:v1:${JSON.stringify([session.user.id, route, tableId])}` : "";
  const savedOrder = useMemo<ColumnOrderState>(() => {
   if (!orderKey) return [];
@@ -71,7 +73,7 @@ export function DataTable<TData>({data,columns,defaultColumnVisibility,search,pa
  const validIds=useMemo(()=>{if(!capabilities)return false;const ids=data.map(capabilities.rowId);return ids.every(id=>typeof id==='string'&&!!id)&&new Set(ids).size===ids.length;},[data,capabilities]);
  const complete=capabilities?.scope==='complete'&&canRead&&validIds;
  const filteredData=useMemo(()=>filterTableRows(data,columns,query,search?.filterFn),[data,query,search,columns]);
- const table=useReactTable({data:filteredData,columns,state:{sorting,columnVisibility,columnOrder,rowSelection},onSortingChange:setSorting,onColumnVisibilityChange:setColumnVisibility,onRowSelectionChange:setRowSelection,getRowId:(r,i)=>validIds?capabilities!.rowId(r):String(i),enableRowSelection:complete,getCoreRowModel:getCoreRowModel(),getSortedRowModel:getSortedRowModel(),getPaginationRowModel:pagination?getPaginationRowModel():undefined,initialState:{columnVisibility:defaultColumnVisibility,pagination:{pageSize:Math.max(1,Math.min(500,pagination?.pageSize??10))}}});
+ const table=useReactTable({data:filteredData,columns,autoResetPageIndex:false,state:{sorting,columnVisibility,columnOrder,rowSelection,pagination:{...savedPagination,pageIndex:Math.min(savedPagination.pageIndex,Math.max(0,Math.ceil(filteredData.length/savedPagination.pageSize)-1))}},onPaginationChange:setPagination,onSortingChange:setSorting,onColumnVisibilityChange:setColumnVisibility,onRowSelectionChange:setRowSelection,getRowId:(r,i)=>validIds?capabilities!.rowId(r):String(i),enableRowSelection:complete,getCoreRowModel:getCoreRowModel(),getSortedRowModel:getSortedRowModel(),getPaginationRowModel:pagination?getPaginationRowModel():undefined,initialState:{columnVisibility:defaultColumnVisibility,pagination:{pageSize:Math.max(1,Math.min(500,pagination?.pageSize??10))}}});
  function moveColumn(source: string, target: string) {
   const order = table.getAllLeafColumns().map(column => column.id);
   const from = order.indexOf(source);

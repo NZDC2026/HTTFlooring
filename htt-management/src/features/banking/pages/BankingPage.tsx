@@ -1,372 +1,53 @@
-import {optionalWorkflows} from '../../security/optionalWorkflows';
+import {useListState} from '../../../hooks/useListState';
+import {useState,useSyncExternalStore} from 'react';
+import {Link,useSearchParams} from 'react-router-dom';
+import {Landmark,CalendarDays,ArrowRightLeft,CheckCircle2,SlidersHorizontal,Link2,Layers,TrendingUp,ArrowDown,FileText,TriangleAlert,Plus,Download,ChevronRight,Clock} from 'lucide-react';
+import {useBankAccounts} from '../data/useBanking';
+import {useJournalEntries} from '../../accounting/data/useAccounting';
+import {calculateBankRegister} from '../data/bankRegisterService';
+import {bankReconciliationRepository} from '../data/bankReconciliationRepository';
+import {accountingPeriodRepository} from '../../accounting/data/accountingPeriodRepository';
+import {useStatementLines} from '../../finance-closure/bankStatementRepository';
 import {usePermission} from '../../security/usePermission';
-import {businessDateKey} from '../../../lib/businessDate';
-import { businessSettings } from '../../business-workspace/configurationState';
-import {
-    useMemo,
-} from "react";
-
-import {
-    ArrowRight,
-    ArrowRightLeft,
-    Building2,
-    Landmark,
-    Plus,
-} from "lucide-react";
-
-import {
-    useNavigate,
-} from "react-router-dom";
-
-import {
-    Badge,
-} from "../../../components/ui/Badge";
-
-import {
-    Button,
-} from "../../../components/ui/Button";
-
-import {
-    Card,
-    CardContent,
-} from "../../../components/ui/Card";
-
-import {
-    useBankAccounts,
-} from "../data/useBanking";
-
-import {
-    useJournalEntries,
-} from "../../accounting/data/useAccounting";
-
-import {
-    calculateBankRegister,
-} from "../data/bankRegisterService";
-
-export function BankingPage() {
-    const canWrite=usePermission('banking.write');
-    const navigate =
-        useNavigate();
-
-    const bankAccounts =
-        useBankAccounts();
-
-    const journalEntries =
-        useJournalEntries();
-
-    const today =
-        getToday();
-
-    const rows =
-        useMemo(
-            () =>
-                bankAccounts
-                    .map(
-                        (
-                            bankAccount,
-                        ) => {
-                            const register =
-                                calculateBankRegister(
-                                    bankAccount,
-                                    journalEntries,
-                                    today,
-                                );
-
-                            return {
-                                bankAccount,
-                                register,
-                            };
-                        },
-                    )
-                    .sort(
-                        (
-                            first,
-                            second,
-                        ) =>
-                            first.bankAccount.name.localeCompare(
-                                second.bankAccount.name,
-                            ),
-                    ),
-            [
-                bankAccounts,
-                journalEntries,
-                today,
-            ],
-        );
-
-    const totalBalance =
-        rows.reduce(
-            (
-                total,
-                row,
-            ) =>
-                total +
-                row.register
-                    .closingBalance,
-            0,
-        );
-
-    return (
-        <div className="pb-8">
-            <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                    <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
-                        Finance
-                    </p>
-
-                    <h1 className="font-display text-3xl font-semibold text-[var(--color-primary)]">
-                        Banking
-                    </h1>
-
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">
-                        Review bank
-                        accounts and the
-                        accounting
-                        transactions that
-                        make up each bank
-                        register.
-                    </p>
-                </div>
-
-                {canWrite&&<div className="flex flex-wrap gap-3">
-                    {optionalWorkflows.bankTransfers && <Button
-                        variant="secondary"
-                        onClick={() =>
-                            navigate(
-                                "/banking/transfers/new",
-                            )
-                        }
-                    >
-                        <ArrowRightLeft
-                            size={
-                                16
-                            }
-                        />
-
-                        Transfer Money
-                    </Button>}
-
-                    <Button
-                        onClick={() =>
-                            navigate(
-                                "/banking/transactions/new",
-                            )
-                        }
-                    >
-                        <Plus
-                            size={
-                                16
-                            }
-                        />
-
-                        Receive Money
-                    </Button>
-                </div>}
-            </div>
-
-            <div className="mb-6 grid gap-4 md:grid-cols-3">
-                <SummaryCard
-                    label="Bank Accounts"
-                    value={
-                        String(
-                            bankAccounts
-                                .length,
-                        )
-                    }
-                />
-
-                <SummaryCard
-                    label="Active Accounts"
-                    value={
-                        String(
-                            bankAccounts
-                                .filter(
-                                    (
-                                        account,
-                                    ) =>
-                                        account.active,
-                                )
-                                .length,
-                        )
-                    }
-                />
-
-                <SummaryCard
-                    label="Total Bank Balance"
-                    value={
-                        formatMoney(
-                            totalBalance,
-                        )
-                    }
-                />
-            </div>
-
-            <Card>
-                <CardContent>
-                    <div className="mb-5 flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-primary)]">
-                            <Landmark
-                                size={
-                                    19
-                                }
-                            />
-                        </div>
-
-                        <div>
-                            <h2 className="font-display text-xl font-semibold text-[var(--color-primary)]">
-                                Bank Accounts
-                            </h2>
-
-                            <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
-                                Each bank
-                                account is
-                                linked to a
-                                general ledger
-                                account.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
-                        {rows.map(
-                            ({
-                                bankAccount,
-                                register,
-                            }) => (
-                                <div
-                                    key={
-                                        bankAccount.id
-                                    }
-                                    className="flex flex-col gap-4 border-b border-[var(--color-border)] px-4 py-4 last:border-b-0 md:flex-row md:items-center md:justify-between"
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <div className="mt-0.5 text-[var(--color-primary)]">
-                                            <Building2
-                                                size={
-                                                    18
-                                                }
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="font-semibold text-[var(--color-text-primary)]">
-                                                    {
-                                                        bankAccount.name
-                                                    }
-                                                </span>
-
-                                                <Badge
-                                                    variant={
-                                                        bankAccount.active
-                                                            ? "success"
-                                                            : "neutral"
-                                                    }
-                                                >
-                                                    {bankAccount.active
-                                                        ? "Active"
-                                                        : "Inactive"}
-                                                </Badge>
-                                            </div>
-
-                                            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                                                {
-                                                    bankAccount.bankName
-                                                }
-                                                {" · "}
-                                                {
-                                                    bankAccount.accountNumber
-                                                }
-                                                {" · "}
-                                                {
-                                                    bankAccount.currency
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between gap-6 md:justify-end">
-                                        <div className="text-right">
-                                            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-                                                Balance
-                                            </p>
-
-                                            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-[var(--color-primary)]">
-                                                {formatMoney(
-                                                    register
-                                                        .closingBalance,
-                                                )}
-                                            </p>
-                                        </div>
-
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() =>
-                                                navigate(
-                                                    `/banking/accounts/${bankAccount.id}`,
-                                                )
-                                            }
-                                        >
-                                            View Register
-
-                                            <ArrowRight
-                                                size={
-                                                    14
-                                                }
-                                            />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ),
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-    );
-}
-
-function SummaryCard({
-    label,
-    value,
-}: {
-    label: string;
-    value: string;
-}) {
-    return (
-        <Card>
-            <CardContent>
-                <p className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
-                    {label}
-                </p>
-
-                <p className="mt-2 font-display text-2xl font-semibold text-[var(--color-primary)]">
-                    {value}
-                </p>
-            </CardContent>
-        </Card>
-    );
-}
-
-function formatMoney(
-    value:
-        number,
-) {
-    return new Intl.NumberFormat(
-        "en-AU",
-        {
-            style:
-                "currency",
-
-            currency:
-                businessSettings().currency,
-        },
-    ).format(
-        value,
-    );
-}
-
-function getToday() {
-    return businessDateKey(new Date().toISOString());
+import {businessDateKey,fiscalYearStart} from '../../../lib/businessDate';
+import {businessSettings} from '../../business-workspace/configurationState';
+import type {BankAccount} from '../types/bankAccount';
+import './banking-workspace.css';
+const navigation=[['Overview','/banking',Landmark],['Bank Accounts','/banking/setup/accounts',Landmark],['Transactions','/banking/transactions',ArrowRightLeft],['Reconciliation','/banking/reconciliation',CheckCircle2],['Rules & Matching','/banking/rules',SlidersHorizontal],['Bank Feeds','/banking/feeds',Link2]] as const;
+const samples:BankAccount[]=['Operating Account','Savings Account'].map((name,i)=>({id:`sample-bank-${i}`,name,bankName:'Sample Business Bank',accountNumber:i?'1010':'1000',accountType:i?'SAVINGS':'TRANSACTION',currency:'AUD',glAccountId:'sample-gl',openingBalance:0,openingBalanceDate:'2026-01-01',active:true,createdAt:'2026-01-01',updatedAt:'2026-01-01'}));
+type Transaction={id:string;date:string;description:string;party:string;amount:number;cleared:boolean;bankId:string;journalId?:string};
+export function BankingPage(){
+ const banks=useBankAccounts(),journals=useJournalEntries(),statements=useStatementLines(),canWrite=usePermission('banking.write'),canReconcile=usePermission('banking.reconcile');
+ const reconciliations=useSyncExternalStore(bankReconciliationRepository.subscribe,bankReconciliationRepository.getSnapshot,bankReconciliationRepository.getSnapshot),periods=useSyncExternalStore(accountingPeriodRepository.subscribe,accountingPeriodRepository.getAll,accountingPeriodRepository.getAll);
+ const [params]=useSearchParams(),[sample,setSample]=useListState("src/features/banking/pages/BankingPage.tsx:sample", params.get('sample')==='1'),[filter,setFilter]=useListState("src/features/banking/pages/BankingPage.tsx:filter", 'All'),[page,setPage]=useListState("src/features/banking/pages/BankingPage.tsx:page", 0),[size,setSize]=useListState("src/features/banking/pages/BankingPage.tsx:size", 5),[selected,setSelected]=useState<string[]>([]),[notice,setNotice]=useState('');
+ const today=businessDateKey(new Date().toISOString()),fy=fiscalYearStart(today),[yearStart,setYearStart]=useListState("src/features/banking/pages/BankingPage.tsx:yearStart", fy);
+ const end=new Date(`${yearStart}T00:00:00Z`);end.setUTCFullYear(end.getUTCFullYear()+1);end.setUTCDate(end.getUTCDate()-1);const yearEnd=end.toISOString().slice(0,10),asOf=yearEnd<today?yearEnd:today;
+ const current=periods.find(p=>p.startDate<=today&&p.endDate>=today),monthStart=asOf.slice(0,7)+'-01',money=(n:number)=>new Intl.NumberFormat('en-AU',{style:'currency',currency:businessSettings().currency}).format(n);
+ const baseBanks=banks.filter(b=>b.currency===businessSettings().currency);
+ const rows=(sample?samples:banks).map((bank,i)=>({bank,balance:sample?(i?0:3000):calculateBankRegister(bank,journals,asOf).closingBalance,latest:reconciliations.filter(r=>r.bankAccountId===bank.id&&r.statementDate<=asOf).sort((a,b)=>b.statementDate.localeCompare(a.statementDate))[0]}));
+ const cleared=new Set(reconciliations.filter(r=>r.statementDate<=asOf).flatMap(r=>r.clearedTransactionIds));
+ const liveTransactions:Transaction[]=baseBanks.flatMap(bank=>calculateBankRegister(bank,journals,asOf).transactions.filter(t=>!t.correctionOnly&&t.transactionDate>=yearStart).map(t=>({id:t.id,date:t.transactionDate,description:t.description,party:bank.name,amount:t.moneyIn-t.moneyOut,cleared:cleared.has(t.id),bankId:bank.id,journalId:t.journalEntryId})));
+ const transactions:Transaction[]=sample?[
+  ['Payment – INV-SAMPLE-4725','Sample Parkside Interiors',5500,true],['Supplier Payment – BILL-SAMPLE-3384','Sample Dandenong Flooring',-12800,true],['Bank Fees','Sample Business Bank',-15,true],['Payment – INV-SAMPLE-4705','Sample Riverside Builders',8200,false],['Transfer to Savings','Sample Savings Account',-3000,false],['Customer receipt','Sample Harbour Flooring',11980,false],['Supplier payment','Sample Timber Supply',-6865,false]
+ ].map(([description,party,amount,cleared],i)=>{const d=new Date(asOf+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-i);return {id:`sample-tx-${i}`,date:d.toISOString().slice(0,10),description:String(description),party:String(party),amount:Number(amount),cleared:Boolean(cleared),bankId:'sample-bank-0'};}):liveTransactions;
+ const periodTransactions=transactions.filter(t=>t.date>=monthStart),receipts=periodTransactions.reduce((n,t)=>n+Math.max(t.amount,0),0),payments=periodTransactions.reduce((n,t)=>n+Math.max(-t.amount,0),0),unreconciled=transactions.filter(t=>!t.cleared).length,review=sample?2:statements.filter(s=>s.status==='UNMATCHED'&&s.date<=asOf).length;
+ const filtered=transactions.filter(t=>filter==='All'||filter==='Receipts'&&t.amount>0||filter==='Payments'&&t.amount<0||filter==='Unreconciled'&&!t.cleared).sort((a,b)=>b.date.localeCompare(a.date)),pages=Math.max(1,Math.ceil(filtered.length/size)),safe=Math.min(page,pages-1),visible=filtered.slice(safe*size,(safe+1)*size);
+ const trend=Array.from({length:6},(_,i)=>{const d=new Date(asOf+'T00:00:00Z');d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()-5+i);const label=d.toLocaleDateString('en-AU',{month:'short',timeZone:'UTC'});d.setUTCMonth(d.getUTCMonth()+1);d.setUTCDate(0);const date=i===5?asOf:d.toISOString().slice(0,10);return {label,value:sample?[1500,1900,2300,2700,2900,3000][i]:baseBanks.reduce((n,b)=>n+(date<b.openingBalanceDate?0:calculateBankRegister(b,journals,date).closingBalance),0)};});const max=Math.max(1,...trend.map(t=>Math.abs(t.value)));
+ const sampleAction=()=>setNotice('Sample · Read-only preview. Switch off Sample to work with real bank records.');
+ return <main className="banking-workspace"><header className="bk-heading"><div><h1>Banking</h1><p>Manage bank accounts, import transactions, reconcile and track cash position.</p></div><div className="bk-periods"><Link to="/accounting/periods"><CalendarDays/><span>Current Period<strong>{sample?'Nov 2026 (Open)':current?`${current.name} (${current.status.toLowerCase()})`:'Not configured'}</strong></span></Link><label><CalendarDays/><span>Financial Year<select aria-label="Financial Year" value={yearStart} onChange={e=>{setYearStart(e.target.value);setPage(0);}}>{[0,1,2,3].map(i=>{const d=new Date(fy+'T00:00:00Z');d.setUTCFullYear(d.getUTCFullYear()-i);return <option key={i} value={d.toISOString().slice(0,10)}>FY {d.getUTCFullYear()+1} · {d.toISOString().slice(0,10)} – {d.getUTCFullYear()+1}-{yearEnd.slice(5)}</option>;})}</select></span></label></div></header>
+ <nav className="bk-tabs" aria-label="Banking navigation">{navigation.map(([name,path,Icon],i)=><Link className={(params.get('view')==='transactions'?i===2:i===0)?'active':''} key={name} to={path}><Icon size={20}/>{name}</Link>)}</nav>
+ <label className="bk-sample"><input type="checkbox" checked={sample} onChange={e=>{setSample(e.target.checked);setPage(0);setSelected([]);setNotice('');}}/>Sample · Populated banking preview · Read-only, excluded from live balances and reconciliation</label>{notice&&<p role="status" className="bk-sample">{notice}</p>}
+ {!sample&&baseBanks.length!==banks.length&&<p className="bk-range">Summary and cash trend include {businessSettings().currency} accounts only. Foreign-currency account balances are shown separately below.</p>}
+ <div className="bk-layout"><div className="bk-main"><section className="bk-metrics">{[['Total Bank Balance',money(rows.filter(r=>r.bank.currency===businessSettings().currency).reduce((n,r)=>n+r.balance,0)),Layers],['Receipts (This Period)',money(receipts),TrendingUp],['Payments (This Period)',money(payments),ArrowDown],['Unreconciled',`${unreconciled} transactions`,FileText],['Items to Review',String(review),TriangleAlert]].map(([label,value,Icon],i)=>{const Symbol=Icon as typeof Layers;return <div className={`bk-metric tone-${i}`} key={String(label)}><span><Symbol size={25}/></span><div><small>{String(label)}</small><strong>{String(value)}</strong></div></div>;})}</section>
+ <section className="bk-card"><div className="bk-section-heading"><div><h2>Bank Accounts ({rows.length})</h2><p>View bank balances and reconciliation status.</p></div><div className="bk-actions">{canWrite&&<><Link className="bk-button primary" to="/banking/setup/accounts/new"><Plus size={16}/>Add Bank Account</Link><Link className="bk-button" to="/banking/import"><Download size={16}/>Import Transactions</Link><Link className="bk-button" to="/banking/transactions/new"><Plus size={16}/>Receive Money</Link></>}</div></div>
+ {rows.map(({bank,balance,latest},i)=>{const date=sample?'2026-10-31':latest?.statementDate;const done=sample?i===0:!!date&&date>=monthStart;return <div className="bk-bank" key={bank.id}><Landmark size={28}/><div className="bk-bank-name"><strong>{bank.name}</strong><p>{bank.bankName} · •••• {bank.accountNumber.slice(-4)} · {bank.currency}</p></div><div className="bk-balance"><small>Balance</small><strong>{new Intl.NumberFormat('en-AU',{style:'currency',currency:bank.currency}).format(balance)}</strong></div><div className={`bk-reconcile-status ${done?'complete':''}`}>{done?<CheckCircle2 size={22}/>:<Clock size={22}/>}<span>{done?'Reconciled to':'Reconciliation review'}<strong>{date??'Not recorded'}</strong></span></div>{sample?<button className="bk-button" onClick={sampleAction}>Reconcile</button>:<Link className="bk-button" to={sample?'/banking?sample=1':canReconcile?`/banking/accounts/${bank.id}/reconcile`:`/banking/accounts/${bank.id}`}>{canReconcile?'Reconcile':'View Register'}</Link>}<details className="bk-menu"><summary aria-label={`Actions for ${bank.name}`}>•••</summary><div>{sample?<button onClick={sampleAction}>View Sample register</button>:<><Link to={`/banking/accounts/${bank.id}`}>View Register</Link>{canWrite&&<Link to={`/banking/setup/accounts/${bank.id}/edit`}>Edit bank account</Link>}</>}</div></details></div>;})}{!rows.length&&<p className="bk-empty">No bank accounts configured.</p>}
+ </section>
+ <section className="bk-card bk-transactions" id="transactions"><div className="bk-section-heading"><h2>Recent Transactions</h2><div className="bk-filters">{['All','Receipts','Payments','Unreconciled'].map(f=><button key={f} className={f===filter?'active':''} onClick={()=>{setFilter(f);setPage(0);}}>{f}</button>)}</div><Link to="/banking/workbench">View Register →</Link></div><p className="bk-range">Receipts and payments: {monthStart} – {asOf} · Transactions: financial year to {asOf} · {businessSettings().currency}</p>
+ <div className="bk-table-wrap"><table><thead><tr><th><input aria-label="Select visible transactions" type="checkbox" checked={visible.length>0&&visible.every(t=>selected.includes(t.id))} onChange={e=>setSelected(e.target.checked?visible.map(t=>t.id):[])}/></th><th>Date ↓</th><th>Description</th><th>Payee / Payer</th><th>Type</th><th>Amount ({businessSettings().currency})</th><th>Status</th><th/></tr></thead><tbody>{visible.map(t=><tr key={t.id}><td><input aria-label={`Select ${t.description}`} type="checkbox" checked={selected.includes(t.id)} onChange={e=>setSelected(e.target.checked?[...selected,t.id]:selected.filter(id=>id!==t.id))}/></td><td>{t.date.split('-').reverse().join('/')}</td><td>{t.journalId?<Link to={`/accounting/journals/${t.journalId}`}>{t.description}</Link>:t.description}</td><td>{t.party}</td><td><span className={`bk-badge ${t.amount>=0?'green':'red'}`}>{t.amount>=0?'↑ Receipt':'↓ Payment'}</span></td><td className={t.amount>=0?'bk-positive':'bk-negative'}>{t.amount>=0?'+':'−'}{money(Math.abs(t.amount))}</td><td><span className={`bk-badge ${t.cleared?'green':'blue'}`}>{t.cleared?'Reconciled':'Unreconciled'}</span></td><td>{sample?<button aria-label="View Sample transaction" onClick={sampleAction}>•••</button>:<Link aria-label="View bank register" to={`/banking/accounts/${t.bankId}`}>•••</Link>}</td></tr>)}</tbody></table>{!visible.length&&<p className="bk-empty">No transactions in this period.</p>}</div>
+ <footer className="bk-pagination"><span>Showing {filtered.length?safe*size+1:0}–{Math.min((safe+1)*size,filtered.length)} of {filtered.length} transactions</span><div><button disabled={!safe} onClick={()=>setPage(safe-1)}>‹</button>{Array.from({length:pages},(_,i)=><button className={i===safe?'active':''} key={i} onClick={()=>setPage(i)}>{i+1}</button>)}<button disabled={safe>=pages-1} onClick={()=>setPage(safe+1)}>›</button></div><label>Rows per page: <select value={size} onChange={e=>{setSize(Number(e.target.value));setPage(0);}}>{[5,10,20,50].map(n=><option key={n}>{n}</option>)}</select></label></footer>
+ </section></div><aside><section className="bk-card"><h2>Reconciliation</h2><p>View and complete bank reconciliations.</p>{rows.map(({bank,latest},i)=>{const done=sample?i===0:!!latest&&latest.statementDate>=monthStart;return <Link className={`bk-side-account ${done?'complete':''}`} key={bank.id} onClick={e=>{if(sample){e.preventDefault();sampleAction();}}} to={sample?'/banking?sample=1':canReconcile?`/banking/accounts/${bank.id}/reconcile`:`/banking/accounts/${bank.id}`}>
+ {done?<CheckCircle2/>:<Clock/>}<span><strong>{bank.name}</strong><small>{done?'Reconciled to':'Review reconciliation'} {sample?'31 Oct 2026':latest?.statementDate??'· Not recorded'}</small></span><ChevronRight size={16}/></Link>;})}</section>
+ <section className="bk-card"><h2>Cash Position</h2><p>Bank balance over time ({businessSettings().currency})</p><div className="bk-chart" role="img" aria-label="Six month bank balance trend">{trend.map(t=><div key={t.label}><span style={{height:`${Math.max(1,Math.abs(t.value)/max*130)}px`}} title={`${t.label}: ${money(t.value)}`} className={t.value<0?'negative':''}/><small>{t.label}</small></div>)}</div><p className="bk-chart-caption">{money(Math.min(...trend.map(t=>t.value)))} – {money(Math.max(...trend.map(t=>t.value)))}</p></section>
+ <section className="bk-card bk-tasks"><h2><CalendarDays size={20}/>Banking Tasks</h2><Link to="/banking/workbench"><span>Review {unreconciled} unreconciled transactions</span><ChevronRight size={16}/></Link><Link to="/banking/workbench"><span>Review {review} imported items</span><ChevronRight size={16}/></Link>{canWrite&&<Link to="/banking/import"><span>Import bank transactions</span><ChevronRight size={16}/></Link>}</section></aside></div>
+ </main>;
 }

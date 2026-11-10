@@ -1,3 +1,4 @@
+import {useListState} from '../../../hooks/useListState';
 import {CustomerSearchSelect,CustomerSearchSample} from '../components/CustomerSearchSelect';
 import {SalesRowActions} from '../components/SalesRowActions';
 import {SalesQuickView} from '../components/SalesQuickView';
@@ -39,20 +40,20 @@ export function getSalesDocumentPath(document: SalesDocument): string {
 export function SalesOverviewPage() {
     const payments=usePayments();
     const [entrySearch,setEntrySearch]=useSearchParams();
-    const customers=useCustomers(),credits=useCreditNotes(),[customerFilter,setCustomerFilter]=useState('ALL'),[newQuote,setNewQuote]=useState(false),[quoteCustomer,setQuoteCustomer]=useState(''),[moreFilters,setMoreFilters]=useState(false),[fulfilmentFilter,setFulfilmentFilter]=useState('ALL'),[documentTypeFilter,setDocumentTypeFilter]=useState<Tab>('ALL');
+    const customers=useCustomers(),credits=useCreditNotes(),[customerFilter,setCustomerFilter]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:customerFilter", 'ALL'),[newQuote,setNewQuote]=useState(false),[quoteCustomer,setQuoteCustomer]=useState(''),[moreFilters,setMoreFilters]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:moreFilters", false),[fulfilmentFilter,setFulfilmentFilter]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:fulfilmentFilter", 'ALL'),[documentTypeFilter,setDocumentTypeFilter]=useListState<Tab>("src/features/sales/pages/SalesOverviewPage.tsx:documentTypeFilter", 'ALL');
     const canManage=usePermission('sales.manage');
     useEffect(()=>{if(entrySearch.get('newQuote')==='1'&&canManage){setQuoteCustomer(entrySearch.get('customerId')??'');setNewQuote(true);setEntrySearch({}, {replace:true});}},[entrySearch,canManage,setEntrySearch]);
     const canReadCost=usePermission('inventory.cost.read');
     const liveDocuments = useSalesDocuments();
     const today=businessDateKey(new Date().toISOString());
-    const [sample,setSample]=useState(false),[special,setSpecial]=useState('');
+    const [sample,setSample]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:sample", false),[special,setSpecial]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:special", '');
     const documents=useMemo(()=>sample?salesRegisterSamples(today):liveDocuments,[sample,today,liveDocuments]);
-    const [tab, setTab] = useState<Tab>("ALL");
-    const [query, setQuery] = useState("");
-    const [status, setStatus] = useState("ALL");
-    const [dateMode, setDateMode] = useState<"day" | "range">("day");
-    const [dateFrom, setDateFrom] = useState("");
-    const [dateTo, setDateTo] = useState("");
+    const [tab, setTab] = useListState<Tab>("src/features/sales/pages/SalesOverviewPage.tsx:tab", "ALL");
+    const [query, setQuery] = useListState("src/features/sales/pages/SalesOverviewPage.tsx:query", "");
+    const [status, setStatus] = useListState("src/features/sales/pages/SalesOverviewPage.tsx:status", "ALL");
+    const [dateMode, setDateMode] = useListState<"day" | "range">("src/features/sales/pages/SalesOverviewPage.tsx:dateMode", "day");
+    const [dateFrom, setDateFrom] = useListState("src/features/sales/pages/SalesOverviewPage.tsx:dateFrom", "");
+    const [dateTo, setDateTo] = useListState("src/features/sales/pages/SalesOverviewPage.tsx:dateTo", "");
     const [preview, setPreview] = useState<SalesDocument | null>(null);
     useEffect(() => {
         if (!preview) return;

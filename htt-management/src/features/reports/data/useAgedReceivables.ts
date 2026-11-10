@@ -54,15 +54,18 @@ export function useAgedReceivables(
         useCreditNotes();
 
     return useMemo(
-        () =>
-            buildAgedReceivablesReport({
+        () => {
+            const input = {
                 customers,
                 documents,
                 payments,
                 creditAllocations,
                 creditNotes,
                 asOfDate,
-            }),
+            };
+            const trend = Array.from({length:6},(_,i)=>{const d=new Date(asOfDate+'T12:00:00Z');d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()-(5-i)+1);d.setUTCDate(0);const date=i===5?asOfDate:d.toISOString().slice(0,10);return {date,total:buildAgedReceivablesReport({...input,asOfDate:date}).totalOutstanding};});
+            return {...buildAgedReceivablesReport(input),trend};
+        },
         [
             customers,
             documents,

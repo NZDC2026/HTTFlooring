@@ -1,8 +1,8 @@
+import {useState} from 'react';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
-    useState,
-} from "react";
+    } from "react";
 
 import {
     AlertTriangle,
@@ -28,8 +28,7 @@ export function AccountsPayableReconciliationPage() {
         asOfDate,
         setAsOfDate,
     ] =
-        useState(
-            getToday(),
+        useState(getToday(),
         );
 
     const reconciliation =

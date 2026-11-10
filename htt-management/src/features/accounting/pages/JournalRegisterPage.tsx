@@ -1,9 +1,9 @@
+import {useListState} from '../../../hooks/useListState';
 import {businessDateKey} from '../../../lib/businessDate';
 import { businessSettings } from '../../business-workspace/configurationState';
 import {
     useMemo,
-    useState,
-} from "react";
+    } from "react";
 
 import {
     ArrowLeft,
@@ -175,7 +175,7 @@ export function JournalRegisterPage() {
     const [
         asOfDate,
         setAsOfDate,
-    ] = useState(
+    ] = useListState("src/features/accounting/pages/JournalRegisterPage.tsx:asOfDate", 
         getToday(),
     );
 

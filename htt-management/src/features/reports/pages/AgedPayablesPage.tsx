@@ -1,3 +1,5 @@
+import {useListState} from '../../../hooks/useListState';
+import {ReportsFrame} from '../ReportsFrame';
 import { ReportContext } from '../../report-settings/ReportContext';
 import { reportMoney } from '../../report-settings/reportPresentation';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -13,8 +15,7 @@ import {
 
 import {
     useMemo,
-    useState,
-} from "react";
+    } from "react";
 
 import {
     useNavigate,
@@ -32,28 +33,29 @@ type ReportFilter =
     | "ALL"
     | "OVERDUE";
 
-export function AgedPayablesPage() {
+export function AgedPayablesPage(){return <ReportsFrame><AgedPayablesContent/></ReportsFrame>;}
+function AgedPayablesContent() {
     const navigate =
         useNavigate();
 
     const [
         asOfDate,
         setAsOfDate,
-    ] = useState(
+    ] = useListState("src/features/reports/pages/AgedPayablesPage.tsx:asOfDate", 
         getToday(),
     );
 
     const [
         search,
         setSearch,
-    ] = useState(
+    ] = useListState("src/features/reports/pages/AgedPayablesPage.tsx:search", 
         "",
     );
 
     const [
         filter,
         setFilter,
-    ] = useState<ReportFilter>(
+    ] = useListState<ReportFilter>("src/features/reports/pages/AgedPayablesPage.tsx:filter", 
         "ALL",
     );
 

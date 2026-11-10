@@ -1,0 +1,6 @@
+SAMPLE — Delivery checklist (read-only preview)
+Customer: Sample Harbour Flooring
+1. Confirm oak sample colours.
+2. Confirm delivery address and site access.
+3. Contact the assigned salesperson before dispatch.
+This is synthetic preview data, not a real delivery instruction.

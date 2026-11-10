@@ -1,3 +1,4 @@
+import {longestPageTitle} from './navigationState';
 import { isWeb } from "../features/security/webBridge";
 import { useSecurity, logout } from "../features/security/securityClient";
 import { useEffect } from 'react';
@@ -23,6 +24,11 @@ const pageNames: Record<string, string> = {
     "/purchases": "Purchases",
     "/inventory": "Inventory",
     "/sales/credit-returns": "Customer Credit / Return",
+    "/sales/customer-returns": "Customer Credit / Return",
+    "/sales/credit-notes": "Customer Credit / Return",
+    "/procurement": "Procurement",
+    "/tasks": "Tasks & Action Centre",
+    "/tools/import-export": "Import & Export",
     "/inventory/damage": "Damage Stock",
     "/inventory/adjustments": "Stock Adjustments",
     "/inventory/sold": "Inventory · Sold",
@@ -43,7 +49,7 @@ export function Topbar() {
 
     let pageTitle =
         pageNames[location.pathname] ??
-        Object.entries(pageNames).find(([path]) => location.pathname.startsWith(path + "/"))?.[1] ?? "HTT Management";
+        pageNames[longestPageTitle(location.pathname,pageNames)??''] ?? "HTT Management";
 
     if (location.pathname === "/contacts/price-settings" || location.pathname === "/inventory/price-settings") pageTitle = "Price Settings";
     if (location.pathname === "/settings/employees") pageTitle = "Users";

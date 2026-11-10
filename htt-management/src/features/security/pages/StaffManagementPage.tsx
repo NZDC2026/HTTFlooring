@@ -1,3 +1,4 @@
+import {useListState} from '../../../hooks/useListState';
 import { StaffActivitiesPanel } from "./StaffActivitiesPanel";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
@@ -12,7 +13,7 @@ function department(user:PublicUser){return user.staffProfile?.department||(user
 const samples:PublicUser[]=[{id:"sample-sales",username:"sample.alex",displayName:"Alex Chen",roles:["SALES"],active:true,staffProfile:{employeeCode:"EMP-SAMPLE-001",department:"Sales",position:"Sales Representative",phone:"0400 000 101",email:"alex@example.invalid",startDate:"2026-07-01"}},{id:"sample-warehouse",username:"sample.jamie",displayName:"Jamie Lee",roles:["WAREHOUSE"],active:true,staffProfile:{employeeCode:"EMP-SAMPLE-002",department:"Warehouse",position:"Warehouse Supervisor",phone:"0400 000 102",email:"jamie@example.invalid",startDate:"2026-08-10"}},{id:"sample-finance",username:"sample.morgan",displayName:"Morgan Taylor",roles:["ACCOUNTANT"],active:false,staffProfile:{employeeCode:"EMP-SAMPLE-003",department:"Finance",position:"Accountant",phone:"0400 000 103",email:"morgan@example.invalid",startDate:"2026-07-15"}}];
 export function StaffManagementPage(){
  const [view,setView]=useState("employees"),[activityEmployee,setActivityEmployee]=useState("");
- const [users,setUsers]=useState<PublicUser[]>([]),[query,setQuery]=useState(""),[dept,setDept]=useState("All"),[status,setStatus]=useState("All"),[sample,setSample]=useState(false),[editor,setEditor]=useState<PublicUser|"new"|null>(null),[error,setError]=useState(""),[notice,setNotice]=useState("");
+ const [users,setUsers]=useState<PublicUser[]>([]),[query,setQuery]=useListState("src/features/security/pages/StaffManagementPage.tsx:query", ""),[dept,setDept]=useState("All"),[status,setStatus]=useListState("src/features/security/pages/StaffManagementPage.tsx:status", "All"),[sample,setSample]=useListState("src/features/security/pages/StaffManagementPage.tsx:sample", false),[editor,setEditor]=useState<PublicUser|"new"|null>(null),[error,setError]=useState(""),[notice,setNotice]=useState("");
  function load(){try{setUsers(nativeRequest<PublicUser[]>("users.list"));setError("");}catch(e){setError(e instanceof Error?e.message:"Could not load employees.");}}
  useEffect(load,[]);
  const source=sample?samples:users,filtered=source.filter(u=>(dept==="All"||department(u)===dept)&&(status==="All"||(status==="Active")==u.active)&&[u.displayName,u.username,u.staffProfile?.employeeCode,u.staffProfile?.phone,u.staffProfile?.email].join(" ").toLowerCase().includes(query.toLowerCase()));

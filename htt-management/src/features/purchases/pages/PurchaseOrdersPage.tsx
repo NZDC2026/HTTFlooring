@@ -1,3 +1,4 @@
+import {useListState} from '../../../hooks/useListState';
 import {PurchasePostingAlerts} from '../components/PurchasePostingAlerts';
 import {PurchaseFlowSample} from '../components/PurchaseFlowSample';
 import { useState } from 'react';
@@ -22,7 +23,7 @@ export function PurchaseOrdersPage(){
  const [stageQuery]=useSearchParams(),isQuotation=stageQuery.get("stage")==="quotation";
  const orders=usePurchaseOrders(),receipts=useGoodsReceipts(),bills=useSupplierBills(),navigate=useNavigate();
  const canWrite=usePermission('purchases.write'),canReturns=usePermission('purchases.return.read');
- const [sample,setSample]=useState(false),[preview,setPreview]=useState<PurchaseOrder|null>(null),[from,setFrom]=useState(''),[to,setTo]=useState(''),[receiving,setReceiving]=useState('All'),[status,setStatus]=useState('All'),[search,setSearch]=useState(''),[more,setMore]=useState(false);
+ const [sample,setSample]=useListState("src/features/purchases/pages/PurchaseOrdersPage.tsx:sample", false),[preview,setPreview]=useState<PurchaseOrder|null>(null),[from,setFrom]=useListState("src/features/purchases/pages/PurchaseOrdersPage.tsx:from", ''),[to,setTo]=useListState("src/features/purchases/pages/PurchaseOrdersPage.tsx:to", ''),[receiving,setReceiving]=useListState("src/features/purchases/pages/PurchaseOrdersPage.tsx:receiving", 'All'),[status,setStatus]=useListState("src/features/purchases/pages/PurchaseOrdersPage.tsx:status", 'All'),[search,setSearch]=useListState("src/features/purchases/pages/PurchaseOrdersPage.tsx:search", ''),[more,setMore]=useState(false);
  const today=businessDateKey(new Date().toISOString()),month=today.slice(0,7),end=businessSettings().yearEnd??'06-30',startMonth=Number(end.slice(0,2))%12+1,yearStart=`${Number(today.slice(0,4))-(Number(today.slice(5,7))<startMonth?1:0)}-${String(startMonth).padStart(2,'0')}-01`;
  const source=sample?(isQuotation?purchaseRegisterSamples(today).slice(0,2).map((o,i)=>({...o,status:'QUOTATION' as const,purchaseOrderNumber:`PQ-SAMPLE-${101+i}`,quotationNumber:`PQ-SAMPLE-${101+i}`,lines:o.lines.map(l=>({...l,receivedQuantity:0,billedQuantity:0}))})):purchaseRegisterSamples(today)):orders;
  const rows=source.filter(o=>(isQuotation?o.status==='QUOTATION':o.status!=='QUOTATION')&&(!from||o.orderDate>=from)&&(!to||o.orderDate<=to)&&(receiving==='All'||purchaseReceiving(o)===receiving)&&(status==='All'||o.status===status)&&[o.purchaseOrderNumber,o.supplierName,o.supplierCode,o.supplierReference,...o.lines.flatMap(l=>[l.sku,l.description])].join(' ').toLowerCase().includes(search.toLowerCase()));

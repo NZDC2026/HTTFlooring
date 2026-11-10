@@ -1,5 +1,6 @@
+import {useState} from 'react';
 import { Link } from "react-router-dom";
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { WalletCards, TriangleAlert, CreditCard, Layers, ShoppingCart, Truck, Building2, UserRound, MapPin, Activity, Phone, Mail } from "lucide-react";
 import { businessSettings } from "../../business-workspace/configurationState";
 import { useCustomerSalesDocuments } from "../../sales/data/useSalesDocuments";

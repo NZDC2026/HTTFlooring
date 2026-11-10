@@ -1,3 +1,4 @@
+import { TasksPage } from '../task-hub/TasksPage';
 import {YearEndPage} from '../year-end/YearEndPage';
 import {PayrollFilingsPage} from '../payroll-filing/PayrollFilingsPage';
 import {BankFeedsPage} from '../bank-feeds/BankFeedsPage';
@@ -58,6 +59,7 @@ function ModuleRoute({ moduleId, mode }: { moduleId: string; mode: 'list' | 'new
  if(m.id==='report-packs')return <PreviewAccess permission={m.permission}><ReportPacksPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='payment-batches')return <PreviewAccess permission={m.permission}><PaymentBatchPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
  if(m.id==='bank-accounts')return <PreviewAccess permission={m.permission}><BankAccountSetupPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;
+ if(m.id==='tasks'&&mode==='list')return <PreviewAccess permission={m.permission}><TasksPage/></PreviewAccess>;
  if(connectedModules.has(m.id))return <PreviewAccess permission={m.permission}>{m.id==='products'?<ProductBusinessPage key={`${m.id}/${mode}/${previewId}`} mode={mode} id={previewId}/>:<ConfigurationBusinessPage key={`${m.id}/${mode}/${previewId}`} domain={m.id} path={m.path} title={m.title} mode={mode} id={previewId}/>}</PreviewAccess>;
  return <PreviewAccess permission={m.permission}><div role="alert">No local page configured for this register. Return to the page directory.</div></PreviewAccess>;
 }

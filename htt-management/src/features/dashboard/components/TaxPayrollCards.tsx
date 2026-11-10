@@ -1,4 +1,4 @@
-import { useState } from "react";
+import {useState} from 'react';
 import { Link } from "react-router-dom";
 import { useAccounts, useJournalEntries } from "../../accounting/data/useAccounting";
 import { usePayroll } from "../../payroll/data/payrollClient";

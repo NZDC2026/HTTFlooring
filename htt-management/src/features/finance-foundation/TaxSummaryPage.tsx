@@ -1,6 +1,6 @@
+import {useState} from 'react';
 import { reportNumber } from '../report-settings/reportPresentation';
 import { ReportContext } from '../report-settings/ReportContext';
-import { useState } from 'react';
 import { BusinessFrame } from '../business-workspace/MasterDataPages';
 import { Panel, Field, SampleTable, Cell, fieldClass } from '../prototype/PrototypeUI';
 import { salesRepository } from '../sales/data/salesRepository';

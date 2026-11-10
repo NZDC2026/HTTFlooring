@@ -1,3 +1,4 @@
+import {useListState} from '../../../hooks/useListState';
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Settings2, Layers, ArrowLeft, ArrowRight, Search } from "lucide-react";
@@ -16,7 +17,7 @@ const samples:Product[]=[
  {id:"sample-herringbone",sku:"SAMPLE-BONITA-HB",name:"Sample Bonita · Natural Herringbone",category:"Timber",brand:"Sample HTT Flooring",collection:"Bonita",pattern:"Herringbone",status:"ACTIVE",baseUnitId:"sample-m2",createdAt:"",updatedAt:"",units:[{id:"sample-m2",code:"M2",name:"Square Metre",symbol:"m²",conversionToBase:1,basePrice:80,vipPrice:70,vvipPrice:60,containerPrice:50,tradePrice:85,publicPrice:95,isBaseUnit:true,active:true}]}
 ];
 export function CustomerPriceSettingsPage(){
- const products=useProducts(),canWrite=usePermission("inventory.adjust"),[query,setQuery]=useState(""),[brand,setBrand]=useState("All"),[sample,setSample]=useState(false),[category,setCategory]=useState("All"),[pattern,setPattern]=useState("All"),[selected,setSelected]=useState<string|null>(null);
+ const products=useProducts(),canWrite=usePermission("inventory.adjust"),[query,setQuery]=useListState("src/features/contacts/pages/CustomerPriceSettingsPage.tsx:query", ""),[brand,setBrand]=useState("All"),[sample,setSample]=useListState("src/features/contacts/pages/CustomerPriceSettingsPage.tsx:sample", false),[category,setCategory]=useListState("src/features/contacts/pages/CustomerPriceSettingsPage.tsx:category", "All"),[pattern,setPattern]=useState("All"),[selected,setSelected]=useState<string|null>(null);
  const demo:Product[]=[...samples,{...samples[0],id:"sample-chevron",sku:"SAMPLE-CHEVRON",name:"Sample Heritage · Chevron Oak",collection:"Heritage",pattern:"Chevron"},...(["Hybrid","Laminate"] as const).flatMap(c=>(["Plank","Herringbone"] as const).map(p=>({...samples[0],id:`sample-${c}-${p}`,sku:`SAMPLE-${c}-${p}`,name:`Sample ${c} · ${p}`,category:c,collection:`Sample ${c}`,pattern:p}))),...accessoryTypes.map((a,i)=>({...samples[0],id:`sample-accessory-${i}`,sku:`SAMPLE-ACC-${i}`,name:`Sample ${a}`,category:"Accessories" as const,collection:a,pattern:undefined,accessoryType:a}))];
  const source=sample?demo:products;
  const brands=[...new Set(source.map(p=>p.brand?.trim()).filter((b):b is string=>!!b))].sort();

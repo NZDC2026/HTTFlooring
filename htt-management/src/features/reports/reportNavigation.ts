@@ -1,0 +1,23 @@
+export const reportCategories=['Sales','Purchases','Accounts (AR / AP)','Inventory','Financial','Custom Reports'] as const;
+export const reportLinks=[
+ {category:'Sales',name:'Sales Analysis',path:'/reports/sales-analysis',permission:'sales.read'},
+ {category:'Sales',name:'Product Sales',path:'/inventory/sold',permission:'inventory.read'},
+ {category:'Sales',name:'Customer Sales Performance',path:'/contacts',permission:'sales.read'},
+ {category:'Purchases',name:'Purchase Analysis',path:'/reports/purchase-analysis',permission:'purchases.read'},
+ {category:'Purchases',name:'Received Purchases',path:'/inventory/bought',permission:'inventory.read'},
+ {category:'Accounts (AR / AP)',name:'Aged Receivables',path:'/reports',permission:'sales.read'},
+ {category:'Accounts (AR / AP)',name:'Aged Payables',path:'/reports/aged-payables',permission:'purchases.read'},
+ {category:'Accounts (AR / AP)',name:'Customer Balances',path:'/reports?view=balances',permission:'sales.read'},
+ {category:'Accounts (AR / AP)',name:'Supplier Balances',path:'/contacts/suppliers',permission:'purchases.read'},
+ {category:'Accounts (AR / AP)',name:'Outstanding Invoices',path:'/sales/invoice-reminders?filter=All',permission:'sales.read'},
+ {category:'Accounts (AR / AP)',name:'Outstanding Bills',path:'/purchases/payables',permission:'purchases.read'},
+ {category:'Accounts (AR / AP)',name:'Account Activity',path:'/accounting/general-ledger',permission:'accounting.read'},
+ {category:'Inventory',name:'Inventory Valuation',path:'/inventory/valuation',permission:'inventory.cost.read'},
+ {category:'Inventory',name:'Stock Movements',path:'/inventory',permission:'inventory.read'},
+ {category:'Financial',name:'Profit & Loss',path:'/accounting/profit-and-loss',permission:'accounting.read'},
+ {category:'Financial',name:'Balance Sheet',path:'/accounting/balance-sheet',permission:'accounting.read'},
+ {category:'Financial',name:'Cash Flow',path:'/reports/cash-flow',permission:'accounting.read'},
+ {category:'Financial',name:'Trial Balance',path:'/accounting/trial-balance',permission:'accounting.read'},
+ {category:'Custom Reports',name:'Saved & Favourite Reports',path:'/reports/saved',permission:'accounting.read'},
+ {category:'Custom Reports',name:'Management Report Packs',path:'/reports/packs',permission:'accounting.read'},
+] as const;

@@ -8,11 +8,11 @@ import { useState } from "react";
 import { useSecurity } from "../../security/securityClient";
 import { Bell, ChevronRight } from "lucide-react";
 import {businessSettings} from '../../business-workspace/configurationState';
-import { useWorkspaceRecords } from '../../business-workspace/workspaceRepository';
+import { useTaskHub } from '../../task-hub/useTaskHub';
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "../../../components/ui/Card";
 import { useFinanceOverview } from "../data/useFinanceOverview";
-const fmt = (n: number) => new Intl.NumberFormat("en-NZ", { style: "currency", currency: "NZD" }).format(n);
+const fmt = (n: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: businessSettings().currency }).format(n);
 export function TasksCard() {
  const today = new Date().toLocaleDateString("en-CA", {timeZone:businessSettings().timezone});
  const data = useFinanceOverview(today);
@@ -33,11 +33,13 @@ export function TasksCard() {
  };
  const { session } = useSecurity();
  const [deliveryScope, setDeliveryScope] = useState<"mine" | "team">("mine");
- const records = useWorkspaceRecords("tasks");
+ const hub = useTaskHub();
+ const records = hub.rows.filter(t=>t.source==='customer').map(t=>t.row!);
  const hasDeliveries = records.some(task => task.orderId && task.status !== "Completed");
  const followups = records.filter(task => !["Completed", "Inactive"].includes(task.status) &&
      (task.orderId ? deliveryScope === "team" || task.owner === session?.user.id : task.due <= today));
  const tasks = [
+ ...hub.rows.filter(t=>t.source==='supplier'&&t.status!=='Completed'&&t.due&&t.due<=today).map(t=>({title:t.name,description:`${t.account} · ${t.due<today?'Overdue':'Due today'} · ${t.due}`,path:'/tasks?task='+encodeURIComponent(t.id),active:true})),
  ...followups.map(t=>({title:t.name,description:t.orderId ? `${t.deliveryAt.replace('T',' ')} · ${t.ownerName} · ${t.deliveryAddress}` : `${t.due<today?'Overdue':'Due today'} · ${t.due} · ${t.priority}`,path:t.orderId ? `/sales/orders/${t.orderId}` : `/tasks/${t.id}`,active:true})),
   {title:`${data.overdueInvoiceCount} overdue invoices`, description:`${fmt(data.overdueReceivables)} requires follow-up`, path:"/sales", active:data.overdueInvoiceCount>0},
   {title:`${data.bankReviewCount} bank accounts require evidence review`,description:"Saved reconciliation evidence is invalid or incomplete",path:"/banking",active:data.bankReviewCount>0},

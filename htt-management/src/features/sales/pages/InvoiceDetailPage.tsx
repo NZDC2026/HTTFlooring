@@ -148,6 +148,9 @@ export function InvoiceDetailPage() {
             invoice?.sourceSalesOrderId,
         );
 
+    const paymentOperationIdRef = useRef<string | null>(null);
+    const paymentSubmittingRef = useRef(false);
+
     if (!invoice) {
         return (
             <Navigate
@@ -230,8 +233,6 @@ export function InvoiceDetailPage() {
         invoice.status !==
         "DRAFT";
 
-    const paymentOperationIdRef = useRef<string | null>(null);
-    const paymentSubmittingRef = useRef(false);
 
     function handlePayment(
         values:

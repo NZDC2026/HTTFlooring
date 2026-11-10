@@ -1,0 +1,24 @@
+2026-11-10 Navigation and code audit
+
+Fixed
+- One top-level navigation owner per route: Sales / Credit & Return, Purchases / Incoming Shipment, Settings / Users / Trash / Personal preferences.
+- Bounded path matching and longest matching page titles; Accounting submenu handles query filters and nested detail pages.
+- Invoice detail refs no longer appear after a conditional return (React Hook order defect).
+- Shared DataTable can render without browser globals.
+- Dashboard bank and alert amounts follow business currency instead of hard-coded NZD.
+- Removed unused visit notification counter and duplicated navigation matching. Renamed an event handler incorrectly named like a Hook.
+- Preserved existing read-only Sample previews and business data. Navigation can be checked with existing Sample Credit / Return and Incoming Shipment pages.
+
+Verification
+- Production web build and TypeScript check passed.
+- Lint passed with warnings still present.
+- Final navigation/table/back/dashboard regression: 53 tests passed.
+- Web authentication and durable business database: 10 tests passed.
+- Full-suite baseline: 263 files, 4270 tests; 4138 passed, 122 failed, 10 skipped before fixes.
+- After fixes, route/preview suite: 1723 passed, 22 failed. Remaining assertions include obsolete Accounting periods sidebar entry, old page headings, standalone preview routing and workspace directory drift.
+
+Not resolved by this change
+- Full suite is not green. Contact review validation and finance foundation have failing tests requiring further diagnosis.
+- Desktop package test fixtures fail JSON parsing under the current environment.
+- Table capability inventory and documentation/route directory contracts need reconciliation with prior UI changes.
+- Existing lint warnings remain. No blanket deletion of business workflows, audit records or financial data was performed.
