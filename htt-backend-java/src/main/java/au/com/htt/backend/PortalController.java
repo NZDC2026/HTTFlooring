@@ -82,6 +82,35 @@ class PortalController {
                 """, args);
     }
 
+    /** Customer document queries use the existing dedicated, read-only portal connection. */
+    @GetMapping({"/quotes", "/orders", "/invoices", "/credit-notes", "/returns"})
+    ResponseEntity<String> documents(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @RequestParam UUID branchId, @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "25") int pageSize) {
+        return documents(token,request,branchId,null,page,pageSize);
+    }
+
+    @GetMapping({"/quotes/{id}", "/orders/{id}", "/invoices/{id}", "/credit-notes/{id}", "/returns/{id}"})
+    ResponseEntity<String> document(@AuthenticationPrincipal Jwt token, HttpServletRequest request,
+            @RequestParam UUID branchId, @PathVariable UUID id) {
+        return documents(token,request,branchId,id,1,1);
+    }
+
+    private ResponseEntity<String> documents(Jwt token,HttpServletRequest request,UUID branch,UUID id,int page,int size) {
+        var args=scope(token,request);args.put("branch",branch);args.put("id",id);
+        args.put("kind",documentKind(request.getRequestURI()));args.put("page",page);args.put("size",size);
+        return query("SELECT portal.sales_documents(:iss,:sub,:company,:grant,:branch,:kind,CAST(:id AS uuid),:page,:size)::text",args);
+    }
+
+    static String documentKind(String uri) {
+        String resource=uri.substring("/api/portal/v1/".length()).split("/",2)[0];
+        return switch(resource) {
+            case "quotes" -> "QUOTE";case "orders" -> "SALES_ORDER";case "invoices" -> "INVOICE";
+            case "credit-notes" -> "CREDIT_NOTE";case "returns" -> "SALES_RETURN";
+            default -> throw new IllegalArgumentException("Unsupported portal document resource");
+        };
+    }
+
     private ResponseEntity<String> query(String sql, Map<String, ?> args) {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(database.read(sql, args));
     }

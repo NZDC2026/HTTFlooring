@@ -1,0 +1,20 @@
+BEGIN;
+SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true),set_config('htt.actor_id','00000000-0000-0000-0000-000000000002',true);
+DO $$ DECLARE q sales.quotes;p uuid;qty numeric;before_holds numeric;after_holds numeric;stock_hash text;gl_hash text;BEGIN
+ SELECT s.* INTO q FROM sales.quotes s JOIN platform.documents d ON d.company_id=s.company_id AND d.id=s.id WHERE s.company_id=core.current_company() AND s.status='DRAFT' AND platform.document_visible(s.id) AND lower(d.number) NOT LIKE '%sample%' AND EXISTS(SELECT 1 FROM sales.quote_lines l WHERE l.company_id=s.company_id AND l.quote_id=s.id AND l.item_type='STOCK') ORDER BY s.id LIMIT 1;
+ IF q.id IS NULL THEN RAISE EXCEPTION 'Synthetic draft quote missing';END IF;
+ SELECT product_id,sum(base_quantity) INTO p,qty FROM sales.quote_lines WHERE company_id=q.company_id AND quote_id=q.id AND item_type='STOCK' GROUP BY product_id ORDER BY product_id LIMIT 1;
+ SELECT (x->>'quantity')::numeric INTO before_holds FROM jsonb_array_elements(inventory.commercial_reservations()->'items') x WHERE x->>'productId'=p::text;
+ SELECT md5(string_agg(row_to_json(b)::text,',' ORDER BY b.id)) INTO stock_hash FROM inventory.stock_balances b WHERE company_id=q.company_id;
+ SELECT md5(string_agg(row_to_json(l)::text,',' ORDER BY l.id)) INTO gl_hash FROM accounting.journal_lines l WHERE company_id=q.company_id;
+ UPDATE sales.quotes SET status='SUBMITTED' WHERE company_id=q.company_id AND id=q.id;
+ UPDATE platform.documents SET state='CONFIRMED' WHERE company_id=q.company_id AND id=q.id;
+ SELECT (x->>'quantity')::numeric INTO after_holds FROM jsonb_array_elements(inventory.commercial_reservations()->'items') x WHERE x->>'productId'=p::text;
+ IF after_holds-before_holds<>qty THEN RAISE EXCEPTION 'Future quote did not add exactly its base quantity hold';END IF;
+ UPDATE sales.quotes SET status='DRAFT' WHERE company_id=q.company_id AND id=q.id;
+ UPDATE platform.documents SET state='DRAFT' WHERE company_id=q.company_id AND id=q.id;
+ SELECT (x->>'quantity')::numeric INTO after_holds FROM jsonb_array_elements(inventory.commercial_reservations()->'items') x WHERE x->>'productId'=p::text;
+ IF after_holds<>before_holds THEN RAISE EXCEPTION 'Returned-to-draft quote still holds stock';END IF;
+ IF stock_hash IS DISTINCT FROM(SELECT md5(string_agg(row_to_json(b)::text,',' ORDER BY b.id)) FROM inventory.stock_balances b WHERE company_id=q.company_id) OR gl_hash IS DISTINCT FROM(SELECT md5(string_agg(row_to_json(l)::text,',' ORDER BY l.id)) FROM accounting.journal_lines l WHERE company_id=q.company_id) THEN RAISE EXCEPTION 'Commercial hold changed stock or GL';END IF;
+END $$;
+ROLLBACK;

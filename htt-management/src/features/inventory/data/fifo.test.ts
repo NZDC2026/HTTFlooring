@@ -32,3 +32,15 @@ it('defaults a newly created product policy to FIFO',()=>{
  policies.ensureProductPolicy('new-fifo-product','new-unit',true);
  expect(policies.requireByProductId('new-fifo-product').costingMethod).toBe('FIFO');
 });
+
+it('allocates existing weighted-average products by oldest batch while preserving their costing and history',()=>{
+ const policy=policies.requireByProductId(productId);
+ policies.setMethod({productId,method:'MOVING_WEIGHTED_AVERAGE',expectedUpdatedAt:policy.updatedAt,reason:'Existing weighted-average product'});
+ const first=incoming(10,10),second=incoming(10,20);
+ const historical=structuredClone(movements.getAll());
+ const result=issue(12);
+ expect(result.movement).toMatchObject({costingMethod:'MOVING_WEIGHTED_AVERAGE',valueChange:-180,batchAllocations:[{batchId:first.movement.id,quantity:10},{batchId:second.movement.id,quantity:2}]});
+ expect(result.balance.inventoryValue).toBe(120);
+ expect(movements.getAll().slice(1)).toEqual(historical);
+ expect(issue(2).movement.batchAllocations).toMatchObject([{batchId:second.movement.id,quantity:2}]);
+});

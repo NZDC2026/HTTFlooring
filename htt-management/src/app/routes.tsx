@@ -1,3 +1,4 @@
+import {OwnerDashboardPage} from '../features/dashboard/pages/OwnerDashboardPage';
 import {BankingTransactionsPage} from '../features/banking/pages/BankingSubpages';
 import {PromotionPage} from '../features/promotions/PromotionPage';
 import {ProcurementPage} from '../features/procurement/ProcurementPage';
@@ -24,7 +25,7 @@ import { SecurityAdministrationPage } from "../features/security/pages/SecurityA
 import { type RouteObject, Navigate } from "react-router-dom";
 
 import { AppLayout } from "../layouts/AppLayout";
-import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
+import { SummariesPage } from "../features/reports/pages/SummariesPage";
 import { CustomerDemoPage } from "../features/demo/pages/CustomerDemoPage";
 import { SalesOverviewPage } from "../features/sales/pages/SalesOverviewPage";
 import { CustomersPage } from "../features/contacts/pages/CustomersPage";
@@ -119,7 +120,7 @@ export const appRoutes:RouteObject[] = [
             },
             {
                 path: "dashboard",
-                element: <DashboardPage />,
+                element: <OwnerDashboardPage />,
             },
             {
                 path: "demo",
@@ -382,6 +383,10 @@ export const appRoutes:RouteObject[] = [
             {
                 path: "payroll",
                 element: <PayrollOverviewPage />,
+            },
+            {
+                path: "reports/summaries",
+                element: <SummariesPage />,
             },
             {
                 path: "reports",

@@ -43,7 +43,7 @@ try:
  for iteration in range(2):
   result=run([d,'run','--rm','--network',network,'-e','HTT_MIGRATION_DATABASE_URL='+migrationenv['HTT_MIGRATION_DATABASE_URL'],'-e','HTT_MIGRATION_DATABASE_PASSWORD=local-owner-test','htt-java-stage4-migrations:local'],text=True,capture_output=True)
   (out/('migration-'+str(iteration)+'.log')).write_text(result.stdout+result.stderr)
- assert sql('select count(*) from public.htt_schema_history')=='56'
+ assert sql('select count(*) from public.htt_schema_history')==str(len((root/'htt-backend-java/src/main/resources/db/migration/index.txt').read_text().splitlines()))
  sql('DROP TABLE public.htt_schema_history;')
  snapshot=pathlib.Path(os.environ['HTT_SYNTHETIC_SNAPSHOT'])
  with snapshot.open('rb') as f:run([d,'exec','-i',db,'pg_restore','-U','htt_owner','-d','htt_java_test','--clean','--if-exists','--exit-on-error','--single-transaction'],stdin=f,capture_output=True)

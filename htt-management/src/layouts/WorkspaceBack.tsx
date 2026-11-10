@@ -4,6 +4,8 @@ import {useEffect,useState,type RefObject} from 'react';
 import {ArrowLeft} from 'lucide-react';
 import {Link,useLocation,useNavigate} from 'react-router-dom';
 import './workspace-back.css';
+export const primaryWorkspacePaths=['/','/dashboard','/workspace','/sales','/sales/credit-returns','/promotions','/procurement','/purchases','/purchases/incoming-shipments','/inventory','/banking','/accounting','/payroll','/reports','/contacts','/contacts/supplier-dashboard','/tasks','/tools/import-export','/settings','/settings/employees','/settings/trash','/settings/preferences'];
+export const isPrimaryWorkspace=(path:string)=>primaryWorkspacePaths.includes(path.replace(/\/$/,'')||'/');
 /** A safe destination when a page is opened directly or in a new desktop window. */
 export function workspaceBackTarget(path:string):string{
  const p=path.replace(/\/$/,'')||'/';
@@ -36,7 +38,7 @@ export function WorkspaceBack({contentRef}:{contentRef:RefObject<HTMLDivElement|
   };
   update();const observer=new MutationObserver(update);observer.observe(root,{childList:true,subtree:true,characterData:true});return()=>observer.disconnect();
  },[location.pathname,location.search,contentRef]);
- if(location.pathname==='/dashboard'||hasExisting)return null;
+ if(isPrimaryWorkspace(location.pathname)||hasExisting)return null;
  const target=listReturnLocation(session?.user.id??'',workspaceBackTarget(location.pathname)),sample=new URLSearchParams(location.search).get('sample')==='1';
  return <Link className="workspace-back workspace-back-fallback" to={target+(sample&&!target.includes('?')?'?sample=1':'')} onClick={e=>{
   if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;

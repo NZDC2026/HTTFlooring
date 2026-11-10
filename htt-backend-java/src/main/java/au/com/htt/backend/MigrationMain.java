@@ -20,7 +20,7 @@ final class MigrationMain {
                 for(String name:index.lines().toList()) {
                     String sql=resource(name);
                     String digest=HexFormat.of().withUpperCase().formatHex(MessageDigest.getInstance("SHA-256").digest(sql.getBytes(StandardCharsets.UTF_8)));
-                    String historyName=name.startsWith("056_")?"Htt.Java.Database.Migrations."+name:"Htt.Infrastructure.Database.Migrations."+name;
+                    String historyName=name.compareTo("056_")>=0?"Htt.Java.Database.Migrations."+name:"Htt.Infrastructure.Database.Migrations."+name;
                     try(var check=connection.prepareStatement("select sha256 from public.htt_schema_history where name=?")) {
                         check.setString(1,historyName);try(var result=check.executeQuery()) {if(result.next()){if(!digest.equals(result.getString(1)))throw new IllegalStateException("Applied migration changed: "+name);continue;}}
                     }

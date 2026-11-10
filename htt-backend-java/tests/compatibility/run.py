@@ -64,6 +64,8 @@ with (run/'run.log').open('w') as log:
         sql(source/'legacy-short-pick-lock.sql')
         for migration in sorted((project/'src/main/resources/db/compatibility').glob('*.sql')):
             sql(migration)
+        for migration in sorted((project/'src/main/resources/db/migration').glob('*.sql')):
+            if migration.name >= '057_': sql(migration)
         command(['docker','exec',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-c',
             f"BEGIN; SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true); UPDATE core.companies SET gst_basis='{args.gst_basis}' WHERE id='00000000-0000-0000-0000-000000000001'; COMMIT"],stdout=log,stderr=log)
         legacy = run/'dotnet-baseline'

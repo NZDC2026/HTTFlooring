@@ -48,6 +48,7 @@ export interface InventoryCostMovement {
     costingMethod?: InventoryCostingMethod;
     /** Explicit layer removal for voiding an unused physical customer return. */
     fifoReturnLayerId?: string;
+    batchAllocations?: { batchId: string; batchNumber: string; incomeDate: string; quantity: number }[];
     id: string;
 
     costMovementNumber: string;

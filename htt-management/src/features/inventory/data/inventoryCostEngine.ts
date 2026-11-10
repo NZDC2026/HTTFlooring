@@ -1,3 +1,4 @@
+import {allocatePhysicalStock} from './productStockBatches';
 import {fifoLayers,consumeFifo} from './fifo';
 import { isStockProduct } from './itemTypes';
 import {
@@ -700,6 +701,8 @@ export function issueInventoryCost(
             existing.averageCostPerBaseUnit,
         );
 
+    const batchAllocations = allocatePhysicalStock(inventoryCostMovementRepository.getBySiteAndProduct(input.siteId,input.productId),quantityBase,existing.quantityOnHand);
+
     const issueValue = policy.costingMethod === 'FIFO'
         ? consumeFifo(fifoLayers(inventoryCostMovementRepository.getBySiteAndProduct(input.siteId,input.productId)),quantityBase)
         : calculateInventoryIssueValue({
@@ -808,6 +811,8 @@ export function issueInventoryCost(
                     roundInventoryQuantity(
                         -quantityBase,
                     ),
+
+                batchAllocations,
 
                 unitCostBase: policy.costingMethod==='FIFO'?roundInventoryCost(-valueChange/quantityBase):unitCostBase,
 

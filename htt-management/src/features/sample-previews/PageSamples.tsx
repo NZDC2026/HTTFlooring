@@ -25,14 +25,14 @@ function ReminderSample() {
 
 export function PageSamples() {
     const { pathname } = useLocation();
-    const samples = workflowSamples.filter(sample => sample.paths.test(pathname));
+    const samples = workflowSamples.filter(sample => sample.paths.test(pathname === "/reports/summaries" ? "/dashboard" : pathname));
     if (!samples.length) return null;
 
     return <details key={pathname} open className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
         <summary className="cursor-pointer text-sm font-semibold text-amber-900">Sample · {samples.length === 1 ? samples[0].title : "Workflow previews"}</summary>
         <div className="mt-3 space-y-3">
             <p className="text-xs text-amber-900">Illustrative examples only. The live records for this page appear below.</p>
-            {pathname === "/dashboard" && <ReminderSample/>}
+            {(pathname === "/dashboard" || pathname === "/reports/summaries") && <ReminderSample/>}
             {samples.map(sample => <section key={sample.title} className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-white">
                 <h2 className="px-3 pt-3 text-sm font-semibold">{sample.title}</h2>
                 <div className="overflow-x-auto">

@@ -164,7 +164,8 @@ export function Sidebar() {
         if(path==='/settings/trash')return 'users.manage';
         if (path.startsWith('/reports/purchase') || path.startsWith('/reports/grni') || path.startsWith('/purchases')) return 'purchases.read';
         if (path === '/payroll') return 'payroll.read';
-        if (path === '/dashboard' || path.startsWith('/accounting')) return 'accounting.read';
+        if (path === '/dashboard') return 'inventory.read';
+        if (path.startsWith('/accounting')) return 'accounting.read';
         if (path === '/banking') return 'banking.read';
         if (path === '/sales' || path === '/demo' || path === '/reports') return 'sales.read';
         if (path === '/inventory') return 'inventory.read';

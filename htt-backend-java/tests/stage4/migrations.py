@@ -13,10 +13,10 @@ try:
  command=[str(pathlib.Path(os.environ['JAVA_HOME'])/'bin/java'),'-jar',str(r/'htt-backend-java/target/htt-backend-java-0.1.0-SNAPSHOT.jar')]
  for i in range(2):
   with (out/('migration-'+str(i)+'.log')).open('w') as f:run(command,env=env,stdout=f,stderr=subprocess.STDOUT)
- assert sql('select count(*) from public.htt_schema_history')=='56'
+ assert sql('select count(*) from public.htt_schema_history')==str(len((r/'htt-backend-java/src/main/resources/db/migration/index.txt').read_text().splitlines()))
  assert sql("select has_column_privilege('htt_app','sales.order_lines','id','UPDATE')")=='t'
  assert sql("select has_column_privilege('htt_app','sales.order_lines','quantity','UPDATE')")=='f'
- result={'status':'PASSED','migrations':56,'idempotentRerun':True,'legacySqlUnchanged':True}
+ result={'status':'PASSED','migrations':len((r/'htt-backend-java/src/main/resources/db/migration/index.txt').read_text().splitlines()),'idempotentRerun':True,'legacySqlUnchanged':True}
  for f in ((r/'htt-backend' if (r/'htt-backend').exists() else r/'htt-backend-c#')/'src/Htt.Infrastructure/Database/Migrations').glob('*.sql'):assert f.read_bytes()==(r/'htt-backend-java/src/main/resources/db/migration'/f.name).read_bytes()
  (out/'acceptance.json').write_text(json.dumps(result,indent=2));print('MIGRATION_PASSED',out)
 finally:subprocess.run([d,'rm','-f','-v',name],capture_output=True,timeout=60)

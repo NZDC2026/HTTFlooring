@@ -1,0 +1,50 @@
+{
+  "status": "IN_PROGRESS",
+  "scope": "Backend-only alignment with htt-management, htt_flooring_app and customer-portal; frontends and live connections unchanged",
+  "prospectiveRules": {
+    "newStockProducts": "FIFO",
+    "existingStockProducts": "MOVING_WEIGHTED_AVERAGE until explicit zero-stock versioned policy switch",
+    "quoteHolds": "Future submitted quotes; commercial projection only",
+    "historicalStockAndJournals": "Unchanged; fingerprints checked"
+  },
+  "acceptedBatch": [
+    "Customer-scoped portal quote/order/invoice/credit/return reads",
+    "FIFO layer posting and physical batch reads with cost permission",
+    "Versioned zero-stock costing method changes",
+    "Commercial quote and order reservation projection",
+    "Versioned dispatch schedule writes, idempotent replay and audit"
+  ],
+  "validation": {
+    "maven": {
+      "tests": 48,
+      "failures": 0,
+      "errors": 0
+    },
+    "focusedEvidence": "target/frontend-contracts/d78c5be20e324609b3f683fd7277c967/acceptance.json",
+    "migrationEvidence": "target/stage4/migration/5ab8329f962f41f6835e9e81bbb40486/acceptance.json",
+    "migrationCount": 60,
+    "coldInstallAndRerun": true,
+    "jarSha256": "a64d924f40c00576db28544484ac3f9b05d9656d38357a03ba320dd97f075d42"
+  },
+  "remaining": [
+    "Durable dispatch follow-up worker and local fake-provider acceptance, retry and expiry tests",
+    "Token-scoped public dispatch portal view/update and management notifications",
+    "Invoice reminder batch contract alignment",
+    "Warehouse return photo/handover request workflow assessment",
+    "FIFO supplier variance and returns/transit broader regression and concurrency cases",
+    "Final CASH/NON_CASH regression and updated deployment/rollback review for these new rules"
+  ],
+  "safety": {
+    "automationsRestored": false,
+    "externalWrites": false,
+    "productionSwitched": false,
+    "frontendFilesModifiedByThisWork": false,
+    "pushed": false
+  },
+  "rerun": {
+    "build": "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home /opt/homebrew/bin/mvn -q package",
+    "focused": "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home DOCKER=/Users/chandler/.docker/bin/docker python3 tests/frontend-contracts/portal-sales.py --snapshot target/compatibility/37fc8c25f56c4ecfa6dc38f25cb0cfd2/post-http.synthetic.pgdump",
+    "migrations": "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home DOCKER=/Users/chandler/.docker/bin/docker python3 tests/stage4/migrations.py"
+  },
+  "rollback": "Do not deploy this incomplete alignment batch. Changes are uncommitted. The previous migration commit 4a622371b7a0a1b454972af27392b5776396889e remains the local accepted baseline. New FIFO postings cannot safely be reinterpreted as moving-average postings: any later release needs a reviewed forward-compatible rollback or an isolated pre-release database restore; never reverse posted ledgers by changing their cost method."
+}

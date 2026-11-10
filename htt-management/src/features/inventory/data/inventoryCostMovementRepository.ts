@@ -77,6 +77,7 @@ function createMovementNumber() {
 export interface CreateInventoryCostMovementInput {
     costingMethod?: InventoryCostMovement['costingMethod'];
     fifoReturnLayerId?: string;
+    batchAllocations?: InventoryCostMovement["batchAllocations"];
     movementType:
     InventoryCostMovement[
     "movementType"
