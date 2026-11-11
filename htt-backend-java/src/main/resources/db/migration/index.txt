@@ -58,3 +58,5 @@
 058_prospective_inventory_costing.sql
 059_commercial_quote_reservations.sql
 060_dispatch_schedules.sql
+061_alignment_consistency.sql
+062_dispatch_followup_runtime.sql

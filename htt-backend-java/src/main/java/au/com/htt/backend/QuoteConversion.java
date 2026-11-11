@@ -39,7 +39,7 @@ class QuoteConversion {
                 UUID customer=(UUID)q.get("customerId"),branch=(UUID)q.get("customerBranchId"),warehouse=(UUID)q.get("warehouseId");
                 jdbc.sql("SELECT id FROM crm.customers WHERE company_id=:company AND id=:id FOR UPDATE").param("company",scope.companyId()).param("id",customer).query(UUID.class).optional().orElseThrow(QuoteConversion::notFound);
                 var context=drafts.context(scope,customer,branch,warehouse);
-                if(LocalDate.parse(q.get("expiresOn").toString()).isBefore(context.today()))throw new StaffScope.Failure(409,"quote_expired","Return the quote to draft and refresh its validity before approval.");
+                if(jdbc.sql("SELECT sales.quote_conversion_expired(:id)").param("id",id).query(Boolean.class).single())throw new StaffScope.Failure(409,"quote_expired","Return the quote to draft and refresh its validity before approval.");
                 UUID approval=jdbc.sql("SELECT id FROM platform.approval_requests WHERE company_id=:company AND document_id=:id AND document_version=:version AND state='PENDING' FOR UPDATE")
                     .param("company",scope.companyId()).param("id",id).param("version",expected).query(UUID.class).optional().orElseThrow(QuoteConversion::notFound);
                 var lines=jdbc.sql("SELECT l.*,dl.line_no FROM sales.quote_lines l JOIN platform.document_lines dl ON dl.company_id=l.company_id AND dl.id=l.id WHERE l.company_id=:company AND l.quote_id=:id ORDER BY dl.line_no")
