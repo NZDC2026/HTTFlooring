@@ -1,3 +1,4 @@
+import {useSearchParams} from 'react-router-dom';
 import {useListState} from '../../hooks/useListState';
 import { isWeb } from "../../features/security/webBridge";
 import { nativeRequest } from "../../features/security/repositoryHost";
@@ -24,6 +25,8 @@ export function DataTable<TData>({data,columns,defaultColumnVisibility,search,pa
  ));
  const accountTable = JSON.stringify([route, tableId]);
  const [sorting,setSorting]=useListState<SortingState>(`table:${tableId}:sorting`,[]),[query,setQuery]=useListState(`table:${tableId}:query`,''),[savedPagination,setPagination]=useListState(`table:${tableId}:pagination`,{pageIndex:0,pageSize:Math.max(1,Math.min(500,pagination?.pageSize??10))});
+ const [entryParams]=useSearchParams();
+ useEffect(()=>{if(entryParams.get('dashboard')==='1'){setQuery('');setPagination(previous=>({...previous,pageIndex:0}));}},[entryParams.toString()]);
  const orderKey = session ? `htt:table-column-order:v1:${JSON.stringify([session.user.id, route, tableId])}` : "";
  const savedOrder = useMemo<ColumnOrderState>(() => {
   if (!orderKey) return [];

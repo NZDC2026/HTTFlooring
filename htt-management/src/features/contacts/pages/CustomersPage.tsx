@@ -10,7 +10,7 @@ import { usePayments } from "../../sales/data/usePayments";
 import { useCreditAllocations, useCreditNotes } from "../../sales/data/useCreditNotes";
 import { Plus } from "lucide-react";
 
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { CellContext, ColumnDef } from "@tanstack/react-table";
 
@@ -291,6 +291,7 @@ export function CustomersPage() {
     const roles = session?.user.roles ?? [];
     const showAccountant = roles.includes("ACCOUNTANT") && !roles.includes("ADMIN") && !roles.includes("FINANCE_ADMIN");
 
+    const [dashboardParams]=useSearchParams();
     const profiles = useCustomers();
     const documents = useSalesDocuments();
     const payments = usePayments();
@@ -430,7 +431,7 @@ export function CustomersPage() {
 
             <DataTable
                 capabilities={{id:"customers",scope:"complete",permission:"sales.read",rowId:r=>r.id}}
-                data={customers}
+                data={customers.filter(c=>dashboardParams.get('creditHold')!=='1'||c.creditHold||c.status==='ON_HOLD')}
                 columns={customerColumns}
                 key={`${session?.user.id ?? ""}:${showAccountant}`}
                 defaultColumnVisibility={{ primaryContact: !showAccountant, accountantContact: showAccountant }}

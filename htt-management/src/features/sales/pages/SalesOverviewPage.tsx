@@ -1,3 +1,4 @@
+import {useDashboardEntry} from '../../../hooks/useDashboardEntry';
 import {DateRangePicker} from '../../../components/date-range/DateRangePicker';
 import {useListState} from '../../../hooks/useListState';
 import {CustomerSearchSelect,CustomerSearchSample} from '../components/CustomerSearchSelect';
@@ -54,6 +55,7 @@ export function SalesOverviewPage() {
     const [status, setStatus] = useListState("src/features/sales/pages/SalesOverviewPage.tsx:status", "ALL");
     const [dateFrom, setDateFrom] = useListState("src/features/sales/pages/SalesOverviewPage.tsx:dateFrom", "");
     const [dateTo, setDateTo] = useListState("src/features/sales/pages/SalesOverviewPage.tsx:dateTo", "");
+    useDashboardEntry(p=>{setSample(p.get('sample')==='1');setSpecial(p.get('special')||'');setTab((p.get('tab')||'ALL') as Tab);setStatus('ALL');setQuery(p.get('query')||'');setCustomerFilter('ALL');setFulfilmentFilter('ALL');setDocumentTypeFilter('ALL');setDateFrom(p.get('from')||'');setDateTo(p.get('to')||'');});
     const [preview, setPreview] = useState<SalesDocument | null>(null);
     useEffect(() => {
         if(entrySearch.get('awaitingDispatch')!=='1') return;
@@ -73,9 +75,17 @@ export function SalesOverviewPage() {
     const currency = useMemo(() => new Intl.NumberFormat("en-AU", { style: "currency", currency: businessSettings().currency }), []);
     const metrics=useMemo(()=>salesOverviewMetrics(documents,today,dateFrom,dateTo),[documents,today,dateFrom,dateTo]);
     const filtered = useMemo(() => {
-        const specialBypassesDates=special==='overdue'||special==='awaiting';
+        const specialBypassesDates=['overdue','awaiting','pickup','delivery'].includes(special);
         return documents.filter((document) => {
-            if(special==='closed'&&(document.type!=='INVOICE'||document.status!=='PAID'))return false;
+            if(['pickup','delivery'].includes(special)){
+                if(!metrics.awaiting.some(d=>d.id===document.id))return false;
+                if(special==='pickup'&&!document.awaitingCollection)return false;
+                if(special==='delivery'&&!document.deliveryBooked)return false;
+                if(!document.expectedDispatchDate||dateFrom&&document.expectedDispatchDate<dateFrom||dateTo&&document.expectedDispatchDate>dateTo)return false;
+            }
+            if(special==='processing'&&(document.type!=='SALES_ORDER'||!['DRAFT','CONFIRMED'].includes(document.status)))return false;
+            if(special==='pendingQuotes'&&(document.type!=='QUOTE'||!['DRAFT','SENT'].includes(document.status)))return false;
+            if(special==='closed' &&(document.type!=='INVOICE'||document.status!=='PAID'))return false;
             if(documentTypeFilter!=='ALL'&&document.type!==documentTypeFilter)return false;
             if(fulfilmentFilter!=='ALL'&&salesFulfilmentLabel(document,documents)!==fulfilmentFilter)return false;
             if(customerFilter!=='ALL'&&document.customerId!==customerFilter)return false;

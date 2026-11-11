@@ -1,3 +1,4 @@
+import {useDashboardEntry} from '../../hooks/useDashboardEntry';
 import {DateRangePicker} from '../../components/date-range/DateRangePicker';
 import {useListState} from '../../hooks/useListState';
 import { DeliveryReminderDialog } from '../delivery-tasks/DeliveryTasks';
@@ -20,6 +21,7 @@ export function TasksPage(){
  const userId=session?.user.id??'';
  const [params,setParams]=useSearchParams();
  const [sample,setSample]=useListState("src/features/task-hub/TasksPage.tsx:sample", false),[samples,setSamples]=useState(()=>taskSamples(today,userId)),[tab,setTab]=useListState("src/features/task-hub/TasksPage.tsx:tab", 'All Tasks'),[type,setType]=useListState('src/features/task-hub/TasksPage.tsx:type', 'All'),[status,setStatus]=useListState("src/features/task-hub/TasksPage.tsx:status", 'All'),[priority,setPriority]=useListState('src/features/task-hub/TasksPage.tsx:priority', 'All'),[owner,setOwner]=useListState('src/features/task-hub/TasksPage.tsx:owner', 'All'),[search,setSearch]=useListState("src/features/task-hub/TasksPage.tsx:search", ''),[from,setFrom]=useListState("src/features/task-hub/TasksPage.tsx:from", ''),[to,setTo]=useListState("src/features/task-hub/TasksPage.tsx:to", ''),[sort,setSort]=useListState("src/features/task-hub/TasksPage.tsx:sort", 'due'),[page,setPage]=useListState("src/features/task-hub/TasksPage.tsx:page", 0),[pageSize,setPageSize]=useListState("src/features/task-hub/TasksPage.tsx:pageSize", 10),[creating,setCreating]=useState<string>(),[selected,setSelected]=useState<string[]>([]),[opened,setOpened]=useState<string>(),[reply,setReply]=useState(''),[message,setMessage]=useState(''),[sampleReplies,setSampleReplies]=useState<Record<string,string[]>>({}),[sampleReminder,setSampleReminder]=useState(false),[completedWeek,setCompletedWeek]=useListState('src/features/task-hub/TasksPage.tsx:completedWeek', false),[detailTab,setDetailTab]=useState('Activity');
+ useDashboardEntry(p=>{setSample(p.get('sample')==='1');setTab(p.get('tab')||'Open Actions');setType(p.get('type')||'All');setStatus('All');setPriority('All');setOwner('All');setSearch('');setFrom(p.get('from')||'');setTo(p.get('to')||'');setPage(0);if(p.get('create'))setCreating(p.get('create')!);});
  const all=sample?samples:hub.rows,counts=taskCounts(all,today,userId),explicitFocus=all.find(r=>r.id===(opened||params.get('task')));
  useEffect(()=>{if(status!=='Completed')setCompletedWeek(false);},[status]);
  const filterKey=JSON.stringify([tab,type,status,priority,owner,search,from,to,sample,pageSize]);
@@ -32,7 +34,8 @@ export function TasksPage(){
  const open=!['Completed','Inactive','Cancelled'].includes(r.status);
  const monday=new Date(today+'T12:00:00Z');monday.setUTCDate(monday.getUTCDate()-(monday.getUTCDay()+6)%7);
  if(completedWeek&&(!r.completedAt||r.completedAt.slice(0,10)<monday.toISOString().slice(0,10)||r.completedAt.slice(0,10)>today))return false;
- return (tab!=='My Tasks'||r.owner===userId)&&(tab!=='Team Tasks'||r.owner!==userId)&&(tab!=='Follow-ups'||r.type==='Follow-up')&&(tab!=='Site Visits'||r.type==='Site Visit')&&(tab!=='Samples'||r.type==='Sample')&&(tab!=='Open Actions'||open)&&(type==='All'||r.type===type)&&(status==='All'||r.status===status)&&(priority==='All'||r.priority===priority)&&(owner==='All'||r.owner===owner)&&(!from||r.due>=from)&&(!to||!!r.due&&r.due<=to)&&`${r.name} ${r.account} ${r.notes} ${r.ownerName} ${r.documentNumber??''}`.toLowerCase().includes(search.toLowerCase());
+ if(params.get('overdue')==='1'&&(!open||!r.due||r.due.slice(0,10)>=today))return false;
+ return (tab!=='My Tasks'||r.owner===userId)&&(tab!=='Team Tasks'||r.owner!==userId)&&(tab!=='Follow-ups'||r.type==='Follow-up')&&(tab!=='Site Visits'||r.type==='Site Visit')&&(tab!=='Samples'||r.type==='Sample')&&(tab!=='Open Actions'||open)&&(type==='All'||r.type===type)&&(status==='All'||r.status===status)&&(priority==='All'||r.priority===priority)&&(owner==='All'||r.owner===owner)&&(!from||r.due.slice(0,10)>=from)&&(!to||!!r.due&&r.due.slice(0,10)<=to)&&`${r.name} ${r.account} ${r.notes} ${r.ownerName} ${r.documentNumber??''}`.toLowerCase().includes(search.toLowerCase());
  }).sort((a,b)=>sort==='name'?a.name.localeCompare(b.name):a.due.localeCompare(b.due)||a.name.localeCompare(b.name));
  const maxPage=Math.max(0,Math.ceil(filtered.length/pageSize)-1),currentPage=Math.min(page,maxPage),rows=filtered.slice(currentPage*pageSize,(currentPage+1)*pageSize);
  const focused=explicitFocus||rows[0];
