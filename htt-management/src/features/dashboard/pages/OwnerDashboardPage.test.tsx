@@ -7,13 +7,13 @@ import {OwnerDashboardPage,dashboardAccess,sampleDashboardAccess} from './OwnerD
 const render=(path='/dashboard?sample=1')=>renderToStaticMarkup(<MemoryRouter initialEntries={[path]}><OwnerDashboardPage/></MemoryRouter>);
 it('defaults to the new operations layout with live data and isolated sample coverage',()=>{
  identity.roles=['ADMIN'];const live=render('/dashboard'),sample=render();
- for(const html of [live,sample])for(const label of ['Outstanding Dispatch','Task Follow up','Quick Actions'])expect(html).toContain(label);
+ for(const html of [live,sample])for(const label of ['Outstanding Dispatch','Tasks &amp; Follow-ups','Quick Actions'])expect(html).toContain(label);
  expect(live).not.toContain('Today’s To-Do');expect(sample).toContain('SO-SAMPLE-10432');
  expect(live).not.toContain('685,420');expect(live).toContain('/reports/summaries');
 });
 it('hides financial figures and customer follow-ups from warehouse users',()=>{
  identity.roles=['WAREHOUSE'];const html=render();
- for(const label of ['MTD Sales','Gross Profit','Cash Balance','Outstanding AR','GST Payable','Task Follow up','View detailed summaries'])expect(html).not.toContain(label);
+ for(const label of ['MTD Sales','Gross Profit','Cash Balance','Outstanding AR','GST Payable','Tasks &amp; Follow-ups','View detailed summaries'])expect(html).not.toContain(label);
  expect(html).toContain('Warehouse Dashboard');expect(html).toContain('Incoming Shipments');
 });
 it('sales/reception permissions expose receivables but not profit or bank balances',()=>{
@@ -34,9 +34,9 @@ it('sample roles model the four views without changing real permissions',()=>{
 
 it('renders reception operations and the reference operation panels without owner financials',()=>{
  identity.roles=['SALES'];const html=render();
- for(const label of ["Outstanding Dispatch",'Task Follow up','Incoming Shipments','Quick Actions','Quotes &amp; Orders – Pending','Containers','delayed'])expect(html).toContain(label);
+ for(const label of ["Outstanding Dispatch",'Tasks &amp; Follow-ups','Incoming Shipments','Quick Actions','Quotes &amp; Orders – Pending','Containers','delayed'])expect(html).toContain(label);
  for(const label of ['Gross Profit','Cash Balance','Finance Summary'])expect(html).not.toContain(label);
- expect(html).not.toContain('reception-task-scopes');expect(html).toContain('All Tasks');expect(html).toContain('Task / Follow-up');expect(html).toContain('taskScope=all');expect(html).not.toContain('Open Orders Status');expect(html).toContain('Dispatched Today');expect(html).not.toContain('Exceptions &amp; Alerts');expect(html).toContain('aria-expanded="false"');expect(html).toContain('Partial Dispatch Orders');
+ expect(html).toContain('reception-task-scopes');expect(html).toContain('All Tasks');expect(html).toContain('Task / Follow-up');expect(html).toContain('taskScope=all');expect(html).not.toContain('Open Orders Status');expect(html).toContain('Dispatched Today');expect(html).not.toContain('Exceptions &amp; Alerts');expect(html).toContain('aria-expanded="false"');expect(html).toContain('Not Dispatched');
 });
 it('carries the dashboard range and explicit filters on every operational drill-down',()=>{
  identity.roles=['ADMIN'];const html=render('/dashboard?sample=1');
@@ -76,4 +76,14 @@ it('defaults to today and labels pickup/delivery ranges explicitly',async()=>{
  expect(dashboardPickupPeriod('2026-11-11','2026-11-13','2026-11-11')).toBe('11 Nov–13 Nov');
  expect(dashboardPickupPeriod('2026-11-10','2026-11-10','2026-11-11')).toBe('10 Nov 2026');
  expect(dashboardPickupPeriod('2026-12-31','2027-01-02','2026-11-11')).toBe('31 Dec 2026–2 Jan 2027');
+});
+
+it('labels dispatched ranges and preserves them in the sales drill-down',async()=>{
+ const {ReceptionDashboard}=await import('./ReceptionDashboard');
+ const html=renderToStaticMarkup(<MemoryRouter><ReceptionDashboard sample={true} from="2026-11-01" date="2026-11-30" site="ALL"/></MemoryRouter>);
+ expect(html).toContain('Dispatched 1 Nov–30 Nov');
+ expect(html).toContain('Dispatched orders · 1 Nov–30 Nov');
+ const links=[...html.matchAll(/href="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&'));
+ const dispatched=links.find(h=>h.includes('special=dispatched'))!;
+ expect(dispatched).toContain('from=2026-11-01');expect(dispatched).toContain('to=2026-11-30');
 });

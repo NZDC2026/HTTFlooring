@@ -12,6 +12,7 @@ export function dateRangePreset(preset:string,today:string):DateRange {
  const date=new Date(today+'T00:00:00Z');
  if(preset==='This Week'){date.setUTCDate(date.getUTCDate()-(date.getUTCDay()+6)%7);return {from:key(date),to:today};}
  date.setUTCDate(1);
+ if(preset==='This Month')return {from:key(date),to:key(new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)))};
  if(preset==='Last Month'){const end=new Date(date.getTime()-86400000);date.setUTCMonth(date.getUTCMonth()-1);return {from:key(date),to:key(end)};}
  if(preset==='3 months')date.setUTCMonth(date.getUTCMonth()-2);
  return {from:key(date),to:today};

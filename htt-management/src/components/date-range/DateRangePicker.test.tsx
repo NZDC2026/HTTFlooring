@@ -5,6 +5,9 @@ describe('shared inclusive reporting dates',()=>{
  it('handles calendar and fiscal boundaries',()=>{
   expect(dateRangePreset('Last Month','2024-03-10')).toEqual({from:'2024-02-01',to:'2024-02-29'});
   expect(dateRangePreset('Last Month','2026-01-10')).toEqual({from:'2025-12-01',to:'2025-12-31'});
+  expect(dateRangePreset('This Month','2026-11-11')).toEqual({from:'2026-11-01',to:'2026-11-30'});
+  expect(dateRangePreset('This Month','2024-02-10')).toEqual({from:'2024-02-01',to:'2024-02-29'});
+  expect(dateRangePreset('This Month','2026-12-10')).toEqual({from:'2026-12-01',to:'2026-12-31'});
   expect(dateRangePreset('Today','2026-11-10')).toEqual({from:'2026-11-10',to:'2026-11-10'});
   expect(dateRangePreset('1 month','2024-02-29')).toEqual({from:'2024-02-01',to:'2024-02-29'});
   expect(dateRangePreset('3 months','2026-01-10')).toEqual({from:'2025-11-01',to:'2026-01-10'});

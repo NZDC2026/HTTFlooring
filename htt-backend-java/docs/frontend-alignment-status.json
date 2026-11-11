@@ -1,50 +1,191 @@
 {
-  "status": "IN_PROGRESS",
-  "scope": "Backend-only alignment with htt-management, htt_flooring_app and customer-portal; frontends and live connections unchanged",
+  "status": "ACCEPTED_REPORTED_IMPROVEMENTS",
+  "verifiedAtUtc": "2026-11-11T03:06:53.555104+00:00",
+  "scope": "Close the six reported backend deficiencies; preserve frontends and their existing live connections. This is not a claim that all 289 desktop RPC commands are interchangeable with REST.",
+  "sourceManifestSha256": "197998f45b1788d3dfb4eaac50308d361fde271bb420f10b5a1ae8646911d7aa",
+  "frozenFinalJarSha256": "106b4e6ff093bcbf946389a3e1a6ff64542d0846b37217e07c04bc781b0bf229",
+  "closedIssues": [
+    {
+      "id": "FIFO_NEGATIVE_VARIANCE",
+      "result": "Value-weighted negative adjustments avoid overdrawing cheaper layers; exact-cent residual, zero-pool, actual supplier variance/return, transit and policy-CAS cases passed. Historical postings unchanged."
+    },
+    {
+      "id": "DISPATCH_MAIL_LOOP",
+      "result": "Durable restricted-worker queues, stable provider keys, leases, bounded retries, unknown outcomes, sender/recipient rechecks, public token date updates and management notifications implemented; three fake-provider acceptances per workflow run, no real external transport."
+    },
+    {
+      "id": "QUOTE_EXPIRY_CONSISTENCY",
+      "result": "Calendar expiry begins after confirmed acceptance. Quotes use one deadline for staff/portal views, conversion and commercial holds; orders are never automatically cancelled."
+    },
+    {
+      "id": "RETURN_EVIDENCE_WORKFLOW",
+      "result": "Warehouse-scoped private upload, verified-photo gate, named handwritten handover proof, pending requests, versioned processing/rejection, no posting during submission, and native stock/accounting checks implemented."
+    },
+    {
+      "id": "INVOICE_REMINDER_BATCHES",
+      "result": "Invoice and statement frozen PDFs, reviewable mail body/attachment identity, explicit confirmation, ten-minute preview expiry, source/permission revalidation before and after rendering, fenced delivery and uncertain-outcome retention implemented."
+    },
+    {
+      "id": "REGRESSION_AND_DELIVERY_EVIDENCE",
+      "result": "Both tax bases passed full compatibility and final feature workflows; 50 unit tests, 69 cold/repeatable migrations, isolated image deployment/legacy runtime recovery, and CI snapshot reuse passed."
+    }
+  ],
+  "remainingReportedIssues": [],
+  "validation": {
+    "unit": {
+      "tests": 50,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "fullCompatibility": {
+      "NON_CASH": {
+        "status": "PASSED",
+        "groups": 105,
+        "literalHttpComparisonCases": 72,
+        "evidence": "target/compatibility/807bbfa824cd459984adada9da3458e1",
+        "snapshotSha256": "a0c2522e0110a8e63e99596cb029217a734341e4f3b68227f90fdd8c755ff351",
+        "ledgerVerification": "PASSED",
+        "note": "Legacy compatibility plus Flutter visit integration; final new-feature behavior is verified separately against the frozen final JAR."
+      },
+      "CASH": {
+        "status": "PASSED",
+        "groups": 105,
+        "literalHttpComparisonCases": 72,
+        "evidence": "target/compatibility/d3f9f7160acb41e3b6359dfccf9c4c6c",
+        "snapshotSha256": "6b78b451cc263a4d6df26695cb44a105f5b108f8a8a8f33021347fd992cfa185",
+        "ledgerVerification": "PASSED",
+        "note": "Legacy compatibility plus Flutter visit integration; final new-feature behavior is verified separately against the frozen final JAR."
+      }
+    },
+    "finalFeatureWorkflows": {
+      "CASH": {
+        "status": "PASSED",
+        "evidence": "target/frontend-contracts/393ac4c581954d07b1a3701e7d79c048",
+        "jarSha256": "106b4e6ff093bcbf946389a3e1a6ff64542d0846b37217e07c04bc781b0bf229",
+        "workflows": {
+          "status": "PASSED",
+          "publicTokenViewUpdateReplay": true,
+          "wrongOriginRejected": true,
+          "requestHeaderRequired": true,
+          "invoiceAndStatementPdfRendered": true,
+          "fakeProviderAccepted": 3,
+          "externalTransportsInvoked": 0,
+          "returnRequestPendingAndRejected": true,
+          "warehouseOnlyUpload": true,
+          "unscannedPhotosRejected": true,
+          "restrictedScannerCompletion": true,
+          "concurrentCostPolicyCAS": true,
+          "fifoSupplierReceiptNegativeVarianceAndReturn": true
+        },
+        "historicalStockAndJournalsUnchangedByMigration": true
+      },
+      "NON_CASH": {
+        "status": "PASSED",
+        "evidence": "target/frontend-contracts/09192ea77d194bbba92d3caf6eb90cd1",
+        "jarSha256": "106b4e6ff093bcbf946389a3e1a6ff64542d0846b37217e07c04bc781b0bf229",
+        "workflows": {
+          "status": "PASSED",
+          "publicTokenViewUpdateReplay": true,
+          "wrongOriginRejected": true,
+          "requestHeaderRequired": true,
+          "invoiceAndStatementPdfRendered": true,
+          "fakeProviderAccepted": 3,
+          "externalTransportsInvoked": 0,
+          "returnRequestPendingAndRejected": true,
+          "warehouseOnlyUpload": true,
+          "unscannedPhotosRejected": true,
+          "restrictedScannerCompletion": true,
+          "concurrentCostPolicyCAS": true,
+          "fifoSupplierReceiptNegativeVarianceAndReturn": true
+        },
+        "historicalStockAndJournalsUnchangedByMigration": true
+      }
+    },
+    "migration": {
+      "evidence": "target/stage4/migration/eb017e32d8ae49d1b845521599482773",
+      "result": {
+        "status": "PASSED",
+        "migrations": 69,
+        "idempotentRerun": true,
+        "legacySqlUnchanged": true
+      }
+    },
+    "deploymentRollback": {
+      "evidence": "target/stage4/deployment/24132e0db35843a6b196fc320d35c71b",
+      "result": {
+        "status": "PASSED",
+        "migrations": 69,
+        "network": "internal, isolated, disposable",
+        "javaApi": {
+          "live": 200,
+          "ready": 200,
+          "anonymousStaff": 401
+        },
+        "legacyRollbackApi": {
+          "live": 200,
+          "ready": 200,
+          "anonymousStaff": 401
+        },
+        "migrationRepeatable": true,
+        "legacyHistoryCompatible": true,
+        "pdfRendered": 10,
+        "csvExported": 10,
+        "queuePreservedAcrossRollback": true,
+        "grantRollbackVerified": true,
+        "staleAndExpiredLeaseRejected": true,
+        "scannerCleanAndMalwareVerified": true,
+        "pdfTextVerified": 10,
+        "realSystemChanged": false,
+        "imageIds": {
+          "api": "sha256:2c697d738a810e4a26983c752e24950fc312ff8282b8162e81fb4a3a9089182f",
+          "worker": "sha256:6f468410731877d75a6f9d99546db188341405f75228a924248a5012c0bdc992",
+          "migrations": "sha256:9ec1cd95c10b02c91e95e7e9d9defa3e3fb5e2b40019158c40e0fc3654541225"
+        },
+        "migrationManifestSha256": "6a1336f1c49280f3d0aea69ee5f0de00c76eae058e407acf1c74c0cddaa55db0",
+        "mailFeatureFlagsDefaultDisabled": true
+      }
+    },
+    "ciSnapshotReuse": {
+      "status": "PASSED",
+      "evidence": "target/frontend-contracts/e79a912095fe4292a48eece3d225efcb"
+    },
+    "configuration": {
+      "status": "PASSED",
+      "composeSha256": "66558a040129465e61cf181d8cb6027f774872494f885c525bbf87cd8498b7fb",
+      "dispatchFollowupsDefaultDisabled": true,
+      "invoiceRemindersDefaultDisabled": true,
+      "noProviderSecretInDefaultConfiguration": true,
+      "loopbackPortsOnly": true,
+      "noMigrationCredentialsInApiOrWorker": true,
+      "testUsesSyntheticConfigurationOnly": true
+    },
+    "workflowYaml": "PARSED_AND_MATRIX_CHECKED",
+    "remoteCiTriggered": false
+  },
   "prospectiveRules": {
     "newStockProducts": "FIFO",
-    "existingStockProducts": "MOVING_WEIGHTED_AVERAGE until explicit zero-stock versioned policy switch",
-    "quoteHolds": "Future submitted quotes; commercial projection only",
-    "historicalStockAndJournals": "Unchanged; fingerprints checked"
+    "existingStockProducts": "Keep historical MWA; explicit zero-quantity/zero-value versioned switch only",
+    "quoteHolds": "Future submitted quotations, separate commercial projection",
+    "historicalStockAndJournals": "No migration rewrite; fingerprints checked in both tax bases"
   },
-  "acceptedBatch": [
-    "Customer-scoped portal quote/order/invoice/credit/return reads",
-    "FIFO layer posting and physical batch reads with cost permission",
-    "Versioned zero-stock costing method changes",
-    "Commercial quote and order reservation projection",
-    "Versioned dispatch schedule writes, idempotent replay and audit"
-  ],
-  "validation": {
-    "maven": {
-      "tests": 48,
-      "failures": 0,
-      "errors": 0
-    },
-    "focusedEvidence": "target/frontend-contracts/d78c5be20e324609b3f683fd7277c967/acceptance.json",
-    "migrationEvidence": "target/stage4/migration/5ab8329f962f41f6835e9e81bbb40486/acceptance.json",
-    "migrationCount": 60,
-    "coldInstallAndRerun": true,
-    "jarSha256": "a64d924f40c00576db28544484ac3f9b05d9656d38357a03ba320dd97f075d42"
-  },
-  "remaining": [
-    "Durable dispatch follow-up worker and local fake-provider acceptance, retry and expiry tests",
-    "Token-scoped public dispatch portal view/update and management notifications",
-    "Invoice reminder batch contract alignment",
-    "Warehouse return photo/handover request workflow assessment",
-    "FIFO supplier variance and returns/transit broader regression and concurrency cases",
-    "Final CASH/NON_CASH regression and updated deployment/rollback review for these new rules"
-  ],
   "safety": {
     "automationsRestored": false,
-    "externalWrites": false,
+    "realEmailsSent": false,
+    "externalBusinessServiceWrites": false,
     "productionSwitched": false,
     "frontendFilesModifiedByThisWork": false,
-    "pushed": false
+    "archivedCsharpChanges": false,
+    "pushed": false,
+    "unrelatedFrontendWorkPreserved": true
   },
   "rerun": {
-    "build": "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home /opt/homebrew/bin/mvn -q package",
-    "focused": "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home DOCKER=/Users/chandler/.docker/bin/docker python3 tests/frontend-contracts/portal-sales.py --snapshot target/compatibility/37fc8c25f56c4ecfa6dc38f25cb0cfd2/post-http.synthetic.pgdump",
-    "migrations": "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home DOCKER=/Users/chandler/.docker/bin/docker python3 tests/stage4/migrations.py"
+    "build": "mvn --batch-mode verify",
+    "fullCash": "python3 tests/compatibility/run.py --gst-basis CASH",
+    "fullNonCash": "python3 tests/compatibility/run.py --gst-basis NON_CASH",
+    "focused": "HTT_PYTHON=<temporary Python with infra/stage4-test-requirements.txt installed> python3 tests/frontend-contracts/portal-sales.py --snapshot target/compatibility/d3f9f7160acb41e3b6359dfccf9c4c6c/post-http.synthetic.pgdump",
+    "migrations": "python3 tests/stage4/migrations.py",
+    "details": "tests/frontend-contracts/README.md"
   },
-  "rollback": "Do not deploy this incomplete alignment batch. Changes are uncommitted. The previous migration commit 4a622371b7a0a1b454972af27392b5776396889e remains the local accepted baseline. New FIFO postings cannot safely be reinterpreted as moving-average postings: any later release needs a reviewed forward-compatible rollback or an isolated pre-release database restore; never reverse posted ledgers by changing their cost method."
+  "rollback": "Both new mail worker flags default false. Stop new entry points and workers, retain queues/proofs and uncertain outcomes. Preserve forward schema and FIFO layer/posting evidence; do not delete migrations or reinterpret FIFO history as MWA. Runtime recovery was exercised only in an internal disposable network; real release, sending or data restoration requires separate authorization. See docs/migration-acceptance-and-rollback.md."
 }
