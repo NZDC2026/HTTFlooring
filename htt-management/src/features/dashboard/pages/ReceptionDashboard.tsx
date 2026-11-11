@@ -5,7 +5,7 @@ import {PendingQuotesOrders} from './PendingQuotesOrders';
 import {FloatingQuickActions} from './FloatingQuickActions';
 import {businessDateKey} from '../../../lib/businessDate';
 import {dashboardLink} from './dashboardLink';
-import {useState,useSyncExternalStore} from 'react';
+import {useState,useSyncExternalStore,type ReactNode} from 'react';
 import {orderStockShortages} from '../data/orderStockShortages';
 import {salesFulfilmentRepository} from '../../sales/data/salesFulfilmentRepository';
 import {Link} from 'react-router-dom';
@@ -34,7 +34,7 @@ export function dashboardSampleMetrics(from:string,to:string,today:string){
  const active=to>=shift(-2);
  return {pickup:sum('pickup'),delivery:sum('delivery'),orders:sum('orders'),dispatched:sum('dispatched'),awaiting:active?(to<today?7:to===today?5:3):0,overdue:active?(to<today?6200:to===today?8420:9100):0,invoices:active?(to<today?2:3):0};
 }
-export function ReceptionDashboard({sample,date,from,site,showReceivables=true,showAging=false,showFollowups=true}:{sample:boolean;date:string;from:string;site:string;showReceivables?:boolean;showAging?:boolean;showFollowups?:boolean}){
+export function ReceptionDashboard({sample,date,from,site,showReceivables=true,showAging=false,showFollowups=true,afterMetrics}:{sample:boolean;date:string;from:string;site:string;showReceivables?:boolean;showAging?:boolean;showFollowups?:boolean;afterMetrics?:ReactNode}){
  const hub=useTaskHub(),docs=useSalesDocuments(),finance=useFinanceOverview(date),products=useProducts(),stock=useInventoryStockRows(),suppliers=useSuppliers(),customers=useCustomers();
  const fulfilments=useSyncExternalStore(salesFulfilmentRepository.subscribe,salesFulfilmentRepository.getSnapshot,salesFulfilmentRepository.getSnapshot);
  const [allShortages,setAllShortages]=useState(false);
@@ -54,6 +54,7 @@ export function ReceptionDashboard({sample,date,from,site,showReceivables=true,s
  const cards=[{title:pickupTitle,n:sample?preview.pickup:pickups.length,icon:<Truck/>,tone:'green',to:link('/sales',{special:'pickup'})},{title:deliveryTitle,n:sample?preview.delivery:deliveries.length,icon:<Truck/>,tone:'blue',to:link('/sales',{special:'delivery'})},{title:'Awaiting Dispatch',n:sample?preview.awaiting:awaiting.length,icon:<Package/>,tone:'amber',to:link('/sales',{special:'awaiting'})},{title:'Orders',n:sample?preview.orders:orders.length,icon:<ClipboardCheck/>,tone:'purple',to:link('/sales',{tab:'SALES_ORDER'})},{title:'Overdue Amount',n:new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(sample?preview.overdue:finance.overdueReceivables),icon:<Layers/>,tone:'red',to:link('/sales/invoice-reminders',{filter:'Overdue'})},{title:dispatchedTitle,n:sample?preview.dispatched:dispatchedOrders.size,icon:<Truck/>,tone:'green',to:link('/sales',{special:'dispatched'})}];
  return <div className="reception-view">
  <div className="reception-metrics">{cards.filter(c=>showReceivables||c.title!=='Overdue Amount').map(c=><Link key={c.title} to={c.to} className={'reception-metric '+c.tone+(c.title==='Overdue Amount'?' reception-amount-metric':'')}>{c.icon}<h3>{c.title}</h3><strong>{c.n}</strong><ChevronRight size={20}/><small>{c.title===dispatchedTitle?'Dispatched orders · '+dispatchPeriod:sample?[`${preview.pickup} pickups`,`${preview.delivery} scheduled`,'As of '+date,'Orders in selected dates',`${preview.invoices} invoices · as of ${date}`,`${preview.dispatched} dispatched orders`][cards.indexOf(c)]:c.title==='Overdue Amount'?`${finance.overdueInvoiceCount} overdue invoices`:c.title===pickupTitle?`${pickups.length} pickups`:c.title===deliveryTitle?`${deliveries.length} scheduled`:c.title==='Awaiting Dispatch'?'Orders not yet dispatched':'View details →'}</small></Link>)}</div>
+ {afterMetrics}
  {showAging&&<ReceivablesAging sample={sample} date={date}/>}
  <div className="reception-top-row">
  {showFollowups&&<DashboardTasksFollowups rows={sample?taskSamples(today,''):hub.rows} today={today} sample={sample} site={site}/>}

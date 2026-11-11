@@ -71,8 +71,10 @@ export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBil
         const verified = requiresReview ? [] : reconciliations.filter(r => r.bankAccountId === bank.id && r.statementDate <= today);
         const last = [...verified].sort((a,b)=>b.statementDate.localeCompare(a.statementDate))[0];
         const cleared = new Set(verified.flatMap(r=>r.clearedTransactionIds));
-        const outstanding = register.transactions.filter(t => !t.correctionOnly && !cleared.has(t.id)).length;
-        return { id: bank.id, name: bank.name, balance: register.closingBalance, lastReconciled: last?.statementDate, outstanding, requiresReview, reviewReasons };
+        const outstandingRows = register.transactions.filter(t => !t.correctionOnly && !cleared.has(t.id));
+        const outstanding = outstandingRows.length;
+        const outstandingAmount = money(outstandingRows.reduce((n,t)=>n+Math.abs(t.moneyIn-t.moneyOut),0));
+        return { id: bank.id, name: bank.name, balance: register.closingBalance, lastReconciled: last?.statementDate, outstanding, outstandingAmount, requiresReview, reviewReasons };
     });
     return { openInvoices, bankReviewCount: bankStatus.filter(b=>b.requiresReview).length, receivables, overdueInvoiceCount: overdueInvoices.length, overdueReceivables: money(overdueInvoices.reduce((s, i) => s + i.amountDue, 0)), ageing, payables, payableAgeing, overdueBillCount, dueThisWeek, overduePayables, bankStatus, unreconciledCount: bankStatus.reduce((s, b) => s + b.outstanding, 0) };
 }

@@ -67,3 +67,18 @@ pnpm build:web
 ```
 
 接口测试使用临时 SQLite，覆盖初始化、禁止重复设置管理员、跨来源请求拒绝、未登录访问拒绝、不同浏览器权限隔离、错误命令、客户创建及重启后保留、账号保留、退出和错误密码。
+
+## 本机线上服务托管
+
+本机网页服务由 macOS 用户 LaunchAgent `co.nz.httflooring.management.web` 托管，配置文件为 `~/Library/LaunchAgents/co.nz.httflooring.management.web.plist`。服务使用现有项目工作目录、`.env`、`web-data` 和 `/opt/homebrew/bin/node`，不依赖临时终端或 Codex 命令会话；登录后自动启动，进程退出后自动重启。此用户级服务仍依赖电脑开机且用户保持登录。
+
+后续部署先执行 `pnpm build:web`，成功后重启托管服务，不要另外运行 `pnpm start:web` 抢占同一端口：
+
+```sh
+launchctl kickstart -k gui/$(id -u)/co.nz.httflooring.management.web
+launchctl print gui/$(id -u)/co.nz.httflooring.management.web
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/
+curl -fsS -o /dev/null -w '%{http_code}\n' https://htt-flooring-management.nzdc.co.uk/
+```
+
+启动日志在 `web-data/web-service.out.log`，错误日志在 `web-data/web-service.err.log`。公网 502 时先检查本机端口与托管服务，再检查原有 Cloudflare 隧道；不要改数据目录或初始化新数据库。

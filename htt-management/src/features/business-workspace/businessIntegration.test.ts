@@ -134,3 +134,21 @@ it('persists customer rebate CRUD independently of invoices, with concurrency an
  expect(state('workspace_rebates').records[0].deleted).toBe('true');
  expect(state('workspace_rebates').history).toHaveLength(3);expect(JSON.stringify(state('sales'))).toBe(invoices);
 });
+
+it('lets Accounts save payment follow-ups with history and stale-write checks without posting financial entries',async()=>{
+ const customer=fixture().customer,accountant=security.createUser({username:'payment.accounts',displayName:'Accounts',password:admin.password,roles:['ACCOUNTANT']});
+ security.login({username:accountant.username,password:admin.password});
+ const raw={customerId:customer.id,owner:accountant.id,ownerName:'Accounts',due:'2026-11-13',reminderAt:'2026-11-13T09:00',reminderTimeZone:'Pacific/Auckland',notes:JSON.stringify({kind:'payment-followup-v1',status:'Contacted',note:'Called accounts; statement requested.',last:'2026-11-12',history:[]})};
+ const journals=structuredClone(state('journals')),row=command('workspace_tasks','savePaymentFollowup',raw);
+ expect(row.taskType).toBe('Payment');expect(row.notes).toBe('Called accounts; statement requested.');expect(row.reminderAt).toBe(raw.reminderAt);
+ const updated=command('workspace_tasks','savePaymentFollowup',{...raw,id:row.id,revision:row.revision,notes:JSON.stringify({kind:'payment-followup-v1',status:'Promised to Pay',promiseDate:'2026-11-16',promiseAmount:'1200',note:'Confirmed payment plan.'})});
+ expect(()=>command('workspace_tasks','savePaymentFollowup',{...raw,id:row.id,revision:row.revision})).toThrow(/changed/);
+ expect(()=>command('workspace_tasks','savePaymentFollowup',{...raw,id:updated.id,revision:updated.revision,notes:JSON.stringify({kind:'payment-followup-v1',status:'Promised to Pay'})})).toThrow(/promised/);
+ expect(state('journals')).toEqual(journals);await restart();expect(state('workspace_tasks').records.find((r:any)=>r.id===row.id).paymentFollowupData).toContain('1200');
+});
+it('denies warehouse and auditor payment follow-up writes and prevents changing unrelated tasks',()=>{
+ const customer=fixture().customer,raw={customerId:customer.id,owner:'test',ownerName:'Test',due:'2026-11-13',reminderAt:'',reminderTimeZone:'Pacific/Auckland',notes:JSON.stringify({kind:'payment-followup-v1',status:'Contacted',note:'Called customer.'})};
+ const other=command('workspace_tasks','save',{name:'Unrelated task',customerId:customer.id,owner:'test',due:'2026-11-13',priority:'Normal',notes:'Unrelated',taskType:'Payment'});
+ expect(()=>command('workspace_tasks','savePaymentFollowup',{...raw,id:other.id,revision:other.revision})).toThrow(/payment follow-up/);
+ for(const role of ['WAREHOUSE','AUDITOR'] as const){security.login(admin);const user=security.createUser({username:'followup.'+role.toLowerCase(),displayName:role,password:admin.password,roles:[role]});security.login({username:user.username,password:admin.password});expect(()=>command('workspace_tasks','savePaymentFollowup',raw)).toThrow(/Permission denied/);}
+});

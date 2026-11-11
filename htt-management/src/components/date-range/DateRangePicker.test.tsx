@@ -15,6 +15,12 @@ describe('shared inclusive reporting dates',()=>{
   expect(dateRangePreset('YTD','2026-11-10')).toEqual({from:'2026-07-01',to:'2026-11-10'});
   expect(dateRangePreset('All dates','2026-11-10')).toEqual({from:'',to:''});
  });
+ it('selects full calendar years across leap years and New Year',()=>{
+  expect(dateRangePreset('This Year','2026-11-12')).toEqual({from:'2026-01-01',to:'2026-12-31'});
+  expect(dateRangePreset('Last Year','2026-01-01')).toEqual({from:'2025-01-01',to:'2025-12-31'});
+  expect(dateRangePreset('This Year','2024-02-29')).toEqual({from:'2024-01-01',to:'2024-12-31'});
+  expect(dateRangePreset('Last Year','2025-01-01')).toEqual({from:'2024-01-01',to:'2024-12-31'});
+ });
  it('lays out Monday-first calendars across year and leap-day boundaries',()=>{
   const november=calendarDays('2026-11-01');expect(november).toHaveLength(42);expect(november[0]).toBe('2026-10-26');expect(november[6]).toBe('2026-11-01');
   expect(calendarDays('2024-02-01')).toContain('2024-02-29');expect(calendarDays('2027-01-01')[0]).toBe('2026-12-28');
