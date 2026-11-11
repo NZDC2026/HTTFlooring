@@ -59,7 +59,7 @@ class FrontendWorkflowApi {
     ResponseEntity<String> queue(@PathVariable UUID id,@RequestBody Confirmation input,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return write(jwt,r,"documents.email.send",input,()->scalar("SELECT accounting.queue_reminders(:id,:confirmed)::text",QuoteDrafts.map("id",id,"confirmed",input.confirmed())));}
 
     @GetMapping("/api/v1/warehouse/return-requests")
-    ResponseEntity<String> returns(@RequestParam UUID warehouseId,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return read(jwt,r,"inventory.returns.read",()->scalar("SELECT inventory.return_request_list(:id)::text",Map.of("id",warehouseId)));}
+    ResponseEntity<String> returns(@RequestParam UUID warehouseId,@RequestParam(defaultValue="1") int page,@RequestParam(defaultValue="100") int pageSize,@RequestParam(required=false) String status,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return read(jwt,r,"inventory.returns.read",()->scalar("SELECT inventory.return_request_list(:id,:page,:size,:status)::text",QuoteDrafts.map("id",warehouseId,"page",page,"size",pageSize,"status",status)));}
     @GetMapping("/api/v1/warehouse/return-requests/{id}")
     ResponseEntity<String> returned(@PathVariable UUID id,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return read(jwt,r,"inventory.returns.read",()->scalar("SELECT inventory.return_request_view(:id)::text",Map.of("id",id)));}
     @PostMapping("/api/v1/warehouse/return-requests")

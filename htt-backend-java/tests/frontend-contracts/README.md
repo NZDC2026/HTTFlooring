@@ -49,3 +49,12 @@ python3 tests/frontend-contracts/portal-sales.py --snapshot <已通过的合成�
 `HTT_DISPATCH_FOLLOWUPS_ENABLED` 和 `HTT_INVOICE_REMINDERS_ENABLED` 均默认 `false`；还须显式配置后台邮件密钥、有效发送者和公司设置才会发送。任何真实启用、外部发送或系统切换均不属于本批授权。
 
 迁移采用追加方式，不删除已应用的校验和记录。若未来需要停止新功能，先停止相应入口及后台任务、等待租约结束或标记不确定结果，保留批次、退货证据和队列。已经有新 FIFO 过账时，不能删除批次表、撤销成本补丁或把旧过账解释为移动平均。代码回退必须保留前向数据库结构并重新验收；需要数据恢复时另行批准一致性备份恢复，不能覆盖后来产生的真实交易。
+
+
+2026-11-11 边界修复：新增迁移 070，修复报价到期空值、到期后改期绕过、催收权限撤销、批量发送占用心跳，以及旧待处理退货被前 100 条遮蔽的问题。51 项单元测试、70 项冷启动/重复迁移、现金制和非现金制业务组合验证通过。详情及本地证据见 `../../docs/backend-boundary-fixes.json`。本轮未重跑全量兼容套件，也未运行远端 CI。
+
+退货查询兼容原有默认参数，可额外传 `page`（从 1 开始）、`pageSize`（1–100）和 `status`（PENDING/PROCESSED/REJECTED）；结果增加 `totalCount` 和 `hasMore`。分页及筛选不会扩大仓库或单据访问权限。
+
+重跑：先以 JDK 21 执行 `mvn package`，再执行 `python3 tests/stage4/migrations.py`；业务组合使用 `portal-sales.py --snapshot <合成快照>`，分别选 CASH 和 NON_CASH 快照，并配置 `JAVA_HOME`、`DOCKER` 和带 PDF 依赖的 `HTT_PYTHON`。`boundaries.sql` 在事务内构造并回滚边界数据，HTTP 邮件传输使用替身。
+
+回滚：本次仅作本地提交，未部署；070 未应用时可在干净分支撤销本提交，无需回滚数据库。部署前保存数据库备份及原 API/worker 制品；070 为前向迁移，不应删除历史迁移或仅把 migration index 改回 069。若隔离演练需整体回退，停止测试 API/worker，恢复升级前数据库快照并同时恢复配套旧制品；生产回退须另行授权并先评估升级后的业务写入。本次未操作真实系统。

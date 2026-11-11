@@ -5,9 +5,9 @@ import tools.jackson.databind.json.JsonMapper;
 final class DispatchMailExecutor {
     private static final SecureRandom RANDOM=new SecureRandom();
     static boolean enabled(){return "true".equalsIgnoreCase(System.getenv("HTT_DISPATCH_FOLLOWUPS_ENABLED"))&&!DocumentRuntime.env("HTT_MAIL_API_KEY").isBlank();}
+    static void heartbeat() throws Exception {if(enabled())WorkerMain.scalar("select sales.dispatch_tick_ready()");}
     static void tick() throws Exception {
         if(!enabled())return;
-        WorkerMain.scalar("select sales.dispatch_tick_ready()");
         WorkerMain.scalar("select sales.expire_dispatch_quotes()");
         for(int i=0;i<20;i++)if(!one())break;
     }

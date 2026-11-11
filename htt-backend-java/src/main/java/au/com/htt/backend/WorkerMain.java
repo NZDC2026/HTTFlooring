@@ -30,10 +30,11 @@ public final class WorkerMain {
         }
         var stop=new AtomicBoolean();
         var pool=Executors.newScheduledThreadPool(8);
+        var heartbeats=mailHeartbeatPool(stop,DispatchMailExecutor::heartbeat,ReminderMailExecutor::heartbeat);
         Runnable shutdown=()->{
-            stop.set(true);pool.shutdown();
-            try {if(!pool.awaitTermination(45,TimeUnit.SECONDS))pool.shutdownNow();}
-            catch(InterruptedException e){pool.shutdownNow();Thread.currentThread().interrupt();}
+            stop.set(true);pool.shutdown();heartbeats.shutdown();
+            try {if(!pool.awaitTermination(45,TimeUnit.SECONDS))pool.shutdownNow();if(!heartbeats.awaitTermination(15,TimeUnit.SECONDS))heartbeats.shutdownNow();}
+            catch(InterruptedException e){pool.shutdownNow();heartbeats.shutdownNow();Thread.currentThread().interrupt();}
         };
         Runtime.getRuntime().addShutdownHook(new Thread(shutdown));
         schedule(pool,stop,OutboxExecutor::process,2);
@@ -50,6 +51,10 @@ public final class WorkerMain {
         pool.awaitTermination(45,TimeUnit.SECONDS);
     }
     interface Work {void run() throws Exception;}
+    static ScheduledExecutorService mailHeartbeatPool(AtomicBoolean stop,Work dispatch,Work reminders) {
+        var heartbeat=Executors.newSingleThreadScheduledExecutor(task->new Thread(task,"htt-mail-heartbeat"));
+        schedule(heartbeat,stop,dispatch,15);schedule(heartbeat,stop,reminders,15);return heartbeat;
+    }
     static void schedule(ScheduledExecutorService pool,AtomicBoolean stop,Work work,int seconds) {
         pool.scheduleWithFixedDelay(()->{if(!stop.get())try{work.run();}catch(Exception e){
             // Do not expose payloads, credentials or database exception details.

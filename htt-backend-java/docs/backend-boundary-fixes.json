@@ -1,0 +1,43 @@
+{
+  "status": "PASSED",
+  "date": "2026-11-11",
+  "scope": "Five reviewed boundary fixes; local synthetic verification only",
+  "migration": "070_boundary_authorization_and_paging.sql",
+  "unitTests": {
+    "tests": 51,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "evidence": {
+    "cash": "target/frontend-contracts/9f77166e32f14b26a7a73aaa2f78d54d/acceptance.json",
+    "nonCash": "target/frontend-contracts/f1c21b08e4cd4d4fbff0d0c7b64ef568/acceptance.json",
+    "coldAndIdempotentMigration": "target/stage4/migration/b05b7caff44e4f46b7bc35e1dd48ca6b/acceptance.json"
+  },
+  "fixed": [
+    "Quote conversion expiry always returns boolean, including schedules with no accepted follow-up",
+    "Effective deadline blocks staff rescheduling and clearing before expiry worker runs",
+    "Reminder creator and recorded confirmer authority rechecked at confirmation, claim and immediately before delivery",
+    "Dedicated periodic mail readiness scheduler is independent of delivery batches",
+    "Return requests support bounded pagination and status filters, preserving legacy default call"
+  ],
+  "externalTransportCalls": 0,
+  "remoteCiRun": false,
+  "fullCompatibilitySuiteRerun": false,
+  "historicalStockAndJournalsUnchangedByMigration": true,
+  "notes": [
+    "First database attempt blocked by stopped Docker; Docker started and subsequent checks passed",
+    "Boundary test initially evaluated state check and mutating claim in one expression; split into sequential statements to avoid expression evaluation order ambiguity"
+  ],
+  "jarSha256": "51e48de1ac710937689f160d41c5378942e65d8f6e8793c9290bfbaa9626f9e2",
+  "evidenceSha256": {
+    "cash": "de8cf992bab18a6164a220e5b504b4bb7fa69213e105669331bdc574cf550bae",
+    "nonCash": "4896be25495b50e55ed9b414ae98ec0ee9ac390bbeb5318b2b331f64151942ee",
+    "coldAndIdempotentMigration": "047709c82cff8169a113797aa011e5526f06b3f5f4ce8bcba1bf18001e87fe67"
+  },
+  "rollback": {
+    "beforeDeployment": "Revert this commit on a clean branch; no database rollback is required when migration 070 has not been applied.",
+    "afterMigration": "Do not delete migration 070 or only revert its index. Stop API/worker, retain business evidence and prefer a forward correction. A full rollback requires a consistent pre-upgrade database backup and matching prior API/worker artifacts; assess later writes and obtain separate production authorization.",
+    "productionChanged": false
+  }
+}

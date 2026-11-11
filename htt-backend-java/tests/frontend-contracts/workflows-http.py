@@ -81,6 +81,11 @@ for scan in upload_jobs:
 code,returned=request('/api/v1/warehouse/return-requests',{**warehouse_headers,'Content-Type':'application/json','Idempotency-Key':'synthetic-scanned-return'},method='POST',payload=return_input)
 assert code==200,(code,returned)
 assert returned['status']=='PENDING',returned
+code,listed=request('/api/v1/warehouse/return-requests?warehouseId='+return_input['warehouseId']+'&page=1&pageSize=10&status=PENDING',warehouse_headers)
+assert code==200 and listed['pageSize']==10 and any(x['id']==returned['id'] for x in listed['items']),(code,listed)
+for query in ['page=0','status=UNKNOWN']:
+ code,invalid=request('/api/v1/warehouse/return-requests?warehouseId='+return_input['warehouseId']+'&'+query,warehouse_headers)
+ assert code==422,(query,code,invalid)
 rejected=command('/api/v1/warehouse/return-requests/'+returned['id']+'/decision',{'decision':'REJECT','reason':'Synthetic rejection'},returned['version']);assert rejected['status']=='REJECTED'
 # Preserve only nonsensitive result metadata.
 

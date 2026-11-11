@@ -2,9 +2,10 @@ package au.com.htt.backend;
 import java.util.*;
 import tools.jackson.databind.node.ObjectNode;
 final class ReminderMailExecutor {
+    static boolean enabled(){return "true".equalsIgnoreCase(System.getenv("HTT_INVOICE_REMINDERS_ENABLED"))&&!DocumentRuntime.env("HTT_MAIL_API_KEY").isBlank();}
+    static void heartbeat() throws Exception {if(enabled())WorkerMain.scalar("select accounting.reminder_tick_ready()");}
     static void tick() throws Exception {
-        if(!"true".equalsIgnoreCase(System.getenv("HTT_INVOICE_REMINDERS_ENABLED"))||DocumentRuntime.env("HTT_MAIL_API_KEY").isBlank())return;
-        WorkerMain.scalar("select accounting.reminder_tick_ready()");
+        if(!enabled())return;
         for(int i=0;i<10;i++)if(!one())break;
     }
     static boolean one() throws Exception {return one(System.getenv(),ProviderRuntime::http);}
