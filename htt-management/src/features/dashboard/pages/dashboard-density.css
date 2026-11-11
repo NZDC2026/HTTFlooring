@@ -95,15 +95,21 @@
 .owner-dashboard .dashboard-followups .followups-body{align-items:start;gap:12px;min-height:0}
 .owner-dashboard .dashboard-followups .followups-body>nav,
 .owner-dashboard .dashboard-followups .followups-body>.reception-shortage-scroll{max-height:min(240px,34dvh);overflow:auto;min-width:0;min-height:0;scrollbar-width:thin;scrollbar-color:#b8c9bf #f5f8f6;border:1px solid #e2e9e5;border-radius:10px}
-.owner-dashboard .dashboard-followups .followups-body>nav{padding:0;background:#fbfdfb}
-.owner-dashboard .dashboard-followups .followups-body>nav h3{position:sticky;top:0;z-index:1;margin:0;padding:9px 12px;border-bottom:1px solid #dfe7e2;background:#f5f8f6;font-size:13px;line-height:1.4}
+.owner-dashboard .dashboard-followups .followups-body>nav{display:flex;flex-direction:column;overflow:hidden;padding:0;background:#fbfdfb}
+.owner-dashboard .dashboard-followups .followups-body>nav h3{display:block;flex-shrink:0;margin:0;padding:9px 12px;border-bottom:1px solid #dfe7e2;background:#f5f8f6;font-size:13px;line-height:1.4}
+.owner-dashboard .dashboard-followups .task-type-scroll{min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#b8c9bf #f5f8f6;padding:4px 6px}
+.owner-dashboard .dashboard-followups .task-type-scroll button{display:flex;align-items:center;width:100%;min-width:0;border:0;border-radius:8px;background:transparent;text-align:left;cursor:pointer;font:inherit}
+.owner-dashboard .dashboard-followups .task-type-scroll button span{flex:1}
+.owner-dashboard .dashboard-followups .task-type-scroll button b{border-radius:20px;background:#f0f2f4;padding:2px 8px}
+.owner-dashboard .dashboard-followups .task-type-scroll button.selected{background:#e0f8e5;color:#075a1f;font-weight:700}
+.owner-dashboard .dashboard-followups .task-type-scroll button svg{flex-shrink:0;width:17px;height:17px}
 .owner-dashboard .dashboard-followups .followups-body>nav button{padding:6px 8px;font-size:12px;gap:8px}
 .owner-dashboard .dashboard-followups .followups-body>nav button:hover{background:#edf6f0}
 .owner-dashboard .dashboard-followups .followups-body table{margin:0;border-collapse:separate;border-spacing:0}
 .owner-dashboard .dashboard-followups .followups-body table th{position:sticky;top:0;z-index:1;background:#f5f8f6;box-shadow:0 1px 0 #e3eae6}
 .owner-dashboard .dashboard-followups .followups-body table tbody tr:nth-child(even){background:#fbfdfc}
 .owner-dashboard .dashboard-followups .followups-body table tbody tr:hover{background:#f0f8f3}
-.owner-dashboard .dashboard-followups .followups-body>nav:focus-visible,
+.owner-dashboard .dashboard-followups .task-type-scroll:focus-visible,
 .owner-dashboard .dashboard-followups .followups-body>.reception-shortage-scroll:focus-visible{outline:2px solid #07812a;outline-offset:2px}
 
 /* Dashboard tables use centered cells, except the task and customer text columns. */
@@ -116,4 +122,5 @@
 .owner-dashboard .dashboard-followups .task-title-link{ justify-content:flex-start; }
 .owner-dashboard .dashboard-followups .task-row-actions{ justify-content:center; }
 .owner-dashboard .ar-content td button{ margin-inline:auto; justify-content:center; }
-.owner-dashboard .dashboard-followups .reception-empty{ text-align:left; }
+.owner-dashboard .reception-empty,
+.owner-dashboard .dashboard-followups .reception-empty{ text-align:center; padding:16px 12px; }
