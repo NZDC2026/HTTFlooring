@@ -68,3 +68,4 @@
 068_return_evidence_upload.sql
 069_reminder_review_content.sql
 070_boundary_authorization_and_paging.sql
+071_frontend_scope_and_return_closure.sql

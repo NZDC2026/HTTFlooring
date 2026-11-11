@@ -1,9 +1,9 @@
 name: Java backend verification
 on:
   pull_request:
-    paths: ['htt-backend-java/**', '.github/workflows/java-backend.yml']
+    paths: ['htt-backend-java/**', 'htt_flooring_app/lib/services/warehouse_return_backend.dart', 'htt_flooring_app/lib/screens/warehouse/returns/**', 'htt_flooring_app/test/warehouse_return*', '.github/workflows/java-backend.yml']
   push:
-    paths: ['htt-backend-java/**', '.github/workflows/java-backend.yml']
+    paths: ['htt-backend-java/**', 'htt_flooring_app/lib/services/warehouse_return_backend.dart', 'htt_flooring_app/lib/screens/warehouse/returns/**', 'htt_flooring_app/test/warehouse_return*', '.github/workflows/java-backend.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -62,6 +62,11 @@ jobs:
           flutter-version: '3.47.9'
           channel: stable
           cache: true
+      - name: Verify Flutter return client and prepare its real-API harness
+        working-directory: htt_flooring_app
+        run: |
+          flutter pub get
+          flutter test test/warehouse_return_backend_test.dart test/warehouse_return_screen_test.dart
       - name: Install isolated PDF test dependencies
         run: |
           python3 -m venv /tmp/htt-java-pdf
@@ -90,6 +95,8 @@ jobs:
             htt-backend-java/target/surefire-reports/
             htt-backend-java/target/frontend-contracts/*/acceptance.json
             htt-backend-java/target/frontend-contracts/*/workflow-http-acceptance.json
+            htt-backend-java/target/frontend-contracts/*/closure-http-acceptance.json
+            htt-backend-java/target/frontend-contracts/*/flutter-return-*.log
             htt-backend-java/target/frontend-contracts/*/worker-probe.log
             htt-backend-java/target/compatibility/*/PASSED
             htt-backend-java/target/compatibility/*/run.log

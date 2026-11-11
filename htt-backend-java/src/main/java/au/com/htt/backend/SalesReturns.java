@@ -47,9 +47,10 @@ class SalesReturns {
                     SELECT l.id,l.order_line_id,d.number AS invoice_number,l.quantity,
                     coalesce((SELECT sum(quantity) FROM inventory.sales_return_lines WHERE company_id=l.company_id AND invoice_line_id=l.id),0) AS returned_quantity
                     FROM sales.invoice_lines l JOIN sales.invoices i ON i.company_id=l.company_id AND i.id=l.invoice_id
-                    JOIN platform.documents d ON d.company_id=i.company_id AND d.id=i.id WHERE i.company_id=:company AND i.order_id=:id ORDER BY l.id
+                    JOIN platform.documents d ON d.company_id=i.company_id AND d.id=i.id WHERE i.company_id=:company AND i.order_id=:id AND d.state='POSTED' AND platform.document_visible(i.id) ORDER BY l.id
                     """).param("company",scope.companyId()).param("id",id).query(rows::row).list();
-            return Map.of("orderId",id,"movements",movements,"invoiceLines",invoiceLines);
+            var header=jdbc.sql("SELECT o.warehouse_id,o.customer_id,d.version,p.legal_name AS customer_name FROM sales.orders o JOIN platform.documents d ON d.company_id=o.company_id AND d.id=o.id JOIN crm.customers c ON c.company_id=o.company_id AND c.id=o.customer_id JOIN crm.parties p ON p.company_id=c.company_id AND p.id=c.party_id WHERE o.company_id=:company AND o.id=:id").param("company",scope.companyId()).param("id",id).query(rows::row).single();
+            var result=new java.util.HashMap<String,Object>(header);result.put("orderId",id);result.put("movements",movements);result.put("invoiceLines",invoiceLines);return result;
         });
     }
 
@@ -115,7 +116,7 @@ class SalesReturns {
         return result;
     }
     private void order(StaffScope.CompanyAccess scope,UUID id,String permission) {
-        UUID warehouse=jdbc.sql("SELECT warehouse_id FROM sales.orders WHERE company_id=:company AND id=:id")
+        UUID warehouse=jdbc.sql("SELECT warehouse_id FROM sales.orders WHERE company_id=:company AND id=:id AND platform.document_visible(id)")
                 .param("company",scope.companyId()).param("id",id).query(UUID.class).optional().orElseThrow(SalesReturns::notFound);
         access(permission,warehouse);
     }

@@ -20,7 +20,7 @@ class SalesRead {
 
     List<Map<String, Object>> list(StaffScope.CompanyAccess scope, int offset, int size, boolean quote) {
         String query = quote ? """
-                SELECT x.id,d.number,d.version,CASE WHEN x.status='SUBMITTED' AND sales.dispatch_deadline_expired(x.id) THEN 'EXPIRED' ELSE x.status END AS status,x.customer_id AS "customerId",
+                SELECT x.id,d.number,d.version,CASE WHEN x.status='SUBMITTED' AND (sales.dispatch_deadline_expired(x.id) OR x.expires_on<(SELECT (now() AT TIME ZONE timezone)::date FROM core.companies WHERE id=x.company_id)) THEN 'EXPIRED' ELSE x.status END AS status,x.customer_id AS "customerId",
                     x.customer_branch_id AS "customerBranchId",x.warehouse_id AS "warehouseId",
                     x.expires_on::text AS "expiresOn",x.gross::text AS gross
                 FROM sales.quotes x
@@ -44,7 +44,7 @@ class SalesRead {
         }
         String query = quote ? """
                 SELECT jsonb_build_object(
-                    'id',x.id,'number',d.number,'status',CASE WHEN x.status='SUBMITTED' AND sales.dispatch_deadline_expired(x.id) THEN 'EXPIRED' ELSE x.status END,'version',d.version,'customerId',x.customer_id,
+                    'id',x.id,'number',d.number,'status',CASE WHEN x.status='SUBMITTED' AND (sales.dispatch_deadline_expired(x.id) OR x.expires_on<(SELECT (now() AT TIME ZONE timezone)::date FROM core.companies WHERE id=x.company_id)) THEN 'EXPIRED' ELSE x.status END,'version',d.version,'customerId',x.customer_id,
                     'customerBranchId',x.customer_branch_id,'warehouseId',x.warehouse_id,'expiresOn',x.expires_on,
                     'notes',x.notes,'customer',x.customer_snapshot,'net',x.net::text,'tax',x.tax::text,
                     'gross',x.gross::text,'pricingAt',(to_json(x.pricing_at AT TIME ZONE 'UTC') #>> '{}')||'Z',
@@ -174,8 +174,9 @@ class SalesRead {
         var items = jdbc.sql("""
                 SELECT b.product_id AS "productId",p.sku,bu.code AS "baseUnitCode",
                     b.on_hand::text AS "onHand",b.reserved::text AS reserved,
+                    inventory.quote_reserved(:warehouse,b.product_id)::text AS "quoteReserved",
                     (CASE WHEN :sellable AND p.status='ACTIVE' AND p.sell_enabled AND p.item_type='STOCK'
-                     THEN b.on_hand-b.reserved ELSE 0 END)::text AS available
+                     THEN greatest(0,b.on_hand-b.reserved-inventory.quote_reserved(:warehouse,b.product_id)) ELSE 0 END)::text AS available
                 FROM inventory.stock_balances b JOIN catalog.products p ON p.company_id=b.company_id AND p.id=b.product_id
                 JOIN catalog.uoms bu ON bu.company_id=p.company_id AND bu.id=p.base_uom_id
                 WHERE b.company_id=:company AND b.warehouse_id=:warehouse

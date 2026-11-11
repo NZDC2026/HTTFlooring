@@ -58,3 +58,10 @@ python3 tests/frontend-contracts/portal-sales.py --snapshot <已通过的合成�
 重跑：先以 JDK 21 执行 `mvn package`，再执行 `python3 tests/stage4/migrations.py`；业务组合使用 `portal-sales.py --snapshot <合成快照>`，分别选 CASH 和 NON_CASH 快照，并配置 `JAVA_HOME`、`DOCKER` 和带 PDF 依赖的 `HTT_PYTHON`。`boundaries.sql` 在事务内构造并回滚边界数据，HTTP 邮件传输使用替身。
 
 回滚：本次仅作本地提交，未部署；070 未应用时可在干净分支撤销本提交，无需回滚数据库。部署前保存数据库备份及原 API/worker 制品；070 为前向迁移，不应删除历史迁移或仅把 migration index 改回 069。若隔离演练需整体回退，停止测试 API/worker，恢复升级前数据库快照并同时恢复配套旧制品；生产回退须另行授权并先评估升级后的业务写入。本次未操作真实系统。
+
+
+2026-11-11 三端边界与退货闭环：新增 071；原报价有效期不能被发货日期或客户跟进链接覆盖，已隐藏/未过账发票不进入退货选单，催收旧批次和幂等预览重放均重新核对权限。库存 `available` 统一为同仓库 `max(0, onHand - reserved - quoteReserved)`，其中 `reserved` 仍是物理订单预留；`quoteReserved` 是有效报价预留，不改写现存库存或历史账目。
+
+Flutter 仓库退货改为通过已验证员工会话选择公司、授权仓库和实际已出库订单。每项照片先私密上传并等待扫描；草稿按来源/公司/员工隔离保存，以稳定幂等键恢复提交，服务器确认后才清除草稿。原本机退货不自动导入。页面提供只读 Sample；刷新可读取 Pending / Processed / Rejected。审核接口可额外指定 `receivingWarehouseId`，必须同时具有原申请仓库及接收仓库权限；损坏品可进入有效隔离仓，原申请范围及原因、状况、签收证据继续保留。
+
+批量验收与回滚方式见 `../../docs/frontend-closure-acceptance.json`。`closure.sql` 覆盖原报价有效期、仓库预留及撤权；`closure-http-acceptance.json` 覆盖隐藏发票、旧预览重放、仓库越权以及真实 Flutter 服务的扫描等待、恢复提交和审核结果读取。重跑业务组合需 `HTT_FLUTTER` 指向 Flutter，并在 `../htt_flooring_app` 先运行 `flutter pub get`；CI 已加入准备步骤，本次未推送或运行远端 CI。真实扫描和身份配置仍须由部署环境显式提供，验收只使用本地合成数据及扫描回执替身。

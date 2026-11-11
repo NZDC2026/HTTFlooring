@@ -87,6 +87,48 @@ for query in ['page=0','status=UNKNOWN']:
  code,invalid=request('/api/v1/warehouse/return-requests?warehouseId='+return_input['warehouseId']+'&'+query,warehouse_headers)
  assert code==422,(query,code,invalid)
 rejected=command('/api/v1/warehouse/return-requests/'+returned['id']+'/decision',{'decision':'REJECT','reason':'Synthetic rejection'},returned['version']);assert rejected['status']=='REJECTED'
+# Freeze/replay authority is checked before idempotency cache reads.
+preview_payload={'mode':'STATEMENT','ids':ids}
+replay_headers={**staff_headers,'Content-Type':'application/json','Idempotency-Key':'synthetic-statement-replay-scope'}
+code,protected_batch=request('/api/v1/invoice-reminders/preview',replay_headers,method='POST',payload=preview_payload);assert code==200,(code,protected_batch)
+for revoked in ['accounting.statements.read','accounting.statements.send','documents.pdf.request']:
+ scoped("DELETE FROM identity.role_permissions WHERE company_id=core.current_company() AND role_id='00000000-0000-0000-0000-000000000004' AND permission_code='"+revoked+"'")
+ code,denied=request('/api/v1/invoice-reminders/batches/'+protected_batch['id'],staff_headers);assert code==403,(revoked,code,denied)
+ code,denied=request('/api/v1/invoice-reminders/preview',replay_headers,method='POST',payload=preview_payload);assert code==403,(revoked,code,denied)
+ scoped("INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES(core.current_company(),'00000000-0000-0000-0000-000000000004','"+revoked+"')")
+# A hidden invoice cannot be selected through the warehouse-only return source endpoint.
+hidden=data("SELECT jsonb_build_object('id',i.id,'order',i.order_id,'line',l.id) FROM sales.invoices i JOIN sales.orders o ON o.company_id=i.company_id AND o.id=i.order_id JOIN sales.invoice_lines l ON l.company_id=i.company_id AND l.invoice_id=i.id WHERE i.company_id=core.current_company() AND o.warehouse_id='00000000-0000-0000-0000-000000000014' AND platform.document_visible(i.id) AND platform.document_visible(o.id) ORDER BY i.id,l.id LIMIT 1")
+scoped("INSERT INTO platform.document_visibility(company_id,document_id,version,trashed_at,trashed_by,reason,changed_by) VALUES(core.current_company(),'"+hidden['id']+"',2,now(),core.current_actor(),'Synthetic hidden invoice',core.current_actor())")
+code,sources=request('/api/v1/warehouse/orders/'+hidden['order']+'/returnable',warehouse_headers);assert code==200 and all(x['id']!=hidden['line'] for x in sources['invoiceLines']),(code,sources)
+scoped("DELETE FROM platform.document_visibility WHERE company_id=core.current_company() AND document_id='"+hidden['id']+"'")
+code,warehouses=request('/api/v1/warehouse/return-warehouses',warehouse_headers);assert code==200 and [w['id'] for w in warehouses['items']]==['00000000-0000-0000-0000-000000000014'],(code,warehouses)
+other_wh=sql("SELECT id FROM catalog.warehouses WHERE company_id='"+company+"' AND active AND kind='SELLABLE' AND id<>'00000000-0000-0000-0000-000000000014' ORDER BY id LIMIT 1")
+code,denied=request('/api/v1/warehouse/return-orders?warehouseId='+other_wh,warehouse_headers);assert code in (403,404),(code,denied)
+# The real Flutter service uploads photos, persists scan-wait state, resumes, and reads the manager's decision.
+flutter=os.environ.get('HTT_FLUTTER','flutter')
+fixture=out/'flutter-return-fixture.json';result_file=out/'flutter-return-result.json';storage=out/'flutter-return-storage';storage.mkdir()
+fixture.write_text(json.dumps({'origin':base,'token':jwt('staff','synthetic-return-warehouse'),'companyId':company,'actorId':warehouse_user,'warehouseId':'00000000-0000-0000-0000-000000000014','orderId':fresh_id,'storage':str(storage),'resultFile':str(result_file)}))
+def flutter_phase(phase):
+ env={**os.environ,'HTT_RETURN_FIXTURE':str(fixture),'HTT_RETURN_PHASE':phase}
+ with (out/('flutter-return-'+phase+'.log')).open('w') as log:run([flutter,'test','--no-pub','test/warehouse_return_real_backend_test.dart'],cwd=project.parent/'htt_flooring_app',env=env,stdout=log,stderr=log)
+flutter_phase('prepare')
+mobile_jobs=json.loads(sql("SELECT coalesce(jsonb_agg(id),'[]') FROM platform.document_jobs WHERE document_id='"+fresh_id+"' AND kind='SCAN' AND state='QUEUED'"))
+assert len(mobile_jobs)==2,mobile_jobs
+for scan in mobile_jobs:
+ fence=str(uuid.uuid4())
+ result=data("UPDATE platform.document_jobs SET state='PROCESSING',lease_token='"+fence+"',lease_until=now()+interval '90 seconds' WHERE id='"+scan+"';SET LOCAL ROLE htt_worker;SELECT jsonb_build_object('accepted',platform.finish_document_work('"+scan+"','"+fence+"','SUCCEEDED',NULL,NULL,NULL))")
+ assert result['accepted'],result
+flutter_phase('finish')
+mobile_return=json.loads(result_file.read_text());assert mobile_return['status']=='PENDING'
+quarantine=sql("SELECT id FROM catalog.warehouses WHERE company_id='"+company+"' AND active AND kind='QUARANTINE' ORDER BY id LIMIT 1");assert quarantine
+code,denied=request('/api/v1/warehouse/return-requests/'+mobile_return['id']+'/decision',{**warehouse_headers,'Content-Type':'application/json','Idempotency-Key':'synthetic-unauthorized-quarantine','If-Match':'\"'+str(mobile_return['version'])+'\"'},method='POST',payload={'decision':'PROCESS','disposition':'QUARANTINE','reason':'Synthetic unauthorized destination','receivingWarehouseId':quarantine});assert code in (403,404),(code,denied)
+processed=command('/api/v1/warehouse/return-requests/'+mobile_return['id']+'/decision',{'decision':'PROCESS','disposition':'QUARANTINE','reason':'Synthetic signed damaged return','receivingWarehouseId':quarantine},mobile_return['version']);assert processed['status']=='PROCESSED',processed
+flutter_phase('verify')
+# Runtime credentials are ephemeral; keep only nonsensitive verification results.
+fixture.unlink()
+closure_evidence={'status':'PASSED','revokedBatchReadAndPreviewReplayDenied':True,'hiddenInvoiceExcludedFromWarehouseReturnSources':True,'warehouseDiscoveryAndCrossWarehouseDenial':True,'flutterRealJavaReturn':{'scanWait':True,'resume':True,'processedDecisionRead':True,'itemConditionAndReasonRetained':True},'externalTransportsInvoked':0}
+(out/'closure-http-acceptance.json').write_text(json.dumps(closure_evidence,indent=2))
+
 # Preserve only nonsensitive result metadata.
 
 # Policy edits serialize across independent API requests without changing any historical ledger.

@@ -24,8 +24,8 @@ class FrontendWorkflowApi {
     record Preview(String mode,List<UUID> ids,LocalDate fromDate,LocalDate toDate){}
     record Confirmation(Boolean confirmed){}
     record ReturnRequest(UUID orderId,UUID warehouseId,String reason,JsonNode handoverProof,List<ReturnLine> items){}
-    record ReturnLine(UUID stockMovementId,UUID invoiceLineId,java.math.BigDecimal quantity,List<UUID> photoFileIds){}
-    record Decision(String decision,String disposition,String reason){}
+    record ReturnLine(UUID stockMovementId,UUID invoiceLineId,java.math.BigDecimal quantity,List<UUID> photoFileIds,String condition,String reason){}
+    record Decision(String decision,String disposition,String reason,UUID receivingWarehouseId){}
 
     @GetMapping("/api/v1/dispatch-followups/settings")
     ResponseEntity<String> followupSettings(@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return read(jwt,r,"sales.followups.manage",()->scalar("SELECT sales.followup_settings()::text",Map.of()));}
@@ -58,6 +58,10 @@ class FrontendWorkflowApi {
     @PostMapping("/api/v1/invoice-reminders/batches/{id}/queue")
     ResponseEntity<String> queue(@PathVariable UUID id,@RequestBody Confirmation input,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return write(jwt,r,"documents.email.send",input,()->scalar("SELECT accounting.queue_reminders(:id,:confirmed)::text",QuoteDrafts.map("id",id,"confirmed",input.confirmed())));}
 
+    @GetMapping("/api/v1/warehouse/return-warehouses")
+    ResponseEntity<String> returnWarehouses(@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){var scope=staff.require(jwt,r.getHeader("X-Company-Id"),"inventory.returns.read");return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(staff.inCompany(scope,rid(r),()->scalar("SELECT jsonb_build_object('items',coalesce(jsonb_agg(jsonb_build_object('id',w.id,'name',w.name,'code',w.code) ORDER BY w.code,w.id),'[]'::jsonb))::text FROM catalog.warehouses w WHERE w.company_id=core.current_company() AND w.active AND w.kind='SELLABLE' AND (:all OR EXISTS(SELECT 1 FROM identity.warehouse_scopes s WHERE s.company_id=w.company_id AND s.warehouse_id=w.id AND s.membership_id=:membership))",Map.of("all",List.of(scope.permissions()).contains("warehouses.all"),"membership",scope.membershipId()))));}
+    @GetMapping("/api/v1/warehouse/return-orders")
+    ResponseEntity<String> returnOrders(@RequestParam UUID warehouseId,@RequestParam(defaultValue="1") int page,@RequestParam(defaultValue="25") int pageSize,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return read(jwt,r,"inventory.returns.read",()->scalar("SELECT inventory.return_order_list(:id,:page,:size)::text",Map.of("id",warehouseId,"page",page,"size",pageSize)));}
     @GetMapping("/api/v1/warehouse/return-requests")
     ResponseEntity<String> returns(@RequestParam UUID warehouseId,@RequestParam(defaultValue="1") int page,@RequestParam(defaultValue="100") int pageSize,@RequestParam(required=false) String status,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return read(jwt,r,"inventory.returns.read",()->scalar("SELECT inventory.return_request_list(:id,:page,:size,:status)::text",QuoteDrafts.map("id",warehouseId,"page",page,"size",pageSize,"status",status)));}
     @GetMapping("/api/v1/warehouse/return-requests/{id}")
@@ -69,13 +73,16 @@ class FrontendWorkflowApi {
         return scalar("SELECT inventory.return_request_view(CAST(:id AS uuid))::text",Map.of("id",id));
     });}
     @PostMapping("/api/v1/warehouse/return-requests/{id}/decision")
-    ResponseEntity<String> decide(@PathVariable UUID id,@RequestBody Decision input,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return write(jwt,r,"inventory.returns.write",input,()->scalar("SELECT inventory.decide_return_request(:id,:version,:decision,:disposition,:reason)::text",QuoteDrafts.map("id",id,"version",version(r),"decision",input.decision(),"disposition",input.disposition(),"reason",input.reason())));}
+    ResponseEntity<String> decide(@PathVariable UUID id,@RequestBody Decision input,@AuthenticationPrincipal Jwt jwt,HttpServletRequest r){return write(jwt,r,"inventory.returns.write",input,()->scalar("SELECT inventory.decide_return_request(:id,:version,:decision,:disposition,:reason,CAST(:warehouse AS uuid))::text",QuoteDrafts.map("id",id,"version",version(r),"decision",input.decision(),"disposition",input.disposition(),"reason",input.reason(),"warehouse",input.receivingWarehouseId())));}
 
     private String scalar(String sql,Map<String,?> args){return jdbc.sql(sql).params(args).query(String.class).single();}
     private ResponseEntity<String> read(Jwt jwt,HttpServletRequest r,String permission,Supplier<String> action){var scope=staff.require(jwt,r.getHeader("X-Company-Id"),permission);return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(staff.inCompany(scope,rid(r),action));}
     private ResponseEntity<String> write(Jwt jwt,HttpServletRequest r,String permission,Object input,Supplier<String> action){
         var scope=staff.require(jwt,r.getHeader("X-Company-Id"),permission);
-        var result=staff.inCompany(scope,rid(r),()->writes.execute(scope,"POST "+r.getRequestURI(),r.getHeader("Idempotency-Key"),json.writeValueAsString(QuoteDrafts.map("input",input,"ifMatch",r.getHeader("If-Match"))),()->new IdempotentWrite.StoredResponse(200,action.get())));
+        var result=staff.inCompany(scope,rid(r),()->{
+            if(input instanceof Preview p){MasterDataChecks.check(p.ids()!=null&&!p.ids().isEmpty()&&p.ids().size()<=100&&p.ids().stream().allMatch(Objects::nonNull),"ids","Select invoice IDs.");scalar("SELECT accounting.reminder_preview_access(:mode,CAST(:ids AS uuid[]))::text",QuoteDrafts.map("mode",p.mode(),"ids","{"+String.join(",",p.ids().stream().map(UUID::toString).sorted().toList())+"}"));}
+            if(input instanceof Confirmation){String id=r.getRequestURI().split("/")[5];scalar("SELECT accounting.reminder_batch_view(CAST(:id AS uuid))::text",Map.of("id",id));}
+            return writes.execute(scope,"POST "+r.getRequestURI(),r.getHeader("Idempotency-Key"),json.writeValueAsString(QuoteDrafts.map("input",input,"ifMatch",r.getHeader("If-Match"))),()->new IdempotentWrite.StoredResponse(200,action.get()));});
         return ResponseEntity.status(result.status()).contentType(MediaType.APPLICATION_JSON).body(result.body());
     }
     private static long version(HttpServletRequest r){return WarehouseDetails.version(r.getHeader("If-Match"));}

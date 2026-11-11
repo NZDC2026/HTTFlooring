@@ -1,0 +1,33 @@
+BEGIN;
+SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true),set_config('htt.actor_id','00000000-0000-0000-0000-000000000002',true);
+DO $$DECLARE q sales.quotes;p uuid;w2 uuid;before_qty numeric;before_holds numeric;held numeric;after_qty numeric;unchanged numeric;ids uuid[];batch uuid;permission text;BEGIN
+ SELECT x.* INTO q FROM sales.quotes x WHERE x.company_id=core.current_company() AND x.status='DRAFT' AND platform.document_visible(x.id) AND EXISTS(SELECT 1 FROM sales.quote_lines l WHERE l.company_id=x.company_id AND l.quote_id=x.id AND l.item_type='STOCK') ORDER BY x.id LIMIT 1;
+ UPDATE sales.quotes SET expires_on=current_date+30 WHERE id=q.id;PERFORM sales.set_dispatch_schedule(q.id,1,current_date+5,false,false,'Synthetic schedule while still valid');UPDATE sales.quotes SET expires_on=current_date-1 WHERE id=q.id;
+ IF NOT sales.quote_conversion_expired(q.id) THEN RAISE EXCEPTION 'Original expiry missing';END IF;
+ BEGIN PERFORM sales.set_dispatch_schedule(q.id,2,current_date+6,false,false,'Synthetic expired quote reschedule');RAISE EXCEPTION 'Expired quote scheduled';EXCEPTION WHEN SQLSTATE 'HI409' THEN NULL;END;
+ IF NOT sales.quote_conversion_expired(q.id) THEN RAISE EXCEPTION 'Schedule bypassed original validity';END IF;
+ UPDATE sales.quotes SET status='SUBMITTED' WHERE id=q.id;UPDATE platform.documents SET state='CONFIRMED' WHERE id=q.id;
+ BEGIN UPDATE sales.quotes SET status='CONVERTED' WHERE id=q.id;RAISE EXCEPTION 'Expired conversion accepted';EXCEPTION WHEN SQLSTATE 'HI409' THEN NULL;END;
+ SELECT l.product_id,sum(l.base_quantity) INTO p,held FROM sales.quote_lines l WHERE l.company_id=q.company_id AND l.quote_id=q.id AND l.item_type='STOCK' GROUP BY l.product_id ORDER BY l.product_id LIMIT 1;
+ IF inventory.quote_reserved(q.warehouse_id,p)<>0 THEN RAISE EXCEPTION 'Expired quote still holds inventory';END IF;
+ SELECT sum(available) INTO before_qty FROM portal.scoped_stock(q.company_id,'00000000-0000-0000-0000-000000000013','00000000-0000-0000-0000-000000000012',p) WHERE id=q.warehouse_id;
+ SELECT id INTO w2 FROM catalog.warehouses WHERE company_id=q.company_id AND active AND kind='SELLABLE' AND id<>q.warehouse_id ORDER BY id LIMIT 1;
+ unchanged:=inventory.quote_hold_quantity(q.company_id,w2,p);SELECT (x->>'quantity')::numeric INTO before_holds FROM jsonb_array_elements(inventory.commercial_reservations()->'items') x WHERE x->>'productId'=p::text;
+ UPDATE sales.quotes SET status='DRAFT' WHERE id=q.id;UPDATE platform.documents SET state='DRAFT' WHERE id=q.id;UPDATE sales.quotes SET expires_on=current_date+30 WHERE id=q.id;UPDATE sales.quotes SET status='SUBMITTED' WHERE id=q.id;UPDATE platform.documents SET state='CONFIRMED' WHERE id=q.id;
+ IF inventory.quote_reserved(q.warehouse_id,p)<>held THEN RAISE EXCEPTION 'Warehouse quote hold incorrect';END IF;
+ SELECT sum(available) INTO after_qty FROM portal.scoped_stock(q.company_id,'00000000-0000-0000-0000-000000000013','00000000-0000-0000-0000-000000000012',p) WHERE id=q.warehouse_id;
+ IF before_qty IS NULL OR after_qty IS DISTINCT FROM greatest(0,before_qty-held) THEN RAISE EXCEPTION 'Portal commercial availability differs';END IF;
+ IF inventory.quote_hold_quantity(q.company_id,w2,p) IS DISTINCT FROM unchanged THEN RAISE EXCEPTION 'Quote hold charged to another warehouse';END IF;
+ IF (SELECT (x->>'quantity')::numeric FROM jsonb_array_elements(inventory.commercial_reservations()->'items') x WHERE x->>'productId'=p::text)-before_holds<>held THEN RAISE EXCEPTION 'Company quantity misses warehouse quote hold';END IF;
+ INSERT INTO crm.contacts(company_id,party_id,name,email,is_accounting,created_by) SELECT company_id,party_id,'Synthetic accounting','accounts@example.invalid',true,core.current_actor() FROM crm.customers c WHERE c.company_id=core.current_company() AND NOT EXISTS(SELECT 1 FROM crm.contacts x WHERE x.company_id=c.company_id AND x.party_id=c.party_id AND x.active AND x.is_accounting);
+ UPDATE crm.contacts SET email='accounts@example.invalid',active=true WHERE company_id=core.current_company() AND is_accounting;
+ INSERT INTO accounting.reminder_settings(company_id,enabled,mail_from,worker_ready_at) VALUES(core.current_company(),true,'sender@example.invalid',now());
+ SELECT ARRAY[(value->>'id')::uuid] INTO ids FROM jsonb_array_elements(accounting.reminder_rows()) LIMIT 1;
+ batch:=accounting.prepare_reminders('STATEMENT',ids,current_date-365,current_date+1);
+ FOREACH permission IN ARRAY ARRAY['accounting.statements.read','accounting.statements.send','documents.pdf.request'] LOOP
+ DELETE FROM identity.role_permissions WHERE company_id=core.current_company() AND role_id='00000000-0000-0000-0000-000000000004' AND permission_code=permission;
+ BEGIN PERFORM accounting.reminder_batch_view(batch);RAISE EXCEPTION 'Revoked permission read frozen mail: %',permission;EXCEPTION WHEN insufficient_privilege THEN NULL;END;
+ INSERT INTO identity.role_permissions(company_id,role_id,permission_code) VALUES(core.current_company(),'00000000-0000-0000-0000-000000000004',permission);
+ END LOOP;
+END $$;
+ROLLBACK;

@@ -85,7 +85,7 @@ class QuoteDrafts {
         });return ResponseEntity.status(response.status()).contentType(MediaType.APPLICATION_JSON).body(response.body());
     }
     Map<String,Object> quote(StaffScope.CompanyAccess scope,UUID id,boolean lock) {
-        var q=jdbc.sql("SELECT d.number,d.state,d.version,d.created_by AS owner_id,q.*,sales.dispatch_deadline_expired(q.id) AS followup_expired,q.expires_on::text AS expires_on FROM sales.quotes q JOIN platform.documents d ON d.company_id=q.company_id AND d.id=q.id WHERE q.company_id=:company AND q.id=:id"+(lock?" FOR UPDATE OF d,q":""))
+        var q=jdbc.sql("SELECT d.number,d.state,d.version,d.created_by AS owner_id,q.*,(sales.dispatch_deadline_expired(q.id) OR q.expires_on<(SELECT (now() AT TIME ZONE timezone)::date FROM core.companies WHERE id=q.company_id)) AS followup_expired,q.expires_on::text AS expires_on FROM sales.quotes q JOIN platform.documents d ON d.company_id=q.company_id AND d.id=q.id WHERE q.company_id=:company AND q.id=:id"+(lock?" FOR UPDATE OF d,q":""))
             .param("company",scope.companyId()).param("id",id).query(rows::row).optional().orElseThrow(QuoteDrafts::notFound);
         customer(scope,(UUID)q.get("customerId"));return q;
     }

@@ -1,0 +1,67 @@
+{
+  "status": "PASSED",
+  "date": "2026-11-11",
+  "baseCommit": "8dd67276e035e9a24b089f91b3735aed653177a1",
+  "migration": "071_frontend_scope_and_return_closure.sql",
+  "jarSha256": "38df4f2c87365360cb24b56b3f690d273e383d1b525cf13ad1282ed4c5c5a988",
+  "fixed": [
+    "Original quote validity remains authoritative for conversion, schedules, public links and display",
+    "Warehouse return sources exclude hidden or unposted invoices and hidden orders",
+    "Statement authority is rechecked before frozen batch reads and preview/queue idempotency replay",
+    "Staff and portal warehouse availability share effective quote holds without changing stock or journals",
+    "Flutter authenticated warehouse return flow supports scoped persistent drafts, photo scan wait, stable retries, item reason/condition, server acknowledgement and processed/rejected status reads",
+    "Processing can route damaged returns to a separately authorized receiving warehouse while retaining the originating request scope"
+  ],
+  "validation": {
+    "javaUnitTests": {
+      "tests": 51,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "freshAndRepeatableMigrations": 71,
+    "cashAndNonCashBusinessCombinations": "PASSED",
+    "realFlutterToJava": "PASSED in both bases: prepare / scan wait / resume / authorized quarantine processing / decision read",
+    "flutterTests": "24 passed; 1 fixture-only test skipped in the standalone suite and executed separately against Java in both bases",
+    "finalFlutterFocusedTests": 2,
+    "flutterAnalysis": "No errors/warnings; 10 pre-existing informational style findings outside changed code",
+    "flutterWebBuild": "PASSED",
+    "historicalStockAndJournalsUnchangedByMigration": true,
+    "fullFinancialCompatibilitySuiteRerun": false,
+    "remoteCiRun": false
+  },
+  "evidence": {
+    "cash": "target/frontend-contracts/cde2bfd633dd4c20b78ebbaf82b896bc/acceptance.json",
+    "cashClient": "target/frontend-contracts/cde2bfd633dd4c20b78ebbaf82b896bc/closure-http-acceptance.json",
+    "nonCash": "target/frontend-contracts/bd661bd3e07940199f218e61eba5bd78/acceptance.json",
+    "nonCashClient": "target/frontend-contracts/bd661bd3e07940199f218e61eba5bd78/closure-http-acceptance.json",
+    "coldMigration": "target/stage4/migration/1a18ba15b4904aa1887b91d4e76e3a44/acceptance.json"
+  },
+  "additionalEvidence": "target/frontend-closure/",
+  "configuration": {
+    "backendOrigin": "Flutter HTT_API_ORIGIN must be an explicitly configured HTTPS origin",
+    "identity": "AppSession employeeAccessToken; company and actor are obtained from verified /me",
+    "localDraftScope": "origin + company + verified actor; bearer tokens are never persisted with drafts",
+    "sample": "Warehouse → Customer Returns → Sample (read-only)",
+    "legacyReturns": "Old local return records remain on disk and are not auto-imported or shown in a verified workspace"
+  },
+  "rollback": {
+    "notDeployed": "No production database or connection was changed. Before migration 071 is applied, git revert this local commit on a clean branch; no database rollback is needed. Preserve unrelated local edits.",
+    "afterMigration": "Do not delete applied migration checksums or merely revert the migration index. Disable affected entry points/API/worker; prefer a forward correction. A full restoration requires a consistent pre-upgrade database backup and matching API/worker/mobile artifacts, assessment of subsequent writes, and separate production authorization.",
+    "localDrafts": "Keep actor/company-scoped pending drafts and uploaded evidence until ambiguous submission results are resolved; do not auto-import them into the old global repository."
+  },
+  "safety": {
+    "pushed": false,
+    "productionSwitched": false,
+    "externalMailOrProviderCalls": 0,
+    "automationRestarted": false,
+    "legacyCSharpChanged": false
+  },
+  "evidenceSha256": {
+    "cash": "722923c3aa70a8939f049d8b6b101a9dd859247581226dc62333826fb2b4d8b5",
+    "cashClient": "0096cedfad31f46790e093aba8886bde447ffac2ecfb7f64547499e0dbd9993e",
+    "nonCash": "2729375d8cc2253a6de1c4c9bb4232a3a07abb4fe2a6f8f385d6b849a82253dc",
+    "nonCashClient": "0096cedfad31f46790e093aba8886bde447ffac2ecfb7f64547499e0dbd9993e",
+    "coldMigration": "d8efa41dbe3c58d9553c1fcf8f8ec49145099510fab2e56925e8a7202c1be4c9"
+  }
+}

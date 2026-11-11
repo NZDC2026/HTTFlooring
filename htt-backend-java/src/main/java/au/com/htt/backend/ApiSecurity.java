@@ -32,7 +32,7 @@ class ApiSecurity {
                 .authorizeHttpRequests(requests -> {
                     requests.requestMatchers(HttpMethod.GET, "/health/live", "/health/ready").permitAll();
                     if (staffConfigured && !databaseUrl.isBlank()) {
-                        requests.requestMatchers(HttpMethod.GET,"/api/v1/dispatch-followups/settings","/api/v1/invoice-reminders","/api/v1/invoice-reminders/settings","/api/v1/invoice-reminders/batches/*","/api/v1/warehouse/return-requests","/api/v1/warehouse/return-requests/*").authenticated();
+                        requests.requestMatchers(HttpMethod.GET,"/api/v1/dispatch-followups/settings","/api/v1/invoice-reminders","/api/v1/invoice-reminders/settings","/api/v1/invoice-reminders/batches/*","/api/v1/warehouse/return-warehouses","/api/v1/warehouse/return-orders","/api/v1/warehouse/return-requests","/api/v1/warehouse/return-requests/*").authenticated();
                         requests.requestMatchers(HttpMethod.POST,"/api/v1/dispatch-followups/settings","/api/v1/invoice-reminders/settings","/api/v1/invoice-reminders/preview","/api/v1/invoice-reminders/batches/*/queue","/api/v1/warehouse/return-requests","/api/v1/warehouse/return-requests/*/decision").authenticated();
                         requests.requestMatchers(HttpMethod.GET,"/api/v1/documents/*/dispatch-schedule","/api/v1/inventory/commercial-reservations","/api/v1/products/*/costing-policy","/api/v1/warehouses/*/products/*/batches").authenticated();
                         requests.requestMatchers(HttpMethod.POST,"/api/v1/documents/*/dispatch-schedule","/api/v1/products/*/costing-policy").authenticated();
