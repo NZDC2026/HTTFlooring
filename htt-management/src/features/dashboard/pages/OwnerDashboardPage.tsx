@@ -23,6 +23,7 @@ import {useSuppliers} from '../../contacts/data/useSuppliers';
 import {useTaskHub} from '../../task-hub/useTaskHub';
 import './owner-dashboard.css';
 import {ReceptionDashboard} from './ReceptionDashboard';
+import './dashboard-density.css';
 
 export function dashboardAccess(principal:VerifiedPrincipal|null){
  return {aging:!!principal?.authenticated&&principal.roles.includes('ACCOUNTANT'),financial:hasPermission(principal,'accounting.read'),cash:hasPermission(principal,'banking.read'),receivables:hasPermission(principal,'sales.read'),inventory:hasPermission(principal,'inventory.read'),purchases:hasPermission(principal,'purchases.read'),followups:hasPermission(principal,'sales.read'),tax:hasPermission(principal,'accounting.read')};
