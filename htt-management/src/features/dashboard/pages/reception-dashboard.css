@@ -35,3 +35,15 @@
 /* Align ordinary and highlighted elapsed-day values under the same heading. */
 .reception-pending th.pending-days,.reception-pending td.pending-days{text-align:center}
 .reception-pending .pending-days-value{display:inline-flex;align-items:center;justify-content:center;min-width:60px;min-height:24px;padding:4px 10px;box-sizing:border-box;white-space:nowrap}
+
+/* Remaining overview cards fill the space after removing Exceptions & Alerts. */
+.reception-top-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+.reception-top-row>section:last-child{grid-column:auto}
+.reception-top-row>section:only-child{grid-column:1/-1}
+@media(max-width:650px){.reception-top-row{grid-template-columns:1fr}}
+
+.reception-bottom-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:1050px){.reception-bottom-row .reception-pending{grid-column:auto;grid-row:auto}}
+@media(max-width:650px){.reception-bottom-row{grid-template-columns:1fr}}
+.reception-task-scopes{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.reception-task-scopes button{border:0;border-radius:24px;padding:7px 12px;background:#f0f3f4;color:#334155;cursor:pointer;font:inherit;font-size:12px}.reception-task-scopes button b{margin-left:6px}.reception-task-scopes .overdue{background:#fff0f2;color:#cf233a}.reception-task-scopes .today{background:#e7f7ed;color:#087338}.reception-task-scopes button.selected{background:#007647;color:white}.reception-follow>div{min-width:0;flex:1}.reception-follow>em{flex-shrink:0}
+.dashboard-task-layout{display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px}.dashboard-task-layout nav{display:flex;flex-direction:column;gap:5px}.dashboard-task-layout nav button{border:0;background:transparent;text-align:left;padding:9px;border-radius:8px;display:flex;justify-content:space-between;cursor:pointer;font:inherit;font-size:12px}.dashboard-task-layout nav button.selected{background:#dcf6e3;color:#006e39;font-weight:700}.dashboard-task-layout table,.outstanding-dispatch table{width:100%;border-collapse:collapse;font-size:12px}.dashboard-task-layout th,.dashboard-task-layout td,.outstanding-dispatch th,.outstanding-dispatch td{padding:10px 8px;border-bottom:1px solid #edf0ef;text-align:left}.task-owner-avatar{display:inline-flex;border-radius:50%;background:#e9f0f3;width:28px;height:28px;align-items:center;justify-content:center}.dispatch-summary{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:15px 0}.dispatch-summary input{border:1px solid #dce5df;border-radius:8px;padding:8px}.outstanding-dispatch{margin:16px 0}.outstanding-dispatch h2 button{margin-left:auto;border:0;background:none;color:#00704a;cursor:pointer}.outstanding-dispatch p{font-size:12px;color:#64748b}.outstanding-dispatch progress{width:70px;accent-color:#008d49}.reception-top-row>section:only-child{grid-column:1/-1}@media(max-width:650px){.dashboard-task-layout{grid-template-columns:1fr}.dashboard-task-layout nav{flex-direction:row;overflow:auto}.dashboard-task-layout nav button{white-space:nowrap;gap:12px}}

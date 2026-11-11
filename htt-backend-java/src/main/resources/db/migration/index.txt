@@ -60,3 +60,10 @@
 060_dispatch_schedules.sql
 061_alignment_consistency.sql
 062_dispatch_followup_runtime.sql
+063_return_requests.sql
+064_invoice_reminder_batches.sql
+065_followup_public_history.sql
+066_operational_expiry_and_send_fence.sql
+067_dispatch_send_fence.sql
+068_return_evidence_upload.sql
+069_reminder_review_content.sql

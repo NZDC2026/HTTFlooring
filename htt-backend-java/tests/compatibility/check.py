@@ -8,8 +8,12 @@ import base64, http.server, json, os, pathlib, ssl, subprocess, threading, time,
 here = pathlib.Path(__file__).resolve().parent
 jdk = pathlib.Path(os.environ['JAVA_HOME'])
 jar = pathlib.Path(os.environ['HTT_COMPAT_JAR'])
-issuer = 'https://localhost:15443'
-url = 'http://127.0.0.1:15081'
+issuer_port=int(os.environ.get('HTT_COMPAT_ISSUER_PORT','15443'))
+java_port=int(os.environ.get('HTT_COMPAT_API_PORT','15081'))
+legacy_port=int(os.environ.get('HTT_COMPAT_LEGACY_PORT','15082'))
+assert all(1024<=p<=65535 for p in (issuer_port,java_port,legacy_port)) and len({issuer_port,java_port,legacy_port})==3
+issuer = f'https://localhost:{issuer_port}'
+url = f'http://127.0.0.1:{java_port}'
 os.chdir(here)
 subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost','-keyout','tls.key','-out','tls.crt'], check=True, capture_output=True)
 subprocess.run(['openssl','genrsa','-out','sign.key','2048'], check=True, capture_output=True)
@@ -70,7 +74,7 @@ def token(subject, audience='staff', lifetime=14400):
     signature = subprocess.check_output(['openssl','dgst','-sha256','-sign','sign.key'], input=content.encode())
     return f'{content}.{b64(signature)}'
 
-backend_requests = {'15081':deque(),'15082':deque()}
+backend_requests = {str(java_port):deque(),str(legacy_port):deque()}
 legacy_rate_lock = threading.Lock()
 
 def pace_backend(base):
@@ -164,7 +168,7 @@ def synthetic_feed_state(connection_id,action):
     assert result.returncode==0,result
 
 def request(path, jwt=None, company=None, grant=None, base=url, payload=None, key=None, version=None, content_type=None, method=None, timeout_seconds=5):
-    if base.endswith((':15081',':15082')):
+    if base.rsplit(':',1)[-1] in backend_requests:
         pace_backend(base)
     headers = {} if jwt is None else {'Authorization':'Bearer '+jwt}
     if key is not None:
@@ -256,19 +260,19 @@ def verify_flutter(employee, legacy_url, ssl_context):
     return trace[0][3]['id']
 
 db_port = (here.parent/'htt-java-me-db-port.txt').read_text().strip().rsplit(':',1)[1]
-env = dict(os.environ, SERVER_PORT='15081', SERVER_ADDRESS='127.0.0.1',
+env = dict(os.environ, SERVER_PORT=str(java_port), SERVER_ADDRESS='127.0.0.1',
            HTT_STAFF_AUTHORITY=issuer, HTT_STAFF_AUDIENCE='staff',
            HTT_STAFF_DATABASE_URL=f'jdbc:postgresql://127.0.0.1:{db_port}/htt_java_test',
            HTT_STAFF_DATABASE_PASSWORD='local-app-test',
            HTT_PORTAL_AUTHORITY=issuer, HTT_PORTAL_AUDIENCE='portal',
            HTT_PORTAL_DATABASE_URL=f'jdbc:postgresql://127.0.0.1:{db_port}/htt_java_test',
            HTT_PORTAL_DATABASE_PASSWORD='local-portal-test')
-with http.server.ThreadingHTTPServer(('127.0.0.1',15443),Discovery) as server:
+with http.server.ThreadingHTTPServer(('127.0.0.1',issuer_port),Discovery) as server:
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain('tls.crt','tls.key')
     server.socket = ctx.wrap_socket(server.socket,server_side=True)
     threading.Thread(target=server.serve_forever,daemon=True).start()
-    legacy_url = 'http://127.0.0.1:15082'
+    legacy_url = f'http://127.0.0.1:{legacy_port}'
     legacy_dll = here.parent/'dotnet-baseline/src/Htt.Host.Api/bin/Debug/net10.0/Htt.Host.Api.dll'
     pin = subprocess.check_output(['openssl','x509','-in','tls.crt','-fingerprint','-sha1','-noout']).decode().strip().split('=')[1].replace(':','')
     legacy_env = dict(os.environ, ASPNETCORE_URLS=legacy_url, ASPNETCORE_ENVIRONMENT='Development',

@@ -41,6 +41,16 @@ class PortalDatabase implements AutoCloseable {
         });
     }
 
+    // Writes are restricted by the htt_portal login to token-scoped dispatch functions.
+    String dispatch(String sql, java.util.Map<String, ?> parameters) {
+        var write = new TransactionTemplate(new JdbcTransactionManager(source));
+        return write.execute(status -> {
+            jdbc.sql("SET LOCAL statement_timeout = '10s'").update();
+            jdbc.sql("SET LOCAL lock_timeout = '3s'").update();
+            return jdbc.sql(sql).params(parameters).query(String.class).single();
+        });
+    }
+
     @Override
     public void close() {
         source.close();

@@ -10,7 +10,7 @@ try:
   time.sleep(1)
  port=run([d,'port',name,'5432'],text=True,capture_output=True).stdout.strip().split(':')[-1]
  env=dict(os.environ);env.update(HTT_PROCESS_MODE='migrate',HTT_MIGRATION_DATABASE_URL='jdbc:postgresql://127.0.0.1:'+port+'/htt_java_test',HTT_MIGRATION_DATABASE_PASSWORD='local-owner-test')
- command=[str(pathlib.Path(os.environ['JAVA_HOME'])/'bin/java'),'-jar',str(r/'htt-backend-java/target/htt-backend-java-0.1.0-SNAPSHOT.jar')]
+ command=[str(pathlib.Path(os.environ['JAVA_HOME'])/'bin/java'),'-jar',os.environ.get('HTT_MIGRATION_JAR',str(r/'htt-backend-java/target/htt-backend-java-0.1.0-SNAPSHOT.jar'))]
  for i in range(2):
   with (out/('migration-'+str(i)+'.log')).open('w') as f:run(command,env=env,stdout=f,stderr=subprocess.STDOUT)
  assert sql('select count(*) from public.htt_schema_history')==str(len((r/'htt-backend-java/src/main/resources/db/migration/index.txt').read_text().splitlines()))

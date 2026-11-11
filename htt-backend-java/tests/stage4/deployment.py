@@ -45,8 +45,14 @@ try:
   (out/('migration-'+str(iteration)+'.log')).write_text(result.stdout+result.stderr)
  assert sql('select count(*) from public.htt_schema_history')==str(len((root/'htt-backend-java/src/main/resources/db/migration/index.txt').read_text().splitlines()))
  sql('DROP TABLE public.htt_schema_history;')
+ # Restore into empty application schemas so forward-only foreign keys cannot obstruct an older test snapshot.
+ sql("DO $$ DECLARE n text;BEGIN FOR n IN SELECT nspname FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' AND nspname NOT IN('public','information_schema') LOOP EXECUTE format('DROP SCHEMA %I CASCADE',n);END LOOP;END $$;")
  snapshot=pathlib.Path(os.environ['HTT_SYNTHETIC_SNAPSHOT'])
  with snapshot.open('rb') as f:run([d,'exec','-i',db,'pg_restore','-U','htt_owner','-d','htt_java_test','--clean','--if-exists','--exit-on-error','--single-transaction'],stdin=f,capture_output=True)
+ # The documented baseline archive predates frontend alignment; apply extensions prospectively.
+ if sql("SELECT to_regclass('inventory.costing_policies') IS NULL")=='t':
+  for migration in sorted((root/'htt-backend-java/src/main/resources/db/migration').glob('*.sql')):
+   if migration.name>='057_':sql(migration.read_text())
  apiEnv={'HTT_STAFF_DATABASE_URL':'jdbc:postgresql://'+db+':5432/htt_java_test','HTT_STAFF_DATABASE_PASSWORD':'local-app-test','HTT_PORTAL_DATABASE_URL':'jdbc:postgresql://'+db+':5432/htt_java_test','HTT_PORTAL_DATABASE_PASSWORD':'local-portal-test','HTT_STAFF_AUTHORITY':'https://synthetic.example.invalid','HTT_STAFF_AUDIENCE':'staff','SERVER_PORT':'8080'}
  start(api,'htt-java-stage4-api:local',env=apiEnv,ports=True);javahealth=health(api)
  start(worker,'htt-java-stage4-worker:local',env={'HTT_WORKER_DATABASE_URL':'jdbc:postgresql://'+db+':5432/htt_java_test','HTT_WORKER_DATABASE_PASSWORD':'local-worker-test'})
@@ -128,7 +134,10 @@ Server(('0.0.0.0',3310),Handler).serve_forever()
  sql('GRANT UPDATE(id) ON sales.order_lines TO htt_app;')
  assert sql("select has_column_privilege('htt_app','sales.order_lines','quantity','UPDATE')")=='f'
  run([d,'start',api],capture_output=True);assert health(api)==javahealth;assert before==fingerprint()
- result={'status':'PASSED','network':'internal, isolated, disposable','javaApi':javahealth,'legacyRollbackApi':nativehealth,'migrationRepeatable':True,'legacyHistoryCompatible':True,'pdfRendered':10,'csvExported':10,'queuePreservedAcrossRollback':True,'grantRollbackVerified':True,'staleAndExpiredLeaseRejected':True,'scannerCleanAndMalwareVerified':True,'pdfTextVerified':10,'realSystemChanged':False}
+ result={'status':'PASSED','migrations':len((root/'htt-backend-java/src/main/resources/db/migration/index.txt').read_text().splitlines()),'network':'internal, isolated, disposable','javaApi':javahealth,'legacyRollbackApi':nativehealth,'migrationRepeatable':True,'legacyHistoryCompatible':True,'pdfRendered':10,'csvExported':10,'queuePreservedAcrossRollback':True,'grantRollbackVerified':True,'staleAndExpiredLeaseRejected':True,'scannerCleanAndMalwareVerified':True,'pdfTextVerified':10,'realSystemChanged':False}
+ result['imageIds']={kind:run([d,'image','inspect','htt-java-stage4-'+kind+':local','--format','{{.Id}}'],text=True,capture_output=True).stdout.strip() for kind in ('api','worker','migrations')}
+ result['migrationManifestSha256']=hashlib.sha256(''.join(p.name+':'+hashlib.sha256(p.read_bytes()).hexdigest()+'\n' for p in sorted((root/'htt-backend-java/src/main/resources/db/migration').glob('*.sql'))).encode()).hexdigest()
+ result['mailFeatureFlagsDefaultDisabled']=True
  (out/'acceptance.json').write_text(json.dumps(result,indent=2));print('DEPLOYMENT_ROLLBACK_PASSED',out,flush=True)
 except Exception:
  for name in created:

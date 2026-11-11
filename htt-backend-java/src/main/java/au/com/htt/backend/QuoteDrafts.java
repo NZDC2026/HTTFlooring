@@ -85,7 +85,7 @@ class QuoteDrafts {
         });return ResponseEntity.status(response.status()).contentType(MediaType.APPLICATION_JSON).body(response.body());
     }
     Map<String,Object> quote(StaffScope.CompanyAccess scope,UUID id,boolean lock) {
-        var q=jdbc.sql("SELECT d.number,d.state,d.version,d.created_by AS owner_id,q.*,q.expires_on::text AS expires_on FROM sales.quotes q JOIN platform.documents d ON d.company_id=q.company_id AND d.id=q.id WHERE q.company_id=:company AND q.id=:id"+(lock?" FOR UPDATE OF d,q":""))
+        var q=jdbc.sql("SELECT d.number,d.state,d.version,d.created_by AS owner_id,q.*,sales.dispatch_deadline_expired(q.id) AS followup_expired,q.expires_on::text AS expires_on FROM sales.quotes q JOIN platform.documents d ON d.company_id=q.company_id AND d.id=q.id WHERE q.company_id=:company AND q.id=:id"+(lock?" FOR UPDATE OF d,q":""))
             .param("company",scope.companyId()).param("id",id).query(rows::row).optional().orElseThrow(QuoteDrafts::notFound);
         customer(scope,(UUID)q.get("customerId"));return q;
     }
@@ -98,7 +98,7 @@ class QuoteDrafts {
     private Map<String,Object> view(StaffScope.CompanyAccess scope,Map<String,Object> q) {
         var lines=jdbc.sql("SELECT l.id,dl.line_no,l.snapshot,l.net,l.tax,l.gross FROM sales.quote_lines l JOIN platform.document_lines dl ON dl.company_id=l.company_id AND dl.id=l.id WHERE l.company_id=:company AND l.quote_id=:id ORDER BY dl.line_no")
             .param("company",scope.companyId()).param("id",q.get("id")).query(rows::row).list();
-        return map("id",q.get("id"),"number",q.get("number"),"status",q.get("status"),"version",q.get("version"),"customerId",q.get("customerId"),"customerBranchId",q.get("customerBranchId"),"warehouseId",q.get("warehouseId"),"expiresOn",q.get("expiresOn"),"notes",q.get("notes"),"customer",q.get("customerSnapshot"),"net",q.get("net"),"tax",q.get("tax"),"gross",q.get("gross"),"pricingAt",q.get("pricingAt"),"lines",lines);
+        return map("id",q.get("id"),"number",q.get("number"),"status",Boolean.TRUE.equals(q.get("followupExpired"))&&"SUBMITTED".equals(q.get("status"))?"EXPIRED":q.get("status"),"version",q.get("version"),"customerId",q.get("customerId"),"customerBranchId",q.get("customerBranchId"),"warehouseId",q.get("warehouseId"),"expiresOn",q.get("expiresOn"),"notes",q.get("notes"),"customer",q.get("customerSnapshot"),"net",q.get("net"),"tax",q.get("tax"),"gross",q.get("gross"),"pricingAt",q.get("pricingAt"),"lines",lines);
     }
     void customer(StaffScope.CompanyAccess scope,UUID customer) {
         jdbc.sql("SELECT c.id FROM crm.customers c WHERE c.company_id=:company AND c.id=:id AND (:all OR EXISTS(SELECT 1 FROM identity.customer_assignments a WHERE a.company_id=c.company_id AND a.customer_id=c.id AND a.membership_id=:membership))")

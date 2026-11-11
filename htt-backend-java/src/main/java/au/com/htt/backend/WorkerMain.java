@@ -37,6 +37,8 @@ public final class WorkerMain {
         };
         Runtime.getRuntime().addShutdownHook(new Thread(shutdown));
         schedule(pool,stop,OutboxExecutor::process,2);
+        schedule(pool,stop,DispatchMailExecutor::tick,60);
+        schedule(pool,stop,ReminderMailExecutor::tick,60);
         schedule(pool,stop,()->{while(!stop.get()&&((Number)scalar("select recurring.tick()")).intValue()>0){}},30);
         schedule(pool,stop,()->scalar("select crm.deliver_due_reminders(50)"),15);
         schedule(pool,stop,()->{while(!stop.get()&&DocumentExecutor.processOne()){}},2);

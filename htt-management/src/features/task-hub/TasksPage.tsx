@@ -34,6 +34,8 @@ export function TasksPage(){
  const open=!['Completed','Inactive','Cancelled'].includes(r.status);
  const monday=new Date(today+'T12:00:00Z');monday.setUTCDate(monday.getUTCDate()-(monday.getUTCDay()+6)%7);
  if(completedWeek&&(!r.completedAt||r.completedAt.slice(0,10)<monday.toISOString().slice(0,10)||r.completedAt.slice(0,10)>today))return false;
+ const scope=params.get('taskScope'),due=r.due.slice(0,10);
+ if(scope&&(!open||(scope==='overdue'&&(!due||due>=today))||(scope==='today'&&due!==today)||(scope==='upcoming'&&(!due||due<=today))))return false;
  if(params.get('overdue')==='1'&&(!open||!r.due||r.due.slice(0,10)>=today))return false;
  return (tab!=='My Tasks'||r.owner===userId)&&(tab!=='Team Tasks'||r.owner!==userId)&&(tab!=='Follow-ups'||r.type==='Follow-up')&&(tab!=='Site Visits'||r.type==='Site Visit')&&(tab!=='Samples'||r.type==='Sample')&&(tab!=='Open Actions'||open)&&(type==='All'||r.type===type)&&(status==='All'||r.status===status)&&(priority==='All'||r.priority===priority)&&(owner==='All'||r.owner===owner)&&(!from||r.due.slice(0,10)>=from)&&(!to||!!r.due&&r.due.slice(0,10)<=to)&&`${r.name} ${r.account} ${r.notes} ${r.ownerName} ${r.documentNumber??''}`.toLowerCase().includes(search.toLowerCase());
  }).sort((a,b)=>sort==='name'?a.name.localeCompare(b.name):a.due.localeCompare(b.due)||a.name.localeCompare(b.name));

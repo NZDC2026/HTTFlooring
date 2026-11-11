@@ -1,5 +1,5 @@
 """Run synthetic Java/.NET compatibility checks against a disposable PostgreSQL."""
-import argparse, os, pathlib, shutil, subprocess, time, uuid
+import argparse, os, pathlib, shutil, subprocess, time, uuid, hashlib
 
 source = pathlib.Path(__file__).resolve().parent
 project = source.parent.parent
@@ -16,6 +16,9 @@ for directory in (args.legacy, args.flutter):
     if not directory.is_dir():
         raise SystemExit(f'Missing source directory: {directory}')
 env = dict(os.environ)
+issuer_port=int(env.get('HTT_COMPAT_ISSUER_PORT','15443'))
+assert 1024<=issuer_port<=65535
+fixture_issuer=f'https://localhost:{issuer_port}'
 env['HTT_COMPAT_GST_BASIS'] = args.gst_basis
 env['HTT_COMPAT_UPLOAD_ONLY'] = '1' if args.uploads_only else '0'
 if args.stalled_uploads:
@@ -65,7 +68,14 @@ with (run/'run.log').open('w') as log:
         for migration in sorted((project/'src/main/resources/db/compatibility').glob('*.sql')):
             sql(migration)
         for migration in sorted((project/'src/main/resources/db/migration').glob('*.sql')):
-            if migration.name >= '057_': sql(migration)
+            if migration.name >= '057_':
+                sql(migration)
+                digest = hashlib.sha256(migration.read_bytes()).hexdigest()
+                command(['docker','exec',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-c',
+                    "CREATE TABLE IF NOT EXISTS public.htt_test_extension_history(name text PRIMARY KEY,sha256 text NOT NULL); INSERT INTO public.htt_test_extension_history VALUES ('"+migration.name+"','"+digest+"');"],stdout=log,stderr=log)
+        if issuer_port!=15443:
+            command(['docker','exec',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-c',
+                "UPDATE identity.users SET issuer='"+fixture_issuer+"' WHERE issuer='https://localhost:15443';"],stdout=log,stderr=log)
         command(['docker','exec',container,'psql','-U','htt_owner','-d','htt_java_test','-v','ON_ERROR_STOP=1','-c',
             f"BEGIN; SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true); UPDATE core.companies SET gst_basis='{args.gst_basis}' WHERE id='00000000-0000-0000-0000-000000000001'; COMMIT"],stdout=log,stderr=log)
         legacy = run/'dotnet-baseline'
@@ -87,18 +97,22 @@ with (run/'run.log').open('w') as log:
         command([env['HTT_COMPAT_DOTNET'],legacy/'src/Htt.Host.Migrations/bin/Debug/net10.0/Htt.Host.Migrations.dll',
             'stock-valuation','--company','00000000-0000-0000-0000-000000000001','--warehouse','00000000-0000-0000-0000-000000000014',
             '--product','00000000-0000-0000-0000-000000000017','--value','10000','--reference','Synthetic valuation',
-            '--issuer','https://localhost:15443','--subject','test-employee'],stdout=log,stderr=log)
+            '--issuer',fixture_issuer,'--subject','test-employee'],stdout=log,stderr=log)
         for product,value in [('00000000-0000-0000-0000-000000000270','1000'),('00000000-0000-0000-0000-000000000274','500'),('00000000-0000-0000-0000-000000000380','20.02'),('00000000-0000-0000-0000-000000000384','20.02'),('00000000-0000-0000-0000-000000000388','0')]:
             command([env['HTT_COMPAT_DOTNET'],legacy/'src/Htt.Host.Migrations/bin/Debug/net10.0/Htt.Host.Migrations.dll',
                 'stock-valuation','--company','00000000-0000-0000-0000-000000000001','--warehouse','00000000-0000-0000-0000-000000000271',
                 '--product',product,'--value',value,'--reference','Synthetic control valuation '+product,
-                '--issuer','https://localhost:15443','--subject','test-employee'],stdout=log,stderr=log)
+                '--issuer',fixture_issuer,'--subject','test-employee'],stdout=log,stderr=log)
         flutter = run/'flutter-visit-baseline'
         shutil.copytree(args.flutter,flutter,ignore=shutil.ignore_patterns('.git','.dart_tool','build','.flutter-plugins-dependencies','Pods','.symlinks','.gradle','ephemeral'))
         shutil.copy2(source/'visit_real_backend_test.dart',flutter/'test/visit_real_backend_test.dart')
         command([env['HTT_COMPAT_FLUTTER'],'pub','get'],cwd=flutter,stdout=log,stderr=log)
-        command(['mvn','-B','package'],cwd=project,stdout=log,stderr=log)
-        env['HTT_COMPAT_JAR'] = str(project/'target/htt-backend-java-0.1.0-SNAPSHOT.jar')
+        override=env.get('HTT_COMPAT_JAR_OVERRIDE')
+        if not override:command(['mvn','-B','package'],cwd=project,stdout=log,stderr=log)
+        java_artifact=pathlib.Path(override) if override else project/'target/htt-backend-java-0.1.0-SNAPSHOT.jar'
+        shutil.copyfile(java_artifact,run/'java-app.jar')
+        env['HTT_COMPAT_JAR'] = str(run/'java-app.jar')
+        (run/'java-app.sha256').write_text(hashlib.sha256((run/'java-app.jar').read_bytes()).hexdigest()+'\n')
         check = run/'htt-me-http'
         check.mkdir()
         shutil.copy2(source/'check.py',check/'check.py')

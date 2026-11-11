@@ -1,7 +1,7 @@
 """Focused portal sales reads on a disposable, recorded synthetic database; no workers."""
 import argparse,base64,hashlib,http.server,json,os,pathlib,socket,ssl,subprocess,threading,time,urllib.error,urllib.request,uuid
 project=pathlib.Path(__file__).resolve().parents[2]
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--snapshot',type=pathlib.Path,required=True);a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--snapshot',type=pathlib.Path,required=True);p.add_argument('--jar',type=pathlib.Path,default=project/'target/htt-backend-java-0.1.0-SNAPSHOT.jar');a=p.parse_args()
 assert a.snapshot.open('rb').read(5)==b'PGDMP'
 docker=os.environ.get('DOCKER','docker');jdk=pathlib.Path(os.environ['JAVA_HOME']);name='htt-portal-alignment-'+uuid.uuid4().hex[:12]
 out=project/'target/frontend-contracts'/uuid.uuid4().hex;out.mkdir(parents=True);proc=None;server=None
@@ -32,12 +32,18 @@ try:
  with a.snapshot.open('rb') as f:run([docker,'exec','-i',name,'pg_restore','-U','htt_owner','-d','htt_java_test','--clean','--if-exists','--exit-on-error','--single-transaction'],stdin=f,capture_output=True)
  fingerprint_sql="SELECT jsonb_build_object('stock', (SELECT md5(string_agg(row_to_json(x)::text,',' ORDER BY id)) FROM inventory.stock_balances x),'values',(SELECT md5(string_agg(row_to_json(x)::text,',' ORDER BY id)) FROM inventory.stock_values x),'journals',(SELECT md5(string_agg(row_to_json(x)::text,',' ORDER BY id)) FROM accounting.journal_lines x))::text"
  historical_fingerprint=sql(fingerprint_sql)
+ history={}
+ if sql("SELECT to_regclass('public.htt_test_extension_history') IS NOT NULL")=='t':
+  history=json.loads(sql("SELECT coalesce(json_object_agg(name,sha256),'{}')::text FROM public.htt_test_extension_history"))
  for migration in sorted((project/'src/main/resources/db/migration').glob('*.sql')):
-  if migration.name>='057_':sql(migration.read_text())
+  if migration.name>='057_':
+   if migration.name in history:assert history[migration.name]==hashlib.sha256(migration.read_bytes()).hexdigest(),('Snapshot extension checksum changed',migration.name)
+   else:sql(migration.read_text())
  assert sql(fingerprint_sql)==historical_fingerprint,'Migration changed historical stock or journals'
  sql((project/'tests/frontend-contracts/inventory-costing.sql').read_text())
  sql((project/'tests/frontend-contracts/commercial-reservations.sql').read_text())
  sql((project/'tests/frontend-contracts/dispatch-schedules.sql').read_text())
+ sql((project/'tests/frontend-contracts/improvements.sql').read_text())
  server=http.server.ThreadingHTTPServer(('127.0.0.1',0),http.server.BaseHTTPRequestHandler);issuer='https://localhost:'+str(server.server_port)
  run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost','-keyout',out/'tls.key','-out',out/'tls.crt'],capture_output=True)
  run(['openssl','genrsa','-out',out/'sign.key','2048'],capture_output=True)
@@ -55,7 +61,7 @@ try:
  with socket.socket() as s:s.bind(('127.0.0.1',0));api_port=s.getsockname()[1]
  base='http://127.0.0.1:'+str(api_port)
  env=dict(os.environ,HTT_PROCESS_MODE='api',SERVER_PORT=str(api_port),HTT_STAFF_AUDIENCE='staff',HTT_STAFF_AUTHORITY=issuer,HTT_STAFF_DATABASE_URL='jdbc:postgresql://127.0.0.1:'+port+'/htt_java_test',HTT_STAFF_DATABASE_PASSWORD='local-app-test',HTT_PORTAL_AUTHORITY=issuer,HTT_PORTAL_AUDIENCE='portal',HTT_PORTAL_DATABASE_URL='jdbc:postgresql://127.0.0.1:'+port+'/htt_java_test',HTT_PORTAL_DATABASE_PASSWORD='local-portal-test')
- log=(out/'java.log').open('w');jar=project/'target/htt-backend-java-0.1.0-SNAPSHOT.jar'
+ log=(out/'java.log').open('w');jar=a.jar.resolve()
  proc=subprocess.Popen([str(jdk/'bin/java'),'-Djavax.net.ssl.trustStore='+str(out/'test.p12'),'-Djavax.net.ssl.trustStorePassword=fixture-only','-jar',str(jar)],env=env,stdout=log,stderr=subprocess.STDOUT)
  for _ in range(60):
   try:
@@ -105,6 +111,20 @@ try:
  assert code==200 and replayed==updated,(code,replayed)
  code,conflict=request(schedule_path,{**schedule_headers,'Idempotency-Key':'synthetic-dispatch-stale'},method='POST',payload=schedule_input)
  assert code==409,(code,conflict)
+ # Create a fresh FIFO dispatch through the real order/pick interfaces for return evidence tests.
+ unit=sql("SELECT id FROM catalog.product_units WHERE company_id='"+company+"' AND product_id='"+product+"' AND conversion_to_base=1 ORDER BY id LIMIT 1;")
+ assert unit,'Synthetic unit with base conversion 1 missing'
+ sql("INSERT INTO pricing.price_list_items(id,company_id,price_list_id,product_unit_id,amount,effective_from) SELECT gen_random_uuid(),'"+company+"',id,'"+unit+"',100,current_date-1 FROM pricing.price_lists WHERE company_id='"+company+"';")
+ def command(path,payload,version=None):
+  h={**staff_headers,'Content-Type':'application/json','Idempotency-Key':'improvements-'+uuid.uuid4().hex}
+  if version is not None:h['If-Match']='"'+str(version)+'"'
+  code,body=request(path,h,method='POST',payload=payload);assert 200<=code<300,(path,code,body);return body
+ fresh=command('/api/v1/sales-orders',{'customerId':'00000000-0000-0000-0000-000000000011','customerBranchId':branch,'warehouseId':'00000000-0000-0000-0000-000000000014','reason':'Synthetic workflow returns fixture','lines':[{'productUnitId':unit,'quantity':'1'}]})
+ fresh_id=fresh['orderId'];line=sql("SELECT id FROM sales.order_lines WHERE order_id='"+fresh_id+"';")
+ pick=command('/api/v1/warehouse/orders/'+fresh_id+'/picks',{'lines':[{'orderLineId':line,'quantity':'1'}]},fresh['version'])
+ command('/api/v1/warehouse/picks/'+pick['id']+'/confirm',{'mode':'PICKUP','recipient':'Synthetic handover','reference':'Synthetic dispatch for return request'},pick['version'])
+ sql((project/'tests/frontend-contracts/return-reminder-workflows.sql').read_text())
+ exec(compile((project/'tests/frontend-contracts/workflows-http.py').read_text(),'workflows-http.py','exec'))
  # Permission revocation is checked afresh on every request.
  sql("DELETE FROM identity.role_permissions WHERE company_id='"+company+"' AND role_id='00000000-0000-0000-0000-000000000004' AND permission_code='inventory.cost.read';")
  code,redacted=request('/api/v1/warehouses/00000000-0000-0000-0000-000000000014/products/'+product+'/batches',staff_headers)
@@ -121,7 +141,7 @@ try:
  assert request('/api/portal/v1/invoices/'+sample+'?branchId='+branch)[0]==404
  sql("UPDATE identity.customer_user_grants SET portal_enabled=false WHERE id='"+grant+"';")
  assert request('/api/portal/v1/invoices?branchId='+branch)[0]==403
- result={'status':'PASSED','scope':'Portal reads and staff prospective costing on disposable synthetic data; no frontend switching or real writes','historicalStockAndJournalsUnchangedByMigration':True,'historicalFingerprint':json.loads(historical_fingerprint),'dispatchSchedule':{'dateAndFlags':True,'audit':True,'staleVersionRejected':True,'idempotentHttpReplay':True,'clearDate':True},'fifoPosting':{'crossWarehouseTransfer':True,'fifoIssueCost':'50.00','movingAverageCounterexample':'75.00','remainingQuantity':'15.000000','remainingValue':'250.00','allLedgerReconciliations':'ZERO_DIFFERENCES'},'populatedDocumentCounts':counts,'guards':['JWT','distinct audience','company','branch','missing document','pagination','hidden document','immediate grant revocation','no table SELECT privilege'],'snapshotSha256':hashlib.sha256(a.snapshot.read_bytes()).hexdigest(),'jarSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}
+ result={'status':'PASSED','scope':'Portal reads and staff prospective costing on disposable synthetic data; no frontend switching or real writes','alignmentWorkflows':{'fifoNegativeVarianceAndZeroResidual':True,'dispatchRetryFencingExpiry':True,'returnProofPendingProcessingAndRejection':True,'invoiceAndStatementBatchFingerprint':True,'fakeProviderAndPublicHttpEvidence':'workflow-http-acceptance.json'},'historicalStockAndJournalsUnchangedByMigration':True,'historicalFingerprint':json.loads(historical_fingerprint),'dispatchSchedule':{'dateAndFlags':True,'audit':True,'staleVersionRejected':True,'idempotentHttpReplay':True,'clearDate':True},'fifoPosting':{'crossWarehouseTransfer':True,'fifoIssueCost':'50.00','movingAverageCounterexample':'75.00','remainingQuantity':'15.000000','remainingValue':'250.00','allLedgerReconciliations':'ZERO_DIFFERENCES'},'populatedDocumentCounts':counts,'guards':['JWT','distinct audience','company','branch','missing document','pagination','hidden document','immediate grant revocation','no table SELECT privilege'],'snapshotSha256':hashlib.sha256(a.snapshot.read_bytes()).hexdigest(),'jarSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}
  (out/'acceptance.json').write_text(json.dumps(result,indent=2));print('PORTAL_DOCUMENTS_PASSED',out,flush=True)
 except Exception as e:
  (out/'FAILED').write_text(str(e)+'\n'+str(getattr(e,'stderr','')));print('FAILED_EVIDENCE',out,flush=True);raise

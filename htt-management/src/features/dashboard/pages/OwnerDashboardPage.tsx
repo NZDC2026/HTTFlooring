@@ -85,7 +85,7 @@ export function OwnerDashboardPage(){
  const [params]=useSearchParams();
  const {session}=useSecurity(),principal=session&&{userId:session.user.id,roles:session.user.roles,authenticated:true as const},liveAccess=dashboardAccess(principal);
  const [today,setToday]=useState(()=>businessDateKey(new Date().toISOString()));
- const [datePreset,setDatePreset]=useState<string|undefined>('This Month'),[customRange,setCustomRange]=useState(()=>dateRangePreset('This Month',today));
+ const [datePreset,setDatePreset]=useState<string|undefined>('Today'),[customRange,setCustomRange]=useState(()=>dateRangePreset('Today',today));
  const range=datePreset?dateRangePreset(datePreset,today):customRange;
  useEffect(()=>{const refresh=()=>setToday(businessDateKey(new Date().toISOString()));const timer=window.setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};},[]);
  const [site]=useState('ALL'),[sample,setSample]=useState(params.get('sample')==='1');

@@ -1,0 +1,56 @@
+BEGIN;
+SELECT set_config('htt.company_id','00000000-0000-0000-0000-000000000001',true),set_config('htt.actor_id','00000000-0000-0000-0000-000000000002',true),set_config('htt.request_id','synthetic-return-reminder',true);
+DO $$ DECLARE row record;file1 uuid:=gen_random_uuid();file2 uuid:=gen_random_uuid();request uuid;request2 uuid;items jsonb;proof jsonb;before_stock text;before_gl text;result jsonb;ver bigint;BEGIN
+ SELECT m.id AS movement,l.order_id,o.warehouse_id,i.id AS invoice_line_id,d.version,least(1,(m.quantity-coalesce((SELECT sum(base_quantity) FROM inventory.sales_return_lines WHERE company_id=m.company_id AND stock_movement_id=m.id),0))*pl.quantity/m.quantity,coalesce(i.quantity,1)-coalesce((SELECT sum(quantity) FROM inventory.sales_return_lines WHERE company_id=i.company_id AND invoice_line_id=i.id),0)) AS qty INTO row
+ FROM inventory.stock_movements m JOIN inventory.pick_lines pl ON pl.company_id=m.company_id AND pl.id=m.pick_line_id JOIN sales.order_lines l ON l.company_id=pl.company_id AND l.id=pl.order_line_id JOIN sales.orders o ON o.company_id=l.company_id AND o.id=l.order_id LEFT JOIN sales.invoice_lines i ON i.company_id=l.company_id AND i.order_line_id=l.id JOIN platform.documents d ON d.company_id=o.company_id AND d.id=o.id
+ WHERE m.company_id=core.current_company() AND m.quantity>coalesce((SELECT sum(base_quantity) FROM inventory.sales_return_lines WHERE company_id=m.company_id AND stock_movement_id=m.id),0) AND coalesce(i.quantity,1)>coalesce((SELECT sum(quantity) FROM inventory.sales_return_lines WHERE company_id=i.company_id AND invoice_line_id=i.id),0) AND o.creation_reason='Synthetic workflow returns fixture' AND platform.document_visible(o.id) ORDER BY m.id LIMIT 1;
+ IF row.order_id IS NULL OR row.qty<=0 THEN RAISE EXCEPTION 'Returnable synthetic source missing';END IF;
+ INSERT INTO platform.files(id,company_id,object_key,content_type,size_bytes,state,created_by) VALUES(file1,core.current_company(),file1::text,'image/png',8,'VERIFIED',core.current_actor()),(file2,core.current_company(),file2::text,'image/png',8,'VERIFIED',core.current_actor());
+ UPDATE platform.files SET sha256=encode(sha256(decode('89504e470d0a1a0a','hex')),'hex') WHERE id IN(file1,file2);
+ INSERT INTO platform.file_links(company_id,file_id,document_id) VALUES(core.current_company(),file1,row.order_id),(core.current_company(),file2,row.order_id);
+ INSERT INTO platform.file_contents(company_id,file_id,body) VALUES(core.current_company(),file1,decode('89504e470d0a1a0a','hex')),(core.current_company(),file2,decode('89504e470d0a1a0a','hex'));
+ INSERT INTO platform.file_assets(company_id,file_id,document_id,source_version,filename,kind) VALUES(core.current_company(),file1,row.order_id,row.version,'return-photo-1.png','ATTACHMENT'),(core.current_company(),file2,row.order_id,row.version,'return-photo-2.png','ATTACHMENT');
+ proof:=jsonb_build_object('name','Synthetic handover','mobile','0400000000','points','[[0.1,0.1],[0.8,0.7]]'::jsonb,'signedAt',now());
+ items:=jsonb_build_array(jsonb_build_object('stockMovementId',row.movement,'invoiceLineId',row.invoice_line_id,'quantity',row.qty::text,'photoFileIds',jsonb_build_array(file1,file2)));
+ BEGIN PERFORM inventory.submit_return_request(row.order_id,row.warehouse_id,'Synthetic invalid signature',proof||jsonb_build_object('points','[[0.1,0.1],[0.1,0.1]]'::jsonb),items);RAISE EXCEPTION 'Empty signature accepted';EXCEPTION WHEN SQLSTATE 'HI422' THEN NULL;END;
+ BEGIN PERFORM inventory.submit_return_request(row.order_id,row.warehouse_id,'Synthetic missing photos',proof,jsonb_build_array((items->0)||jsonb_build_object('photoFileIds',jsonb_build_array(file1))));RAISE EXCEPTION 'Single photo accepted';EXCEPTION WHEN SQLSTATE 'HI422' THEN NULL;END;
+ SELECT md5(string_agg(to_jsonb(b)::text,',' ORDER BY id)) INTO before_stock FROM inventory.stock_balances b WHERE company_id=core.current_company();SELECT md5(string_agg(to_jsonb(j)::text,',' ORDER BY id)) INTO before_gl FROM accounting.journal_lines j WHERE company_id=core.current_company();
+ request:=inventory.submit_return_request(row.order_id,row.warehouse_id,'Synthetic return request',proof,items);
+ IF (inventory.return_request_view(request)->>'status')<>'PENDING' THEN RAISE EXCEPTION 'Request not pending';END IF;
+ IF before_stock IS DISTINCT FROM(SELECT md5(string_agg(to_jsonb(b)::text,',' ORDER BY id)) FROM inventory.stock_balances b WHERE company_id=core.current_company()) OR before_gl IS DISTINCT FROM(SELECT md5(string_agg(to_jsonb(j)::text,',' ORDER BY id)) FROM accounting.journal_lines j WHERE company_id=core.current_company()) THEN RAISE EXCEPTION 'Submitting proof mutated stock or journals';END IF;
+ BEGIN PERFORM inventory.decide_return_request(request,2,'REJECT',NULL,'Synthetic stale decision');RAISE EXCEPTION 'Stale return decision accepted';EXCEPTION WHEN SQLSTATE 'HI409' THEN NULL;END;
+ result:=inventory.decide_return_request(request,1,'REJECT',NULL,'Synthetic rejected request');IF result->>'status'<>'REJECTED' THEN RAISE EXCEPTION 'Rejection failed';END IF;
+ request2:=inventory.submit_return_request(row.order_id,row.warehouse_id,'Synthetic processed return',proof,items);
+ result:=inventory.decide_return_request(request2,1,'PROCESS','RESTOCK','Synthetic confirmed goods receipt');IF result->>'status'<>'PROCESSED' OR result->>'return_id' IS NULL THEN RAISE EXCEPTION 'Physical receipt not linked';END IF;
+ BEGIN PERFORM inventory.decide_return_request(request2,1,'PROCESS','RESTOCK','Synthetic duplicate receipt');RAISE EXCEPTION 'Processed request received again';EXCEPTION WHEN SQLSTATE 'HI409' THEN NULL;END;
+END $$;
+DO $$DECLARE ids uuid[];rows jsonb;batch uuid;statement uuid;job jsonb;fence uuid;result jsonb;hash text;BEGIN
+ INSERT INTO crm.contacts(company_id,party_id,name,email,is_accounting,created_by) SELECT company_id,party_id,'Synthetic accounting','accounts@example.invalid',true,core.current_actor() FROM crm.customers c WHERE c.company_id=core.current_company() AND NOT EXISTS(SELECT 1 FROM crm.contacts x WHERE x.company_id=c.company_id AND x.party_id=c.party_id AND x.active AND x.is_accounting);
+ UPDATE crm.contacts SET email='accounts@example.invalid',active=true WHERE company_id=core.current_company() AND is_accounting;
+ INSERT INTO accounting.reminder_settings(company_id,enabled,mail_from,worker_ready_at) VALUES(core.current_company(),true,'sender@example.invalid',now());
+ rows:=accounting.reminder_rows();SELECT array_agg((value->>'id')::uuid ORDER BY value->>'id') INTO ids FROM(SELECT value FROM jsonb_array_elements(rows) LIMIT 2)x;
+ IF cardinality(ids)<1 THEN RAISE EXCEPTION 'Unpaid synthetic invoice missing';END IF;
+ batch:=accounting.prepare_reminders('INVOICE',ids,current_date-365,current_date+1);
+ BEGIN PERFORM accounting.queue_reminders(batch,false);RAISE EXCEPTION 'Unconfirmed mail batch queued';EXCEPTION WHEN SQLSTATE 'HI422' THEN NULL;END;
+ UPDATE crm.contacts SET email='changed@example.invalid' WHERE company_id=core.current_company() AND is_accounting;
+ BEGIN PERFORM accounting.queue_reminders(batch,true);RAISE EXCEPTION 'Changed recipient queued';EXCEPTION WHEN SQLSTATE 'HI409' THEN NULL;END;
+ UPDATE crm.contacts SET email='accounts@example.invalid' WHERE company_id=core.current_company() AND is_accounting;
+ PERFORM accounting.queue_reminders(batch,true);PERFORM accounting.queue_reminders(batch,true);
+ job:=accounting.claim_reminder_mail();IF job IS NULL OR job->'pdf'->>'filename' IS NULL THEN RAISE EXCEPTION 'Frozen invoice PDF not available';END IF;
+ IF accounting.finish_reminder_mail((job->>'id')::uuid,gen_random_uuid(),'ACCEPTED',NULL,'fake') THEN RAISE EXCEPTION 'Unfenced reminder completion accepted';END IF;
+ PERFORM accounting.finish_reminder_mail((job->>'id')::uuid,(job->>'lease')::uuid,'ACCEPTED',NULL,'synthetic-reminder');
+ UPDATE crm.contacts SET email='changed@example.invalid' WHERE company_id=core.current_company() AND is_accounting;
+ PERFORM accounting.claim_reminder_mail();
+ IF cardinality(ids)>1 AND NOT EXISTS(SELECT 1 FROM accounting.reminder_mails WHERE batch_id=batch AND state='SKIPPED') THEN RAISE EXCEPTION 'Changed source still sent';END IF;
+ UPDATE crm.contacts SET email='accounts@example.invalid' WHERE company_id=core.current_company() AND is_accounting;
+ statement:=accounting.prepare_reminders('STATEMENT',ids,current_date-365,current_date+1);PERFORM accounting.queue_reminders(statement,true);
+ job:=accounting.claim_reminder_mail();IF job IS NULL OR job->'pdf'->>'templateVersion'<>'2' OR job->'pdf'->>'number' IS NULL THEN RAISE EXCEPTION 'Statement PDF snapshot missing';END IF;
+ PERFORM accounting.finish_reminder_mail((job->>'id')::uuid,(job->>'lease')::uuid,'UNKNOWN','synthetic_timeout',NULL);
+ IF EXISTS(SELECT 1 FROM accounting.reminder_mails WHERE id=(job->>'id')::uuid AND state<>'UNKNOWN') THEN RAISE EXCEPTION 'Uncertain reminder silently retried';END IF;
+ batch:=accounting.prepare_reminders('INVOICE',ids,current_date-365,current_date+1);PERFORM accounting.queue_reminders(batch,true);job:=accounting.claim_reminder_mail();
+ UPDATE crm.contacts SET email='changed-after-render@example.invalid' WHERE company_id=core.current_company() AND is_accounting;
+ IF accounting.load_reminder_mail((job->>'id')::uuid,(job->>'lease')::uuid) IS NOT NULL THEN RAISE EXCEPTION 'Post-render recipient change reached delivery';END IF;
+ IF NOT EXISTS(SELECT 1 FROM accounting.reminder_mails WHERE id=(job->>'id')::uuid AND state='SKIPPED' AND last_error='source_or_access_changed_before_send') THEN RAISE EXCEPTION 'Post-render guard did not persist skip';END IF;
+ IF has_function_privilege('htt_app','accounting.claim_reminder_mail()','EXECUTE') OR has_table_privilege('htt_portal','accounting.reminder_mails','SELECT') THEN RAISE EXCEPTION 'Reminder private data leaked';END IF;
+END $$;
+ROLLBACK;

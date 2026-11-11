@@ -20,7 +20,7 @@ class SalesRead {
 
     List<Map<String, Object>> list(StaffScope.CompanyAccess scope, int offset, int size, boolean quote) {
         String query = quote ? """
-                SELECT x.id,d.number,d.version,x.status,x.customer_id AS "customerId",
+                SELECT x.id,d.number,d.version,CASE WHEN x.status='SUBMITTED' AND sales.dispatch_deadline_expired(x.id) THEN 'EXPIRED' ELSE x.status END AS status,x.customer_id AS "customerId",
                     x.customer_branch_id AS "customerBranchId",x.warehouse_id AS "warehouseId",
                     x.expires_on::text AS "expiresOn",x.gross::text AS gross
                 FROM sales.quotes x
@@ -44,7 +44,7 @@ class SalesRead {
         }
         String query = quote ? """
                 SELECT jsonb_build_object(
-                    'id',x.id,'number',d.number,'status',x.status,'version',d.version,'customerId',x.customer_id,
+                    'id',x.id,'number',d.number,'status',CASE WHEN x.status='SUBMITTED' AND sales.dispatch_deadline_expired(x.id) THEN 'EXPIRED' ELSE x.status END,'version',d.version,'customerId',x.customer_id,
                     'customerBranchId',x.customer_branch_id,'warehouseId',x.warehouse_id,'expiresOn',x.expires_on,
                     'notes',x.notes,'customer',x.customer_snapshot,'net',x.net::text,'tax',x.tax::text,
                     'gross',x.gross::text,'pricingAt',(to_json(x.pricing_at AT TIME ZONE 'UTC') #>> '{}')||'Z',

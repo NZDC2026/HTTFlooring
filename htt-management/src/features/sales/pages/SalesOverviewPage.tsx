@@ -1,3 +1,4 @@
+import {salesFulfilmentRepository} from '../data/salesFulfilmentRepository';
 import {useDashboardEntry} from '../../../hooks/useDashboardEntry';
 import {DateRangePicker} from '../../../components/date-range/DateRangePicker';
 import {useListState} from '../../../hooks/useListState';
@@ -15,7 +16,7 @@ import {salesOverviewMetrics,salesRegisterSamples} from '../data/salesOverviewMe
 import { DataTable } from '../../../components/data-table/DataTable';
 import {usePermission} from '../../security/usePermission';
 import { businessSettings } from '../../business-workspace/configurationState';
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Eye, Search, ShoppingCart, FileText, MoreHorizontal, ChartNoAxesColumn, CircleAlert, ReceiptText, Truck, SlidersHorizontal } from "lucide-react";
 import { Link,useSearchParams } from "react-router-dom";
 
@@ -40,6 +41,7 @@ export function getSalesDocumentPath(document: SalesDocument): string {
 }
 
 export function SalesOverviewPage() {
+    const fulfilments=useSyncExternalStore(salesFulfilmentRepository.subscribe,salesFulfilmentRepository.getSnapshot,salesFulfilmentRepository.getSnapshot);
     const payments=usePayments();
     const [entrySearch,setEntrySearch]=useSearchParams();
     const customers=useCustomers(),credits=useCreditNotes(),[customerFilter,setCustomerFilter]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:customerFilter", 'ALL'),[newQuote,setNewQuote]=useState(false),[quoteCustomer,setQuoteCustomer]=useState(''),[moreFilters,setMoreFilters]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:moreFilters", false),[fulfilmentFilter,setFulfilmentFilter]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:fulfilmentFilter", 'ALL'),[documentTypeFilter,setDocumentTypeFilter]=useListState<Tab>("src/features/sales/pages/SalesOverviewPage.tsx:documentTypeFilter", 'ALL');
@@ -75,13 +77,18 @@ export function SalesOverviewPage() {
     const currency = useMemo(() => new Intl.NumberFormat("en-AU", { style: "currency", currency: businessSettings().currency }), []);
     const metrics=useMemo(()=>salesOverviewMetrics(documents,today,dateFrom,dateTo),[documents,today,dateFrom,dateTo]);
     const filtered = useMemo(() => {
-        const specialBypassesDates=['overdue','awaiting','pickup','delivery'].includes(special);
+        const specialBypassesDates=['overdue','awaiting','pickup','delivery','dispatched'].includes(special);
         return documents.filter((document) => {
             if(['pickup','delivery'].includes(special)){
                 if(!metrics.awaiting.some(d=>d.id===document.id))return false;
                 if(special==='pickup'&&!document.awaitingCollection)return false;
                 if(special==='delivery'&&!document.deliveryBooked)return false;
                 if(!document.expectedDispatchDate||dateFrom&&document.expectedDispatchDate<dateFrom||dateTo&&document.expectedDispatchDate>dateTo)return false;
+            }
+            if(special==='dispatched'){
+                if(document.type!=='SALES_ORDER')return false;
+                if(sample){if(document.fulfilmentStatus!=='FULFILLED')return false;}
+                else if(!fulfilments.some(f=>f.status==='ACTIVE'&&f.salesOrderId===document.id&&(!dateFrom||f.fulfilmentDate>=dateFrom)&&(!dateTo||f.fulfilmentDate<=dateTo)&&(!entrySearch.get('site')||f.siteId===entrySearch.get('site'))))return false;
             }
             if(special==='processing'&&(document.type!=='SALES_ORDER'||!['DRAFT','CONFIRMED'].includes(document.status)))return false;
             if(special==='pendingQuotes'&&(document.type!=='QUOTE'||!['DRAFT','SENT'].includes(document.status)))return false;
@@ -98,7 +105,7 @@ export function SalesOverviewPage() {
             const customer = customerRepository.getById(document.customerId);
             return salesReferenceMatches(document,customer?.businessName??(sample?'Sample Harbour Flooring':''),query);
         }).sort((a, b) => b.documentDate.localeCompare(a.documentDate));
-    }, [documents, query, status, tab, dateFrom, dateTo, special, metrics,customerFilter,fulfilmentFilter,documentTypeFilter]);
+    }, [documents, query, status, tab, dateFrom, dateTo, special, metrics,sample,fulfilments,entrySearch,customerFilter,fulfilmentFilter,documentTypeFilter]);
     const filteredTotal = filtered.filter(d=>tab!=='ALL'||d.type==='INVOICE').reduce((sum, document) => sum + Math.round(document.totals.subtotal * 100), 0) / 100;
     const statuses = [...new Set(documents.filter((d) => tab === "ALL" || d.type === tab).map((d) => d.status))].sort();
 
