@@ -36,7 +36,7 @@ it('renders reception operations and the reference operation panels without owne
  identity.roles=['SALES'];const html=render();
  for(const label of ["Outstanding Dispatch",'Tasks &amp; Follow-ups','Incoming Shipments','Quick Actions','Quotes &amp; Orders – Pending','Containers','delayed'])expect(html).toContain(label);
  for(const label of ['Gross Profit','Cash Balance','Finance Summary'])expect(html).not.toContain(label);
- expect(html).toContain('reception-task-scopes');expect(html).toContain('All Tasks');expect(html).toContain('Task / Follow-up');expect(html).toContain('taskScope=all');expect(html).not.toContain('Open Orders Status');expect(html).toContain('Dispatched Today');expect(html).not.toContain('Exceptions &amp; Alerts');expect(html).toContain('aria-expanded="false"');expect(html).toContain('Not Dispatched');
+ expect(html).toContain('reception-task-scopes');expect(html).toContain('All Tasks');expect(html).toContain('Task / Follow-up');expect(html).toContain('taskScope=all');expect(html).not.toContain('Open Orders Status');expect(html).toContain('Dispatched Today');expect(html).not.toContain('Exceptions &amp; Alerts');expect(html).toContain('aria-expanded="false"');expect(html).not.toContain('Not Dispatched');
 });
 it('carries the dashboard range and explicit filters on every operational drill-down',()=>{
  identity.roles=['ADMIN'];const html=render('/dashboard?sample=1');
@@ -86,4 +86,12 @@ it('labels dispatched ranges and preserves them in the sales drill-down',async()
  const links=[...html.matchAll(/href="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&'));
  const dispatched=links.find(h=>h.includes('special=dispatched'))!;
  expect(dispatched).toContain('from=2026-11-01');expect(dispatched).toContain('to=2026-11-30');
+});
+
+it('filters dated sample metrics and calculates balances as of the selected end date',async()=>{
+ const {dashboardSampleMetrics:metrics}=await import('./ReceptionDashboard');
+ expect(metrics('2026-11-12','2026-11-12','2026-11-12')).toMatchObject({pickup:12,delivery:8,orders:2,dispatched:1,overdue:8420});
+ expect(metrics('2026-11-11','2026-11-11','2026-11-12')).toMatchObject({pickup:7,delivery:5,orders:4,dispatched:3,overdue:6200});
+ expect(metrics('2026-11-11','2026-11-12','2026-11-12')).toMatchObject({pickup:19,delivery:13,orders:6,dispatched:4});
+ expect(metrics('2025-01-01','2025-01-02','2026-11-12')).toMatchObject({pickup:0,orders:0,overdue:0});
 });
