@@ -210,3 +210,8 @@ a {
 .owner-welcome{background:radial-gradient(ellipse at 75% 0,#d9efe566,transparent 70%)}
 .owner-metric,.reception-metric{border:1px solid #fff;box-shadow:0 3px 9px #063e3315}
 .owner-panel,.reception-panel{border-radius:16px;box-shadow:0 3px 9px #063e3310}
+
+/* Selected navigation icons must contrast with the green selection background. */
+.htt-navigation nav a[aria-current="page"]>svg{color:#fff;opacity:1;stroke-width:2.1;flex-shrink:0;filter:drop-shadow(0 1px 1px #003e3033)}
+.htt-navigation nav a>svg{transition:color .15s,opacity .15s}
+.htt-navigation nav a:hover>svg{opacity:1}

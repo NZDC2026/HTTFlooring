@@ -7,7 +7,7 @@ import {OwnerDashboardPage,dashboardAccess,sampleDashboardAccess} from './OwnerD
 const render=(path='/dashboard?sample=1')=>renderToStaticMarkup(<MemoryRouter initialEntries={[path]}><OwnerDashboardPage/></MemoryRouter>);
 it('defaults to the new operations layout with live data and isolated sample coverage',()=>{
  identity.roles=['ADMIN'];const live=render('/dashboard'),sample=render();
- for(const html of [live,sample])for(const label of ['Today’s To-Do','Customer Follow-ups','Exceptions &amp; Alerts','Recent Orders','Quick Actions'])expect(html).toContain(label);
+ for(const html of [live,sample])for(const label of ['Today’s To-Do','Customer Follow-ups','Exceptions &amp; Alerts','Quick Actions'])expect(html).toContain(label);
  expect(live).not.toContain('Sample complete');expect(sample).toContain('Sample complete');
  expect(live).not.toContain('685,420');expect(live).toContain('/reports/summaries');
 });
@@ -34,7 +34,7 @@ it('sample roles model the four views without changing real permissions',()=>{
 
 it('renders reception operations and the reference operation panels without owner financials',()=>{
  identity.roles=['SALES'];const html=render();
- for(const label of ["Today’s To-Do",'Customer Follow-ups','Incoming Shipments','Quick Actions','Exceptions &amp; Alerts','Recent Orders','Inventory Quick Check','Open Orders Status','Containers','delayed'])expect(html).toContain(label);
+ for(const label of ["Today’s To-Do",'Customer Follow-ups','Incoming Shipments','Quick Actions','Exceptions &amp; Alerts','Quotes &amp; Orders – Pending','Open Orders Status','Containers','delayed'])expect(html).toContain(label);
  for(const label of ['Gross Profit','Cash Balance','Finance Summary'])expect(html).not.toContain(label);
  expect(html).toContain('aria-expanded="false"');expect(html).toContain('Sample complete');
 });
@@ -43,13 +43,18 @@ it('carries the dashboard range and explicit filters on every operational drill-
  const links=[...html.matchAll(/href="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&')).filter(h=>h.includes('dashboard=1'));
  expect(links.length).toBeGreaterThan(25);
  for(const link of links){const p=new URLSearchParams(link.split('?')[1]);expect(p.get('from')).toMatch(/^\d{4}-\d{2}-\d{2}$/);expect(p.get('to')).toMatch(/^\d{4}-\d{2}-\d{2}$/);expect(p.get('sample')).toBe('1');}
- for(const filter of ['special=pickup','special=delivery','special=awaiting','special=processing','filter=Overdue','creditHold=1','stock=out','stock=low','open=1'])expect(links.some(link=>link.includes(filter))).toBe(true);
+ for(const filter of ['special=pickup','special=delivery','special=awaiting','special=processing','filter=Overdue','creditHold=1','open=1'])expect(links.some(link=>link.includes(filter))).toBe(true);
 });
 
 it('floating quick actions retain all destinations and date context',async()=>{
  const {quickActions,FloatingQuickActions}=await import('./FloatingQuickActions');
  const {dashboardLink}=await import('./dashboardLink');
- expect(quickActions).toHaveLength(7);
+ expect(quickActions).toHaveLength(10);
+ expect(quickActions).toEqual(expect.arrayContaining([
+ expect.objectContaining({name:'Create Return/Credit',path:'/sales/credit-returns'}),
+ expect.objectContaining({name:'All Order Search',path:'/sales',filter:{tab:'SALES_ORDER'}}),
+ expect.objectContaining({name:'Send Invoice/Statement',path:'/sales/invoice-reminders',filter:{filter:'All'}}),
+ ]));
  for(const action of quickActions){const url=dashboardLink(action.path,'2026-11-01','2026-11-11',true,'ALL',action.filter);expect(url).toContain('from=2026-11-01');expect(url).toContain('to=2026-11-11');expect(url).toContain('sample=1');}
  const html=renderToStaticMarkup(<MemoryRouter><FloatingQuickActions from="2026-11-01" to="2026-11-11" sample={true} site="ALL"/></MemoryRouter>);
  expect(html).toContain('Quick Actions');expect(html).toContain('aria-expanded="false"');expect(html).not.toContain('fqa-panel');
