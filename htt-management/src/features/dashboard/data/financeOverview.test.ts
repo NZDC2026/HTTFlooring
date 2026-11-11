@@ -29,6 +29,7 @@ describe("finance overview", () => {
         const result = calculateFinanceOverview([], [bill, { ...bill, dueDate: "2026-10-14", totals: { ...bill.totals, amountDue: 50 } }], [], [], [], today);
         expect(result.payables).toBe(250);
         expect(result.dueThisWeek).toBe(200);
+        expect(result.dueThisWeekBillCount).toBe(1);
         expect(result.overduePayables).toBe(50);
     });
 });

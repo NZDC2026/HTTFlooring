@@ -76,5 +76,5 @@ export function calculateFinanceOverview(invoices: Invoice[], bills: SupplierBil
         const outstandingAmount = money(outstandingRows.reduce((n,t)=>n+Math.abs(t.moneyIn-t.moneyOut),0));
         return { id: bank.id, name: bank.name, balance: register.closingBalance, lastReconciled: last?.statementDate, outstanding, outstandingAmount, requiresReview, reviewReasons };
     });
-    return { openInvoices, bankReviewCount: bankStatus.filter(b=>b.requiresReview).length, receivables, overdueInvoiceCount: overdueInvoices.length, overdueReceivables: money(overdueInvoices.reduce((s, i) => s + i.amountDue, 0)), ageing, payables, payableAgeing, overdueBillCount, dueThisWeek, overduePayables, bankStatus, unreconciledCount: bankStatus.reduce((s, b) => s + b.outstanding, 0) };
+    return { openInvoices, bankReviewCount: bankStatus.filter(b=>b.requiresReview).length, receivables, overdueInvoiceCount: overdueInvoices.length, overdueReceivables: money(overdueInvoices.reduce((s, i) => s + i.amountDue, 0)), ageing, payables, payableAgeing, overdueBillCount, dueThisWeek, dueThisWeekBillCount: openBills.filter(b=>b.dueDate>=today&&b.dueDate<=addDays(today,7)).length, overduePayables, bankStatus, unreconciledCount: bankStatus.reduce((s, b) => s + b.outstanding, 0) };
 }

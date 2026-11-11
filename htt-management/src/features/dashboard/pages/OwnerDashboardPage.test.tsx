@@ -181,3 +181,26 @@ it('orders Accounts dashboard sections like the reference in both sample and liv
  }
  identity.roles=['ADMIN'];const admin=render('/dashboard?sample=1&sampleRole=Admin');expect(admin).not.toContain('Payment Follow-up – Customers (Unpaid)');
 });
+
+it('adds the six-tile Admin financial summary directly below operations without changing other roles',()=>{
+ identity.roles=['ADMIN'];
+ for(const path of ['/dashboard','/dashboard?sample=1&sampleRole=Admin']){
+  const html=render(path),position=html.indexOf('class="admin-financial-summary"');
+  expect(position).toBeGreaterThan(html.indexOf('reception-metrics'));expect(position).toBeLessThan(html.indexOf('Tasks &amp; Follow-ups'));
+  for(const label of ['Total Sales (YTD)','Total Purchases (YTD)','Gross Profit (YTD)','Cash at Bank'])expect(html).toContain(label);
+ }
+ const sample=render('/dashboard?sample=1&sampleRole=Admin');for(const value of ['$3,520,000','$2,410,000','$1,110,000','$468,200','$392,600','$785,300','31.5%','3 Bank Accounts','Sample · Read-only · Admin financial summary'])expect(sample).toContain(value);
+ for(const role of ['Accounts','Reception','Warehouse'])expect(render('/dashboard?sample=1&sampleRole='+role)).not.toContain('class="admin-financial-summary"');
+ identity.roles=['ACCOUNTANT'];expect(render('/dashboard')).not.toContain('class="admin-financial-summary"');
+});
+
+it('shows Admin team management and exception review after financial cards without duplicating the existing task hub',()=>{
+ identity.roles=['ADMIN'];const html=render('/dashboard?sample=1&sampleRole=Admin');
+ const financial=html.indexOf('class="admin-financial-summary"'),team=html.indexOf('Team Task Overview – Task Management'),approvals=html.indexOf('Approvals &amp; Holds – Exceptions Management'),tasks=html.indexOf('Tasks &amp; Follow-ups');
+ expect(financial).toBeLessThan(team);expect(team).toBeLessThan(approvals);expect(approvals).toBeLessThan(tasks);
+ for(const label of ['Confirm 3 customer pickups','Schedule 2 delivery bookings','Process 4 new sales orders','Supplier Payment – Bostik (INV-66021)','CN-10056 – ABC Flooring','Pending Items','Approve','Reject','Sample · Review history'])expect(html).toContain(label);
+ expect(html.match(/class="admin-task-panel"/g)).toHaveLength(1);expect(html.match(/class="admin-approval-panel"/g)).toHaveLength(1);
+ for(const role of ['Accounts','Warehouse','Reception'])expect(render('/dashboard?sample=1&sampleRole='+role)).not.toContain('class="admin-operations-panels"');
+ identity.roles=['ADMIN'];expect(render('/dashboard')).toContain('Team Task Overview – Task Management');
+ identity.roles=['ACCOUNTANT'];expect(render('/dashboard')).not.toContain('class="admin-operations-panels"');
+});
