@@ -1,3 +1,4 @@
+import {ReceivablesAging} from '../components/ReceivablesAging';
 import {DashboardTasksFollowups} from './DashboardTasksFollowups';
 import {OutstandingDispatch} from './OutstandingDispatch';
 import {PendingQuotesOrders} from './PendingQuotesOrders';
@@ -44,6 +45,7 @@ export function ReceptionDashboard({sample,date,from,site,showReceivables=true,s
  const cards=[{title:pickupTitle,n:sample?12:pickups.length,icon:<Truck/>,tone:'green',to:link('/sales',{special:'pickup'})},{title:deliveryTitle,n:sample?8:deliveries.length,icon:<Truck/>,tone:'blue',to:link('/sales',{special:'delivery'})},{title:'Awaiting Dispatch',n:sample?5:awaiting.length,icon:<Package/>,tone:'amber',to:link('/sales',{special:'awaiting'})},{title:'Orders',n:sample?2:orders.length,icon:<ClipboardCheck/>,tone:'purple',to:link('/sales',{tab:'SALES_ORDER'})},{title:'Overdue Amount',n:new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(sample?8420:finance.overdueReceivables),icon:<Layers/>,tone:'red',to:link('/sales/invoice-reminders',{filter:'Overdue'})},{title:dispatchedTitle,n:sample?1:dispatchedOrders.size,icon:<Truck/>,tone:'green',to:link('/sales',{special:'dispatched'})}];
  return <div className="reception-view">
  <div className="reception-metrics">{cards.filter(c=>showReceivables||c.title!=='Overdue Amount').map(c=><Link key={c.title} to={c.to} className={'reception-metric '+c.tone+(c.title==='Overdue Amount'?' reception-amount-metric':'')}>{c.icon}<h3>{c.title}</h3><strong>{c.n}</strong><ChevronRight size={20}/><small>{c.title===dispatchedTitle?'Dispatched orders · '+dispatchPeriod:sample?['3 pending confirmation','2 scheduled','1 urgent','All orders','3 invoices','1 dispatched order'][cards.indexOf(c)]:c.title==='Overdue Amount'?`${finance.overdueInvoiceCount} overdue invoices`:c.title===pickupTitle?`${pickups.length} pickups`:c.title===deliveryTitle?`${deliveries.length} scheduled`:c.title==='Awaiting Dispatch'?'Orders not yet dispatched':'View details →'}</small></Link>)}</div>
+ {showReceivables&&<ReceivablesAging sample={sample} date={date}/>}
  <div className="reception-top-row">
  {showFollowups&&<DashboardTasksFollowups rows={sample?taskSamples(today,''):hub.rows} today={today} sample={sample} site={site}/>}
 

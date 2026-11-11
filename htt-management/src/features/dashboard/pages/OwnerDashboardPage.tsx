@@ -1,3 +1,4 @@
+import {ReceivablesAging} from '../components/ReceivablesAging';
 import {DateRangePicker,dateRangePreset} from '../../../components/date-range/DateRangePicker';
 import {useEffect,useState,type ReactNode} from 'react';
 import {Link,useSearchParams} from 'react-router-dom';
@@ -100,5 +101,6 @@ export function OwnerDashboardPage(){
  <p className="owner-scope">Selected period: {range.from} – {range.to}. Balances and overdue status are as at the end date; stock shows current availability.</p>
  {!reception&&<div className="owner-grid">{access.financial&&<FinancialOverview sample={sample} from={range.from} to={range.to} cash={access.cash} tax={access.tax}/>}{access.receivables&&<ReceivablesOverview sample={sample} today={range.to}/>}{access.inventory&&<InventoryAlerts sample={sample} site={site}/>}<Operations sample={sample} today={range.to} site={site} followups={access.followups} purchases={access.purchases}/></div>}
  {reception&&<ReceptionDashboard sample={sample} date={range.to} from={range.from} site={site} showReceivables={access.receivables} showFollowups={access.followups}/>}
+ {!reception&&access.receivables&&<ReceivablesAging sample={sample} date={range.to}/>}
  <footer className="owner-footer">{access.financial&&<Link to="/reports/summaries"><PackageCheck size={16}/>View detailed summaries</Link>}{sample&&<span>Sample · Synthetic figures, not business balances</span>}</footer></div>;
 }
