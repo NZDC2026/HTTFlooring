@@ -25,12 +25,12 @@ import './owner-dashboard.css';
 import {ReceptionDashboard} from './ReceptionDashboard';
 
 export function dashboardAccess(principal:VerifiedPrincipal|null){
- return {financial:hasPermission(principal,'accounting.read'),cash:hasPermission(principal,'banking.read'),receivables:hasPermission(principal,'sales.read'),inventory:hasPermission(principal,'inventory.read'),purchases:hasPermission(principal,'purchases.read'),followups:hasPermission(principal,'sales.read'),tax:hasPermission(principal,'accounting.read')};
+ return {aging:!!principal?.authenticated&&principal.roles.includes('ACCOUNTANT'),financial:hasPermission(principal,'accounting.read'),cash:hasPermission(principal,'banking.read'),receivables:hasPermission(principal,'sales.read'),inventory:hasPermission(principal,'inventory.read'),purchases:hasPermission(principal,'purchases.read'),followups:hasPermission(principal,'sales.read'),tax:hasPermission(principal,'accounting.read')};
 }
 export type SampleDashboardRole='Admin'|'Accounts'|'Reception'|'Warehouse';
 export function sampleDashboardAccess(role:SampleDashboardRole,sensitive=false){
  const financial=role==='Admin'||(role==='Accounts'&&sensitive);
- return {financial,cash:financial,tax:financial,receivables:role!=='Warehouse',inventory:true,purchases:role==='Admin'||role==='Accounts',followups:role!=='Warehouse'};
+ return {aging:role==='Accounts',financial,cash:financial,tax:financial,receivables:role!=='Warehouse',inventory:true,purchases:role==='Admin'||role==='Accounts',followups:role!=='Warehouse'};
 }
 const money=(n:number)=>new Intl.NumberFormat('en-AU',{style:'currency',currency:businessSettings().currency,maximumFractionDigits:0}).format(n);
 function Metric({icon,title,value,detail,tone='blue',to}:{icon:ReactNode;title:string;value:string;detail:string;tone?:string;to:string}){
@@ -100,7 +100,7 @@ export function OwnerDashboardPage(){
  {sample&&<div className="owner-sample-roles" aria-label="Sample role preview"><label>Sample role <select aria-label="Sample dashboard role" value={previewRole??''} onChange={e=>setPreviewRole(e.target.value as SampleDashboardRole||null)}><option value="">Current account view</option>{(['Admin','Accounts','Reception','Warehouse'] as const).map(role=><option key={role}>{role}</option>)}</select></label>{previewRole==='Accounts'&&<label><input type="checkbox" checked={sensitive} onChange={e=>setSensitive(e.target.checked)}/>Sample · Authorize financial totals, cash and GST</label>}<small>Sample display only · Your account permissions remain unchanged.</small></div>}
  <p className="owner-scope">Selected period: {range.from} – {range.to}. Balances and overdue status are as at the end date; stock shows current availability.</p>
  {!reception&&<div className="owner-grid">{access.financial&&<FinancialOverview sample={sample} from={range.from} to={range.to} cash={access.cash} tax={access.tax}/>}{access.receivables&&<ReceivablesOverview sample={sample} today={range.to}/>}{access.inventory&&<InventoryAlerts sample={sample} site={site}/>}<Operations sample={sample} today={range.to} site={site} followups={access.followups} purchases={access.purchases}/></div>}
- {reception&&<ReceptionDashboard sample={sample} date={range.to} from={range.from} site={site} showReceivables={access.receivables} showFollowups={access.followups}/>}
- {!reception&&access.receivables&&<ReceivablesAging sample={sample} date={range.to}/>}
+ {reception&&<ReceptionDashboard sample={sample} date={range.to} from={range.from} site={site} showReceivables={access.receivables} showAging={access.aging} showFollowups={access.followups}/>}
+ {!reception&&access.aging&&<ReceivablesAging sample={sample} date={range.to}/>}
  <footer className="owner-footer">{access.financial&&<Link to="/reports/summaries"><PackageCheck size={16}/>View detailed summaries</Link>}{sample&&<span>Sample · Synthetic figures, not business balances</span>}</footer></div>;
 }
