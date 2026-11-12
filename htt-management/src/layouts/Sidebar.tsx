@@ -208,7 +208,7 @@ export function Sidebar() {
                             <div className="space-y-1">
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
-                                    const children: {label:string;path:string;permission?:Permission}[]=item.path==='/sales'?[{label:'Print Invoice/Statement',path:'/sales/invoice-reminders?action=print'},{label:'Email invoice/Statement',path:'/sales/invoice-reminders?action=email'}]:item.path==='/accounting'?[
+                                    const children: {label:string;path:string;permission?:Permission}[]=item.path==='/sales'?[{label:'Inoices & Statements',path:'/sales/invoice-reminders'}]:item.path==='/accounting'?[
                                         {label:'Overview',path:'/accounting'},{label:'Chart of Accounts',path:'/accounting?view=accounts'},{label:'Journal Entries',path:'/accounting/journals'},{label:'Bank Reconciliation',path:'/banking',permission:'banking.read'},{label:'Period Closing',path:'/accounting/periods'},{label:'GST / BAS',path:'/reports/tax-summary',permission:'sales.read'},{label:'Financial Reports',path:'/reports?category=Financial',permission:'sales.read'}
                                     ]:item.path==='/inventory'?[
                                         {label:'Sold',path:'/inventory/sold',permission:'sales.read'},{label:'Bought',path:'/inventory/bought',permission:'purchases.read'},{label:'Damage Stock',path:'/inventory/damage',permission:'inventory.read'},{label:'Stock Adjustments',path:'/inventory/adjustments',permission:'inventory.read'}
