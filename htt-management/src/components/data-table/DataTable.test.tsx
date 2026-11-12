@@ -1,5 +1,8 @@
 import {expect,it,vi} from 'vitest';
-import {renderToStaticMarkup} from 'react-dom/server';
+import {renderToStaticMarkup as renderMarkup} from 'react-dom/server';
+import {MemoryRouter} from 'react-router-dom';
+import type {ReactNode} from 'react';
+const renderToStaticMarkup=(node:ReactNode)=>renderMarkup(<MemoryRouter>{node}</MemoryRouter>);
 import {DataTable} from './DataTable';
 import {ReadOnlyTable} from './ReadOnlyTable';
 const identity=vi.hoisted(()=>({roles:['ADMIN']}));vi.mock('../../features/security/securityClient',()=>({useSecurity:()=>({session:{user:{id:'table-qa',roles:identity.roles}}})}));
@@ -8,3 +11,5 @@ it('shows all rows when pagination is omitted, with authorised column controls a
 it('keeps summary tables free of complete-export or business-selection claims',()=>{const html=renderToStaticMarkup(<DataTable data={rows.slice(0,5)} columns={columns}/>);expect(html).not.toContain('Export all filtered');expect(html).not.toContain('Select all');});
 it('rejects duplicate row IDs and closes a cached complete table after permission loss',()=>{const html=renderToStaticMarkup(<DataTable data={[rows[0],rows[0]]} columns={columns} capabilities={{id:'customers',scope:'complete',permission:'sales.read',rowId:r=>r.id}}/>);expect(html).toContain('Stable unique row IDs');expect(html).not.toContain('Export all filtered');identity.roles=['WAREHOUSE'];try{const denied=renderToStaticMarkup(<DataTable data={rows} columns={columns} capabilities={{id:'customers',scope:'complete',permission:'sales.read',rowId:r=>r.id}}/>);expect(denied).toContain('cannot read this table');expect(denied).not.toContain('Customer 0');}finally{identity.roles=['ADMIN'];}});
 it('connects a paged read-only viewport to all 35 declared rows without exposing undeclared cells',()=>{const html=renderToStaticMarkup(<ReadOnlyTable headers={['Name']} dataset={{id:'paged',scope:'all-filtered',permission:'sales.read',rows:rows.map(r=>({id:r.id,cells:[r.name]}))}}>{rows.slice(0,10).map(r=><tr key={r.id}><td>{r.name}</td></tr>)}</ReadOnlyTable>);expect(html).toContain('Export all filtered rows (35)');expect(html).toContain('Select row r0');expect(html).not.toContain('Customer 34');expect(html).not.toContain('restricted cost');});
+
+it('keeps compact selection available on rows while deferring the bulk toolbar until selection',()=>{const html=renderToStaticMarkup(<DataTable compactSelection data={rows} columns={columns} capabilities={{id:'compact-sales',scope:'complete',permission:'sales.read',rowId:r=>r.id}}/>);expect(html).toContain('Select row r0');expect(html).toContain('Export all filtered rows (35)');expect(html).not.toContain('Select all 35 filtered rows across pages');});

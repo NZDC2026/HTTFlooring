@@ -9,7 +9,7 @@ it('defaults to the new operations layout with live data and isolated sample cov
  identity.roles=['ADMIN'];const live=render('/dashboard'),sample=render();
  for(const html of [live,sample])for(const label of ['Outstanding Dispatch','Tasks &amp; Follow-ups','Quick Actions'])expect(html).toContain(label);
  expect(live).not.toContain('Today’s To-Do');expect(sample).toContain('SO-SAMPLE-10432');
- expect(live).not.toContain('685,420');expect(live).toContain('/reports/summaries');
+ expect(live).not.toContain('685,420');expect(live).not.toContain('View detailed summaries');
 });
 it('hides financial figures and customer follow-ups from warehouse users',()=>{
  identity.roles=['WAREHOUSE'];const html=render();
@@ -102,7 +102,7 @@ it('places operational panels above the selected-period financial section withou
   const scope=html.indexOf('class="owner-scope"');
   for(const label of ['Tasks &amp; Follow-ups','Outstanding Dispatch','Quotes &amp; Orders – Pending','Incoming Shipments','Stock Alert – Insufficient Quantity']){
    expect(html.indexOf(label)).toBeGreaterThan(-1);expect(html.indexOf(label)).toBeLessThan(scope);
-   expect(html.split(label)).toHaveLength(2);
+   expect(html.split(label)).toHaveLength(label==='Tasks &amp; Follow-ups'?3:2);
   }
  }
 });
@@ -121,7 +121,7 @@ it('shares the operational base across all role previews with focused warehouse 
    for(const label of ['Reception · Customers &amp; Follow-ups','Customer Follow-up Priorities','Completed This Week','Outstanding AR','Overdue AR','dashboard-role-extras'])expect(html).not.toContain(label);
    for(const label of ['Receiving Priorities','Gross Profit','Cash Balance','Today’s To-Do'])expect(html).not.toContain(label);
   }else{
-   expect(html).not.toContain('dashboard-role-extras');if(role==='Admin')expect(html).toContain('Tasks &amp; Approvals');
+   expect(html).not.toContain('dashboard-role-extras');if(role==='Admin')for(const label of ['Tasks &amp; Approvals','Sales (Selected Period)','Sales &amp; Purchases Trend','Inventory Alerts','Finance Summary','Today’s To-Do'])expect(html).not.toContain(label);
   }
  }
 });
@@ -186,7 +186,7 @@ it('adds the six-tile Admin financial summary directly below operations without 
  identity.roles=['ADMIN'];
  for(const path of ['/dashboard','/dashboard?sample=1&sampleRole=Admin']){
   const html=render(path),position=html.indexOf('class="admin-financial-summary"');
-  expect(position).toBeGreaterThan(html.indexOf('reception-metrics'));expect(position).toBeLessThan(html.indexOf('Tasks &amp; Follow-ups'));
+  expect(position).toBeLessThan(html.indexOf('reception-metrics'));expect(position).toBeLessThan(html.indexOf('Tasks &amp; Follow-ups'));
   for(const label of ['Total Sales (YTD)','Total Purchases (YTD)','Gross Profit (YTD)','Cash at Bank'])expect(html).toContain(label);
  }
  const sample=render('/dashboard?sample=1&sampleRole=Admin');for(const value of ['$3,520,000','$2,410,000','$1,110,000','$468,200','$392,600','$785,300','31.5%','3 Bank Accounts','Sample · Read-only · Admin financial summary'])expect(sample).toContain(value);
@@ -196,11 +196,26 @@ it('adds the six-tile Admin financial summary directly below operations without 
 
 it('shows Admin team management and exception review after financial cards without duplicating the existing task hub',()=>{
  identity.roles=['ADMIN'];const html=render('/dashboard?sample=1&sampleRole=Admin');
- const financial=html.indexOf('class="admin-financial-summary"'),team=html.indexOf('Team Task Overview – Task Management'),approvals=html.indexOf('Approvals &amp; Holds – Exceptions Management'),tasks=html.indexOf('Tasks &amp; Follow-ups');
- expect(financial).toBeLessThan(team);expect(team).toBeLessThan(approvals);expect(approvals).toBeLessThan(tasks);
+ const financial=html.indexOf('class="admin-financial-summary"'),team=html.indexOf('Team tasks &amp; follow-ups'),approvals=html.indexOf('Approvals &amp; Holds – Exceptions Management'),tasks=html.indexOf('class="admin-unified-followups"');
+ expect(financial).toBeLessThan(team);expect(team).toBeLessThan(tasks);expect(tasks).toBeLessThan(approvals);
+ expect(html).toContain('role="tablist" aria-label="Operations workspace"');expect(html).toContain('Operations workspace');expect(html).toMatch(/aria-labelledby="[^"]+-approvals-tab" hidden=""/);expect(html).not.toContain('class="admin-task-tabs"');expect(html.match(/class="admin-task-panel admin-unified-tasks"/g)).toHaveLength(1);expect(html).toContain('Search dashboard tasks');expect(html).not.toContain('FOLLOW-UP FILTERS');expect(html).not.toContain('class="reception-panel dashboard-followups"');
  for(const label of ['Confirm 3 customer pickups','Schedule 2 delivery bookings','Process 4 new sales orders','Supplier Payment – Bostik (INV-66021)','CN-10056 – ABC Flooring','Pending Items','Approve','Reject','Sample · Review history'])expect(html).toContain(label);
- expect(html.match(/class="admin-task-panel"/g)).toHaveLength(1);expect(html.match(/class="admin-approval-panel"/g)).toHaveLength(1);
+ expect(html.match(/class="admin-task-panel admin-unified-tasks"/g)).toHaveLength(1);expect(html.match(/class="admin-approval-panel"/g)).toHaveLength(1);
  for(const role of ['Accounts','Warehouse','Reception'])expect(render('/dashboard?sample=1&sampleRole='+role)).not.toContain('class="admin-operations-panels"');
- identity.roles=['ADMIN'];expect(render('/dashboard')).toContain('Team Task Overview – Task Management');
+ identity.roles=['ADMIN'];expect(render('/dashboard')).toContain('Operations workspace');
  identity.roles=['ACCOUNTANT'];expect(render('/dashboard')).not.toContain('class="admin-operations-panels"');
+});
+
+it('adds Inventory overview and Sales Performance only to Admin with read-only samples and date context',()=>{
+ identity.roles=['ADMIN'];const html=render('/dashboard?sample=1&sampleRole=Admin');
+ for(const label of ['Inventory overview','Sales Performance','60+ days without sales','Expense','1-year sales history','$2.18M','$186.4K','1,268','26 SKUs','8 SKUs','34 SKUs','4 open orders affected by shortages'])expect(html).toContain(label);
+ expect(html.indexOf('class="admin-financial-summary"')).toBeLessThan(html.indexOf('class="admin-insights"'));
+ expect(html.indexOf('class="admin-insights"')).toBeLessThan(html.indexOf('class="admin-operations-panels"'));
+ for(const role of ['Accounts','Reception','Warehouse'])expect(render('/dashboard?sample=1&sampleRole='+role)).not.toContain('class="admin-insights"');
+});
+
+it('orders Admin modules as financials, performance and inventory, operations, shortages, dispatch and pending documents',()=>{
+ identity.roles=['ADMIN'];const html=render('/dashboard?sample=1&sampleRole=Admin');
+ const sections=['class="admin-financial-summary"','class="admin-sales-performance"','class="admin-inventory-overview"','class="reception-metrics"','class="admin-operations-panels"','id="dashboard-stock-shortages"','Outstanding Dispatch','Quotes &amp; Orders – Pending','Incoming Shipments'];
+ for(let i=1;i<sections.length;i++)expect(html.indexOf(sections[i])).toBeGreaterThan(html.indexOf(sections[i-1]));
 });
