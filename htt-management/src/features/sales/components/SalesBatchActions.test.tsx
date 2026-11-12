@@ -1,0 +1,14 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const h=vi.hoisted(()=>({values:[] as any[],cursor:0,request:vi.fn(),prepare:vi.fn()}));
+vi.mock('react',async()=>({...await vi.importActual<typeof import('react')>('react'),useState:(v:any)=>{const i=h.cursor++;if(!(i in h.values))h.values[i]=v;return[h.values[i],(value:any)=>{h.values[i]=value;}];},useRef:()=>({current:null})}));
+vi.mock('../../security/usePermission',()=>({usePermission:()=>true}));
+vi.mock('../../security/repositoryHost',()=>({nativeRequest:h.request,registerRepository:vi.fn()}));
+vi.mock('../../document-output/outputRepository',async()=>({...await vi.importActual<any>('../../document-output/outputRepository'),outputRepository:{prepare:h.prepare}}));
+import {SalesBatchActions} from './SalesBatchActions';
+import {salesRegisterSamples} from '../data/salesOverviewMetrics';
+const nodes=(e:any):any[]=>!e||typeof e!=='object'?[]:[e,...[e.props?.children].flat(Infinity).flatMap(nodes)];
+const documents=salesRegisterSamples('2026-11-12').slice(0,2);
+const render=()=>{h.cursor=0;return SalesBatchActions({documents,sample:true});};
+beforeEach(()=>{h.cursor=0;h.values=[];vi.clearAllMocks();});
+it('combines only selected document templates and waits for the print frame to load',()=>{let tree=render();nodes(tree).find(n=>n.type==='button'&&nodes(n).some(c=>c.type?.displayName==='Download')||n.type==='button'&&n.props.children?.includes?.('Download PDF'))?.props.onClick();tree=render();const frame=nodes(tree).find(n=>n.type==='iframe');expect(frame).toBeDefined();for(const d of documents)expect(frame.props.srcDoc).toContain(d.documentNumber);expect(h.prepare).not.toHaveBeenCalled();expect(h.request).not.toHaveBeenCalled();});
+it('prepares sample email previews without queuing real messages',()=>{let tree=render();const button=nodes(tree).find(n=>n.type==='button'&&n.props.children?.includes?.('Email'));button.props.onClick();tree=render();expect(nodes(tree).some(n=>n.props?.role==='dialog'&&n.props['aria-label']==='Email selected documents')).toBe(true);expect(h.request).not.toHaveBeenCalled();const send=nodes(tree).find(n=>n.type==='button'&&n.props.children==='Simulate Send · Sample');expect(send.props.disabled).toBe(true);nodes(tree).find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=render();nodes(tree).find(n=>n.type==='button'&&n.props.children==='Simulate Send · Sample').props.onClick();expect(h.request).not.toHaveBeenCalled();});

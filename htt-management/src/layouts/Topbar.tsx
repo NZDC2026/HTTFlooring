@@ -19,6 +19,7 @@ const pageNames: Record<string, string> = {
     "/demo": "Customer demo journey",
     "/dashboard": "Dashboard",
     "/sales": "Sales",
+    "/sales/invoice-reminders": "Print/Email Invoice/statement",
     "/promotions": "Promotion",
     "/purchases/incoming-shipments": "Incoming Shipment",
     "/purchases": "Purchases",
@@ -51,6 +52,7 @@ export function Topbar() {
         pageNames[location.pathname] ??
         pageNames[longestPageTitle(location.pathname,pageNames)??''] ?? "HTT Management";
 
+    if (location.pathname === '/sales/invoice-reminders') { const action=new URLSearchParams(location.search).get('action'); if(action==='print')pageTitle='Print Invoice/Statement';else if(action==='email')pageTitle='Email invoice/Statement'; }
     if (location.pathname === "/contacts/price-settings" || location.pathname === "/inventory/price-settings") pageTitle = "Price Settings";
     if (location.pathname === "/settings/employees") pageTitle = "Users";
     if (location.pathname === "/settings/trash") pageTitle = "Trash";
