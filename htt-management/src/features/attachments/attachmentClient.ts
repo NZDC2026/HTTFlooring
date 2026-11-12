@@ -24,9 +24,9 @@ export const attachmentClient = { subscribe(fn: () => void) { listeners.add(fn);
 };
 registerRepository('attachments', { repository: attachmentClient, read: 'inventory.read', commands: { targets: 'inventory.read', change: 'inventory.read', read: 'inventory.read' }, snapshot: () => state, restore: v => { state = v; }, publish: () => listeners.forEach(fn => fn()) });
 export const useAttachments = () => useSyncExternalStore(attachmentClient.subscribe, attachmentClient.getSnapshot, attachmentClient.getSnapshot);
-export async function selectAttachment(input: Record<string, unknown>) {
+export async function selectAttachment(input: Record<string, unknown>,accept?:string) {
     if (isWeb) {
-        const file = await chooseWebFile(".pdf,.png,.jpg,.jpeg,.csv,.txt,.docx,.xlsx");
+        const file = await chooseWebFile(accept??".pdf,.png,.jpg,.jpeg,.csv,.txt,.docx,.xlsx");
         if (!file) return false;
         input = { ...input, file: { name: file.name, content: file.content } };
     }

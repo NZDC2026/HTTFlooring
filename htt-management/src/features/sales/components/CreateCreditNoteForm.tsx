@@ -28,6 +28,8 @@ export interface CreateCreditNoteValues {
 
 interface Props {
     readOnlySample?: boolean;
+    initialReason?: string;
+    initialQuantities?: Record<string,number>;
     invoice: Invoice;
 
     onCancel: () => void;
@@ -46,6 +48,8 @@ interface CreditLineState {
 export function CreateCreditNoteForm({
     invoice,
     readOnlySample=false,
+    initialReason='',
+    initialQuantities,
     onCancel,
     onSubmit,
 }: Props) {
@@ -59,7 +63,7 @@ export function CreateCreditNoteForm({
     const [
         reason,
         setReason,
-    ] = useState("");
+    ] = useState(initialReason);
 
     const [
         error,
@@ -77,9 +81,8 @@ export function CreateCreditNoteForm({
         invoice.lines.map(
             (line) => ({
                 line,
-                selected: true,
-                quantity:
-                    line.quantity,
+                selected: initialQuantities?Number(initialQuantities[line.id]??0)>0:true,
+                quantity: initialQuantities?Math.min(line.quantity,Math.max(0,initialQuantities[line.id]??0)):line.quantity,
             }),
         ),
     );

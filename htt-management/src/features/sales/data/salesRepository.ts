@@ -888,6 +888,8 @@ export const salesRepository = {
             creditDate: string;
 
             reason: string;
+            creditNoteNumber?: string;
+            unitPriceOverrides?: Record<string,number>;
 
             lines:
             SalesDocumentLine[];
@@ -965,9 +967,11 @@ export const salesRepository = {
             const taxRate = source.taxRate ?? (source.lineSubtotal ? source.taxAmount/source.lineSubtotal : 0.1);
             const priorLines=creditNoteRepository.getByInvoice(invoice.id).filter(c=>c.status!=='VOID').flatMap(c=>c.lines).filter(l=>l.id===source.id);
             const final=request.quantity+credited>=source.quantity-1e-8;
-            const lineSubtotal=roundCurrency(final?source.lineSubtotal-priorLines.reduce((n,l)=>n+l.lineSubtotal,0):source.lineSubtotal*request.quantity/source.quantity);
-            const taxAmount=roundCurrency(final?source.taxAmount-priorLines.reduce((n,l)=>n+l.taxAmount,0):source.taxAmount*request.quantity/source.quantity);
-            return {...source,requestedArea:request.quantity===source.quantity?source.requestedArea:undefined,coveredArea:source.areaPerPack?Math.round(request.quantity*source.areaPerPack*1e8)/1e8:undefined,quantity:request.quantity,taxRate,lineSubtotal,taxAmount,lineTotal:roundCurrency(lineSubtotal+taxAmount)};
+            const override=input.unitPriceOverrides?.[source.id];
+            if(override!==undefined&&(!Number.isFinite(override)||override<0||override>source.lineSubtotal/source.quantity+0.000001))throw Error('Credit unit price must be between zero and the original net invoice price.');
+            const lineSubtotal=override!==undefined?roundCurrency(override*request.quantity):roundCurrency(final?source.lineSubtotal-priorLines.reduce((n,l)=>n+l.lineSubtotal,0):source.lineSubtotal*request.quantity/source.quantity);
+            const taxAmount=override!==undefined?roundCurrency(lineSubtotal*taxRate):roundCurrency(final?source.taxAmount-priorLines.reduce((n,l)=>n+l.taxAmount,0):source.taxAmount*request.quantity/source.quantity);
+            return {...source,...(override!==undefined?{unitPrice:override}:{}),requestedArea:request.quantity===source.quantity?source.requestedArea:undefined,coveredArea:source.areaPerPack?Math.round(request.quantity*source.areaPerPack*1e8)/1e8:undefined,quantity:request.quantity,taxRate,lineSubtotal,taxAmount,lineTotal:roundCurrency(lineSubtotal+taxAmount)};
         });
 
         const totals =
@@ -1021,6 +1025,7 @@ export const salesRepository = {
             );
         }
 
+        if(input.creditNoteNumber&&(!/^CN-R-[A-F0-9]{8}$/.test(input.creditNoteNumber)||creditNoteRepository.getAll().some(c=>c.creditNoteNumber===input.creditNoteNumber)))throw new Error('Credit number is invalid or already issued.');
         const now =
             new Date().toISOString();
 
@@ -1032,7 +1037,7 @@ export const salesRepository = {
                 ),
 
             creditNoteNumber:
-                getNextDocumentNumber(
+                input.creditNoteNumber??getNextDocumentNumber(
                     "CN",
                     creditNoteRepository
                         .getAll()
@@ -1100,6 +1105,7 @@ export const salesRepository = {
             operationId?: string;
         },
     ): CreditAllocation {
+        trustedAuthorization.require('credit.apply');
         assertCurrentCrossModuleWriteSafe();
         assertCurrentSalesWriteSafety();
         const creditNote =
@@ -2222,7 +2228,7 @@ function getLocalDateKey(
 }
 registerRepository("sales", {
     repository: salesRepository, read: "sales.read",
-    commands: {"expireDispatchQuote":"sales.manage", "scheduleDispatch":"sales.manage", "createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "sales.payment", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
+    commands: {"expireDispatchQuote":"sales.manage", "scheduleDispatch":"sales.manage", "createManagedOrder":null,"createManagedInvoice":null,"cancelManagedOrder":null,"if": null, "emitChange": null, "persistSalesDocuments": null, "createQuote": "sales.write", "updateDraftQuote": "sales.write", "sendQuote": "sales.write", "acceptQuote": "sales.manage", "declineQuote": "sales.manage", "convertQuoteToOrder": "sales.manage", "setFulfilmentStatus": null, "createInvoiceFromOrder": "sales.manage", "createCreditNoteFromInvoice": "sales.payment", "applyCreditToInvoice": "credit.apply", "reverseCreditAllocation": "sales.payment", "voidCreditNote": "sales.payment", "recordInvoicePayment": "sales.payment", "voidInvoice": "sales.payment", "reverseInvoicePayment": "sales.payment", "recalculateInvoiceBalance": null},
     validate: (value,snapshots) => {
         const saved=value as {quotes:Quote[];salesOrders:SalesOrder[];invoices:Invoice[]};
         for (const d of [...saved.quotes,...saved.salesOrders,...saved.invoices]) {

@@ -1,3 +1,4 @@
+import {EmailSettingsPage} from '../features/invoice-reminders/EmailSettingsPage';
 import {OwnerDashboardPage} from '../features/dashboard/pages/OwnerDashboardPage';
 import {BankingTransactionsPage} from '../features/banking/pages/BankingSubpages';
 import {PromotionPage} from '../features/promotions/PromotionPage';
@@ -105,6 +106,7 @@ export const appRoutes:RouteObject[] = [
             { path: 'promotions', element: <PromotionPage /> },
             { path: 'procurement', element: <ProcurementPage /> },
             { path: 'sales/invoice-reminders', element: <InvoiceRemindersPage /> },
+            { path: 'settings/invoice-email', element: <EmailSettingsPage /> },
             { path: 'settings/dispatch-followups', element: <DispatchFollowupsPanel /> },
             { path: 'settings/preferences', element: <SettingsOverviewPage key="preferences" /> },
             { path: 'settings/roles', element: <SettingsOverviewPage key="roles" /> },

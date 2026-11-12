@@ -1,5 +1,8 @@
+import {returnDraftInput,returnDraftSchema,type ReturnInspectionDraft} from './returnInspectionModel';
+import {workspaceRepositories} from '../business-workspace/workspaceRepository';
 import { useSyncExternalStore } from 'react';
 import { z } from 'zod';
+import type {Invoice} from '../sales/types/salesDocument';
 import { registerRepository } from '../security/repositoryHost';
 import { trustedAuthorization } from '../security/trustedAuthorization';
 import { salesRepository } from '../sales/data/salesRepository';
@@ -20,11 +23,11 @@ import { businessDateKey, requireDateKey } from '../../lib/businessDate';
 import { assertPostingPeriod } from '../accounting/data/accountingPeriodRepository';
 import { assertCurrentCrossModuleWriteSafe } from '../integration/crossModuleWriteGate';
 const text = z.string().trim().min(1).max(200), qty = z.number().finite().positive().refine(n => Math.round(n * 10000) / 10000 === n), amount = z.number().finite().nonnegative();
-export const customerReturnInput = z.object({ operationId: text, invoiceId: text, creditNoteId: text.optional(), returnDate: text, reason: z.string().trim().min(3).max(2000), lines: z.array(z.object({ costMovementId: text, invoiceLineId: text, quantity: qty }).strict()).min(1).max(500) }).strict();
+export const customerReturnInput = z.object({ operationId: text, invoiceId: text, creditNoteId: text.optional(), inspectionDraftId:text.optional(), returnDate: text, reason: z.string().trim().min(3).max(2000), lines: z.array(z.object({ costMovementId: text, invoiceLineId: text, quantity: qty }).strict()).max(500) }).strict();
 const lineSchema = z.object({ costMovementId: text, invoiceLineId: text, fulfilmentId: text, productId: text, unitId: text, baseUnitId: text, siteId: text, description: z.string(), quantity: qty, conversionToBase: qty, quantityBase: qty, inventoryValue: amount, unitCostBase: amount, movementId: text, restoredCostId: text, reversalMovementId: text.optional(), reversalCostId: text.optional() }).strict();
-const rowSchema = z.object({ id: text, number: text, operationId: text, fingerprint: z.string(), invoiceId: text, invoiceNumber: text, customerId: text, creditNoteId: text, ownsCredit: z.boolean(), returnDate: text, reason: text.max(2000), status: z.enum(['POSTED', 'REVERSED']), lines: z.array(lineSchema).min(1), inventoryValue: amount, journalId: text.optional(), createdBy: text, createdAt: text, reversalDate: text.optional(), reversalReason: text.optional(), reversedBy: text.optional() }).strict();
+const rowSchema = z.object({ id: text, number: text, operationId: text, fingerprint: z.string(), invoiceId: text, invoiceNumber: text, customerId: text, creditNoteId: text, ownsCredit: z.boolean(), returnDate: text, reason: text.max(2000), status: z.enum(['POSTED', 'REVERSED']), lines: z.array(lineSchema), inventoryValue: amount, journalId: text.optional(), createdBy: text, createdAt: text, reversalDate: text.optional(), reversalReason: text.optional(), reversedBy: text.optional() }).strict();
 export type CustomerReturn = z.infer<typeof rowSchema>;
-let rows: CustomerReturn[] = [], version = 0;
+let rows: CustomerReturn[] = [], drafts:ReturnInspectionDraft[]=[], version = 0;
 const listeners = new Set<() => void>(), emit = () => { version++; listeners.forEach(fn => fn()); };
 const q = (n: number) => Math.round(n * 10000) / 10000, m = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 export function useCustomerReturns() { useSyncExternalStore(f => { listeners.add(f); return () => { listeners.delete(f); }; }, () => version, () => version); return rows; }
@@ -45,13 +48,33 @@ export function availableCustomerReturnSources(invoiceId: string) {
     }
     return result;
 }
+export function useReturnInspectionDrafts(){useSyncExternalStore(f=>{listeners.add(f);return()=>{listeners.delete(f);};},()=>version,()=>version);return drafts;}
+function saveInspectionDraft(raw:unknown,inspect=false){
+ const actor=trustedAuthorization.require(inspect?'inventory.adjust':'sales.payment'),input=returnDraftInput.parse(raw),prior=input.id?drafts.find(d=>d.id===input.id):undefined;
+ if(input.id&&!prior)throw Error('Return draft no longer exists.');if(prior?.status==='Completed')throw Error('Completed return drafts cannot be edited.');if(prior&&input.expectedRevision!==prior.revision)throw Error('Return draft changed. Reload before saving.');
+ const invoice=salesRepository.getAll().find((d):d is Invoice=>d.type==='INVOICE'&&d.id===input.invoiceId&&!['DRAFT','VOID'].includes(d.status));if(!invoice)throw Error('Select an issued invoice.');requireDateKey(input.date);if(input.date<invoice.documentDate)throw Error('Return date precedes original invoice.');
+ if(new Set(input.items.map(i=>i.lineId)).size!==input.items.length)throw Error('Select each return item once.');
+ for(const item of input.items){const line=invoice.lines.find(l=>l.id===item.lineId);if(!line||item.quantity>line.quantity)throw Error('Return quantity exceeds original invoice.');if(line.areaPerPack&&!Number.isInteger(item.quantity))throw Error('Return whole packs in whole quantities.');}
+ if((input.submit||inspect)&&!input.items.some(i=>i.quantity>0))throw Error('Enter at least one return quantity.');
+ const stamp=new Date().toISOString(),id=prior?.id??crypto.randomUUID();
+ let taskId=prior?.taskId;
+ if(input.createTask&&!taskId){trustedAuthorization.require('sales.write');const task=workspaceRepositories.tasks.save({name:(input.kind==='credit'?'Review credit · ':'Inspect return · ')+invoice.documentNumber,customerId:invoice.customerId,owner:actor.userId,due:input.date,priority:'Normal',notes:[input.reason,input.notes,'Return draft '+id].join(' · '),taskType:'Other',documentType:'Invoice',documentId:invoice.id,status:'Open'});taskId=task.id;}
+ const draft=returnDraftSchema.parse({id,number:prior?.number??'CN-R-'+crypto.randomUUID().slice(0,8).toUpperCase(),revision:(prior?.revision??0)+1,invoiceId:invoice.id,customerId:invoice.customerId,invoiceNumber:invoice.documentNumber,kind:input.kind,date:input.date,reason:input.reason,notes:input.notes,items:input.items,status:inspect?'Ready for Confirmation':input.submit?(input.kind==='credit'?'Ready for Confirmation':'Awaiting Inspection'):'Draft',createdAt:prior?.createdAt??stamp,updatedAt:stamp,createdBy:prior?.createdBy??actor.userId,...(inspect?{inspectedBy:actor.userId}:{}),...(taskId?{taskId}:{})});
+ drafts=[draft,...drafts.filter(d=>d.id!==id)];emit();return draft;
+}
 export const customerReturnRepository = {
+ completeDraft(raw:unknown){trustedAuthorization.require('sales.payment');const input=z.object({id:text,expectedRevision:z.number().int().positive(),creditNoteId:text}).strict().parse(raw),draft=drafts.find(d=>d.id===input.id),credit=creditNoteRepository.getById(input.creditNoteId);if(!draft||draft.revision!==input.expectedRevision||draft.kind!=='credit'||!credit||credit.sourceInvoiceId!==draft.invoiceId||['DRAFT','VOID'].includes(credit.status))throw Error('Credit draft completion does not match the issued credit.');const result={...draft,status:'Completed' as const,number:credit.creditNoteNumber,creditNoteId:credit.id,revision:draft.revision+1,updatedAt:new Date().toISOString()};drafts=drafts.map(d=>d.id===draft.id?result:d);emit();return result;},
+ saveDraft:(raw:unknown)=>saveInspectionDraft(raw),inspectDraft:(raw:unknown)=>saveInspectionDraft(raw,true),
     create(raw: unknown): CustomerReturn {
         const actor = trustedAuthorization.require('sales.payment'), input = customerReturnInput.parse(raw), fingerprint = JSON.stringify(input), prior = rows.find(r => r.operationId === input.operationId);
         if (prior) { if (prior.fingerprint !== fingerprint) throw new Error('Operation ID already used with different customer return data.'); return prior; }
         requireDateKey(input.returnDate); assertPostingPeriod(input.returnDate); assertCurrentCrossModuleWriteSafe();
         const invoice = salesRepository.getAll().find(d => d.id === input.invoiceId && d.type === 'INVOICE');
         if (!invoice || invoice.type !== 'INVOICE' || input.returnDate < invoice.documentDate) throw new Error('Select an issued invoice and a return date on or after it.');
+        const inspection=input.inspectionDraftId?drafts.find(d=>d.id===input.inspectionDraftId):undefined;
+        if(input.inspectionDraftId&&(!inspection||inspection.invoiceId!==invoice.id||inspection.status!=='Ready for Confirmation'))throw Error('Warehouse inspection must be confirmed before posting this draft.');
+        if(inspection){for(const lineId of new Set(input.lines.map(l=>l.invoiceLineId))){const quantity=input.lines.filter(l=>l.invoiceLineId===lineId).reduce((n,l)=>n+l.quantity,0);if(quantity>(inspection.items.find(i=>i.lineId===lineId)?.good??0)+1e-8)throw Error('Only inspected good quantities can be returned to saleable stock.');}}
+        if(!input.lines.length&&!inspection)throw Error('Select at least one received item.');
         const available = availableCustomerReturnSources(invoice.id), seen = new Set<string>();
         const prepared = input.lines.map(l => {
             if (seen.has(l.costMovementId)) throw new Error('Select each original dispatch cost only once.'); seen.add(l.costMovementId);
@@ -75,8 +98,8 @@ export const customerReturnRepository = {
                 const credited = credit.lines.find(l => l.id === lineId)?.quantity ?? 0, used = rows.filter(r => r.status === 'POSTED' && r.creditNoteId === credit!.id).flatMap(r => r.lines).filter(l => l.invoiceLineId === lineId).reduce((n, l) => n + l.quantity, 0);
                 if (quantity + used > credited + 1e-8) throw new Error('Physical return exceeds the linked credit quantities.');
             }
-        } else credit = salesRepository.createCreditNoteFromInvoice({ invoiceId: invoice.id, creditDate: input.returnDate, reason: input.reason, lines: [...quantities].map(([id, quantity]) => ({ ...invoice.lines.find(l => l.id === id)!, quantity })) });
-        const id = crypto.randomUUID(), number = 'CRTN-' + String(rows.length + 1).padStart(6, '0');
+        } else credit = salesRepository.createCreditNoteFromInvoice({ invoiceId: invoice.id, creditDate: input.returnDate, creditNoteNumber:inspection?.number.startsWith('CN-R-')?inspection.number:undefined, unitPriceOverrides:inspection?Object.fromEntries(inspection.items.filter(i=>i.creditUnitPrice!==undefined).map(i=>[i.lineId,i.creditUnitPrice!])):undefined, reason: input.reason, lines: (inspection?inspection.items.filter(i=>i.quantity>0).map(i=>[i.lineId,i.quantity] as const):[...quantities]).map(([id, quantity]) => ({ ...invoice.lines.find(l => l.id === id)!, quantity })) });
+        const id = crypto.randomUUID(), number = credit!.creditNoteNumber;
         const lines: CustomerReturn['lines'] = prepared.map(l => {
             stockRepository.receive({ siteId: l.siteId, productId: l.productId, baseUnitId: l.baseUnitId, quantityBase: l.quantityBase });
             const movement = inventoryMovementRepository.create({ movementType: 'RETURN_IN', siteId: l.siteId, productId: l.productId, baseUnitId: l.baseUnitId, quantityBase: l.quantityBase, transactionUnitId: l.unitId, transactionUnitSymbol: invoice.lines.find(i => i.id === l.invoiceLineId)!.unitSymbol, transactionQuantity: l.quantity, conversionToBase: l.conversionToBase, referenceType: 'CUSTOMER_RETURN', referenceId: id, referenceNumber: number, salesOrderId: invoice.sourceSalesOrderId, occurredAt: input.returnDate, notes: input.reason });
@@ -85,7 +108,7 @@ export const customerReturnRepository = {
         });
         const inventoryValue = m(lines.reduce((n, l) => n + l.inventoryValue, 0));
         const journal = inventoryValue ? journalEntryRepository.post({ journalDate: input.returnDate, description: 'Customer goods returned ' + number, sourceType: 'CUSTOMER_RETURN', sourceId: id, lines: [{ accountId: accountRepository.requireBySystemRole('INVENTORY').id, debit: inventoryValue, credit: 0 }, { accountId: accountRepository.requireBySystemRole('COST_OF_GOODS_SOLD').id, debit: 0, credit: inventoryValue }] }) : undefined;
-        const row: CustomerReturn = { id, number, operationId: input.operationId, fingerprint, invoiceId: invoice.id, invoiceNumber: invoice.documentNumber, customerId: invoice.customerId, creditNoteId: credit!.id, ownsCredit: !input.creditNoteId, returnDate: input.returnDate, reason: input.reason, status: 'POSTED', lines, inventoryValue, journalId: journal?.id, createdBy: actor.userId, createdAt: new Date().toISOString() }; rows = [row, ...rows]; emit(); return row;
+        const row: CustomerReturn = { id, number, operationId: input.operationId, fingerprint, invoiceId: invoice.id, invoiceNumber: invoice.documentNumber, customerId: invoice.customerId, creditNoteId: credit!.id, ownsCredit: !input.creditNoteId, returnDate: input.returnDate, reason: input.reason, status: 'POSTED', lines, inventoryValue, journalId: journal?.id, createdBy: actor.userId, createdAt: new Date().toISOString() }; rows = [row, ...rows];if(inspection)drafts=drafts.map(d=>d.id===inspection.id?{...d,status:'Completed',number:row.number,postedReturnId:row.id,creditNoteId:row.creditNoteId,revision:d.revision+1,updatedAt:new Date().toISOString()}:d); emit(); return row;
     },
     reverse(raw: unknown): CustomerReturn {
         const actor = trustedAuthorization.require('sales.payment'), input = z.object({ id: text, reversalDate: text, reason: z.string().trim().min(3).max(2000) }).strict().parse(raw), row = rows.find(r => r.id === input.id);
@@ -113,8 +136,10 @@ export const customerReturnRepository = {
         const result: CustomerReturn = { ...row, lines, status: 'REVERSED', reversalDate: input.reversalDate, reversalReason: input.reason, reversedBy: actor.userId }; rows = rows.map(r => r.id === row.id ? result : r); emit(); return result;
     },
 };
-registerRepository('physicalCustomerReturns', { repository: customerReturnRepository, read: 'inventory.cost.read', commands: { create: 'sales.payment', reverse: 'sales.payment' }, snapshot: () => ({ returns: rows }), restore: v => { rows = v.returns; }, publish: emit, validate: (raw, snapshots) => {
-    const saved = z.object({ returns: z.array(rowSchema) }).strict().parse(raw), s = snapshots as Record<string, any>, ops = new Set<string>(), used = new Map<string, { quantity: number; value: number }>();
+registerRepository('physicalCustomerReturns', { repository: customerReturnRepository, read: 'inventory.cost.read', commands: {completeDraft:'sales.payment', saveDraft:'sales.payment',inspectDraft:'inventory.adjust',create: 'sales.payment', reverse: 'sales.payment' }, snapshot: () => ({ returns: rows,drafts }), restore: v => { rows = v.returns;drafts=v.drafts??[]; }, publish: emit, validate: (raw, snapshots) => {
+    const saved = z.object({ returns: z.array(rowSchema),drafts:z.array(returnDraftSchema).optional().default([]) }).strict().parse(raw), s = snapshots as Record<string, any>, ops = new Set<string>(), used = new Map<string, { quantity: number; value: number }>();
+    if(new Set(saved.drafts.map(d=>d.id)).size!==saved.drafts.length)throw Error('Duplicate return draft ID.');
+    for(const draft of saved.drafts){if(draft.status==='Completed'&&(!s.customerCredits.creditNotes.some((c:any)=>c.id===draft.creditNoteId&&c.sourceInvoiceId===draft.invoiceId)||draft.kind==='return'&&!saved.returns.some(r=>r.id===draft.postedReturnId&&r.invoiceId===draft.invoiceId&&r.creditNoteId===draft.creditNoteId)))throw Error('Completed return draft links mismatch.');if(draft.status==='Ready for Confirmation'&&draft.kind==='return'&&!draft.inspectedBy)throw Error('Warehouse inspection evidence is missing.');requireDateKey(draft.date);const invoice=s.sales.invoices.find((d:any)=>d.id===draft.invoiceId&&d.customerId===draft.customerId);if(!invoice||draft.date<invoice.documentDate||draft.items.some(item=>!invoice.lines.some((line:any)=>line.id===item.lineId&&line.quantity>=item.quantity)))throw Error('Return draft source mismatch.');}
     const linkedQuantities=new Map<string,number>();
     for (const r of saved.returns) {
         const request = customerReturnInput.parse(JSON.parse(r.fingerprint)); requireDateKey(r.returnDate);

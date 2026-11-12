@@ -20,3 +20,4 @@ describe('8B authorization and audit boundary', () => {
   it('records failures in business writes', () => { trustedAuthorization.connect(()=>admin); const events:string[]=[]; auditTrail.connect(e=>events.push(e.outcome)); expect(()=>authorizedWrite('sales.write','create','q1',()=>{throw new Error('business failure')})).toThrow('business failure'); expect(events).toEqual(['ALLOWED','FAILED']); });
   it('disconnects only the original session resolver', () => { const first=trustedAuthorization.connect(()=>sales); trustedAuthorization.connect(()=>admin); first(); expect(trustedAuthorization.current()?.userId).toBe('admin-1'); });
 });
+it('limits credit allocation to Admin and Accounts roles',()=>{for(const role of ['ADMIN','FINANCE_ADMIN','ACCOUNTANT'])expect(hasPermission({...admin,roles:[role]},'credit.apply')).toBe(true);for(const role of ['SALES','WAREHOUSE','PURCHASING','AUDITOR'])expect(hasPermission({...admin,roles:[role]},'credit.apply')).toBe(false);});

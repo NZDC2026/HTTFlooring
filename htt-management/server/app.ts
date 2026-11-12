@@ -40,19 +40,22 @@ export function createWebApplication(options: { directory: string; staticDirecto
     });
     const reminderSnapshot=()=>snapshotRepositories() as any;
     const invoiceReminders=new InvoiceReminders(storage,{
-        rows:()=>{const s=reminderSnapshot();return reminderRows(followupDocuments(),s.customerPayments?.payments??[],s.customerCredits?.allocations??[],s.customers?.customers??[],businessDateKey(new Date().toISOString()));},
+        rows:(includePaid,to)=>{const s=reminderSnapshot();return reminderRows(followupDocuments(),s.customerPayments?.payments??[],s.customerCredits?.allocations??[],s.customers?.customers??[],to??businessDateKey(new Date().toISOString()),7,includePaid);},
         fingerprint:()=>{const s=reminderSnapshot();return JSON.stringify([businessDateKey(new Date().toISOString()),followupDocuments(),s.customerPayments,s.customerCredits,s.customers,businessSettings()]);},
-        document:(mode,rows)=>{
+        document:(mode,rows,options)=>{
             const s=reminderSnapshot(),today=businessDateKey(new Date().toISOString());
             if(mode==='INVOICE'){
                 const d=followupDocuments().find(d=>d.id===rows[0].id)!;
                 const artifact=(business.command({repository:'preparedSalesOutputs',method:'prepare',args:[{operationId:randomBytes(16).toString('hex'),sourceId:d.id,kind:'INVOICE',expectedUpdatedAt:d.updatedAt}]}).result) as PreparedOutput;
-                return {html:renderOutputHtml({...artifact,amountDue:rows[0].amount}),filename:d.documentNumber.replace(/[^a-z0-9_-]/gi,'_')+'.html'};
+                return {html:renderOutputHtml({...artifact,amountDue:rows[0].amount,amountPaid:Math.max(0,artifact.totals.total-rows[0].amount)}),filename:d.documentNumber.replace(/[^a-z0-9_-]/gi,'_')+'.html'};
             }
-            const customer=s.customers.customers.find((c:any)=>c.id===rows[0].customerId),fromDate='1900-01-01';
-            const report=buildCustomerStatement({customerId:customer.id,documents:followupDocuments().filter(d=>!/sample/i.test(d.documentNumber)),payments:s.customerPayments.payments.filter((p:any)=>!/sample/i.test(p.paymentNumber??p.reference??'')),creditNotes:s.customerCredits.creditNotes.filter((c:any)=>!/sample/i.test(c.creditNoteNumber)),fromDate,toDate:today});
-            const a=statementSchema.parse({id:'reminder-statement',operationId:'reminder-statement',ownerId:security.principal()!.userId,kind:'CUSTOMER_STATEMENT',sourceId:customer.id,sourceRevision:'0'.repeat(64),documentNumber:'STATEMENT-'+customer.code+'-'+today,fromDate,toDate:today,customerName:customer.businessName,issuerName:businessSettings().companyName,currency:businessSettings().currency,recipient:{accountingEmail:rows[0].email},subject:'Customer statement',body:'Account statement',template:{paper:'A4'},openingBalance:report.openingBalance,closingBalance:report.closingBalance,totalDebits:report.totalDebits,totalCredits:report.totalCredits,entries:report.entries.map(({date,reference,description,debit,credit,balance})=>({date,reference,description,debit,credit,balance}))});
-            return {html:renderStatement(a),filename:'Statement-'+customer.code+'-'+today+'.html'};
+            const customer=s.customers.customers.find((c:any)=>c.id===rows[0].customerId),fromDate=options?.from??'1900-01-01',toDate=options?.to??today;
+            const report=buildCustomerStatement({customerId:customer.id,documents:followupDocuments().filter(d=>!/sample/i.test(d.documentNumber)),payments:s.customerPayments.payments.filter((p:any)=>!/sample/i.test(p.paymentNumber??p.reference??'')),creditNotes:s.customerCredits.creditNotes.filter((c:any)=>!/sample/i.test(c.creditNoteNumber)),fromDate,toDate});
+            const paidIds=new Set(reminderRows(followupDocuments(),s.customerPayments?.payments??[],s.customerCredits?.allocations??[],s.customers?.customers??[],toDate,7,true).filter(r=>r.amount<=0).map(r=>r.id));
+            const displayEntries=options?.includePaid?report.entries:report.entries.filter(e=>!e.invoiceId||!paidIds.has(e.invoiceId));
+            const a=statementSchema.parse({id:'reminder-statement',operationId:'reminder-statement',ownerId:security.principal()!.userId,kind:'CUSTOMER_STATEMENT',sourceId:customer.id,sourceRevision:'0'.repeat(64),documentNumber:'STATEMENT-'+customer.code+'-'+today,fromDate,toDate,customerName:customer.businessName,issuerName:businessSettings().companyName,currency:businessSettings().currency,recipient:{accountingEmail:rows[0].email||'print-only@example.invalid'},subject:'Customer statement',body:'Account statement',template:{paper:'A4'},openingBalance:report.openingBalance,closingBalance:report.closingBalance,totalDebits:report.totalDebits,totalCredits:report.totalCredits,entries:displayEntries.map(({date,reference,description,debit,credit,balance})=>({date,reference,description,debit,credit,balance}))});
+            const ageing:[number,number,number,number]=[0,0,0,0];for(const row of rows){const days=Math.max(0,-row.days);ageing[days<=30?0:days<=60?1:days<=90?2:3]+=row.amount;}const address=customer.billingAddress;
+            return {html:renderStatement(a,{accountNumber:customer.code,address:address?[address.addressLine1,address.addressLine2,[address.suburb,address.state,address.postcode].filter(Boolean).join(' ')].filter(Boolean).join('\n'):undefined,ageing,transactionTypes:displayEntries.map(e=>({INVOICE:'Invoice',PAYMENT:'Payment',CREDIT_NOTE:'Credit Note',REFUND:'Refund',INVOICE_VOID:'Invoice Void',PAYMENT_REVERSAL:'Payment Reversal',CREDIT_NOTE_VOID:'Credit Void',REFUND_REVERSAL:'Refund Reversal'})[e.type]),invoiceTotal:report.entries.reduce((n,e)=>n+(e.type==='INVOICE'?e.debit:e.type==='INVOICE_VOID'?-e.credit:0),0),paymentTotal:report.entries.reduce((n,e)=>n+(e.type==='PAYMENT'?e.credit:e.type==='PAYMENT_REVERSAL'?-e.debit:0),0)}),filename:'Statement-'+customer.code+'-'+today+'.html'};
         },
     });
     // Only initialization joins the principal-sensitive request queue. Provider I/O must
@@ -116,7 +119,7 @@ export function createWebApplication(options: { directory: string; staticDirecto
             }
             case 'business.bootstrap': await business.initialize(); business.scanRecurringDue(); return business.view();
             case 'dispatchFollowups.reservations': {security.require('inventory.read');const s=snapshotRepositories() as any;return (s.products?.products??[]).map((p:any)=>({productId:p.id,quantity:commercialReservation(p,followupDocuments(),s.fulfilments?.fulfilments??[])}));}
-            case 'invoiceReminders.view': security.require('sales.read');return invoiceReminders.view();
+            case 'invoiceReminders.view': security.require('sales.read');return invoiceReminders.view((input as {includePaid?:boolean})?.includePaid===true,(input as {to?:string})?.to);
             case 'invoiceReminders.configure': security.require('users.manage');{const result=invoiceReminders.configure(input);security.audit('invoice.reminders.configure','company','SUCCESS','users.manage');return result;}
             case 'invoiceReminders.preview': security.require('documents.prepare');security.require('sales.read');return invoiceReminders.preview(input,security.principal()!.userId);
             case 'invoiceReminders.queue': security.require('documents.prepare');security.require('sales.read');{const result=invoiceReminders.queue(input);security.audit('invoice.reminders.queue',result.id,'SUCCESS','documents.prepare');return result;}
