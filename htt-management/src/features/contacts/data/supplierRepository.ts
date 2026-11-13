@@ -1,3 +1,5 @@
+import {businessDateKey} from '../../../lib/businessDate';
+import {containerPurchaseInput} from '../../incoming-shipments/containerPurchaseModel';
 import { nextSupplierCode } from "./supplierCode";
 import { shipmentWarehouse } from '../../incoming-shipments/shipmentWarehouse';
 import { shipmentInput, shipmentReceiptInput, shipmentSchema, buildShipmentLines, type Shipment } from "../../incoming-shipments/shipmentModel";
@@ -183,6 +185,19 @@ function mapValues(
 }
 
 export const supplierRepository = {
+    saveContainerPurchase(raw:unknown){
+      trustedAuthorization.require('purchases.write');const input=containerPurchaseInput.parse(raw),request=JSON.stringify(input),prior=suppliers.flatMap(s=>s.shipments??[]).filter(s=>s.purchaseOperationId===input.operationId);
+      if(prior.length){if(prior.some(s=>s.purchaseRequest!==request))throw Error('Purchase operation has different content.');return prior;}
+      const supplier=suppliers.find(s=>s.id===input.supplierId);if(!supplier||supplier.status!=='ACTIVE')throw Error('Choose an active supplier.');
+      if(new Set(input.containers.map(c=>c.number)).size!==input.containers.length)throw Error('Container numbers must be unique.');
+      const warehouse=shipmentWarehouse(businessSettings().companyName,inventorySiteRepository.getActive()).site;if(!warehouse)throw Error('Configure the destination warehouse for this business region.');
+      const number='PB-'+new Date().getFullYear()+'-'+crypto.randomUUID().slice(0,8).toUpperCase(),result:Shipment[]=[];
+      for(const c of input.containers){const copied=c.lines.filter(l=>l.purchaseOrderId&&l.lineId),manual=c.lines.filter(l=>!l.purchaseOrderId&&!l.lineId);if(copied.length+manual.length!==c.lines.length)throw Error('Incomplete PO reference.');
+        let lines=copied.map(l=>({purchaseOrderId:l.purchaseOrderId!,lineId:l.lineId!,quantity:l.quantity}));
+        if(manual.length){const po=resolveCommand('purchaseOrders',input.draft?'create':'saveAndIssue').execute([{supplierId:input.supplierId,orderDate:businessDateKey(new Date().toISOString()),expectedDeliveryDate:c.eta,supplierReference:c.invoiceNumber,notes:'Container '+c.number+' · House Bill '+input.houseBill,lines:manual.map(l=>({productId:l.productId,unitId:l.unitId,orderedQuantity:l.quantity,unitCost:l.unitPrice,priceBasis:'Exclusive'}))}]) as PurchaseOrder;lines=lines.concat(po.lines.map(l=>({purchaseOrderId:po.id,lineId:l.id,quantity:l.orderedQuantity})));}
+        result.push(this.saveShipment({supplierId:input.supplierId,operationId:c.operationId,revision:0,type:'Overseas',container:c.number,containerSize:c.size,purchaseNumber:number,houseBill:input.houseBill,invoiceNumber:c.invoiceNumber,invoiceAmount:c.invoiceAmount,purchaseOperationId:input.operationId,purchaseRequest:request,origin:'',destination:warehouse.name,siteId:warehouse.id,etd:c.etd,eta:c.eta,status:input.draft?'Draft':c.status,reason:input.remark||'Container purchase shipment',lines}));
+      }return result;
+    },
     saveShipment(raw:unknown) {
         const actor=trustedAuthorization.require("purchases.write"),input=shipmentInput.parse(raw);
         const supplier=suppliers.find(s=>s.id===input.supplierId);if(!supplier)throw Error("Supplier was not found");
@@ -196,10 +211,11 @@ export const supplierRepository = {
         if(!inventorySiteRepository.getActive().some(s=>s.id===input.siteId))throw Error("Choose an active destination warehouse");
         const regionWarehouse=shipmentWarehouse(businessSettings().companyName,inventorySiteRepository.getActive());if(!locked&&(!regionWarehouse.site||input.siteId!==regionWarehouse.site.id))throw Error("Shipment destination must match the current business region warehouse.");
         if(input.etd&&input.etd>input.eta)throw Error("ETA cannot be before dispatch date");
+        if(old?.status==='Draft'&&old.purchaseNumber&&input.status!=='Draft'){const existing=(snapshotRepositories().purchaseOrders as {purchaseOrders:PurchaseOrder[]}).purchaseOrders;for(const id of new Set(input.lines.map(l=>l.purchaseOrderId))){const po=existing.find(p=>p.id===id);if(po?.status==='DRAFT'&&po.notes?.includes('House Bill '+old.houseBill)){resolveCommand('purchaseOrders','approve').execute([id]);resolveCommand('purchaseOrders','send').execute([id]);}}}
         const orders=(snapshotRepositories().purchaseOrders as {purchaseOrders:PurchaseOrder[]}).purchaseOrders;
         const all=suppliers.flatMap(s=>s.shipments??[]);
         const lines=locked||input.status==='Cancelled'&&old?old!.lines:buildShipmentLines(input,orders,all,old),at=new Date().toISOString();
-        const next:Shipment={...input,id:old?.id??createId('shipment'),number:old?.number??`SHP-${new Date().getUTCFullYear()}-${String(all.length+1).padStart(4,'0')}`,revision:input.revision+1,lines,history:[...(old?.history??[]),{operationId:input.operationId,actorId:actor.userId,actorName:actor.displayName||actor.userId,at,reason:input.reason,request:JSON.stringify(input),action:old?'Updated':'Created',eta:input.eta,previousEta:old?.eta,status:input.status}],updatedAt:at};
+        const next:Shipment={...old,...input,id:old?.id??createId('shipment'),number:old?.number??`SHP-${new Date().getUTCFullYear()}-${String(all.length+1).padStart(4,'0')}`,revision:input.revision+1,lines,history:[...(old?.history??[]),{operationId:input.operationId,actorId:actor.userId,actorName:actor.displayName||actor.userId,at,reason:input.reason,request:JSON.stringify(input),action:old?'Updated':'Created',eta:input.eta,previousEta:old?.eta,status:input.status}],updatedAt:at};
         suppliers=suppliers.map(s=>s.id===supplier.id?{...s,shipments:[...(s.shipments??[]).filter(x=>x.id!==next.id),next]}:s);emitChange();return next;
     },
     receiveShipment(raw:unknown) {
@@ -356,7 +372,7 @@ export const supplierRepository = {
 };
 registerRepository("suppliers", {
     repository: supplierRepository, read: "purchases.read",
-    commands: {"saveShipment":"purchases.write","receiveShipment":"purchases.receive","addActivity":"contacts.write","activityAction":"contacts.write","if": null, "create": "contacts.write", "update": "contacts.write"},
+    commands: {"saveContainerPurchase":"purchases.write","saveShipment":"purchases.write","receiveShipment":"purchases.receive","addActivity":"contacts.write","activityAction":"contacts.write","if": null, "create": "contacts.write", "update": "contacts.write"},
     validate: (value,snapshots) => { for (const supplier of (value as {suppliers:Supplier[]}).suppliers) {
         const shipmentIds=new Set<string>();
         for(const raw of supplier.shipments??[]){const shipment=shipmentSchema.parse(raw);if(shipment.supplierId!==supplier.id||shipmentIds.has(shipment.id)||shipment.revision!==shipment.history.length)throw Error('Invalid shipment identity or revision');shipmentIds.add(shipment.id);

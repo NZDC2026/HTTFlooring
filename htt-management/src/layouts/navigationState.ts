@@ -9,6 +9,7 @@ export const navigationOwners = [
 export function pathWithin(path:string,root:string){return path===root||path.startsWith(root+'/');}
 export function sidebarOwner(path:string):string|undefined {
  const pathname=path.split(/[?#]/)[0].replace(/\/+$/,'')||'/';
+ if(pathWithin(pathname,'/purchases/incoming-shipments'))return '/procurement';
  if(pathWithin(pathname,'/sales/customer-returns')||pathWithin(pathname,'/sales/credit-notes'))return '/sales/credit-returns';
  const owner=[...navigationOwners].sort((a,b)=>b.length-a.length).find(root=>pathWithin(pathname,root));
  return owner==='/contacts/suppliers'?'/contacts/supplier-dashboard':owner;

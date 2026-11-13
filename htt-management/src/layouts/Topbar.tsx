@@ -22,7 +22,7 @@ const pageNames: Record<string, string> = {
     "/settings/invoice-email": "Invoice & Statement Email settings",
     "/sales/invoice-reminders": "Inoices & Statements",
     "/promotions": "Promotion",
-    "/purchases/incoming-shipments": "Incoming Shipment",
+    "/purchases/incoming-shipments": "Procurement",
     "/purchases": "Purchases",
     "/inventory": "Inventory",
     "/sales/credit-returns": "Returns & Credits",

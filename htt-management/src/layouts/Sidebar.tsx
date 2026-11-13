@@ -21,7 +21,6 @@ import {
     ReceiptText,
     Settings,
     ShoppingCart,
-    Ship,
     UsersRound,
     Trash2,
 } from "lucide-react";
@@ -67,11 +66,6 @@ const sections = [
                 label: "Purchases",
                 path: "/purchases",
                 icon: ShoppingCart,
-            },
-            {
-                label: "Incoming Shipment",
-                path: "/purchases/incoming-shipments",
-                icon: Ship,
             },
             {
                 label: "Inventory",

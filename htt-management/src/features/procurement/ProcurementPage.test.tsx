@@ -1,0 +1,7 @@
+import {it,expect,vi} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {MemoryRouter} from 'react-router-dom';
+vi.mock('../security/usePermission',()=>({usePermission:()=>true}));
+import {ProcurementPage,procurementShipmentSamples} from './ProcurementPage';
+it('integrates incoming shipments and landed cost without a purchase orders tab',()=>{const html=renderToStaticMarkup(<MemoryRouter initialEntries={['/procurement?sample=1']}><ProcurementPage/></MemoryRouter>);expect(html.match(/role="tab"/g)).toHaveLength(2);expect(html).not.toContain('>Purchase Orders<');for(const text of ['Incoming Shipments','Landed Cost','Total Shipments','Arriving Soon (7 Days)','Partially Received','Received','PB-2026-0003','ABC Timber Export','Landed Cost Summary','Allocation Cost','$59,950.00','$30.75','250.00 m²','Sample · Read-only'])expect(html).toContain(text);});
+it('sample metrics use the actual twelve read-only rows and coherent costs',()=>{const rows=procurementShipmentSamples('2026-11-13');expect(rows).toHaveLength(12);expect(new Set(rows.map(r=>r.id)).size).toBe(12);expect(rows.filter(r=>r.status==='In Transit')).toHaveLength(3);expect(rows.filter(r=>r.status==='Arriving Soon')).toHaveLength(2);expect(rows.filter(r=>r.status==='Partially Received')).toHaveLength(2);expect(rows.filter(r=>r.status==='Received')).toHaveLength(5);for(const r of rows)expect(r.total).toBe(r.goods!+r.freight!+r.customs!);expect(rows[0].total!/rows[0].area!).toBeCloseTo(30.75,2);});

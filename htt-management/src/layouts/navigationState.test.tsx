@@ -8,7 +8,7 @@ describe('exclusive workspace navigation',()=>{
  it.each([
  ['/sales/credit-returns','/sales/credit-returns'],['/sales/customer-returns/new','/sales/credit-returns'],
  ['/sales/credit-notes/credit_1','/sales/credit-returns'],['/sales/invoices/invoice_1','/sales'],
- ['/purchases/incoming-shipments','/purchases/incoming-shipments'],['/purchases/po_1/edit','/purchases'],
+ ['/purchases/incoming-shipments','/procurement'],['/purchases/po_1/edit','/purchases'],
  ['/contacts/price-settings','/contacts'],['/contacts/suppliers/sup_1','/contacts/supplier-dashboard'],
  ['/settings/employees','/settings/employees'],['/settings/trash','/settings/trash'],
  ['/settings/preferences','/settings/preferences'],['/settings/integrations/mail','/settings'],
