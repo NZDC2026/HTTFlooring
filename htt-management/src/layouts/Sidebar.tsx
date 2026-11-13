@@ -168,7 +168,7 @@ export function Sidebar() {
     return (
         <aside
             className="
-        fixed bottom-0 left-0 top-0 z-30
+        htt-sidebar fixed bottom-0 left-0 top-0 z-30
         flex w-[var(--sidebar-width)] flex-col
         bg-[var(--color-primary)]
         text-white
@@ -180,7 +180,7 @@ export function Sidebar() {
 
                     <div>
                         <div className="text-sm font-semibold tracking-wide">
-                            HTT
+                            {businessSettings().companyName}
                         </div>
 
                         <div className="text-[10px] tracking-[0.18em] text-white/60">

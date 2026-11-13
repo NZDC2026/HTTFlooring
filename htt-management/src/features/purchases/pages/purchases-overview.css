@@ -2,15 +2,15 @@
 .pu-section-bar .htt-date-range{flex-direction:row;align-items:center;gap:8px}.pu-section-bar .htt-date-range-fields{padding:4px;border-radius:9px;gap:7px}.pu-section-bar .htt-date-endpoint-wrap{gap:7px}.pu-section-bar .htt-date-range .htt-date-endpoint{height:34px!important;min-width:130px;gap:9px;padding:5px 8px!important;border-radius:7px!important}.pu-section-bar .htt-date-endpoint span{flex-direction:row;align-items:center;gap:7px}.pu-section-bar .htt-date-endpoint small{font-size:9px}.pu-section-bar .htt-date-endpoint strong{font-size:11px}.pu-section-bar .htt-date-endpoint>svg{width:15px;height:15px}.pu-section-bar .htt-date-range-arrow{font-size:16px}.pu-section-bar .htt-date-range-title{white-space:nowrap}
 /* Separate aging buckets while preserving equal widths. */
 .pu-ageing>div{gap:14px;grid-template-columns:repeat(5,minmax(0,1fr))}
-@media(min-width:2000px){.pu-ageing>div{gap:22px}}
+@media(min-width:1600px){.pu-ageing>div{gap:22px}}
 @media(max-width:900px){.pu-ageing>div{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
 @media(max-width:480px){.pu-ageing>div{grid-template-columns:1fr}}
 /* Supplier register uses the shared large-desktop reading size. */
-@media screen and (min-width:2000px){
+@media screen and (min-width:1600px){
  .purchases-overview .pu-table-scroll table :is(th,td),
  .purchases-overview .pu-table-scroll table :is(th,td) :is(span,a,button,b,strong,small),
  .purchases-overview .pu-pagination,
- .purchases-overview .pu-pagination :is(span,button,select,label){font-family:inherit;font-size:clamp(15px,.6771vw,19px)!important;line-height:1.45}
+ .purchases-overview .pu-pagination :is(span,button,select,label){font-family:inherit;font-size:15px!important;line-height:1.45}
  .purchases-overview .pu-table-scroll table :is(th,td){padding-block:14px}
  .purchases-overview .pu-table-scroll table{min-width:1550px}
  .purchases-overview .pu-pagination{min-height:64px;gap:14px;padding-block:14px;flex-wrap:wrap}
@@ -20,7 +20,7 @@
 }
 /* Equal count columns, sized for the longest label (Containers). */
 .purchases-overview .pu-metric aside{box-sizing:border-box;flex:0 0 88px;width:88px;min-width:88px;padding-left:15px;padding-right:0}
-@media screen and (min-width:2000px){
+@media screen and (min-width:1600px){
  .purchases-overview .pu-metric{padding-right:30px;gap:18px}
  .purchases-overview .pu-metric aside{flex-basis:108px;width:108px;min-width:108px;padding-left:20px;padding-right:8px}
 }

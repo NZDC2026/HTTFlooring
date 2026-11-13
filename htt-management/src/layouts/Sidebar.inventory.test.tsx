@@ -5,10 +5,9 @@ const identity=vi.hoisted(()=>({roles:['ADMIN']}));
 vi.mock('../features/security/securityClient',()=>({useSecurity:()=>({session:{user:{id:'navigation-test',roles:identity.roles}}})}));
 import { Sidebar } from './Sidebar';
 function render(path:string,roles=['ADMIN']){identity.roles=roles;return renderToStaticMarkup(<MemoryRouter initialEntries={[path]}><Sidebar/></MemoryRouter>);}
-describe('Inventory submenu',()=>{
- it('expands with Sold and Bought links and highlights the current report',()=>{
-  const html=render('/inventory/sold');expect(html).toContain('aria-label="Inventory submenu"');expect(html).toContain('href="/inventory/sold"');expect(html).toContain('href="/inventory/bought"');expect(html).toMatch(/aria-current="page"[^>]*href="\/inventory\/sold"|href="\/inventory\/sold"[^>]*aria-current="page"/);
+describe('Inventory navigation flyout',()=>{
+ it.each(['/inventory/sold','/inventory/bought'])('keeps Inventory active on %s without opening the flyout automatically',path=>{
+  const html=render(path);expect(html).toContain('aria-label="Open Inventory submenu"');expect(html).toContain('aria-controls="sidebar-flyout-Inventory"');expect(html).toMatch(/aria-current="page"[^>]*href="\/inventory"|href="\/inventory"[^>]*aria-current="page"/);expect(html).toContain('aria-expanded="false"');
  });
- it('expands on a direct Bought URL',()=>{const html=render('/inventory/bought');expect(html).toContain('aria-controls="sidebar-inventory-submenu"');expect(html).toMatch(/aria-current="page"[^>]*href="\/inventory\/bought"|href="\/inventory\/bought"[^>]*aria-current="page"/);});
- it('keeps purchase and sales submenu entries permission scoped',()=>{const html=render('/inventory',['SALES']);expect(html).not.toContain('href="/inventory/bought"');expect(html).toContain('href="/inventory/sold"');});
+ it('uses the shared light sidebar and preserves the permitted Inventory entry',()=>{const html=render('/inventory',['SALES']);expect(html).toContain('htt-sidebar');expect(html).toContain('href="/inventory"');expect(html).not.toContain('href="/purchases"');});
 });

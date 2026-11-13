@@ -11,8 +11,8 @@
 
 .fqa-sample-previews{border:1px solid #efd9a4;background:#fffbef;border-radius:8px;padding:8px;margin-top:12px}.fqa-sample-previews h3{font-size:10px;color:#8b601a;margin:0 0 4px}.fqa-sample-previews a{display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:6px 0;color:#075b41;text-decoration:none}
 /* A complete large-desktop scale, with scrolling contained inside the panel. */
-@media screen and (min-width:2000px){
- .floating-quick-actions{width:clamp(410px,19vw,600px);right:32px;bottom:28px;gap:18px;font-family:inherit}
+@media screen and (min-width:1600px){
+ .floating-quick-actions{width:410px;right:32px;bottom:28px;gap:18px;font-family:inherit}
  .fqa-panel{max-height:calc(100dvh - 130px)}
  .fqa-header{padding:18px 20px;min-height:84px;gap:14px}
  .fqa-header h2{font-size:24px}.fqa-header p{font-size:13px}.fqa-bolt{width:40px;height:40px}.fqa-bolt svg{width:26px;height:26px}

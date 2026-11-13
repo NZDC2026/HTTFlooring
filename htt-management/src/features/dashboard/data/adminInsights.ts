@@ -21,12 +21,15 @@ const weightTotal=weights.reduce((n,v)=>n+v,0);
 export function performanceValue(metric:PerformanceMetric,pnl:{salesRevenue:number;grossProfit:number;grossMarginPercent:number|null;operatingExpenses:number}){return metric==='Sales'?pnl.salesRevenue:metric==='GP'?pnl.grossProfit:metric==='Margin'?pnl.grossMarginPercent:pnl.operatingExpenses;}
 function samplePnl(from:string,to:string){
  let sales=0;const start=new Date(from+'T12:00:00Z'),end=new Date(to+'T12:00:00Z');
- for(let d=start;d<=end;d.setUTCDate(d.getUTCDate()+1)){const year=d.getUTCFullYear(),month=d.getUTCMonth(),days=new Date(Date.UTC(year,month+1,0)).getUTCDate();sales+=3520000*Math.pow(1.128,year-2026)*weights[month]/weightTotal/days;}
+ for(let d=start;d<=end;d.setUTCDate(d.getUTCDate()+1)){const year=d.getUTCFullYear(),month=d.getUTCMonth(),days=new Date(Date.UTC(year,month+1,0)).getUTCDate();const dailyWeight=1+.4*Math.sin(d.getUTCDate()*.9),monthWeight=Array.from({length:days},(_,i)=>1+.4*Math.sin((i+1)*.9)).reduce((n,v)=>n+v,0);sales+=3520000*Math.pow(1.128,year-2026)*weights[month]/weightTotal*dailyWeight/monthWeight;}
  return {salesRevenue:sales,grossProfit:sales*.315,grossMarginPercent:sales>0?31.5:null,operatingExpenses:sales*.128};
 }
 export function performanceSeries(accounts:Account[],journals:JournalEntry[],from:string,to:string,sample:boolean){
  const calculate=(a:string,b:string)=>sample?samplePnl(a,b):calculateProfitAndLoss(accounts,journals,a,b);
- const rows=[];let month=from.slice(0,7)+'-01';
+ const rows=[];
+ const days=Math.round((Date.parse(to+'T12:00:00Z')-Date.parse(from+'T12:00:00Z'))/86400000)+1;
+ if(days<=31){for(let i=0;i<days;i++){const d=new Date(from+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+i);const key=d.toISOString().slice(0,10);rows.push({key,label:d.toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'}),current:calculate(key,key),prior:calculate(priorYearDate(key),priorYearDate(key))});}return {rows,current:calculate(from,to),prior:calculate(priorYearDate(from),priorYearDate(to))};}
+ let month=from.slice(0,7)+'-01';
  while(month<=to){const date=new Date(month+'T12:00:00Z'),end=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)).toISOString().slice(0,10),a=month<from?from:month,b=end>to?to:end;
  rows.push({key:month,label:date.toLocaleDateString('en-GB',{month:'short',...(from.slice(0,4)!==to.slice(0,4)?{year:'2-digit' as const}:{}) ,timeZone:'UTC'}),current:calculate(a,b),prior:calculate(priorYearDate(a),priorYearDate(b))});date.setUTCMonth(date.getUTCMonth()+1);month=date.toISOString().slice(0,10);}
  return {rows,current:calculate(from,to),prior:calculate(priorYearDate(from),priorYearDate(to))};
