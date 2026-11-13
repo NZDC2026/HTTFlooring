@@ -1,3 +1,4 @@
+import {QuoteCreatePage} from '../features/sales/pages/QuoteCreatePage';
 import {EmailSettingsPage} from '../features/invoice-reminders/EmailSettingsPage';
 import {OwnerDashboardPage} from '../features/dashboard/pages/OwnerDashboardPage';
 import {BankingTransactionsPage} from '../features/banking/pages/BankingSubpages';
@@ -131,6 +132,10 @@ export const appRoutes:RouteObject[] = [
             {
                 path: "sales",
                 element: <SalesOverviewPage />,
+            },
+            {
+                path: "sales/quotes/new",
+                element: <QuoteCreatePage />,
             },
             {
                 path: "sales/quotes/:quoteId",

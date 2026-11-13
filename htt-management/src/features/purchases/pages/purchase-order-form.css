@@ -28,3 +28,59 @@
 @media(max-width:1200px){.po-order-lines .po-material-swatch{display:none}}
 .po-product-description[open] summary{display:block;-webkit-line-clamp:unset;overflow:visible}
 .po-product-description[open] p{display:none}
+
+/* Purchase entry uses the same document workspace as Sales Create Order. */
+.sales-entry.purchase-entry{border:0;padding:0;min-width:0;color:var(--color-text-primary);background:transparent}
+.purchase-entry .entry-parties{grid-template-columns:repeat(3,minmax(0,1fr))}
+.purchase-entry .entry-parties .entry-card{padding:14px;min-width:0}
+.purchase-entry .entry-parties h2{display:flex;align-items:center;gap:7px;font-size:14px}
+.purchase-entry .entry-parties h2 a{margin-left:auto;font-size:11px}
+.purchase-entry .entry-parties small{display:block;margin-top:8px;font-size:11px;color:var(--color-text-secondary)}
+.purchase-entry .entry-document>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.purchase-entry .entry-document label,.purchase-entry .purchase-settings label{display:flex;flex-direction:column;gap:5px;font-size:12px}
+.purchase-entry .entry-document input,.purchase-entry .purchase-settings input,.purchase-entry .purchase-settings select{width:100%;min-height:34px}
+.purchase-entry .entry-products{padding:14px}
+.purchase-entry .entry-product-tools{flex-wrap:wrap;gap:6px}
+.purchase-entry .entry-product-search{width:220px;max-width:100%}
+.purchase-entry .po-product-search{margin:10px 0;width:100%;height:34px}
+.purchase-entry .po-editor-bottom{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:0}
+.purchase-entry .po-editor-bottom>section{padding:14px}
+.purchase-entry .po-editor-bottom textarea{min-height:105px;width:100%}
+.purchase-entry .purchase-settings{padding:14px}
+.purchase-entry .entry-type-tabs>span{display:flex;align-items:center;padding:11px 20px;font-size:14px;font-weight:600}
+.purchase-entry .entry-type-tabs>span.active{color:#008000;border-bottom:3px solid #008000}
+.purchase-entry .entry-actions button{min-height:38px;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.purchase-entry .po-form-sample{margin:12px 0}
+.purchase-entry .po-order-lines{font-family:inherit}
+@media(max-width:1000px){.purchase-entry .entry-parties{grid-template-columns:1fr}.purchase-entry .entry-document>div{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.purchase-entry .po-editor-bottom,.purchase-entry .entry-document>div{grid-template-columns:1fr}}
+.purchase-entry .entry-products>header{flex-wrap:wrap;padding:0 0 10px}
+.purchase-entry .entry-products,.purchase-entry .po-editor-scroll{min-width:0;max-width:100%}
+.purchase-entry .entry-summary>.po-totals{display:block;padding:0;border:0}
+.purchase-entry .po-totals>div{display:flex;justify-content:space-between;gap:8px;padding:10px 0}
+.purchase-entry .po-totals>label{margin:8px 0}
+.purchase-entry .entry-summary .grand-total{background:#e8f6e5;border-radius:7px;padding:12px;color:#00521c;font-size:16px}
+.purchase-entry .entry-summary .grand-total strong{font-size:21px}
+.purchase-entry .entry-type-tabs>span.active{background:linear-gradient(#08632c,#005621);color:white;border-radius:28px;border:0}
+.purchase-entry .po-product-cell>div{flex:1;min-width:0}
+.purchase-entry .po-product-cell [role=combobox]{min-width:0;width:100%}
+.purchase-entry .entry-document label{align-items:stretch}
+.purchase-entry .po-order-lines{min-width:1100px}
+.purchase-entry .po-order-lines th:nth-child(3),.purchase-entry .po-order-lines td:nth-child(3){width:270px;max-width:none}
+.purchase-entry .po-lines-panel{margin-top:0}
+.sales-entry.quote-entry.purchase-entry{padding:18px;background:linear-gradient(125deg,#fff,#f5f8fe)}
+.purchase-entry .qe-purchase-body{border:0;padding:0;margin:0;min-width:0}
+.purchase-entry .qe-purchase-body>.entry-card{margin-top:12px}
+.purchase-entry .qe-parties .entry-parties>.entry-card{box-shadow:none;border-radius:10px}
+.purchase-entry .qe-bottom .po-editor-bottom{grid-template-columns:1fr}.purchase-entry .qe-bottom>div{min-width:0}
+.purchase-entry .entry-document>div{grid-template-columns:repeat(4,minmax(0,1fr))}
+.purchase-entry .entry-products table.po-order-lines td:nth-child(2){width:26px;min-width:0}
+.purchase-entry .entry-products table.po-order-lines td:nth-child(3){width:270px;min-width:0;max-width:none}
+.purchase-entry .entry-products table.po-order-lines td:nth-child(4){width:120px;min-width:0}
+.purchase-entry .entry-products table.po-order-lines td:nth-child(5){width:86px;min-width:0}
+.purchase-entry .entry-products table.po-order-lines td:nth-child(6){width:145px;min-width:0}
+.purchase-entry .entry-products table.po-order-lines td:nth-child(n+7){min-width:0}
+.purchase-entry .po-order-lines input[type=checkbox]{width:13px;height:13px}
+.purchase-entry .qe-flow h2{font-size:14px;margin-bottom:8px}
+.purchase-entry .entry-actions{margin-top:20px}
+@media(max-width:650px){.purchase-entry .entry-document>div{grid-template-columns:1fr}.sales-entry.quote-entry.purchase-entry{padding:12px}}

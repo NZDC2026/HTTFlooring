@@ -120,3 +120,34 @@ it('generates recurrence on its own occurrence date using frozen net prices and 
     expect(result.draft.lines[0]).toMatchObject({unitPrice:12,priceSource:'MANUAL',pricingAt:'2026-09-20T12:00:00.000Z'});
     expect(cmd('recurringInvoices','generate',args).draft).toEqual(result.draft);
 });
+it('persists quote address snapshots, delivery method and chosen tax through reload and conversion', async()=>{
+ const p=payload();const zero=state('configuration')?.rows?.['tax-codes']?.find((r:any)=>r.status==='Active'&&Number(r.rate)===0)?.code??'GST';
+ const q=cmd('sales','createQuote',{...p,billingAddress:'12 Sample Billing Road',shippingAddress:'45 Sample Delivery Road',shipVia:'Courier',salesperson:'Test Salesperson',lines:p.lines.map(l=>({...l,unitPrice:25,priceBasis:'Exclusive',taxCode:zero}))});
+ expect(q.recipient).toMatchObject({billingAddress:'12 Sample Billing Road',deliveryAddress:'45 Sample Delivery Road'});expect(q.shipVia).toBe('Courier');expect(q.salesperson).toBe('Test Salesperson');expect(q.lines[0].taxCode).toBe(zero);
+ await restart();const restored=state('sales').quotes.find((r:any)=>r.id===q.id);expect(restored.recipient).toEqual(q.recipient);expect(restored.shipVia).toBe('Courier');
+ cmd('sales','sendQuote',q.id);cmd('sales','acceptQuote',q.id);const order=cmd('sales','convertQuoteToOrder',q.id);expect(order.recipient).toEqual(q.recipient);expect(order.shipVia).toBe('Courier');expect(order.salesperson).toBe('Test Salesperson');expect(order.lines[0].taxCode).toBe(zero);
+});
+it.each(['ORDER','INVOICE'] as const)('preserves unified %s entry addresses and salesperson after posting and restart',async kind=>{
+ const p={...payload(undefined,kind),billingAddress:'12 Test Billing Road',shippingAddress:'45 Test Delivery Road',shipVia:'Courier',salesperson:'Test Unified Sales'};
+ const d=save(p);expect(d.recipient).toMatchObject({billingAddress:p.billingAddress,deliveryAddress:p.shippingAddress});
+ const approved=cmd('managedSalesDocuments','approve',d.id,d.revision),posted=cmd('managedSalesDocuments','post',d.id,approved.revision);await restart();
+ const doc=(kind==='ORDER'?state('sales').salesOrders:state('sales').invoices).find((v:any)=>v.id===posted.documentId);expect(doc.recipient).toMatchObject({billingAddress:p.billingAddress,deliveryAddress:p.shippingAddress});expect(doc.salesperson).toBe(p.salesperson);expect(doc.shipVia).toBe('Courier');
+});
+it('saves manual services, posts to the chosen account and keeps inventory unchanged across restart',async()=>{
+ const account=state('managedSalesDocuments').serviceAccounts.find((a:any)=>a.type==='EXPENSE');expect(account).toBeTruthy();
+ const before=JSON.stringify(state('stock')),p={...payload(undefined,'INVOICE'),lines:[{productId:'service:manual',unitId:'Each',quantity:2,unitPrice:180,discountPercent:10,priceBasis:'Exclusive' as const,service:{title:'Delivery Service',subtitle:'SRV-DEL',description:'Site delivery (Melbourne)',accountId:account.id}}]};
+ const d=save(p);expect(d.totals).toEqual({subtotal:324,taxAmount:32.4,total:356.4});expect(d.lines[0]).toMatchObject({itemType:'SERVICE',service:p.lines[0].service});
+ const approved=cmd('managedSalesDocuments','approve',d.id,d.revision),posted=cmd('managedSalesDocuments','post',d.id,approved.revision);
+ const journal=state('journals').journalEntries.find((j:any)=>j.sourceId===posted.documentId);expect(journal.lines).toContainEqual(expect.objectContaining({accountId:account.id,credit:324}));expect(JSON.stringify(state('stock'))).toBe(before);
+ await restart();const invoice=state('sales').invoices.find((i:any)=>i.id===posted.documentId);expect(invoice.lines[0].service).toEqual(p.lines[0].service);expect(invoice.lines[0].areaPerPack).toBeUndefined();expect(JSON.stringify(state('stock'))).toBe(before);
+});
+it('rejects manual services without a valid posting account or with invalid quantity/discount',()=>{
+ const p=payload(),account=state('managedSalesDocuments').serviceAccounts[0];const service={title:'Installation',subtitle:'SRV-INSTALL',description:'Installation service',accountId:account.id};
+ for(const line of [{quantity:0},{discountPercent:101},{service:{...service,accountId:'missing'}},{unitPrice:-1}])expect(()=>save({...p,lines:[{productId:'service:manual',unitId:'Hour',quantity:1,unitPrice:50,discountPercent:0,service,...line}]} as any)).toThrow();
+});
+it('keeps service details and account through quote conversion and invoice credit reversal',()=>{
+ const account=state('managedSalesDocuments').serviceAccounts.find((a:any)=>a.type==='ASSET')??state('managedSalesDocuments').serviceAccounts[0],p=payload();
+ const q=cmd('sales','createQuote',{...p,lines:[{productId:'service:manual',unitId:'Hour',quantity:1,unitPrice:180,discountPercent:0,service:{title:'Installation',subtitle:'SRV-INSTALL',description:'On-site installation',accountId:account.id}}]});
+ cmd('sales','sendQuote',q.id);cmd('sales','acceptQuote',q.id);const order=cmd('sales','convertQuoteToOrder',q.id),invoice=cmd('sales','createInvoiceFromOrder',order.id);expect(invoice.lines[0].service).toEqual(q.lines[0].service);expect(invoice.totals.total).toBe(198);
+ const credit=cmd('sales','createCreditNoteFromInvoice',{invoiceId:invoice.id,creditDate:invoice.documentDate,reason:'Service cancelled',lines:invoice.lines}),journal=state('journals').journalEntries.find((j:any)=>j.sourceId===credit.id);expect(journal.lines).toContainEqual(expect.objectContaining({accountId:account.id,debit:180}));
+});

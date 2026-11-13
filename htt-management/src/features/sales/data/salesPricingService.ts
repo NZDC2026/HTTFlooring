@@ -1,3 +1,4 @@
+import {buildServiceLine} from './serviceLines';
 import { resolvePricingInstant, type PricingInstant } from './pricingInstant';
 import { areaQuantity } from './areaPacks';
 import { assertProductQuantity } from '../../business-workspace/productRules';
@@ -29,6 +30,7 @@ export function buildSalesLine({
     pricingAt?: string;
     pricingContext?: PricingInstant;
 }): SalesDocumentLine {
+    if(draft.service)return buildServiceLine(draft,documentDate,pricingContext?.pricingAt??pricingAt);
     if (draft.quantity <= 0) {
         throw new Error(
             "Sales line quantity must be greater than zero",
@@ -93,7 +95,7 @@ export function buildSalesLine({
     const area = areaQuantity(draft.productId,draft.unitId,draft.quantity,draft.requestedArea);
     assertProductQuantity(draft.productId,draft.unitId,area.quantity,'sell');
     if (product.sellEnabled === false) throw new Error("Product is not available for selling.");
-    const taxCode = product.taxCode ?? businessSettings().gstCode, taxRate = activeTaxRate(taxCode);
+    const taxCode = draft.taxCode ?? product.taxCode ?? businessSettings().gstCode, taxRate = activeTaxRate(taxCode);
     const discount = draft.discountPercent ?? 0;
     if (!Number.isFinite(discount) || discount < 0 || discount > 100) throw new Error('Discount must be between 0 and 100%.');
     const discountBaseUnitPrice = hasManualPrice ? exclusivePrice(inputPrice, taxRate, draft.priceBasis) : inputPrice;
@@ -175,6 +177,9 @@ export function rebuildSalesLine({
         documentDate,
 
         draft: {
+            service:existingLine.service,
+            taxCode:existingLine.taxCode,
+            discountPercent:existingLine.explicitDiscountPercent,
             productId:
                 existingLine.productId,
 

@@ -53,6 +53,7 @@ export interface SalesRecipientSnapshot {
     accountingEmail?: string;
 }
 export interface SalesDocumentLine {
+    service?: import("../data/serviceLines").ServiceDetails;
     pricingAt?: string;
     pricingTimezone?: string;
     itemType?: Product["itemType"];
@@ -122,6 +123,8 @@ export interface SalesDocumentTotals {
 
 export type DispatchDateHistory = {id:string;at:string;actor:string;source:'Management'|'Customer portal'|'Automation';action:string;before:string;after:string;reason:string};
 interface SalesDocumentBase {
+    salesperson?: string;
+    shipVia?: string;
     dispatchHistory?: DispatchDateHistory[];
     paymentTerms?: import("../../payment-terms/paymentTerms").PaymentTerms;
     deliveryBooked?: boolean;
@@ -206,6 +209,8 @@ export type SalesDocument =
     | Invoice;
 
 export interface SalesLineDraft {
+    service?: import("../data/serviceLines").ServiceDetails;
+    taxCode?: string;
     discountPercent?: number;
     requestedArea?: number;
     priceBasis?: "Inclusive" | "Exclusive";
@@ -223,6 +228,10 @@ export interface SalesLineDraft {
 }
 
 export interface SalesDocumentDraft {
+    salesperson?: string;
+    billingAddress?: string;
+    shippingAddress?: string;
+    shipVia?: string;
     paymentTerms?: import("../../payment-terms/paymentTerms").PaymentTerms;
     deliveryBooked?: boolean;
     expectedDispatchDate?: string;
@@ -240,6 +249,7 @@ export interface SalesDocumentDraft {
 }
 
 export interface QuoteLineUpdateDraft {
+    service?: import("../data/serviceLines").ServiceDetails;
     requestedArea?: number;
     lineId?: string;
 

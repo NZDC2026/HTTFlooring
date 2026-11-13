@@ -60,7 +60,7 @@ export function ManagedDocumentPage({ kind, mode, id }: {
             setError((e as Error).message);
         }
     };
-    if(!expense&&editing&&canWrite&&(!row||row.status==='DRAFT'))return <SalesEntryEditor key={kind+':'+(id??'new')} kind={kind as 'ORDER'|'INVOICE'} initial={payload as SalesPayload} number={row?.documentId} onCancel={()=>navigate('/sales')} onSave={value=>{const {expiryDate,...sales}=value;const saved=managedSalesRepository.save({operationId,id:row?.id,expectedRevision:expected,payload:{...sales,kind:kind as 'ORDER'|'INVOICE'}});navigate(path+'/'+saved.id);return saved.id;}}/>;
+    if(!expense&&editing&&canWrite&&(!row||row.status==='DRAFT'))return <SalesEntryEditor initialSample={query.get('sample')==='1'} key={kind+':'+(id??'new')} kind={kind as 'ORDER'|'INVOICE'} initial={{...payload as SalesPayload,customerId:(payload as SalesPayload).customerId||query.get('customerId')||''}} number={row?.documentId} onCancel={()=>navigate('/sales')} onSave={value=>{const {expiryDate,...sales}=value;const saved=managedSalesRepository.save({operationId,id:row?.id,expectedRevision:expected,payload:{...sales,kind:kind as 'ORDER'|'INVOICE'}});navigate(path+'/'+saved.id);return saved.id;}}/>;
     if (id && !row)
         return <BusinessFrame title="Draft not found"><Link to={path}>Back to register</Link></BusinessFrame>;
     let preview: {

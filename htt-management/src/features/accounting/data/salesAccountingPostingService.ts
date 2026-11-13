@@ -1,3 +1,5 @@
+import {requireServiceAccount} from '../../sales/data/serviceLines';
+import type {SalesDocumentLine} from '../../sales/types/salesDocument';
 import {businessSettings} from '../../business-workspace/configurationState';
 import { taxPostingLines } from '../../business-workspace/taxPosting';
 import {
@@ -24,6 +26,7 @@ import type {
     Invoice,
 } from "../../sales/types/salesDocument";
 
+function salesNetPosting(lines:SalesDocumentLine[],description:string,reverse=false){const groups=new Map<string,number>();for(const l of lines){if(l.service)requireServiceAccount(l.service.accountId);const id=l.service?.accountId??accountRepository.requireBySystemRole('SALES_REVENUE').id;groups.set(id,Math.round(((groups.get(id)??0)+l.lineSubtotal)*100)/100);}return [...groups].filter(([,amount])=>amount!==0).map(([accountId,amount])=>({accountId,description,debit:reverse?amount:0,credit:reverse?0:amount}));}
 function getAccountId(
     systemRole:
         Parameters<
@@ -217,21 +220,7 @@ export const salesAccountingPostingService =
                             0,
                     },
 
-                    {
-                        accountId:
-                            getAccountId(
-                                "SALES_REVENUE",
-                            ),
-
-                        description:
-                            invoice.documentNumber,
-
-                        debit:
-                            0,
-
-                        credit:
-                            invoice.totals.subtotal,
-                    },
+                    ...salesNetPosting(invoice.lines,invoice.documentNumber),
 
                     ...taxPostingLines(invoice.lines,'collected',false,invoice.totals.taxAmount),
                 ],
@@ -434,21 +423,7 @@ export const salesAccountingPostingService =
                     creditNote.id,
 
                 lines: [
-                    {
-                        accountId:
-                            getAccountId(
-                                "SALES_REVENUE",
-                            ),
-
-                        description:
-                            creditNote.creditNoteNumber,
-
-                        debit:
-                            creditNote.totals.subtotal,
-
-                        credit:
-                            0,
-                    },
+                    ...salesNetPosting(creditNote.lines,creditNote.creditNoteNumber,true),
 
                     ...taxPostingLines(creditNote.lines,'collected',true,creditNote.totals.taxAmount),
 

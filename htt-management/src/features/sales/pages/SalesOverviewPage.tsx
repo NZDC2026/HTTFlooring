@@ -1,3 +1,4 @@
+import {SalesCreateMenu} from '../components/SalesCreateMenu';
 import {SalesBatchActions} from '../components/SalesBatchActions';
 import {salesStockStatus} from '../data/salesStockStatus';
 import {useProducts} from '../../business-workspace/productRepository';
@@ -6,14 +7,12 @@ import {salesFulfilmentRepository} from '../data/salesFulfilmentRepository';
 import {useDashboardEntry} from '../../../hooks/useDashboardEntry';
 import {DateRangePicker} from '../../../components/date-range/DateRangePicker';
 import {useListState} from '../../../hooks/useListState';
-import {CustomerSearchSelect,CustomerSearchSample} from '../components/CustomerSearchSelect';
 import {CreditRowActions} from '../components/CreditRowActions';
 import {SalesRowActions} from '../components/SalesRowActions';
 import {SalesQuickView} from '../components/SalesQuickView';
 import {salesFulfilmentLabel,salesDisplayDate,salesRegisterBalance,salesReferenceMatches} from '../data/salesRegisterView';
 import {usePayments} from '../data/usePayments';
 import './sales-documents.css';
-import {QuoteForm} from '../components/QuoteForm';
 import {useCustomers} from '../../contacts/data/useCustomers';
 import {useCreditNotes} from '../data/useCreditNotes';
 import {businessDateKey} from '../../../lib/businessDate';
@@ -22,8 +21,8 @@ import { DataTable } from '../../../components/data-table/DataTable';
 import {usePermission} from '../../security/usePermission';
 import { businessSettings } from '../../business-workspace/configurationState';
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Eye, Search, ShoppingCart, FileText, ChartNoAxesColumn, CircleAlert, ReceiptText, Truck, Package, SlidersHorizontal } from "lucide-react";
-import { Link,useSearchParams } from "react-router-dom";
+import { Eye, Search, ShoppingCart, ChartNoAxesColumn, CircleAlert, ReceiptText, Truck, Package, SlidersHorizontal } from "lucide-react";
+import { Link,useSearchParams,useNavigate } from "react-router-dom";
 
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { Button } from "../../../components/ui/Button";
@@ -49,10 +48,10 @@ export function SalesOverviewPage() {
     const products=useProducts(),stock=useInventoryStockRows();
     const fulfilments=useSyncExternalStore(salesFulfilmentRepository.subscribe,salesFulfilmentRepository.getSnapshot,salesFulfilmentRepository.getSnapshot);
     const payments=usePayments();
-    const [entrySearch,setEntrySearch]=useSearchParams();
-    const customers=useCustomers(),credits=useCreditNotes(),[customerFilter,setCustomerFilter]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:customerFilter", 'ALL'),[newQuote,setNewQuote]=useState(false),[quoteCustomer,setQuoteCustomer]=useState(''),[moreFilters,setMoreFilters]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:moreFilters", false),[fulfilmentFilter,setFulfilmentFilter]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:fulfilmentFilter", 'ALL'),[documentTypeFilter,setDocumentTypeFilter]=useListState<Tab>("src/features/sales/pages/SalesOverviewPage.tsx:documentTypeFilter", 'ALL');
+    const [entrySearch,setEntrySearch]=useSearchParams();const navigate=useNavigate();
+    const customers=useCustomers(),credits=useCreditNotes(),[customerFilter,setCustomerFilter]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:customerFilter", 'ALL'),[moreFilters,setMoreFilters]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:moreFilters", false),[fulfilmentFilter,setFulfilmentFilter]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:fulfilmentFilter", 'ALL'),[documentTypeFilter,setDocumentTypeFilter]=useListState<Tab>("src/features/sales/pages/SalesOverviewPage.tsx:documentTypeFilter", 'ALL');
     const canManage=usePermission('sales.manage');
-    useEffect(()=>{if(entrySearch.get('newQuote')==='1'&&canManage){setQuoteCustomer(entrySearch.get('customerId')??'');setNewQuote(true);setEntrySearch({}, {replace:true});}},[entrySearch,canManage,setEntrySearch]);
+    useEffect(()=>{if(entrySearch.get('newQuote')==='1'&&canManage)navigate('/sales/quotes/new'+(entrySearch.get('customerId')?'?customerId='+encodeURIComponent(entrySearch.get('customerId')!):''),{replace:true});},[entrySearch,canManage,navigate]);
     const liveDocuments = useSalesDocuments();
     const today=businessDateKey(new Date().toISOString());
     const [sample,setSample]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:sample", false),[special,setSpecial]=useListState("src/features/sales/pages/SalesOverviewPage.tsx:special", '');
@@ -124,8 +123,8 @@ export function SalesOverviewPage() {
             <div className="sales-breadcrumb">Sales <span>›</span> Sales Documents</div>
             <header className="sales-documents-heading"><div><h1>Sales Documents</h1><p>Manage quotes, sales orders, invoices, returns and credits. Track order, delivery and payment status in one place.</p></div></header>
             <label className="sales-sample-toggle"><input type="checkbox" checked={sample} onChange={e=>{setSample(e.target.checked);setCustomerFilter('ALL');setFulfilmentFilter('ALL');setDocumentTypeFilter('ALL');setPreview(e.target.checked?salesRegisterSamples(today).find(d=>d.type==='SALES_ORDER')??null:null);setSpecial('');setDateFrom('');setDateTo('');}}/>Sample · Quotation → Order → Invoice · Overdue invoice and awaiting dispatch · Read-only</label>
-            <div className="sales-workspace-toolbar"><div className="sales-workspace-tools"><DateRangePicker from={dateFrom} to={dateTo} onChange={r=>{setDateFrom(r.from);setDateTo(r.to);}}/><nav aria-label="Sales actions">{sample&&<button type="button" className="sales-sample-create" disabled title="Sample · Read-only preview">Create ＋</button>}
-            {canManage&&!sample&&<details className="sales-create-menu"><summary>Create ＋</summary><div><Link className="sales-primary" to="/sales/drafts/orders/new"><ShoppingCart size={16}/>New Sales Order</Link><button onClick={()=>{setNewQuote(true);setQuoteCustomer('');}}><FileText size={16}/>New Quote</button><Link to="/sales/drafts/invoices/new"><ReceiptText size={16}/>New Invoice</Link></div></details>}
+            <div className="sales-workspace-toolbar"><div className="sales-workspace-tools"><DateRangePicker from={dateFrom} to={dateTo} onChange={r=>{setDateFrom(r.from);setDateTo(r.to);}}/><nav aria-label="Sales actions">
+            {(canManage||sample)&&<SalesCreateMenu sample={sample}/>}
             </nav></div></div>
             <div className="sales-summary-cards">{[
                 {label:'Invoiced Sales',count:undefined,value:cardMoney.format(documents.filter(d=>d.type==='INVOICE'&&!['DRAFT','VOID'].includes(d.status)&&(!dateFrom||d.documentDate>=dateFrom)&&(!dateTo||d.documentDate<=dateTo)).reduce((n,d)=>n+d.totals.total,0)),type:'INVOICE' as Tab,filter:'',Icon:ChartNoAxesColumn,tone:'sales'},
@@ -154,7 +153,7 @@ export function SalesOverviewPage() {
                     <span className="text-xl font-semibold tabular-nums text-[var(--color-primary)]">{currency.format(filteredTotal)}</span>
                 </div>
             </section>
-            {newQuote&&!sample&&(quoteCustomer?<div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="New Quote"><div className="mx-auto my-4 w-full max-w-7xl"><QuoteForm customerId={quoteCustomer} customerName={customers.find(c=>c.id===quoteCustomer)?.businessName??''} onCancel={()=>setNewQuote(false)} onSaved={()=>setNewQuote(false)}/></div></div>:<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"><section className="w-full max-w-md rounded-xl bg-white p-6" role="dialog" aria-modal="true" aria-label="Select quote customer"><h2 className="mb-4 font-semibold">New Quote · Select Customer</h2><CustomerSearchSelect customers={customers.filter(c=>c.status==='ACTIVE')} value={quoteCustomer} onChange={setQuoteCustomer}/><CustomerSearchSample/><button className="mt-4 rounded border px-4 py-2" onClick={()=>setNewQuote(false)}>Cancel</button></section></div>)}
+
             {preview&&<SalesQuickView embedded document={preview} documents={documents} payments={payments} sample={sample} onClose={()=>setPreview(null)} onSelect={setPreview}/>}
         </div>
     );

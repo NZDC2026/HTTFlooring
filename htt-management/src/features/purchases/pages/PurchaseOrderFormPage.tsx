@@ -1,7 +1,4 @@
 import { feedback } from "../../../components/ui/feedback";
-import {
-    ArrowLeft,
-} from "lucide-react";
 
 import {
     Navigate,
@@ -145,43 +142,7 @@ export function PurchaseOrderFormPage({
 
     return (
         <div className="pb-8">
-            <button
-                type="button"
-                onClick={
-                    handleCancel
-                }
-                className="mb-5 flex items-center gap-2 text-xs text-[var(--color-text-secondary)] transition hover:text-[var(--color-primary)]"
-            >
-                <ArrowLeft
-                    size={
-                        14
-                    }
-                />
-
-                {purchaseOrder
-                    ? "Back to purchase order"
-                    : "Back to purchases"}
-            </button>
-
-            <div className="mb-7">
-                <p className="mb-1 text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">
-                    Purchases
-                </p>
-
-                <h1 className="text-[26px] font-bold leading-tight text-emerald-900">
-                    {isCreate
-                        ? quotation?"New Purchase Quotation":"New Purchase Order"
-                        : `Edit ${purchaseOrder?.purchaseOrderNumber}`}
-                </h1>
-
-                <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                    {isCreate
-                        ? quotation?"Record supplier pricing. Save the quotation, then convert it to an order when confirmed.":"Create a purchase order to a supplier. Save as draft or issue to the supplier."
-                        : "Update this draft purchase order before approval."}
-                </p>
-            </div>
-
-            <PurchaseOrderForm quotation={quotation}
+            <PurchaseOrderForm initialSample={query.get("sample")==="1"} quotation={quotation}
                 purchaseOrder={
                     purchaseOrder
                 }
