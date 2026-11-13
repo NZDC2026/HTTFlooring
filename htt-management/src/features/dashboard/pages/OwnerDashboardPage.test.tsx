@@ -42,7 +42,7 @@ it('carries the dashboard range and explicit filters on every operational drill-
  identity.roles=['ADMIN'];const html=render('/dashboard?sample=1');
  const links=[...html.matchAll(/href="([^"]+)"/g)].map(m=>m[1].replaceAll('&amp;','&')).filter(h=>h.includes('dashboard=1'));
  expect(links.length).toBeGreaterThan(15);
- for(const link of links){const p=new URLSearchParams(link.split('?')[1]);if(p.has('taskScope')){expect(p.get('from')).toBe('');expect(p.get('to')).toBe('');}else{expect(p.get('from')).toMatch(/^\d{4}-\d{2}-\d{2}$/);expect(p.get('to')).toMatch(/^\d{4}-\d{2}-\d{2}$/);}expect(p.get('sample')).toBe('1');}
+ for(const link of links){const p=new URLSearchParams(link.split('?')[1]);if(p.has('taskScope')||p.has('queue')){expect(p.get('from')).toBe('');expect(p.get('to')).toBe('');}else{expect(p.get('from')).toMatch(/^\d{4}-\d{2}-\d{2}$/);expect(p.get('to')).toMatch(/^\d{4}-\d{2}-\d{2}$/);}expect(p.get('sample')).toBe('1');}
  for(const filter of ['special=pickup','special=delivery','special=awaiting','tab=SALES_ORDER','filter=Overdue','open=1'])expect(links.some(link=>link.includes(filter))).toBe(true);
 });
 

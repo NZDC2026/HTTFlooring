@@ -156,7 +156,8 @@ export function Sidebar() {
         if(path==='/tools/import-export')return 'inventory.read';
         if(path==='/promotions')return 'sales.read';
         if(path==='/procurement')return 'purchases.read';
-        if(path==='/tasks'||path==='/sales/credit-returns')return 'sales.read';
+        if(path==='/sales/credit-returns')return 'returns.read';
+        if(path==='/tasks')return 'sales.read';
         if(path==='/settings/employees')return 'users.manage';
         if(path==='/settings/trash')return 'users.manage';
         if (path.startsWith('/reports/purchase') || path.startsWith('/reports/grni') || path.startsWith('/purchases')) return 'purchases.read';

@@ -31,14 +31,14 @@ export function promotionalPrice(input: {
     customerPrice: number;
     basePrice: number;
     hasCustomerPrice?: boolean;
+    unitConversions?: Record<string,number>;
 }) {
     const at = Date.parse(input.at.length === 10 ? input.at + 'T00:00:00Z' : input.at);
-    const candidates = (configurationRows.promotions ?? []).filter(r => r.status === 'Active' && r.deleted !== 'true' && promotionMatchesCustomer(r.customerTypes,r.customerIds,input.customerId,input.businessType) && r.productId === input.productId && r.unitId === input.unitId && (!r.customerId || r.customerId === input.customerId) && Date.parse(r.starts) <= at && at < Date.parse(r.ends));
-    if (!candidates.length)
-        return { price: input.customerPrice, promotionId: undefined };
-    const row = candidates.sort((a, b) => Number(b.priority) - Number(a.priority) || a.id.localeCompare(b.id))[0];
-    const price = row.policy === 'Customer price first' && input.hasCustomerPrice ? input.customerPrice : row.policy === 'Lowest eligible price' ? Math.min(input.customerPrice, Number(row.price)) : Number(row.price);
-    return { price, promotionId: price === Number(row.price) ? row.id : undefined };
+    const candidates=(configurationRows.promotions??[]).filter(r=>r.status==='Active'&&r.deleted!=='true'&&promotionMatchesCustomer(r.customerTypes,r.customerIds,input.customerId,input.businessType)&&r.productId===input.productId&&(!r.customerId||r.customerId===input.customerId)&&Date.parse(r.starts)<=at&&at<Date.parse(r.ends)).flatMap(row=>{const percentage=row.promotionType==='% Discount'?Number((input.basePrice*(1-Number(row.discountPercent||0)/100)).toFixed(2)):undefined;if(row.unitId===input.unitId)return [{row,price:percentage??Number(row.price)}];const source=input.unitConversions?.[row.unitId],target=input.unitConversions?.[input.unitId];return source&&target&&source>0&&target>0?[{row,price:percentage??Number(row.price)/source*target}]:[];});
+    if(!candidates.length)return {price:input.customerPrice,promotionId:undefined};
+    const selected=candidates.sort((a,b)=>a.price-b.price||Number(b.row.priority)-Number(a.row.priority)||a.row.id.localeCompare(b.row.id))[0];
+    const price=Math.min(input.basePrice,input.customerPrice,selected.price);
+    return {price,promotionId:price===selected.price?selected.row.id:undefined};
 }
 export function isLinkedAccount(id: string) { return (configurationRows['linked-accounts'] ?? []).some(r => r.status === 'Active' && r.accountId === id)||(configurationRows['tax-codes']??[]).some(r=>r.status==='Active'&&(r.collected===id||r.paid===id)); }
 

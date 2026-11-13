@@ -524,10 +524,10 @@ export const customerPricingRepository = {
      */
     resolvePrice(customerId: string, productId: string, unitId: string, date: string, pricingAt = date): ResolvedSellingPrice {
         const base = customerPricingRepository.resolveBasePrice(customerId, productId, unitId, date.slice(0,10));
-        const offer = promotionalPrice({businessType:customerRepository.getById(customerId)?.businessType,customerId,productId,unitId,at:pricingAt,customerPrice:base.effectivePrice,basePrice:base.basePrice,hasCustomerPrice:base.source==='CUSTOMER_PRICE'});
-        if (!offer.promotionId) return base;
+        const offer = promotionalPrice({businessType:customerRepository.getById(customerId)?.businessType,customerId,productId,unitId,at:pricingAt,customerPrice:base.effectivePrice,basePrice:base.basePrice,hasCustomerPrice:base.source==='CUSTOMER_PRICE',unitConversions:Object.fromEntries((getProductById(productId)?.units??[]).filter(u=>u.active).map(u=>[u.id,u.conversionToBase]))});
+        if (!offer.promotionId&&offer.price===base.effectivePrice) return base;
         const discountAmount = Number((base.basePrice - offer.price).toFixed(2));
-        return {...base,date,effectivePrice:offer.price,source:'PROMOTIONAL_PRICE',promotionId:offer.promotionId,discountAmount,discountPercent:base.basePrice ? Number((discountAmount/base.basePrice*100).toFixed(2)) : 0};
+        return {...base,date,effectivePrice:offer.price,source:offer.promotionId?'PROMOTIONAL_PRICE':'STANDARD_PRICE',customerPrice:offer.promotionId?base.customerPrice:undefined,promotionId:offer.promotionId,discountAmount,discountPercent:base.basePrice ? Number((discountAmount/base.basePrice*100).toFixed(2)) : 0};
     },
     resolveBasePrice(
         customerId: string,

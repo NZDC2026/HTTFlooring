@@ -1,0 +1,16 @@
+import {it,expect,vi} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {MemoryRouter} from 'react-router-dom';
+const identity=vi.hoisted(()=>({manage:true,margin:true}));
+vi.mock('../security/usePermission',()=>({usePermission:(p:string)=>p==='promotions.manage'?identity.manage:p==='promotions.margin'?identity.margin:true}));
+import {PromotionPage} from './PromotionPage';
+import {PromotionEditor} from './PromotionEditor';
+import {promotionSampleProducts} from './promotionWorkspaceModel';
+const render=(path='/promotions?sample=1')=>renderToStaticMarkup(<MemoryRouter initialEntries={[path]}><PromotionPage/></MemoryRouter>);
+it('keeps detail tabs out of the summary and preserves campaigns, expiry and calendar',()=>{identity.manage=true;identity.margin=true;const html=render();expect(html).not.toContain('role="tab"');for(const text of ['Summer Launch 2026','Promotion Calendar','ending soon','New Promotion','GP Margin'])expect(html).toContain(text);expect(html).not.toContain('Check Price');expect(html).not.toContain('Price / Discount Rule');});
+it('Reception can view but cannot create/edit and Accounts never see GP or margin',()=>{identity.manage=false;identity.margin=false;const reception=render();expect(reception).not.toContain('New Promotion');expect(reception).not.toContain('GP Margin');identity.manage=true;const account=render();expect(account).toContain('New Promotion');expect(account).not.toContain('GP Margin');});
+it('creation contains the four sections and automatic price policy, hiding margin estimates from non-Admin',()=>{const form={code:'PROM-2026-005',name:'Summer Launch 2026',starts:'2026-11-15T08:00',ends:'2026-11-22T23:59',promotionType:'Fixed Price' as const,discountPercent:0,customerTypes:['Flooring Retailer'],customerIds:[],notes:'',expected:[],lines:promotionSampleProducts.map(p=>({productId:p.id,unitId:'m2',price:39}))};const html=renderToStaticMarkup(<PromotionEditor initial={form} products={promotionSampleProducts} margin={false} sample onSave={()=>{}} onCancel={()=>{}}/>);for(const text of ['Promotion Details','Customer Classifications','Products &amp; Promotional Pricing','Lowest Eligible Price','Review &amp; Activate','Save Draft','Import from Excel','Promotion Summary','Bonita'])expect(html).toContain(text);expect(html).not.toContain('Est. GP Margin');expect(html).not.toContain('Est. Margin');});
+
+it('hides GP and margin on Products and Performance for Accounts and Reception',()=>{identity.margin=false;for(const tab of ['Products','Performance']){const html=render('/promotions?sample=1&tab='+tab);for(const label of ['Gross Profit','Avg. Margin','Est. Margin','GP Margin'])expect(html).not.toContain(label);expect(html).not.toContain('$123,430');}identity.margin=true;expect(render('/promotions?sample=1&tab=Performance')).toContain('Gross Profit');});
+
+it('shows the four campaign tabs only inside promotion details with a return to summary',()=>{const html=render('/promotions?sample=1&campaign=sample-campaign-0&tab=Performance');expect(html.match(/role="tab"/g)).toHaveLength(4);for(const label of ['Products','Performance','Activities / Tasks','Attachments','Back to Promotion Summary'])expect(html).toContain(label);expect(html).not.toContain('Search promotions');});

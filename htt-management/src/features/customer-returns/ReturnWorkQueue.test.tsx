@@ -1,0 +1,10 @@
+import {it,expect,vi} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {MemoryRouter} from 'react-router-dom';
+vi.mock('./customerReturnRepository',()=>({useReturnInspectionDrafts:()=>[{status:'Ready for Confirmation'},{status:'Awaiting Inspection',kind:'return'}]}));
+vi.mock('../sales/data/useCreditNotes',()=>({useCreditNotes:()=>[{status:'ISSUED',amountAvailable:220},{status:'ISSUED',amountAvailable:0},{status:'VOID',amountAvailable:100}]}));
+vi.mock('../security/usePermission',()=>({usePermission:()=>false}));
+import {ReturnWorkQueue} from './ReturnWorkQueue';
+const render=(role:string)=>renderToStaticMarkup(<MemoryRouter><ReturnWorkQueue sample role={role}/></MemoryRouter>);
+it('shows confirmation and allocation queues to Admin and Accounts',()=>{for(const role of ['Admin','Accounts']){const html=render(role);expect(html).toContain('Waiting for Return Confirm');expect(html).toContain('Waiting for Apply Invoice');expect(html).toContain('queue=confirm');expect(html).toContain('queue=apply');expect(html).toContain('Sample · Read-only');}});
+it('shows Reception confirmation only and Warehouse inspection only',()=>{const reception=render('Reception'),warehouse=render('Warehouse');expect(reception).toContain('Waiting for Return Confirm');expect(reception).not.toContain('Waiting for Apply Invoice');expect(warehouse).toContain('Waiting for Return Stock Inspection');expect(warehouse).not.toContain('Waiting for Return Confirm');expect(warehouse).not.toContain('Waiting for Apply Invoice');});

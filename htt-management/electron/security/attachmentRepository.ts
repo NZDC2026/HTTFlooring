@@ -61,6 +61,7 @@ export const attachmentRepository = {
         const input = z.object({ operationId: id, id: id.optional(), expectedRevision: z.number().int().nonnegative(), target: targetSchema, title: id, reason, file: z.object({ name: id, content: z.string().max(14000000) }).strict() }).strict().parse(raw), user = access(input.target, true), file = verifyAttachmentFile(input.file.name, input.file.content), fingerprint = hash({ ...input, file: { name: file.name, sha256: file.sha256 } }), prior = replay(input.operationId, fingerprint);
         if (prior)
             return prior;
+        if(input.target.kind==='Return stock'&&!['image/png','image/jpeg'].includes(file.mime))throw Error('Return damage attachments must be PNG or JPEG photographs.');
         const old = input.id ? get(input.id, true) : undefined;
         if (old) {
             expected(old, input.expectedRevision);
