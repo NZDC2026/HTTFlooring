@@ -37,7 +37,8 @@ export function AppLayout() {
     const primaryWorkspace=isPrimaryWorkspace(location.pathname);
     const isCustomerForm=location.pathname==='/contacts/customers/new'||/^\/contacts\/customers\/[^/]+\/edit$/.test(location.pathname);
     const reportsWorkspace=location.pathname.startsWith('/reports')||location.pathname==='/dashboard'||location.pathname==='/reports/aged-payables'||location.pathname==='/accounting'||location.pathname==='/banking'||location.pathname.startsWith('/banking/');
-    const samplesAfterContent=reportsWorkspace||location.pathname==='/inventory'||isCustomerForm||/^\/contacts\/customers\/[^/]+\/(sales|pricing)$/.test(location.pathname);
+    const purchasesOverview=location.pathname==='/purchases'&&!new URLSearchParams(location.search).get('view')&&!new URLSearchParams(location.search).get('stage');
+    const samplesAfterContent=purchasesOverview||reportsWorkspace||location.pathname==='/inventory'||isCustomerForm||/^\/contacts\/customers\/[^/]+\/(sales|pricing)$/.test(location.pathname);
     const isDemoVisit = new URLSearchParams(location.search).get("demo") === "1";
     return (
         <div data-workspace-density={preferences.density.toLowerCase()} data-reduce-motion={preferences.reduceMotion ? "true" : "false"} className="min-h-screen bg-[var(--color-background)]">
@@ -69,7 +70,7 @@ export function AppLayout() {
                         </div>
                     )}
                     {!primaryWorkspace && searchReturn && location.pathname !== '/search/records' && <Link className="workspace-back" to={searchReturn}><ArrowLeft size={15}/>Back to record search</Link>}
-                    {(!searchReturn||location.pathname==='/search/records')&&<WorkspaceBack contentRef={pageContentRef}/>}<div data-primary-workspace={primaryWorkspace?'true':undefined} ref={pageContentRef} onClickCapture={e=>{if(e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;const link=(e.target as Element).closest<HTMLAnchorElement>('a.workspace-back');if(!link)return;const target=link.hash.slice(1);if(!target.startsWith('/'))return;const restored=listReturnLocation(session?.user.id??'',target);if(restored!==target){e.preventDefault();e.stopPropagation();navigate(restored);}}}><p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess>{!reportsWorkspace&&<ModuleNavigation/>}{!samplesAfterContent&&<PageSamples/>}<Outlet />{samplesAfterContent&&<div className="mt-4"><PageSamples/></div>}</RouteAccess></div>
+                    {(!searchReturn||location.pathname==='/search/records')&&<WorkspaceBack contentRef={pageContentRef}/>}<div data-primary-workspace={primaryWorkspace?'true':undefined} ref={pageContentRef} onClickCapture={e=>{if(e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;const link=(e.target as Element).closest<HTMLAnchorElement>('a.workspace-back');if(!link)return;const target=link.hash.slice(1);if(!target.startsWith('/'))return;const restored=listReturnLocation(session?.user.id??'',target);if(restored!==target){e.preventDefault();e.stopPropagation();navigate(restored);}}}><p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess>{!reportsWorkspace&&!purchasesOverview&&<ModuleNavigation/>}{!samplesAfterContent&&<PageSamples/>}<Outlet />{samplesAfterContent&&<div className="mt-4"><PageSamples/></div>}</RouteAccess></div>
                 </div>
             </main>
         </div>

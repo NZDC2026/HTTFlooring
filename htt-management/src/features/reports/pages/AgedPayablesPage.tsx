@@ -2,7 +2,7 @@ import {useListState} from '../../../hooks/useListState';
 import {ReportsFrame} from '../ReportsFrame';
 import { ReportContext } from '../../report-settings/ReportContext';
 import { reportMoney } from '../../report-settings/reportPresentation';
-import {businessDateKey} from '../../../lib/businessDate';
+import {businessDateKey,requireDateKey} from '../../../lib/businessDate';
 import {
     AlertTriangle,
     ArrowUpRight,
@@ -14,11 +14,11 @@ import {
 } from "lucide-react";
 
 import {
-    useMemo,
+    useMemo,useEffect,
     } from "react";
 
 import {
-    useNavigate,
+    useNavigate,useSearchParams,
 } from "react-router-dom";
 
 import {
@@ -44,6 +44,9 @@ function AgedPayablesContent() {
     ] = useListState("src/features/reports/pages/AgedPayablesPage.tsx:asOfDate", 
         getToday(),
     );
+
+    const [query]=useSearchParams(),requestedDate=query.get('asOf');
+    useEffect(()=>{if(!requestedDate)return;try{requireDateKey(requestedDate);setAsOfDate(requestedDate);}catch{/* Invalid date links leave the current report date unchanged. */}},[requestedDate]);
 
     const [
         search,

@@ -47,7 +47,7 @@ const pageNames: Record<string, string> = {
 export function Topbar() {
     const { session } = useSecurity();
     const location = useLocation(), navigate = useNavigate();
-    useEffect(() => { const shortcut = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); if(location.pathname==='/sales')document.querySelector<HTMLInputElement>('input[aria-label="Search sales documents"]')?.focus();else navigate('/search'); } }; window.addEventListener('keydown', shortcut); return () => window.removeEventListener('keydown', shortcut); }, [navigate,location.pathname]);
+    useEffect(() => { const shortcut = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); if(location.pathname==='/sales')document.querySelector<HTMLInputElement>('input[aria-label="Search sales documents"]')?.focus();else if(location.pathname==='/purchases'&&!location.search.includes('view=orders')&&!location.search.includes('stage='))document.querySelector<HTMLInputElement>('input[aria-label="Search purchase documents"]')?.focus();else navigate('/search'); } }; window.addEventListener('keydown', shortcut); return () => window.removeEventListener('keydown', shortcut); }, [navigate,location.pathname,location.search]);
 
     let pageTitle =
         pageNames[location.pathname] ??
@@ -102,7 +102,7 @@ export function Topbar() {
                     <span className="hidden xl:inline">Download desktop app</span>
                 </a>}
                 <button
-                    onClick={() => {if(location.pathname==='/sales')document.querySelector<HTMLInputElement>('input[aria-label="Search sales documents"]')?.focus();else navigate('/search');}}
+                    onClick={() => {if(location.pathname==='/sales')document.querySelector<HTMLInputElement>('input[aria-label="Search sales documents"]')?.focus();else if(location.pathname==='/purchases'&&!location.search.includes('view=orders')&&!location.search.includes('stage='))document.querySelector<HTMLInputElement>('input[aria-label="Search purchase documents"]')?.focus();else navigate('/search');}}
                     aria-label="Search workspace"
                     className="
             mr-2 flex h-9 w-[180px] xl:w-[280px] items-center gap-2
@@ -118,7 +118,7 @@ export function Topbar() {
                     <Search size={15} />
 
                     <span className="min-w-0 flex-1 truncate whitespace-nowrap">
-                        {location.pathname==='/sales'?'Search sales, orders, invoices, credits…':'Search anything...'}
+                        {location.pathname==='/sales'?'Search sales, orders, invoices, credits…':location.pathname==='/purchases'?'Search PO, invoice, supplier, container…':'Search anything...'}
                     </span>
 
                     <kbd
