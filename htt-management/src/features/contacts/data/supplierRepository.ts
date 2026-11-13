@@ -1,3 +1,4 @@
+import {allocateContainerCosts,saveShipmentCostsSchema,shipmentCostProducts,readLandedCostDraft} from '../../procurement/containerCostAllocation';
 import {businessDateKey} from '../../../lib/businessDate';
 import {containerPurchaseInput} from '../../incoming-shipments/containerPurchaseModel';
 import { nextSupplierCode } from "./supplierCode";
@@ -185,6 +186,16 @@ function mapValues(
 }
 
 export const supplierRepository = {
+    saveShipmentCosts(raw:unknown){
+      const actor=trustedAuthorization.require('purchases.write'),input=saveShipmentCostsSchema.parse(raw),all=suppliers.flatMap(s=>s.shipments??[]),group=all.filter(s=>(s.purchaseNumber??s.id)===input.groupId);if(!group.length)throw Error('Shipment group not found.');
+      if(group.some(s=>s.history.some(h=>h.operationId===input.operationId))){if(group.some(s=>s.history.find(h=>h.operationId===input.operationId)?.request!==JSON.stringify(input)))throw Error('Operation already has different content.');return group;}
+      if(group.some(s=>input.revisions[s.id]!==s.revision))throw Error('Shipment changed. Reload before saving costs.');
+      if(group.some(s=>s.landedCostFinal&&JSON.stringify(readLandedCostDraft(s.landedCostDraft))!==JSON.stringify(input.draft)))throw Error('Finalised allocation is locked. Its freight, customs and allocation settings cannot be changed.');
+      const orders=(snapshotRepositories().purchaseOrders as {purchaseOrders:PurchaseOrder[]}).purchaseOrders,products=shipmentCostProducts(group,orders),containers=group.map(s=>({id:s.id,number:s.container,status:s.lines.every(l=>l.received>=l.quantity)?'Received':s.status}));
+      if(Object.keys(input.draft.assignments??{}).length)throw Error('Products already belong to their shipment container.');if(input.draft.excluded.some(id=>!products.some(p=>p.id===id)))throw Error('Unknown allocation product.');
+      const calculation=allocateContainerCosts(containers,products,input.draft);for(const id of input.finalise){const c=calculation.containers.find(c=>c.id===id);if(!c||c.status!=='Received')throw Error('Only fully received containers can be finalised.');if(!c.area||c.unallocated)throw Error('Select products with valid area before finalising this container.');}
+      const stamp=new Date().toISOString();suppliers=suppliers.map(s=>({...s,shipments:s.shipments?.map(shipment=>{if(!group.some(g=>g.id===shipment.id))return shipment;const final=input.finalise.includes(shipment.id)?JSON.stringify({container:calculation.containers.find(c=>c.id===shipment.id),lines:calculation.lines.filter(l=>l.containerId===shipment.id),containerCount:group.length,at:stamp,by:actor.userId}):shipment.landedCostFinal;return {...shipment,landedCostDraft:JSON.stringify(input.draft),...(final?{landedCostFinal:final}:{}),revision:shipment.revision+1,updatedAt:stamp,history:[...shipment.history,{operationId:input.operationId,actorId:actor.userId,actorName:actor.displayName||actor.userId,at:stamp,reason:input.finalise.includes(shipment.id)?'Landed cost allocation finalised':'Landed cost draft saved',request:JSON.stringify(input),action:'Updated' as const,eta:shipment.eta,status:shipment.status}]};})}));emitChange();return calculation;
+    },
     saveContainerPurchase(raw:unknown){
       trustedAuthorization.require('purchases.write');const input=containerPurchaseInput.parse(raw),request=JSON.stringify(input),prior=suppliers.flatMap(s=>s.shipments??[]).filter(s=>s.purchaseOperationId===input.operationId);
       if(prior.length){if(prior.some(s=>s.purchaseRequest!==request))throw Error('Purchase operation has different content.');return prior;}
@@ -199,11 +210,11 @@ export const supplierRepository = {
       }return result;
     },
     saveShipment(raw:unknown) {
-        const actor=trustedAuthorization.require("purchases.write"),input=shipmentInput.parse(raw);
+        const actor=trustedAuthorization.require("purchases.write"),input=shipmentInput.parse(raw);if(input.landedCostDraft!==undefined||input.landedCostFinal!==undefined)throw Error("Use the controlled cost allocation workflow.");
         const supplier=suppliers.find(s=>s.id===input.supplierId);if(!supplier)throw Error("Supplier was not found");
         const prior=(supplier.shipments??[]).find(s=>s.history.some(h=>h.operationId===input.operationId));if(prior){if(prior.history.find(h=>h.operationId===input.operationId)?.request!==JSON.stringify(input))throw Error("Operation already has different shipment content");return prior;}
         const old=supplier.shipments?.find(s=>s.id===input.id);
-        if(input.id&&!old)throw Error("Shipment was not found");
+        if(input.id&&!old)throw Error("Shipment was not found");if(old&&input.purchaseNumber!==undefined&&input.purchaseNumber!==old.purchaseNumber)throw Error('Shipment purchase group is immutable.');if(input.purchaseNumber&&suppliers.flatMap(s=>s.shipments??[]).some(s=>s.purchaseNumber===input.purchaseNumber&&s.landedCostFinal)&&!old)throw Error('Cannot add containers to a finalised cost group.');
         if((old?.revision??0)!==input.revision)throw Error("Shipment changed. Reload and review before saving.");
         const locked=!!old?.lines.some(l=>l.received>0);
         if(locked&&(input.siteId!==old!.siteId||input.status!==old!.status&&input.status!=='Arrived'||JSON.stringify(input.lines)!==JSON.stringify(old!.lines.map(({purchaseOrderId,lineId,quantity})=>({purchaseOrderId,lineId,quantity})))))throw Error("Received shipment items, status and warehouse are locked.");
@@ -372,7 +383,7 @@ export const supplierRepository = {
 };
 registerRepository("suppliers", {
     repository: supplierRepository, read: "purchases.read",
-    commands: {"saveContainerPurchase":"purchases.write","saveShipment":"purchases.write","receiveShipment":"purchases.receive","addActivity":"contacts.write","activityAction":"contacts.write","if": null, "create": "contacts.write", "update": "contacts.write"},
+    commands: {"saveShipmentCosts":"purchases.write","saveContainerPurchase":"purchases.write","saveShipment":"purchases.write","receiveShipment":"purchases.receive","addActivity":"contacts.write","activityAction":"contacts.write","if": null, "create": "contacts.write", "update": "contacts.write"},
     validate: (value,snapshots) => { for (const supplier of (value as {suppliers:Supplier[]}).suppliers) {
         const shipmentIds=new Set<string>();
         for(const raw of supplier.shipments??[]){const shipment=shipmentSchema.parse(raw);if(shipment.supplierId!==supplier.id||shipmentIds.has(shipment.id)||shipment.revision!==shipment.history.length)throw Error('Invalid shipment identity or revision');shipmentIds.add(shipment.id);
