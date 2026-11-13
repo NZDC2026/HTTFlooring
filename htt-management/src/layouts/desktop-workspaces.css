@@ -1,0 +1,193 @@
+/* Desktop refinement is scoped to the requested workspaces; Purchases retains its design.
+   Physical monitor size is not observable: respond to available CSS pixels and OS scaling. */
+@media screen and (min-width:1100px){
+ main[data-desktop-workspace]{--desk-gap:clamp(12px,.85vw,22px);--desk-pad:clamp(16px,1.2vw,30px);--desk-font:clamp(13px,.63vw,16px);background:radial-gradient(ellipse at 90% 0,#e9f1e9 0,transparent 48%),#f5f7f9;min-width:0}
+ main[data-desktop-workspace]>div{max-width:2400px;padding:var(--desk-pad);padding-top:var(--desk-pad)}
+ main[data-desktop-workspace] [data-primary-workspace]{min-width:0;font-size:var(--desk-font);line-height:1.45}
+ main[data-desktop-workspace] :is(.owner-welcome,.proc-heading,.returns-heading,.promo-heading){background-image:linear-gradient(90deg,#f8fbfbee 35%,#f8fbfb88 72%,#f8fbfb33),url('/images/workspace-oak.svg');background-position:center,right center;background-size:cover,auto 100%;border-radius:14px;padding:var(--desk-pad);gap:var(--desk-gap);min-height:100px;flex-wrap:wrap}
+ main[data-desktop-workspace] :is(.owner-dashboard,.procurement-hub,.returns-workspace,.promotion-workspace,.quote-entry){font-family:inherit;font-size:var(--desk-font);line-height:1.45;min-width:0}
+ main[data-desktop-workspace] :is(.owner-panel,.reception-panel,.sp-card,.proc-card,.returns-table,.promo-panel,.entry-card){border-color:#dfe7e9;box-shadow:0 2px 5px #173d3010,0 10px 28px #173d3004}
+ main[data-desktop-workspace] :is(.owner-grid,.proc-metrics,.returns-metrics,.promo-overview-metrics,.sp-containers){gap:var(--desk-gap)}
+ main[data-desktop-workspace] :is(input,select,textarea,button){font-family:inherit}
+ main[data-desktop-workspace] :is(input,select,textarea):focus-visible,main[data-desktop-workspace] button:focus-visible{outline:2px solid #168c53;outline-offset:3px}
+ main[data-desktop-workspace] :is(th,td){font-variant-numeric:tabular-nums}
+ main[data-desktop-workspace] :is(.entry-table-scroll,.sp-table-scroll,.inspection-table-scroll){max-width:100%;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#bbcfc4 transparent}
+ main[data-desktop-workspace] :is(.entry-products,.sp-container,.shipment-cost-detail,.shipment-receiving) :is(th,td){font-size:clamp(11px,.58vw,14px);line-height:1.45;padding-top:9px;padding-bottom:9px}
+ main[data-desktop-workspace] :is(.owner-welcome h2,.proc-heading h1,.returns-heading h1,.promo-heading h1){font-size:clamp(23px,1.3vw,32px);letter-spacing:-.5px;line-height:1.2}
+ main[data-desktop-workspace] :is(.owner-metric,.proc-metric){min-height:100px;padding:clamp(12px,.9vw,22px)}
+ main[data-desktop-workspace] .quote-entry .entry-products table{width:100%;min-width:1120px;table-layout:auto}
+ main[data-desktop-workspace] .quote-entry .entry-products td:nth-child(2){min-width:190px}
+ main[data-desktop-workspace] .quote-entry .entry-products td:nth-child(3){min-width:140px}
+ main[data-desktop-workspace] .quote-entry .entry-products td:nth-child(7){min-width:90px}
+ main[data-desktop-workspace] .quote-entry .entry-products th{white-space:normal}
+}
+@media screen and (min-width:2200px){
+ main[data-desktop-workspace] .owner-dashboard .owner-grid{gap:18px;margin-inline:20px}
+ main[data-desktop-workspace] .owner-dashboard :is(.owner-panel,.reception-panel){padding:20px}
+ main[data-desktop-workspace] .owner-dashboard table :is(th,td){font-size:13px;padding-top:10px;padding-bottom:10px}
+ main[data-desktop-workspace] .owner-dashboard .owner-metric strong{font-size:30px}
+ main[data-desktop-workspace] .owner-dashboard .owner-metric h3{font-size:14px}
+ main[data-desktop-workspace] .quote-entry .entry-card{padding:22px}
+ main[data-desktop-workspace] .quote-entry :is(input,select){min-height:36px}
+}
+@media screen and (min-width:1100px) and (max-width:1600px){
+ main[data-desktop-workspace] .owner-welcome{align-items:flex-start}
+ main[data-desktop-workspace] .owner-welcome .htt-date-range{margin-left:auto}
+ main[data-desktop-workspace] .returns-workspace.has-drawer{grid-template-columns:minmax(0,1fr) minmax(560px,1fr)}
+}
+@media(prefers-reduced-motion:no-preference){main[data-desktop-workspace] button{transition:background-color .15s,border-color .15s,box-shadow .15s}}
+
+@media screen and (min-width:1100px){
+ main[data-desktop-workspace] .sales-documents-heading{padding:var(--desk-pad);border:1px solid #e2e8e9;border-radius:14px;background:linear-gradient(100deg,#ffffff 35%,#ffffffa8),url('/images/workspace-oak.svg') right center/cover}
+ main[data-desktop-workspace] .sales-summary-cards{gap:var(--desk-gap)}
+ main[data-desktop-workspace] .promotion-workspace :is(.promo-filters,.promo-header-actions),main[data-desktop-workspace] .sales-workspace-tools{flex-wrap:wrap;gap:10px}
+ main[data-desktop-workspace] .promotion-workspace :is(.promo-products-scroll,.promo-table-scroll){max-width:100%;overflow-x:auto}
+ main[data-desktop-workspace] .returns-drawer{max-height:calc(100dvh - var(--topbar-height) - 32px);overflow-y:auto;overscroll-behavior:contain}
+}
+/* Scale vertical rhythm with desktop width, including HiDPI scaled windows. */
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace]{--desk-control:clamp(34px,1.78vw,46px);--desk-row:clamp(42px,2.2vw,57px);--desk-card:clamp(100px,5.25vw,136px)}
+ main[data-desktop-workspace] :is(.owner-metric,.proc-metric,.promo-overview-metrics>div,.returns-metrics>div,.sales-summary-cards>a,.sales-summary-cards>button,.sales-summary-cards>div){min-height:var(--desk-card)}
+ main[data-desktop-workspace] :is(.entry-card,.sp-card,.promo-panel,.returns-main,.proc-card){padding-block:clamp(14px,.95vw,25px)}
+ main[data-desktop-workspace] :is(.quote-entry,.shipment-product-view,.promotion-workspace,.returns-workspace,.sales-workspace-tools,.sales-register-filters) :is(input:not([type=checkbox]):not([type=radio]),select,button:not([aria-label^="Remove"]):not(.service-icon)){min-height:var(--desk-control)}
+ main[data-desktop-workspace] :is(.entry-products,.sp-container,.promo-panel,.returns-table,.procurement-hub) tbody tr{height:var(--desk-row)}
+ main[data-desktop-workspace] :is(.owner-panel,.reception-panel) tbody tr{min-height:var(--desk-row);height:var(--desk-row)}
+ main[data-desktop-workspace] :is(.owner-welcome,.proc-heading,.returns-heading,.promo-heading){min-height:clamp(100px,5.8vw,150px)}
+ main[data-desktop-workspace] .quote-entry textarea{min-height:clamp(90px,5.2vw,134px)}
+ main[data-desktop-workspace] :is(.owner-panel,.reception-panel,.entry-card,.promo-panel,.sp-card){margin-bottom:clamp(0px,.2vw,5px)}
+}
+/* Typography follows the same 1920 → 2560 desktop scale as control heights. */
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace]{--desk-type:clamp(13px,.6771vw,18px);--desk-small:clamp(11px,.5729vw,15px);--desk-title:clamp(26px,1.3542vw,36px)}
+ main[data-desktop-workspace] [data-primary-workspace]{font-size:var(--desk-type)!important}
+ main[data-desktop-workspace] :is(.owner-dashboard,.quote-entry,.promotion-workspace,.returns-workspace,.procurement-hub,.shipment-product-view,.shipment-cost-detail,.shipment-receiving) :is(p,label,input,select,textarea,button,td){font-size:var(--desk-type)!important}
+ main[data-desktop-workspace] :is(table th,small,.owner-metric h3,.promo-badge,.sales-card-tax){font-size:var(--desk-small)!important}
+ main[data-desktop-workspace] :is(.owner-dashboard,.quote-entry,.promotion-workspace,.returns-workspace,.procurement-hub,.shipment-product-view,.shipment-cost-detail,.shipment-receiving) h1{font-size:var(--desk-title)}
+ main[data-desktop-workspace] :is(.owner-dashboard,.quote-entry,.promotion-workspace,.returns-workspace,.procurement-hub,.shipment-product-view,.shipment-cost-detail,.shipment-receiving) h2{font-size:clamp(18px,.9375vw,25px)}
+ main[data-desktop-workspace] :is(.owner-welcome h2,.sales-documents-heading h1){font-size:var(--desk-title)}
+ main[data-desktop-workspace] :is(.owner-metric strong,.proc-metric strong){font-size:clamp(26px,1.3542vw,36px)}
+ main[data-desktop-workspace] :is(.sales-register-panel,.sales-summary-cards,.sales-workspace-tools){font-size:var(--desk-type)!important}
+ main[data-desktop-workspace] :is(.sales-register-panel,.sales-summary-cards,.sales-workspace-tools) :is(td,input,select,button){font-size:var(--desk-type)!important}
+}
+/* Promotion and the purchase register use all space beside the navigation. */
+@media screen and (min-width:1100px){
+ main[data-wide-content]>div{width:100%;max-width:none!important;margin-inline:0;box-sizing:border-box;padding-inline:clamp(18px,1.2vw,32px)}
+ main[data-wide-content] [data-primary-workspace],main[data-wide-content] :is(.promotion-workspace,.purchase-register,.purchases-overview){width:100%;max-width:none!important;min-width:0;margin-inline:0}
+}
+/* DataTable cells contain their own small-text wrappers and status badges. */
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace] .sales-register-panel table :is(th,td),
+ main[data-desktop-workspace] .sales-register-panel table :is(th,td) :is(span,div,a,button,small,strong,b){font-size:clamp(13px,.6771vw,18px)!important;line-height:1.45}
+ main[data-desktop-workspace] .sales-register-panel table :is(th,td){padding-block:clamp(10px,.625vw,16px)}
+ main[data-desktop-workspace] .sales-register-panel table :is(.sales-type,.sales-stock,.sales-order-hold){padding:4px 9px;white-space:nowrap}
+ main[data-desktop-workspace] .sales-register-panel table th{white-space:nowrap}
+ main[data-desktop-workspace] .sales-register-panel table{min-width:1500px}
+}
+/* Equal tab geometry and typography for buttons and navigation links alike. */
+.sales-register-panel .sales-register-tabs>:is(button,a){display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:36px;min-height:36px;padding:0 14px;font-family:inherit;font-size:13px!important;font-weight:650;line-height:1!important;letter-spacing:normal;white-space:nowrap;vertical-align:middle}
+@media screen and (min-width:1600px){
+ .sales-register-panel .sales-register-tabs>:is(button,a){height:clamp(36px,1.875vw,48px);min-height:clamp(36px,1.875vw,48px);font-size:clamp(13px,.6771vw,18px)!important;padding-inline:clamp(14px,.73vw,19px)}
+}
+/* Return type and workflow status share one readable badge scale. */
+.returns-workspace .returns-register :is(.returns-type,.returns-status){display:inline-flex;align-items:center;justify-content:center;gap:5px;box-sizing:border-box;min-height:28px;padding:4px 9px;font-family:inherit;font-size:12px!important;font-weight:650;line-height:1.35;white-space:nowrap;vertical-align:middle}
+.returns-workspace .returns-register .returns-type svg{width:1.1em;height:1.1em;flex-shrink:0}
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace] .returns-workspace .returns-register :is(.returns-type,.returns-status){font-size:clamp(13px,.6771vw,18px)!important;min-height:clamp(30px,1.5625vw,40px);padding:5px 10px}
+}
+/* Keep promotion type, margin and status pills on the same typography scale. */
+main[data-desktop-workspace] .promotion-workspace table :is(.promo-type,.promo-green,.promo-badge){display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:28px;padding:4px 9px;font-family:inherit;font-size:12px!important;font-weight:650;line-height:1.35;letter-spacing:normal;white-space:nowrap;vertical-align:middle}
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace] .promotion-workspace table :is(.promo-type,.promo-green,.promo-badge){font-size:clamp(13px,.6771vw,18px)!important;min-height:clamp(30px,1.5625vw,40px);padding:5px 10px}
+}
+/* Shipment badges and summary labels match the shared desktop text scale. */
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace] .procurement-hub .proc-status{display:inline-flex;align-items:center;justify-content:center;font-family:inherit;font-size:clamp(13px,.6771vw,18px)!important;font-weight:650;line-height:1.35;min-height:clamp(30px,1.5625vw,40px);padding:5px 10px}
+ main[data-desktop-workspace] .procurement-hub .proc-cost-row,
+ main[data-desktop-workspace] .procurement-hub .proc-cost-row :is(span,b,strong,small){font-family:inherit;font-size:clamp(13px,.6771vw,18px)!important;line-height:1.45}
+ main[data-desktop-workspace] .procurement-hub .proc-cost-row{min-height:clamp(34px,1.78vw,46px);gap:12px}
+ main[data-desktop-workspace] .procurement-hub .proc-cost-row svg{width:1.4em;height:1.4em;flex-shrink:0}
+}
+/* Dispatch status uses the same desktop badge size as other registers. */
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace] .owner-dashboard table td em.follow-up{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;font-family:inherit;font-style:normal;font-size:clamp(13px,.6771vw,18px)!important;font-weight:650;line-height:1.35;min-height:clamp(30px,1.5625vw,40px);padding:5px 10px;white-space:nowrap}
+}
+/* ETA rows stay as readable as the adjacent pending quote records. */
+@media screen and (min-width:1100px){
+ main[data-desktop-workspace] .owner-dashboard .reception-eta,
+ main[data-desktop-workspace] .owner-dashboard .reception-eta :is(span,small,em){font-family:inherit;font-size:clamp(13px,.6771vw,18px)!important;line-height:1.45}
+ main[data-desktop-workspace] .owner-dashboard .reception-eta{display:flex;align-items:center;gap:8px;min-height:clamp(42px,2.2vw,57px);padding-block:9px}
+ main[data-desktop-workspace] .owner-dashboard .reception-eta em{display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-weight:650;min-height:clamp(28px,1.5625vw,40px);padding:4px 10px;white-space:nowrap}
+ main[data-desktop-workspace] .owner-dashboard .reception-eta>svg{width:1.2em;height:1.2em;flex-shrink:0}
+}
+/* Task categories share the table's available height, rather than a fixed 274px list. */
+@media screen and (min-width:1100px){
+ .owner-dashboard .admin-unified-body{align-items:stretch}
+ .owner-dashboard .admin-unified-types{display:flex;flex-direction:column;contain:size;min-height:220px}
+ .owner-dashboard .admin-unified-types h3{flex-shrink:0}
+ .owner-dashboard .admin-unified-types>div{flex:1;min-height:0;max-height:none;overflow-y:auto;scrollbar-gutter:stable;scrollbar-width:thin}
+ .owner-dashboard .admin-unified-types button{flex-shrink:0;white-space:nowrap}
+ .owner-dashboard .admin-unified-types button span{min-width:0;white-space:nowrap}
+ .owner-dashboard .admin-unified-table td:nth-child(6),
+ .owner-dashboard .admin-unified-table td:nth-child(6)>span{font-family:inherit;font-size:clamp(13px,.6771vw,18px)!important;line-height:1.4;font-weight:650}
+ .owner-dashboard .admin-unified-table td:nth-child(6)>span{display:inline-flex;align-items:center;min-height:28px;white-space:nowrap}
+}
+@media screen and (min-width:2000px){
+ .owner-dashboard .admin-unified-body{grid-template-columns:clamp(290px,13.5vw,380px) minmax(0,1fr)}
+ .owner-dashboard .admin-unified-types button{gap:10px;padding:10px 12px;font-size:clamp(14px,.6771vw,18px)!important}
+ .owner-dashboard .admin-unified-types b{font-size:inherit}
+}
+@media screen and (min-width:1100px){
+ .owner-dashboard .admin-unified-table td .admin-state{font-family:inherit;font-size:clamp(13px,.6771vw,18px)!important;font-weight:650;line-height:1.4;display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:4px 10px;white-space:nowrap}
+}
+/* The task scope toolbar is not a separate bordered card. */
+.owner-dashboard .admin-workspace-panel .admin-unified-tasks>.admin-panel-heading{border:0;border-radius:0;box-shadow:none;background:transparent}
+.owner-dashboard .reception-panel h2>:is(a,button){font-family:inherit;font-size:13px!important;font-weight:650;line-height:1.4}
+@media screen and (min-width:1600px){
+ .owner-dashboard .reception-panel h2>:is(a,button){font-size:clamp(13px,.6771vw,18px)!important}
+}
+/* Keep hold text complete and give row actions a legible target. */
+main[data-desktop-workspace] .sales-register-panel table .sales-order-hold{display:inline-flex;align-items:center;justify-content:center;font-size:12px!important;line-height:1.35;white-space:nowrap;padding:4px 7px;max-width:none;overflow:visible;text-overflow:clip}
+main[data-desktop-workspace] .sales-register-panel table td:has(>.sales-order-hold){min-width:105px;overflow:visible}
+main[data-desktop-workspace] .sales-register-panel .sales-row-actions{gap:7px}
+main[data-desktop-workspace] .sales-register-panel .sales-row-actions button{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;padding:5px}
+main[data-desktop-workspace] .sales-register-panel .sales-row-actions button svg{width:21px!important;height:21px!important;flex-shrink:0}
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace] .sales-register-panel table :is(.sales-order-hold,.sales-stock){font-size:clamp(12px,.625vw,16px)!important}
+ main[data-desktop-workspace] .sales-register-panel .sales-row-actions button{min-width:36px;min-height:36px}
+ main[data-desktop-workspace] .sales-register-panel .sales-row-actions button svg{width:clamp(21px,1.1vw,28px)!important;height:clamp(21px,1.1vw,28px)!important}
+}
+@media screen and (min-width:1600px){
+ main[data-desktop-workspace] .sales-register-panel table td:nth-child(9)>span{font-size:clamp(12px,.625vw,16px)!important}
+}
+@media screen and (min-width:2000px){
+ main[data-desktop-workspace] .sales-register-summary,
+ main[data-desktop-workspace] .sales-register-summary :is(strong,span,b){font-family:inherit;font-size:clamp(15px,.6771vw,19px)!important;line-height:1.5}
+ main[data-desktop-workspace] .sales-register-summary{min-height:56px;gap:20px;padding:15px 20px}
+ main[data-desktop-workspace] .sales-register-summary>span{padding-left:18px}
+}
+@media screen and (min-width:2000px){
+ main[data-desktop-workspace] .procurement-hub .proc-shipment-summary dl,
+ main[data-desktop-workspace] .procurement-hub .proc-shipment-summary dl :is(dt,dd){font-family:inherit;font-size:clamp(15px,.6771vw,19px)!important;line-height:1.5}
+ main[data-desktop-workspace] .procurement-hub .proc-shipment-summary dl{gap:12px 18px;margin-top:12px}
+}
+@media screen and (min-width:2000px){
+ .container-create,.purchase-entry{width:100%;max-width:none!important;font-size:clamp(15px,.6771vw,19px);line-height:1.45}
+ .container-create :is(label,input,select,textarea,button,th,td,span,small,p,dt,dd),
+ .purchase-entry :is(label,input,select,textarea,button,th,td,span,small,p,dt,dd){font-size:clamp(15px,.6771vw,19px)!important;line-height:1.45}
+ .container-create :is(h2,h3),.purchase-entry :is(h2,h3){font-size:clamp(20px,.94vw,26px)!important}
+ .container-create h1,.purchase-entry h1{font-size:clamp(30px,1.4vw,40px)!important}
+ .container-create :is(input:not([type=checkbox]),select,button),.purchase-entry :is(input:not([type=checkbox]),select,button){min-height:38px}
+ .container-create :is(th,td),.purchase-entry :is(th,td){padding-block:10px}
+ .container-create .container-card,.purchase-entry .entry-card{padding:20px}
+ .container-create .container-product-scroll{overflow-x:auto;max-width:100%}
+}
+@media screen and (min-width:2000px){
+ .container-create .container-block{grid-template-columns:minmax(0,1fr) clamp(400px,19vw,560px);gap:18px}
+ .container-create .container-invoice{padding:18px;min-width:0}
+ .container-create .container-invoice h3{white-space:nowrap;gap:8px}
+ .container-create .container-invoice>div{grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:none;gap:14px}
+ .container-create .container-invoice label{white-space:nowrap;min-width:0}
+ .container-create .container-invoice input{width:100%;min-width:0}
+ .container-create .container-invoice small{white-space:nowrap;font-size:clamp(13px,.58vw,16px)!important}
+ .container-create .container-content{min-width:0}
+}
