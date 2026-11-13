@@ -61,7 +61,7 @@ const sections = [
                 icon: ReceiptText,
             },
             {label:"Promotion",path:"/promotions",icon:Presentation},
-            {label:"Procurement",path:"/procurement",icon:PackageCheck},
+            {label:"Incoming Shipment",path:"/procurement",icon:PackageCheck},
             {
                 label: "Purchases",
                 path: "/purchases",
