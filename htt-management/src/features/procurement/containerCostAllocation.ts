@@ -1,7 +1,7 @@
 import {z} from 'zod';
 export type CostContainer={id:string;number:string;status:string;shipmentId?:string;revision?:number};
 export type CostProduct={id:string;containerId:string;sku:string;description:string;category:string;quantity:number;unit:string;coverage?:number;goods:number};
-export const landedCostDraftSchema=z.object({freight:z.number().finite().nonnegative().max(1e12),customs:z.number().finite().nonnegative().max(1e12),excluded:z.array(z.string().max(300)).max(3000),scope:z.enum(['selected','all']),assignments:z.record(z.string(),z.string()).optional(),freightInvoice:z.string().max(100).optional(),customsInvoice:z.string().max(100).optional()}).strict();
+export const landedCostDraftSchema=z.object({freight:z.number().finite().nonnegative().max(1e12),customs:z.number().finite().nonnegative().max(1e12),excluded:z.array(z.string().max(300)).max(3000),scope:z.enum(['selected','all']),assignments:z.record(z.string(),z.string()).optional(),materialInvoiceIds:z.record(z.string(),z.string().max(200)).optional(),freightBillId:z.string().max(200).optional(),customsBillId:z.string().max(200).optional(),freightInvoice:z.string().max(100).optional(),customsInvoice:z.string().max(100).optional()}).strict();
 export type LandedCostDraft=z.infer<typeof landedCostDraftSchema>;
 export function productUnitCosts(line:{goods:number;total:number;area:number;quantity:number;unit:string}){const byArea=Number.isFinite(line.area)&&line.area>0,denominator=byArea?line.area:line.quantity;return {unitCost:Number.isFinite(denominator)&&denominator>0?line.goods/denominator:undefined,landedUnitCost:Number.isFinite(denominator)&&denominator>0?line.total/denominator:undefined,costUnit:byArea?'m²':line.unit};}
 const cents=(n:number)=>Math.round((n+Number.EPSILON)*100);

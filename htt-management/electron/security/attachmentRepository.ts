@@ -145,7 +145,7 @@ registerRepository('attachments', { repository: attachmentRepository, read: 'inv
         let bytes = 0;
         for (const d of data.documents) {
             const spec = targetSpecs[d.target.kind];
-            if (!(snapshots[spec.repository] as any)?.[spec.collection]?.some((r: any) => r.id === d.target.id))
+            if (!(d.target.kind==='Shipment'?(snapshots.suppliers as any)?.suppliers?.flatMap((s:any)=>s.shipments??[]):(snapshots[spec.repository] as any)?.[spec.collection])?.some((r: any) => r.id === d.target.id))
                 throw new Error('Invalid attachment business reference.');
             if (!!d.deletedAt !== !!d.deletedBy)
                 throw new Error('Invalid attachment recycle metadata.');

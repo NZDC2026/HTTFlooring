@@ -124,3 +124,75 @@ it('saves equal-container costs and finalises received containers only without r
  command('suppliers','saveShipmentCosts',{...input,operationId:crypto.randomUUID(),revisions:{[first.id]:received.revision,[second.id]:2},finalise:[first.id]});expect(records('goodsReceipts')).toEqual(before);expect(saved().find((s:any)=>s.id===first.id).landedCostFinal).toBeTruthy();expect(saved().find((s:any)=>s.id===second.id).landedCostFinal).toBeUndefined();expect(host.prepareRestore(JSON.stringify(host.exportBackup())).token).toBeTruthy();
  const revisions=Object.fromEntries(saved().map((s:any)=>[s.id,s.revision]));expect(()=>command('suppliers','saveShipmentCosts',{...input,revisions,operationId:crypto.randomUUID(),draft:{...draft,freight:3000}})).toThrow(/locked/);expect(()=>command('suppliers','saveShipment',{...shipment([a]),id:first.id,revision:revisions[first.id],landedCostFinal:''})).toThrow(/controlled/);
 });
+it('records physical damage without putting damaged goods into stock and preserves total area for cost allocation',async()=>{
+ const po=order(),row=command('suppliers','saveShipment',shipment([po]));
+ const input={supplierId:row.supplierId,id:row.id,revision:row.revision,operationId:crypto.randomUUID(),date:'2026-11-07',reason:'Warehouse inspection found damaged packaging',lines:[{purchaseOrderId:po.id,lineId:po.lines[0].id,quantity:2,damaged:0.5}]};
+ const received=command('suppliers','receiveShipment',input);
+ expect(received.lines[0]).toMatchObject({quantity:2,received:2,damaged:0.5});
+ expect(records('goodsReceipts').goodsReceipts.at(-1).lines[0].receivedQuantity).toBe(1.5);
+ expect(records('purchaseOrders').purchaseOrders.find((p:any)=>p.id===po.id).lines[0].receivedQuantity).toBe(1.5);
+ const count=records('goodsReceipts').goodsReceipts.length;command('suppliers','receiveShipment',input);expect(records('goodsReceipts').goodsReceipts).toHaveLength(count);
+ const {shipmentCostProducts,allocateContainerCosts}=await import('../procurement/containerCostAllocation');
+ const products=shipmentCostProducts([received],[po]);expect(products[0].quantity).toBe(2);
+ const result=allocateContainerCosts([{id:received.id,number:received.container,status:'Received'}],products.map(p=>({...p,coverage:2})),{freight:20,customs:0,excluded:[],scope:'selected'});
+ expect(result.area).toBe(4);expect(result.lines[0].allocationPerM2).toBe(5);
+ await restart();expect(saved()[0].lines[0].damaged).toBe(0.5);
+});
+it('records an entirely damaged delivery without creating an inventory receipt',()=>{
+ const po=order(),row=command('suppliers','saveShipment',shipment([po])),before=structuredClone(records('goodsReceipts'));
+ const input={supplierId:row.supplierId,id:row.id,revision:1,operationId:crypto.randomUUID(),date:'2026-11-07',reason:'All goods damaged during transport',lines:[{purchaseOrderId:po.id,lineId:po.lines[0].id,quantity:2,damaged:2}]};
+ expect(()=>command('suppliers','receiveShipment',{...input,lines:[{...input.lines[0],damaged:3}]})).toThrow();
+ const received=command('suppliers','receiveShipment',input);expect(received.lines[0]).toMatchObject({received:2,damaged:2});expect(records('goodsReceipts')).toEqual(before);
+ expect(records('purchaseOrders').purchaseOrders.find((p:any)=>p.id===po.id).lines[0].receivedQuantity).toBe(0);
+});
+it('restores receiving drafts without posting inventory and clears draft after confirmation',async()=>{
+ const po=order(),row=command('suppliers','saveShipment',shipment([po])),before=structuredClone(records('goodsReceipts'));
+ const input={supplierId:row.supplierId,id:row.id,revision:1,operationId:crypto.randomUUID(),date:'2026-11-07',reason:'Receiving inspection draft',lines:[{purchaseOrderId:po.id,lineId:po.lines[0].id,quantity:1,damaged:0.25}]};
+ const draft=command('suppliers','saveReceivingDraft',input);expect(draft.revision).toBe(2);expect(records('goodsReceipts')).toEqual(before);expect(draft.lines[0].received).toBe(0);
+ command('suppliers','saveReceivingDraft',input);expect(saved()[0].revision).toBe(2);
+ await restart();expect(JSON.parse(saved()[0].receivingDraft).lines[0].damaged).toBe(.25);
+ expect(()=>command('suppliers','saveReceivingDraft',{...input,operationId:crypto.randomUUID()})).toThrow(/changed/);
+ const received=command('suppliers','receiveShipment',{...input,revision:2,operationId:crypto.randomUUID()});expect(received.receivingDraft).toBeUndefined();expect(received.lines[0]).toMatchObject({received:1,damaged:.25});
+});
+it('lets warehouse save receiving drafts and shipment photographs, preserves them in backups and denies auditors',async()=>{
+ const po=order(),row=command('suppliers','saveShipment',shipment([po]));
+ const warehouse=security.createUser({username:'receiving.warehouse',displayName:'Warehouse receiver',password:admin.password,roles:['WAREHOUSE']});security.login({username:warehouse.username,password:admin.password});
+ const input={supplierId:row.supplierId,id:row.id,revision:1,operationId:crypto.randomUUID(),date:'2026-11-07',reason:'Warehouse draft inspection',lines:[{purchaseOrderId:po.id,lineId:po.lines[0].id,quantity:1,damaged:0}]};
+ command('suppliers','saveReceivingDraft',input);
+ const doc=command('attachments','upload',{operationId:crypto.randomUUID(),expectedRevision:0,target:{kind:'Shipment',id:row.id},title:'Receiving evidence',reason:'Warehouse receiving photograph',file:{name:'receiving.txt',content:Buffer.from('Isolated receiving attachment test').toString('base64')}});
+ expect(doc.target.id).toBe(row.id);security.login(admin);const backup=host.exportBackup(),restore=host.prepareRestore(JSON.stringify(backup));await host.restoreBackup(restore.token);await restart();
+ expect(records('attachments').documents.find((d:any)=>d.id===doc.id).target.kind).toBe('Shipment');
+ const auditor=security.createUser({username:'receiving.auditor',displayName:'Auditor',password:admin.password,roles:['AUDITOR']});security.login({username:auditor.username,password:admin.password});
+ expect(()=>command('suppliers','saveReceivingDraft',{...input,revision:2,operationId:crypto.randomUUID()})).toThrow(/Permission denied/);
+});
+it('saves date-only edits with revision checks and rejects changes to other fields',()=>{
+ const po=order(),row=command('suppliers','saveShipment',shipment([po])),before=structuredClone(row.lines);
+ const input={supplierId:row.supplierId,id:row.id,operationId:crypto.randomUUID(),revision:1,etd:'2026-11-03',eta:'2026-11-19'};
+ const updated=command('suppliers','saveShipmentDates',input);expect(updated.lines).toEqual(before);expect(updated.container).toBe(row.container);expect(updated.eta).toBe('2026-11-19');expect(updated.revision).toBe(2);
+ expect(command('suppliers','saveShipmentDates',input).revision).toBe(2);
+ expect(()=>command('suppliers','saveShipmentDates',{...input,operationId:crypto.randomUUID()})).toThrow(/changed/);
+ expect(()=>command('suppliers','saveShipmentDates',{...input,revision:2,operationId:crypto.randomUUID(),container:'Forged'})).toThrow();
+ expect(()=>command('suppliers','saveShipmentDates',{...input,revision:2,operationId:crypto.randomUUID(),etd:'2026-11-21'})).toThrow(/ETA/);
+});
+it('saves the shipment product page atomically and preserves received quantities',async()=>{
+ const a=order(),b=order(),first=shipment([a],{purchaseNumber:'PB-PRODUCT-EDIT'}),second=shipment([b],{purchaseNumber:'PB-PRODUCT-EDIT',container:'TCLU7654321'}),one=command('suppliers','saveShipment',first),two=command('suppliers','saveShipment',second);
+ const oneInput={...first,id:one.id,revision:1,operationId:crypto.randomUUID(),houseBill:'HBL-EDIT',invoiceNumber:'INV-EDIT-1',invoiceAmount:200,remark:'Updated shipment detail'},twoInput={...second,id:two.id,revision:1,operationId:crypto.randomUUID(),houseBill:'HBL-EDIT',lines:[{...second.lines[0],quantity:20}]};
+ const before=host.exportBackup().repositories;
+ expect(()=>command('suppliers','saveShipmentGroup',{groupId:first.purchaseNumber,shipments:[oneInput,twoInput]})).toThrow(/quantity/);expect(host.exportBackup().repositories).toEqual(before);
+ const updated=command('suppliers','saveShipmentGroup',{groupId:first.purchaseNumber,shipments:[oneInput,{...twoInput,lines:second.lines}]});expect(updated.map((s:any)=>s.revision)).toEqual([2,2]);expect(updated[0].invoiceNumber).toBe('INV-EDIT-1');
+ const received=command('suppliers','receiveShipment',{supplierId:one.supplierId,id:one.id,revision:2,operationId:crypto.randomUUID(),date:'2026-11-07',reason:'Warehouse receiving inspection',lines:[{...first.lines[0],quantity:1,damaged:0}]});
+ expect(()=>command('suppliers','saveShipmentGroup',{groupId:first.purchaseNumber,shipments:[{...oneInput,revision:received.revision,operationId:crypto.randomUUID(),lines:[{...first.lines[0],quantity:1}]},{...twoInput,operationId:crypto.randomUUID(),revision:2,lines:second.lines}]})).toThrow(/locked/);
+ await restart();expect(saved().find((s:any)=>s.id===one.id).lines[0].received).toBe(1);expect(saved().find((s:any)=>s.id===one.id).remark).toBe('Updated shipment detail');
+});
+it('links the correct materials invoice when saving costs without posting another financial record',async()=>{
+ const po=order(),row=command('suppliers','saveShipment',shipment([po]));
+ const received=command('suppliers','receiveShipment',{supplierId:row.supplierId,id:row.id,revision:1,operationId:crypto.randomUUID(),date:'2026-11-07',reason:'Goods checked at destination warehouse',lines:[{...shipment([po]).lines[0],quantity:2,damaged:0}]});
+ const invoice=command('supplierBills','create',{purchaseOrderId:po.id,supplierInvoiceNumber:'MAT-LINK-108',billDate:'2026-11-07',dueDate:'2026-12-07',lines:[{purchaseOrderLineId:po.lines[0].id,quantity:2,unitCost:100}]}),before=structuredClone(records('supplierBills'));
+ const draft={freight:20,customs:5,excluded:[],scope:'selected',materialInvoiceIds:{[row.id]:invoice.id}};
+ const input={groupId:row.id,revisions:{[row.id]:received.revision},operationId:crypto.randomUUID(),finalise:[],draft};
+ expect(()=>command('suppliers','saveShipmentCosts',{...input,draft:{...draft,materialInvoiceIds:{[row.id]:'missing'}}})).toThrow(/invoice/);
+ command('suppliers','saveShipmentCosts',input);expect(saved()[0].invoiceBillId).toBe(invoice.id);expect(saved()[0].invoiceNumber).toBe('MAT-LINK-108');expect(records('supplierBills')).toEqual(before);
+ await restart();expect(saved()[0].invoiceBillId).toBe(invoice.id);
+ const current=saved()[0];command('suppliers','saveShipmentGroup',{groupId:row.id,shipments:[shipment([po],{id:row.id,revision:current.revision,invoiceNumber:'CORRECTED-INVOICE-REFERENCE'})]});
+ expect(saved()[0].invoiceBillId).toBeUndefined();expect(JSON.parse(saved()[0].landedCostDraft).materialInvoiceIds[row.id]).toBeUndefined();
+});
