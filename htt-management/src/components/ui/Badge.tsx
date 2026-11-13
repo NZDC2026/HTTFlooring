@@ -37,6 +37,7 @@ export function Badge({
 }: BadgeProps) {
     return (
         <span
+            data-ui="badge"
             className={cn(
                 "inline-flex h-6 items-center rounded-full px-2.5",
                 "text-xs font-medium",

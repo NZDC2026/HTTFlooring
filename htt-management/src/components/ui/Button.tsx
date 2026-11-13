@@ -63,6 +63,7 @@ export function Button({
 }: ButtonProps) {
     return (
         <button
+            data-ui="button"
             type={type}
             className={cn(
                 buttonVariants({

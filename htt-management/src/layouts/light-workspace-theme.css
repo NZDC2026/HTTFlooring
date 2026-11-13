@@ -218,3 +218,6 @@ main[data-module-theme=light] :is(.sales-preview-tabs,.returns-register nav) :is
  main[data-module-theme=light] :is(.sales-preview-tabs,.returns-register nav) :is(button,a){height:34px;min-height:34px;font-size:13px!important;padding:6px 14px;line-height:20px;font-weight:650}
  main[data-module-theme=light] .returns-table-scroll{overflow-x:auto;max-width:100%;scrollbar-width:thin}
 }
+
+/* Keep the dashboard sample entry visible in both desktop layouts. */
+.owner-preview-toggle{display:flex;align-items:center;gap:8px;margin:8px 16px;padding:9px 12px;background:#fff;border:1px solid #e5e9ed;border-radius:8px;font-size:13px;color:#087f5b;font-weight:600}.owner-preview-toggle input{accent-color:#087f5b;width:15px;height:15px}.owner-preview-toggle span{font-weight:400;color:#637487;font-size:12px}.owner-reference .owner-preview-tools{position:static;margin:0 16px 8px;background:transparent}.owner-reference .owner-preview-tools[open]{max-width:none;box-shadow:none}

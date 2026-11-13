@@ -11,6 +11,7 @@ export function Input({
 }: InputProps) {
     return (
         <input
+            data-ui="input"
             className={cn(
                 "h-10 w-full rounded-lg",
                 "border border-[var(--color-border)]",

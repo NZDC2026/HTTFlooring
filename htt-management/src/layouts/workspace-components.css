@@ -1,0 +1,57 @@
+/* Shared screen-only component contract. Print documents retain their own layout.
+   Desktop dimensions are constant; wider screens provide more working space. */
+@media screen {
+ :root{--workspace-control:34px;--workspace-font:13px;--workspace-label:12px;--workspace-title:26px;--workspace-section:18px;--workspace-radius:14px;--workspace-gap:16px}
+ main[data-module-theme=light]{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#182230;background:#f8fafb}
+ :is([data-ui=card],.ac-card,.bk-card,.taskhub-card,.transfer-card,.inv-panel,.it-card,.reports-panel,.batch-email-panel,.email-address-card,.email-document-card,.email-attachment-card,.si-panel,.sc-panel,.sp-card,.entry-card,.po-panel,.promo-panel,.container-card){background:#fff;border-color:#e5e9ed;border-radius:14px;box-shadow:0 2px 8px #18223008}
+ :is([role=dialog],dialog,.service-line-dialog,.taskhub-modal,.sales-action-dialog,.sales-batch-dialog,.unified-credit-dialog){font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;line-height:1.45;color:#182230;background-color:#fff;border-color:#e5e9ed;border-radius:14px;box-shadow:0 16px 48px #18223025;max-height:calc(100dvh - 40px);overflow:auto}
+ :is([role=dialog],dialog) :is(h1,h2){font-size:18px;line-height:1.35;font-weight:700}
+ :is([role=dialog],dialog) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select){height:34px;min-height:34px;font-size:13px;border:1px solid #e5e9ed;border-radius:8px;background:#fff;padding:6px 10px}
+ :is([role=dialog],dialog) textarea{font-size:13px;min-height:88px;border-color:#e5e9ed;border-radius:8px;padding:10px}
+ :is([role=dialog],dialog) :is(button,label){font-size:13px}
+ :is([role=dialog],dialog) :is(button,input,select,textarea):focus-visible{outline:2px solid #087f5b;outline-offset:2px}
+ :is(.sales-primary,.pu-primary,.promo-primary,.proc-primary,.sc-primary,.returns-primary,.container-primary,.taskhub-primary,.transfer-primary,.it-primary){background:#087f5b!important;color:#fff!important;border-color:#087f5b!important;background-image:none!important;border-radius:8px}
+ .htt-date-popover .htt-date-apply,.htt-date-days button.endpoint{background:#087f5b;border-color:#087f5b}
+ .htt-date-days button.in-range{background:#e1f5e9;color:#066649}.htt-date-years button.selected{color:#066649;background:#e1f5e9}
+}
+@media screen and (min-width:1100px){
+ main[data-module-theme=light]{font-size:13px;line-height:1.45}
+ main[data-module-theme=light]>div{width:100%;max-width:none!important;padding:20px 22px!important}
+ main[data-module-theme=light] [data-primary-workspace]{max-width:none;min-width:0}
+ main[data-module-theme=light] :is(.accounting-workspace,.banking-workspace,.reports-workspace,.transfer-page,.batch-workspace,.shipment-cost-workspace,.receive-workspace,.container-create,.unified-document,.quote-entry,.sales-entry,.purchase-order-form){font-size:13px!important;line-height:1.45;max-width:none!important;width:100%}
+ main[data-module-theme=light] h1{font-size:26px!important;line-height:1.25;letter-spacing:-.4px}
+ main[data-module-theme=light] :is(.entry-card,.ac-card,.bk-card,.inv-panel,.it-card,.reports-panel,.transfer-card,.sc-panel,.si-panel,.sp-card,.taskhub-card,.batch-workspace) h2{font-size:18px!important;line-height:1.35}
+ main[data-module-theme=light] :is(.entry-card,.ac-card,.bk-card,.inv-panel,.reports-panel,.transfer-card,.sc-panel,.si-panel,.sp-card,.taskhub-card){padding:16px}
+ main[data-module-theme=light] :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select){height:34px!important;min-height:34px!important;font-size:13px!important;line-height:1.4;border-radius:8px;padding:6px 10px}
+ main[data-module-theme=light] textarea{font-size:13px!important;line-height:1.45;min-height:88px;border-radius:8px;padding:10px}
+ main[data-module-theme=light] :is(label,legend){font-size:13px;line-height:1.4}
+ main[data-module-theme=light] [data-ui=button],main[data-module-theme=light] :is(.entry-actions,.qe-actions,.returns-drawer footer,.container-create-heading,.sc-actions,.taskhub-modal footer) button{height:34px!important;min-height:34px!important;font-size:13px!important;line-height:20px;padding:6px 12px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+ main[data-module-theme=light] [data-ui=badge]{font-size:12px!important;line-height:18px;min-height:26px;height:auto;padding:4px 9px}
+ main[data-module-theme=light] table :is(th,td){font-size:13px!important;line-height:1.45;padding:10px;border-color:#e5e9ed;font-variant-numeric:tabular-nums}
+ main[data-module-theme=light] table th{font-size:12px!important;background:#f3f5f7;color:#526576;font-weight:650}
+ main[data-module-theme=light] table td :is(input,select){max-width:100%}
+ main[data-module-theme=light] :is(.entry-table-scroll,.sp-table-scroll,.sc-table-scroll,.bk-table-wrap,.ac-table-wrap,.inv-table-scroll,.batch-table-scroll,.po-lines-panel,.it-table,.reports-table){max-width:100%;min-width:0;overflow-x:auto;scrollbar-width:thin}
+ main[data-module-theme=light] :is(.ac-heading,.bk-heading,.taskhub-heading,.pm-heading,.entry-heading,.qe-heading,.container-create-heading,.sc-heading){background:transparent;background-image:none;color:#182230}
+ main[data-module-theme=light] :is(.ac-button,.bk-button,.taskhub-primary,.transfer-primary,.it-primary){font-size:13px!important;min-height:34px;padding:6px 12px}
+ main[data-module-theme=light] :is(.service-line-dialog,.taskhub-modal,.sales-action-dialog,.sales-batch-dialog,.unified-credit-dialog){font-size:13px!important}
+ main[data-module-theme=light] :is(.container-line-totals,.container-totals,.sp-total,.sc-total,.entry-product-totals){font-size:13px!important;line-height:1.45}
+ main[data-module-theme=light] :is(.container-line-totals,.container-totals,.sp-total,.sc-total,.entry-product-totals) :is(strong,b,span){font-size:inherit!important}
+}
+@media screen and (min-width:1100px){
+ /* Feature-local density rules must not override the shared table scale. */
+ main[data-module-theme=light][data-module-theme=light] table :is(th,td){font-size:13px!important;line-height:1.45}
+ main[data-module-theme=light][data-module-theme=light] table th{font-size:12px!important}
+}
+@media screen {
+ :is([role=dialog][role=dialog],dialog){font-size:13px!important;line-height:1.45}
+ [role=dialog] :is(p,label,input,select,textarea,button){font-size:13px!important}
+ [role=dialog] nav{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+ [role=dialog] nav button{min-width:0;flex-shrink:0}
+}
+@media screen {
+ [role=dialog] nav.sales-preview-tabs{flex-wrap:wrap!important;overflow:visible!important;max-width:100%;height:auto!important}
+ [role=dialog] nav.sales-preview-tabs button{flex:0 1 auto!important;white-space:nowrap}
+}
+@media screen {
+ main[data-module-theme=light] :is(button.primary,button.entry-save,button.qe-primary),[role=dialog] button.primary{background:#087f5b!important;background-image:none!important;border-color:#087f5b!important;color:#fff!important;border-radius:8px}
+}

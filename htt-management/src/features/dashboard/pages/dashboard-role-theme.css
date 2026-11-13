@@ -1,0 +1,30 @@
+/* Admin is the shared visual contract; role permissions only control content. */
+@media screen and (min-width:1100px){
+ main[data-desktop-workspace] .owner-dashboard.owner-reference{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;line-height:1.45}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(.owner-panel,.reception-panel,.accounts-payment-card,.owner-metric,.ar-aging,.payment-followups,.dashboard-role-panels>section){background:#fff!important;border:1px solid #e5e9ed;border-radius:14px;box-shadow:0 2px 8px #18223008;color:#182230}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(.owner-panel,.reception-panel){padding:16px}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(.owner-panel,.reception-panel,.dashboard-role-extras) h2{font-size:18px!important;line-height:1.35;color:#182230}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(.owner-metric,.accounts-payment-card){min-height:106px;padding:16px;gap:12px}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(.owner-metric,.accounts-payment-card) h3{font-size:12px!important;line-height:1.4;color:#182230}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(.owner-metric,.accounts-payment-card) :is(strong,b){font-size:25px!important;line-height:1.2}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(.owner-metric,.accounts-payment-card) small{font-size:12px!important;line-height:1.4}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(.owner-metric-icon,.accounts-payment-card>svg){color:#087f5b;background:#e1f5e9;width:34px;height:34px}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference table :is(th,td){font-size:13px!important;line-height:1.45;padding:10px;border-color:#e5e9ed}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference table th{font-size:12px!important;background:#f3f5f7;color:#526576}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference table :is(em,[data-ui=badge],.task-status,.admin-task-status){font-size:12px!important;line-height:1.4}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(button,input,select,textarea){font-size:13px!important}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference :is(input:not([type=checkbox]):not([type=radio]),select){height:34px!important;min-height:34px!important;border-radius:8px;border-color:#e5e9ed}
+ main[data-desktop-workspace] .owner-dashboard.owner-reference .owner-row{font-size:13px;min-height:38px;padding:9px 0}
+ .owner-dashboard.owner-reference .dashboard-role-extras{margin:14px 0}.owner-dashboard.owner-reference .dashboard-role-extras>h2{margin-bottom:12px}
+ .owner-dashboard.owner-reference .owner-grid{margin:14px 0;gap:14px}
+ .owner-dashboard.owner-reference .ar-aging{margin:14px 0}.owner-dashboard.owner-reference .ar-aging>header{padding:16px;gap:16px}.owner-dashboard.owner-reference .ar-aging h2{font-size:18px}.owner-dashboard.owner-reference .ar-heading p{font-size:13px}.owner-dashboard.owner-reference .ar-total strong{font-size:25px}.owner-dashboard.owner-reference .ar-view{font-size:13px;padding:7px 12px;border-radius:8px}.owner-dashboard.owner-reference .ar-content{padding:16px;gap:16px}.owner-dashboard.owner-reference .ar-donut{max-width:200px}.owner-dashboard.owner-reference .ar-donut strong{font-size:25px}.owner-dashboard.owner-reference .ar-donut span{font-size:13px}
+ .owner-dashboard.owner-reference .owner-banner{flex-wrap:wrap}.owner-dashboard.owner-reference .owner-header-controls{flex-wrap:wrap}
+ .owner-dashboard.owner-reference .owner-welcome>div:first-child{flex-wrap:wrap}
+}
+@media screen and (min-width:1100px){
+ .owner-dashboard.owner-reference>.return-work-queue{margin:0 0 14px;background:#fff;border:1px solid #e5e9ed;border-radius:14px;padding:16px;box-shadow:0 2px 8px #18223008}
+ .owner-dashboard.owner-reference>.return-work-queue>div{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .owner-dashboard.owner-reference .payment-followup-toolbar button.active{background:#087f5b!important;background-image:none!important;color:#fff}
+ .owner-dashboard.owner-reference :is(.owner-panel,.reception-panel,.payment-followups,.ar-aging) :is(button,a).primary{background:#087f5b!important;background-image:none!important;color:#fff}
+ .owner-dashboard.owner-reference :is(.payment-followup-toolbar,.ar-aging) button{font-size:13px!important;min-height:34px}
+}

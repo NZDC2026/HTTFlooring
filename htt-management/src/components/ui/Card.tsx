@@ -8,6 +8,7 @@ export function Card({
 }: HTMLAttributes<HTMLDivElement>) {
     return (
         <div
+            data-ui="card"
             className={cn(
                 "rounded-[var(--radius-card)]",
                 "border border-[var(--color-border)]",

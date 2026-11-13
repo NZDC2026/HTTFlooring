@@ -18,6 +18,8 @@ import { FeedbackHost } from "../components/ui/FeedbackHost";
 
 import "./desktop-workspaces.css";
 import "./light-workspace-theme.css";
+import "./workspace-components.css";
+import "../features/dashboard/pages/dashboard-role-theme.css";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -49,7 +51,7 @@ export function AppLayout() {
             <div id="htt-main-navigation" className={navigationOpen ? "htt-navigation is-open" : "htt-navigation"} onKeyDown={event => { if(event.key === 'Escape') setNavigationOpen(false); }}><Sidebar /></div>
             <Topbar />
 
-            <main data-module-theme={/^\/(sales|promotions|procurement|purchases)(\/|$)/.test(location.pathname)?"light":undefined} data-wide-content={location.pathname.startsWith("/promotions")||location.pathname.startsWith("/purchases")?"true":undefined} data-desktop-workspace={/^\/(dashboard|sales|promotions|procurement)(\/|$)/.test(location.pathname)?"true":undefined}
+            <main data-module-theme={location.pathname==='/dashboard'?undefined:"light"} data-wide-content={location.pathname.startsWith("/promotions")||location.pathname.startsWith("/purchases")?"true":undefined} data-desktop-workspace={/^\/(dashboard|sales|promotions|procurement)(\/|$)/.test(location.pathname)?"true":undefined}
                 className="
           min-h-screen
           pl-[var(--sidebar-width)]

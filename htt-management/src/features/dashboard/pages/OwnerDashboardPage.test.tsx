@@ -219,3 +219,17 @@ it('orders Admin modules as financials, performance and inventory, operations, s
  const sections=['class="admin-financial-summary"','class="admin-sales-performance"','class="admin-inventory-overview"','class="reception-metrics"','class="admin-operations-panels"','id="dashboard-stock-shortages"','Outstanding Dispatch','Quotes &amp; Orders – Pending','Incoming Shipments'];
  for(let i=1;i<sections.length;i++)expect(html.indexOf(sections[i])).toBeGreaterThan(html.indexOf(sections[i-1]));
 });
+
+it('shares the Admin visual shell and header controls across every dashboard role',()=>{
+ identity.roles=['ADMIN'];
+ for(const role of ['Admin','Accounts','Reception','Warehouse']){
+  const html=render('/dashboard?sample=1&sampleRole='+role);
+  expect(html).toContain('data-dashboard-role="'+role+'"');
+  expect(html).toContain('owner-dashboard owner-reference');
+  expect(html).toContain('owner-header-controls');
+  expect(html).toContain('Sample preview');
+ }
+ const warehouse=render('/dashboard?sample=1&sampleRole=Warehouse');
+ expect(warehouse).not.toContain('Total Sales (YTD)');
+ expect(warehouse).not.toContain('Cash at Bank');
+});
