@@ -2,7 +2,7 @@ import { ArrowLeft, Download, Search } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import { salesDocuments, type DocumentKind } from "../data/salesDocuments";
-import { useLocalAccount } from "../data/localAccount";
+import { useLocalAccount } from "../services/account";
 const money=(value:number)=>value.toLocaleString("en-AU",{style:"currency",currency:"AUD"});
 const statusClass=(status:string)=>["Accepted","Completed"].includes(status)?"paid":status==="Expired"?"overdue":"outstanding";
 const area=(value:number|undefined)=>value==null?"-":`${value.toFixed(3)} m²`;

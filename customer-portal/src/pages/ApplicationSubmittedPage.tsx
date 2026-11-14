@@ -1,6 +1,6 @@
 import { Link, Navigate } from "react-router-dom";
 
-import { getApplication } from "../data/localAccount";
+import { getApplication } from "../services/account";
 export default function ApplicationSubmittedPage() {
     const application=getApplication();
     if(!application) return <Navigate to="/register" replace/>;

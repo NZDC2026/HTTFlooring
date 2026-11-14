@@ -3,7 +3,7 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import { confirmReturnNote, cancelReturnNote, returnDetails, useReturnNotes } from "../data/returnNotes";
-import { useLocalAccount } from "../data/localAccount";
+import { useLocalAccount } from "../services/account";
 const money=(value:number)=>value.toLocaleString("en-AU",{style:"currency",currency:"AUD"});
 const area=(value?:number)=>value==null?"-":`${value.toFixed(3)} m²`;
 export default function ReturnDetailPage(){

@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { useLocalAccount } from "../data/localAccount";
+import { useLocalAccount } from "../services/account";
 import PortalHeader from "../components/PortalHeader";
 import SeriesRow from "../components/SeriesRow";
 import { categorySubcategories, filterProductSeries, productCollections } from "../data/products";

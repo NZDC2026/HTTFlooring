@@ -1,7 +1,7 @@
 import { LogOut, UserRound } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
-import { logout, useLocalAccount } from "../data/localAccount";
+import { logout, useLocalAccount } from "../services/account";
 export default function PortalHeader() {
     const {profile} = useLocalAccount(); const navigate = useNavigate(); const {pathname}=useLocation();
     return (

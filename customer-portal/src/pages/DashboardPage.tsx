@@ -7,7 +7,7 @@ import { productCollections } from "../data/products";
 const money = (value: number) => value.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
 
 
-import { useLocalAccount } from "../data/localAccount";
+import { useLocalAccount } from "../services/account";
 const categories = [
     {
         name: "Engineered Timber",

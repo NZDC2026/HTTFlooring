@@ -2,7 +2,7 @@ import { useState } from "react";
 import { LockKeyhole, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
-import { changePassword, updateProfile, useLocalAccount } from "../data/localAccount";
+import { changePassword, updateProfile, useLocalAccount } from "../services/account";
 import { useInvoiceLedger } from "../data/ledger";
 const money = (value: number) => value.toLocaleString("en-AU", {style:"currency",currency:"AUD"});
 export default function AccountPage() {

@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowUpRight, Search } from "lucide-react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import { getColourCollection, getProductPricing, hasPromotion, productSeries } from "../data/products";
-import { useLocalAccount } from "../data/localAccount";
+import { useLocalAccount } from "../services/account";
 
 const promotionDate = (value?: string) => {
     if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "-";

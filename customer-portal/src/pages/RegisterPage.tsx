@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { submitApplication, type Profile } from "../data/localAccount";
+import { submitApplication, type Profile } from "../services/account";
 
 export default function RegisterPage() {
  const [error,setError]=useState("");

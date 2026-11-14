@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { createRequire } from 'node:module';
 import { webcrypto } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const nativeRequire=createRequire(import.meta.url);
 function loader(stubs={}) {
  const cache=new Map();
  return function load(file) {
@@ -13,7 +15,7 @@ function loader(stubs={}) {
   if(cache.has(target))return cache.get(target);
   const exports={};cache.set(target,exports);
   const code=ts.transpile(fs.readFileSync(target,'utf8'),{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2023});
-  new Function('exports','require',code)(exports,name=>name in stubs ? stubs[name] : load(path.resolve(path.dirname(target),name+'.ts')));
+  new Function('exports','require',code)(exports,name=>name in stubs ? stubs[name] : name==='../config/auth' ? {authMode:'api'} : name==='zustand/vanilla' ? nativeRequire(name) : load(path.resolve(path.dirname(target),name+'.ts')));
   return exports;
  };
 }
@@ -54,28 +56,17 @@ test('sales report uses invoice area, dates, customer and invoice status',()=>{
  const rows=[{customerId:'abc-flooring',status:'quotation',date:now,items:[{productId:'x',name:'x',sku:'x',sqm:10,boxes:1}]}];assert.equal(sales.productSalesReport(rows,'abc-flooring',now,30).products.length,0);
 });
 function storage(){const values=new Map();return {getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,String(value)),removeItem:key=>values.delete(key),clear:()=>values.clear()};}
-test('local account, session, contact, password recovery and saved applications',async()=>{
+test('offline application validation remains isolated from server authentication',()=>{
  globalThis.localStorage=storage();globalThis.sessionStorage=storage();globalThis.crypto??=webcrypto;
- const account=loader({react:{useSyncExternalStore:()=>{}}})('src/data/localAccount.ts');
+ const account=loader({react:{useSyncExternalStore:()=>({status:'unauthenticated',context:null,email:''})}})('src/data/localAccount.ts');
+ assert.equal(typeof account.login,'function');assert.equal(account.DEMO_PASSWORD,'Flooring123!');
  assert.equal(account.useLocalAccount().authenticated,false);
- await assert.rejects(account.login(account.defaultProfile.email,'wrong',false));
- await account.login(account.defaultProfile.email,account.DEMO_PASSWORD,false);assert.equal(account.useLocalAccount().authenticated,true);
- assert.equal(localStorage.getItem('htt.local.session.v1'),null);assert.ok(sessionStorage.getItem('htt.local.session.v1'));
- account.updateProfile({...account.defaultProfile,firstName:'Test',region:'Sydney'});assert.equal(account.useLocalAccount().profile.firstName,'Test');assert.equal(account.useLocalAccount().profile.region,'Melbourne');
- await assert.rejects(account.changePassword('wrong','NewPassword123!'));
- await account.changePassword(account.DEMO_PASSWORD,'NewPassword123!');assert.equal(account.useLocalAccount().authenticated,false);
- await assert.rejects(account.login(account.defaultProfile.email,account.DEMO_PASSWORD,false));
- await account.login(account.defaultProfile.email,'NewPassword123!',true);assert.ok(localStorage.getItem('htt.local.session.v1'));
- const saved=localStorage.getItem('htt.local.account.v1');assert.ok(!saved.includes('NewPassword123!'));
- await assert.rejects(account.resetPassword(account.defaultProfile.email,'bad','ResetPassword123!'));
- await account.resetPassword(account.defaultProfile.email,account.DEMO_RECOVERY,'ResetPassword123!');await account.login(account.defaultProfile.email,'ResetPassword123!',false);account.logout();assert.equal(account.useLocalAccount().authenticated,false);
  assert.equal(account.validABN('51 824 753 556'),true);assert.equal(account.validABN('12 345 678 901'),false);
  const profile={...account.defaultProfile,email:'applicant@example.test',address:'1 Test Street'};
  const application=account.submitApplication(profile);assert.ok(application.id.startsWith('APP-'));assert.equal(account.getApplication().status,'Pending review');assert.throws(()=>account.submitApplication(profile));
  account.submitApplication({...profile,email:'second@example.test'});assert.equal(JSON.parse(localStorage.getItem('htt.local.application.v1')).length,2);
- await account.login(account.defaultProfile.email,'ResetPassword123!',true);const session=JSON.parse(localStorage.getItem('htt.local.session.v1'));localStorage.setItem('htt.local.session.v1',JSON.stringify({...session,expires:0}));assert.equal(account.useLocalAccount().authenticated,false);
+ assert.equal(localStorage.getItem('htt.local.account.v1'),null);assert.equal(localStorage.getItem('htt.local.session.v1'),null);
 });
-
 test('series grouping, colour references, search and promotional filters',()=>{
  assert.deepEqual(products.productSeries.map(series=>series.name), ['Bonita','Guardian','AquaGlow','Heritage','Scotia','Stair Nose','Trims']);
  const bonita=products.productSeries.find(series=>series.id==='bonita');

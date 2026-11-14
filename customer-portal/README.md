@@ -1,6 +1,6 @@
 # HTT Flooring customer portal
 
-Local React + TypeScript customer portal. No backend integration is included.
+Local React + TypeScript customer portal. Login can use the Java backend or an explicit, independent Mock mode. Existing business data remains local preview data.
 
 ```sh
 npm install
@@ -10,7 +10,16 @@ npm run lint
 npm test
 ```
 
-## Local demo
+## Login modes
+
+- `pnpm dev`: real `POST /api/portal/v1/auth/login`, through the existing `/api` proxy to port 8070. Credentials are verified only by the backend. Successful login updates the existing in-memory account hook and follows the original return route, while the Mock page content and business fixtures remain unchanged. Rejected credentials and service errors never fall back to Mock login.
+- `pnpm dev:mock`: explicit Mock mode (`vite --mode mock`), using the original demo credentials and local flows below. It never calls the backend login endpoint. Mock sessions retain the original `htt.local.session.v1` key; real mode ignores these sessions.
+
+`src/data/localAccount.ts` remains the original Mock implementation and data. Pages use `src/services/account.ts`, which selects real or Mock login according to `src/config/auth.ts`. Page content and layouts are unchanged by this adapter.
+
+Real access tokens remain in private memory and expire according to `expiresIn`; Remember me does not extend or persist a real session. Backend recovery/refresh is not available yet, so reloading requires a new real login. Logout in this compatibility flow clears local login state; server revocation is not wired into the existing page header. Local Mock password reset/change is only enabled in Mock mode and does not modify backend credentials. Other business pages continue to show Mock data, not the real account's backend records.
+
+## Local demo (Mock mode only)
 
 Login: `john@abcflooring.com.au` / `Flooring123!`.
 Recovery code: `HTT-DEMO-RECOVERY`. The login page shows the initial demo credentials; after a password change use the new password. Local authentication is for demonstrations, not a production security boundary.

@@ -4,7 +4,7 @@ import PortalHeader from "../components/PortalHeader";
 import ProductSalesCard from "../components/ProductSalesCard";
 import { netSalesInvoices } from "../data/productSales";
 import { useReturnNotes } from "../data/returnNotes";
-import { useLocalAccount } from "../data/localAccount";
+import { useLocalAccount } from "../services/account";
 import { getProductPricing, products } from "../data/products";
 
 export default function ProductPage() {

@@ -2,7 +2,7 @@ import { ArrowLeft, Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
 import { useInvoiceLedger } from "../data/ledger";
-import { useLocalAccount } from "../data/localAccount";
+import { useLocalAccount } from "../services/account";
 const money=(v:number)=>v.toLocaleString("en-AU",{style:"currency",currency:"AUD"});
 const area = (value: number | null | undefined) => value == null ? "-" : `${value.toFixed(3)} m²`;
 export default function InvoiceDetailPage(){

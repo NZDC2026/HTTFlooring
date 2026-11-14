@@ -17,7 +17,7 @@ import ReturnDetailPage from "./pages/ReturnDetailPage";
 import InvoiceDetailPage from "./pages/InvoiceDetailPage";
 
 import { useEffect } from "react";
-import { useLocalAccount } from "./data/localAccount";
+import { useLocalAccount } from "./services/account";
 function RequireAccount() {
  const { authenticated } = useLocalAccount(); const location = useLocation();
  return authenticated ? <Outlet/> : <Navigate to="/login" replace state={{from: location.pathname + location.search}}/>;

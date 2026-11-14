@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    proxy: {"/api": {target: "http://127.0.0.1:8070", changeOrigin: true}},
     host: '0.0.0.0',
     allowedHosts: [
       'htt-flooring-website.nzdc.co.uk',
