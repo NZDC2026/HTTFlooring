@@ -1,0 +1,23 @@
+import {describe,it,expect,vi} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {MemoryRouter} from 'react-router-dom';
+const state=vi.hoisted(()=>({sales:false,purchases:false,cost:false}));
+vi.mock('../../security/usePermission',()=>({usePermission:(p:string)=>p==='sales.read'?state.sales:p==='purchases.read'?state.purchases:p==='inventory.cost.read'?state.cost:false}));
+vi.mock('../../business-workspace/productRepository',()=>({useProducts:()=>[]}));
+vi.mock('../../sales/data/useSalesDocuments',()=>({useSalesDocuments:()=>[]}));
+vi.mock('../../purchases/data/useGoodsReceipts',()=>({useGoodsReceipts:()=>[]}));
+vi.mock('../../contacts/data/useCustomers',()=>({useCustomers:()=>[]}));
+vi.mock('../data/useInventory',()=>({useInventoryMovements:()=>[]}));
+vi.mock('../../sales/data/salesFulfilmentRepository',()=>({salesFulfilmentRepository:{subscribe:()=>()=>{},getSnapshot:()=>[]}}));
+vi.mock('../data/inventoryCostMovementRepository',()=>({inventoryCostMovementRepository:{subscribe:()=>()=>{},getSnapshot:()=>[]}}));
+vi.mock('../../../lib/businessDate',()=>({businessDateKey:()=> '2026-11-14'}));
+vi.mock('../data/inventoryTransactions',()=>({soldTransactions:()=>[{id:'s',productId:'p',date:'2026-11-10',quantity:10,amount:9876,siteId:'warehouse',unit:'m²'}],boughtTransactions:()=>[{id:'b',productId:'p',date:'2026-11-10',quantity:20,amount:4321,siteId:'warehouse',partyId:'supplier',partyName:'Private Supplier',unit:'m²'}]}));
+import {InventorySoldBought} from './InventorySoldBought';
+import type {Item} from '../data/inventorySamples';
+const item={id:'p',name:'Live Product',sku:'LIVE',unit:'m²',onHand:100,low:1,category:'Timber',active:true,stock:true} as Item;
+const render=(sample=false)=>renderToStaticMarkup(<MemoryRouter><InventorySoldBought sample={sample} site="ALL" items={[item]} onOpenStock={()=>{}}/></MemoryRouter>);
+describe('Sold & Bought permissions',()=>{
+ it('hides restricted sales, purchase and cost amounts',()=>{state.sales=false;state.purchases=false;state.cost=false;const html=render();expect(html).toContain('Restricted');expect(html).not.toContain('9,876');expect(html).not.toContain('4,321');expect(html).not.toContain('Private Supplier');});
+ it('allows sales while keeping purchases, suppliers and margin restricted',()=>{state.sales=true;state.purchases=false;state.cost=false;const html=render();expect(html).toContain('9,876');expect(html).not.toContain('4,321');expect(html).not.toContain('Private Supplier');expect(html).not.toContain('$ · margin');});
+ it('keeps public sample records synthetic and separated from live products',()=>{state.sales=false;state.purchases=false;state.cost=false;const html=render(true);expect(html).toContain('Read-only synthetic preview');expect(html).toContain('Engineered Oak 2200');expect(html).not.toContain('Live Product');expect(html).not.toContain('Private Supplier');});
+});

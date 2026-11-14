@@ -1,0 +1,27 @@
+import {useState,useSyncExternalStore} from 'react';
+import {Link} from 'react-router-dom';
+import {Download,X} from 'lucide-react';
+import {inventoryCostMovementRepository} from '../data/inventoryCostMovementRepository';
+import {salesFulfilmentRepository} from '../../sales/data/salesFulfilmentRepository';
+import {useCustomers} from '../../contacts/data/useCustomers';
+import {usePermission} from '../../security/usePermission';
+import {downloadCsv} from '../data/soldBoughtReport';
+import type {InventoryMovementRow} from '../types/inventoryOverview';
+const num=(n:number)=>n.toLocaleString('en-AU',{maximumFractionDigits:4});
+/** Trace only persisted physical allocations. No FIFO guesses or writes. */
+export function InventoryBatchTrace({row,rows,onClose}:{row:InventoryMovementRow;rows:InventoryMovementRow[];onClose:()=>void}){
+ const costs=useSyncExternalStore(inventoryCostMovementRepository.subscribe,inventoryCostMovementRepository.getSnapshot,inventoryCostMovementRepository.getSnapshot);
+ const fulfilments=useSyncExternalStore(salesFulfilmentRepository.subscribe,salesFulfilmentRepository.getSnapshot,salesFulfilmentRepository.getSnapshot),customers=useCustomers(),canSales=usePermission('sales.read'),canTrace=usePermission('inventory.cost.read');
+ const history=costs.filter(c=>c.siteId===row.siteId&&c.productId===row.productId);
+ const origin=history.find(c=>c.inventoryMovementId===row.id);
+ const [batchId,setBatchId]=useState(origin?.batchAllocations?.[0]?.batchId??(origin&&origin.quantityBase>0?origin.id:''));
+ const sources=history.filter(c=>c.quantityBase>0),source=sources.find(c=>c.id===batchId);
+ const traced=source?history.flatMap(c=>{if(c.id===source.id)return [{cost:c,quantity:c.quantityBase}];const allocation=c.batchAllocations?.find(a=>a.batchId===batchId);return allocation?[{cost:c,quantity:-allocation.quantity}]:[];}):[];
+ const related=source?rows.filter(r=>traced.some(t=>t.cost.inventoryMovementId===r.id)):rows.filter(r=>r.productId===row.productId&&r.siteId===row.siteId);
+ const delivered=traced.filter(t=>t.cost.referenceType==='SALE').reduce((n,t)=>n-t.quantity,0),other=traced.filter(t=>t.cost.id!==source?.id&&t.cost.referenceType!=='SALE').reduce((n,t)=>n+t.quantity,0);
+ const unit=row.baseUnitSymbol;
+ return <section data-ui="card" className="im-batch-trace"><header><div className="im-product"><span className="isl-thumbnail"/><div><b>{source?'Batch '+(source.referenceNumber||source.costMovementNumber):row.productName}</b><small>{row.productName} · {row.siteName}{source?' · received '+source.occurredAt.slice(0,10):' · Product stock history'}</small></div></div><div><button data-ui="button" onClick={()=>downloadCsv([['Date','Movement','Reference','Quantity','Unit'],...related.map(r=>[r.occurredAt,r.movementType,r.referenceNumber??'',traced.find(t=>t.cost.inventoryMovementId===r.id)?.quantity??r.quantityBase,unit])],'Batch-trace.csv')}><Download size={14}/>Export</button><button data-ui="button" aria-label="Close batch trace" onClick={onClose}><X size={16}/></button></div></header>
+ <label className="im-batch-select">Physical batch <select data-ui="field" aria-label="Physical batch" value={batchId} onChange={e=>setBatchId(e.target.value)}><option value="">Product history · all batches</option>{sources.map(c=><option key={c.id} value={c.id}>{c.referenceNumber||c.costMovementNumber} · {c.occurredAt.slice(0,10)}</option>)}</select></label>
+ {source?<><div className="im-trace-metrics">{[['Received',source.quantityBase],['Delivered to customers',delivered],['Other movements',other],['Tracked balance',traced.reduce((n,t)=>n+t.quantity,0)]].map(([label,n])=><div key={label}><small>{label}</small><strong>{num(Number(n))} {unit}</strong></div>)}</div><h4>Customers who have this batch</h4>{canSales?<div className="im-trace-customers">{traced.filter(t=>t.cost.referenceType==='SALE').map(t=>{const f=fulfilments.find(f=>f.id===t.cost.referenceId);return <div key={t.cost.id}><small>{t.cost.occurredAt.slice(0,10)}</small>{f?<Link to={`/sales/orders/${f.salesOrderId}`}>{f.salesOrderNumber}</Link>:<span>{t.cost.referenceNumber}</span>}<b>{f?customers.find(c=>c.id===f.customerId)?.businessName??'Customer not recorded':'Customer not recorded'}</b><b>{num(-t.quantity)} {unit}</b><span className="im-type">Dispatched</span></div>;})}{!delivered&&<p className="im-empty">No saved customer allocations for this batch.</p>}</div>:<p>Sales permission is required to view customer orders.</p>}<p className="im-trace-note">Based on saved physical batch allocations. Older movements without batch allocations and batch-specific reservations are not attributed.</p></>:<p className="im-trace-note">{canTrace?'Select a recorded receipt batch to inspect its saved allocations. Unrecorded batch details are not inferred.':'Inventory cost permission is required to inspect saved physical batch allocations.'}</p>}
+ <div className="im-scroll im-trace-ledger"><table><thead><tr>{['Date','Type','Reference','Quantity'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{related.map(r=><tr key={r.id}><td>{r.occurredAt.slice(0,10)}</td><td>{r.movementType}</td><td>{r.referenceType==='GOODS_RECEIPT'&&r.referenceId?<Link to={`/purchases/goods-receipts/${r.referenceId}`}>{r.referenceNumber}</Link>:r.referenceNumber??r.movementNumber}</td><td>{num(traced.find(t=>t.cost.inventoryMovementId===r.id)?.quantity??r.quantityBase)} {unit}</td></tr>)}</tbody></table></div></section>;
+}

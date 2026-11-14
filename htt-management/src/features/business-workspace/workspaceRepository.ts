@@ -1,3 +1,5 @@
+import {physicalStockBatches} from '../inventory/data/productStockBatches';
+import {validateClearance} from '../inventory/clearance/clearanceModel';
 import {promotionAudienceSchema,readPromotionAudience,promotionCustomerTypes,promotionCustomerIdsSchema,readPromotionCustomerIds} from '../promotions/promotionAudience';
 import {purchaseDueDate,purchaseDefaults} from '../purchase-settings/purchaseDefaults';
 import {supplierRepository} from '../contacts/data/supplierRepository';
@@ -52,6 +54,7 @@ export const workspaceDomains: Record<string, {
     required: string[];
     fields: string[];
 }> = {
+    clearances: {read:'inventory.read',write:'promotions.manage',required:['productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','price','starts','ends','reason','allowBelowCost'],fields:['productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','price','starts','ends','reason','allowBelowCost']},
     procurement: {read:'purchases.read',write:'purchases.write',required:['code','links'],fields:['code','links','notes','documents','invoiceDrafts']},
     'tax-codes': { read: 'inventory.read', write: 'accounting.post', required: ['code', 'rate', 'collected', 'paid'], fields: ['code', 'rate', 'collected', 'paid', 'basis', 'report'] },
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },
@@ -93,6 +96,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
         if(!(domain==='tasks'&&key==='customerId'&&input.promotionId))requiredText(input[key], key);
     if (!['Active', 'Inactive', 'Open', 'In progress', 'Completed'].includes(input.status ?? 'Active'))
         throw new Error('Invalid business status.');
+    if(domain==='clearances'){validateClearance(input);if(checkReferences){const p=getProductById(input.productId);if(!p||input.unitId!==p.baseUnitId)throw Error('Select the clearance product base unit.');const snapshots=snapshotRepositories();const source=(snapshots.costMovements as {movements:import('../inventory/types/inventoryCost').InventoryCostMovement[]}).movements.find(m=>m.id===input.batchId&&m.productId===input.productId&&m.siteId===input.siteId&&m.quantityBase>0);if(!source)throw Error('Select a recorded batch for this product and site.');if(Number(input.initialQuantity)>source.quantityBase)throw Error('Clearance quantity exceeds the received batch quantity.');const prior=rows.find(r=>r.id===input.id);if(prior&&['productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','starts'].some(k=>prior[k]!==input[k]))throw Error('Clearance batch scope and starting quantity cannot be changed.');if(!prior){const history=(snapshots.costMovements as {movements:import('../inventory/types/inventoryCost').InventoryCostMovement[]}).movements.filter(c=>c.productId===input.productId&&c.siteId===input.siteId),available=physicalStockBatches(history).find(b=>b.id===input.batchId)?.quantity??0;if(Number(input.initialQuantity)>available)throw Error('Clearance quantity exceeds the remaining batch stock.');}if(input.allowBelowCost==='true')trustedAuthorization.require('promotions.margin');if((input.status??'Active')==='Active'&&rows.some(r=>r.id!==input.id&&r.status==='Active'&&r.batchId===input.batchId&&r.siteId===input.siteId&&r.starts<=input.ends&&r.ends>=input.starts))throw Error('An active clearance already covers this batch and date range.');}}
     if(domain==='procurement'){readInvoiceDrafts(input.invoiceDrafts);validateProcurement(input,rows,checkReferences?(snapshotRepositories().purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders:undefined,checkReferences?(snapshotRepositories().supplierBills as {supplierBills:import('../purchases/types/supplierBill').SupplierBill[]}).supplierBills:undefined);}
     if (domain === 'tax-codes') {
         money(input.rate, 'Tax rate');
@@ -388,6 +392,7 @@ function validateConfigurationReferences(domain: string, value: unknown, snapsho
     for (const row of records) {
         if(domain==='procurement')validateProcurement(row,records,(snapshots.purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,(snapshots.supplierBills as {supplierBills:import('../purchases/types/supplierBill').SupplierBill[]}).supplierBills);
         if(domain==='tasks'){validateInternalTaskSource(row,snapshots as Record<string,any>);const sales=snapshots.sales as {salesOrders:TaskDocument[];invoices:TaskDocument[]};validateTaskDocument(row.documentType,row.documentId,row.customerId,sales.salesOrders,sales.invoices,'customerId');}
+        if(domain==='clearances'){const p=(snapshots.products as {products:import('../inventory/types/product').Product[]}).products.find(p=>p.id===row.productId),source=(snapshots.costMovements as {movements:import('../inventory/types/inventoryCost').InventoryCostMovement[]}).movements.find(c=>c.id===row.batchId&&c.productId===row.productId&&c.siteId===row.siteId&&c.quantityBase>0);if(!p||p.baseUnitId!==row.unitId||!source||Number(row.initialQuantity)>source.quantityBase)throw Error('Backup clearance batch reference is invalid.');}
         if(domain==='rebates'&&(!customers.some(c=>c.id===row.customerId)||!products.some(p=>p.id===row.productId)))throw Error('Backup rebate reference is invalid.');
         if(domain==='promotions'&&readPromotionCustomerIds(row.customerIds).some(id=>!customers.some(c=>c.id===id)))throw Error('Backup promotion customer reference is invalid.');
         if (row.customerId && !customers.some(c => c.id === row.customerId))

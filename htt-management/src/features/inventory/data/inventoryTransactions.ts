@@ -2,7 +2,7 @@ import type { Product } from '../types/product';
 import type { SalesDocument } from '../../sales/types/salesDocument';
 import type { SalesFulfilment } from '../../sales/types/salesFulfilment';
 import type { GoodsReceipt } from '../../purchases/types/goodsReceipt';
-export type InventoryTransaction={id:string;date:string;documentId:string;documentNumber:string;orderId:string;orderNumber:string;invoiceNumber?:string;partyId:string;partyName:string;productId:string;sku:string;name:string;category:string;unit:string;quantity:number;coverage?:number;area?:number;amount:number;siteId:string;sample?:boolean};
+export type InventoryTransaction={id:string;date:string;documentId:string;documentNumber:string;orderId:string;orderNumber:string;invoiceNumber?:string;partyId:string;partyName:string;productId:string;sku:string;name:string;category:string;unit:string;quantity:number;baseQuantity?:number;coverage?:number;area?:number;amount:number;siteId:string;sample?:boolean};
 export function soldTransactions(products:Product[],documents:SalesDocument[],fulfilments:SalesFulfilment[],customers:{id:string;businessName:string}[]):InventoryTransaction[]{
  const invoices=documents.filter(d=>d.type==='INVOICE'&&!['VOID','DRAFT'].includes(d.status));
  const used=new Map<string,number>(),rows:InventoryTransaction[]=[];
@@ -17,7 +17,7 @@ export function soldTransactions(products:Product[],documents:SalesDocument[],fu
     const key=inv.id+':'+line.id,available=line.quantity-(used.get(key)||0),quantity=Math.min(remaining,available);if(quantity<=0)continue;
     used.set(key,(used.get(key)||0)+quantity);remaining-=quantity;
     const base=p.units.find(u=>u.id===p.baseUnitId),coverage=line.areaPerPack??(base?.code==='M2'?l.conversionToBase:undefined);
-    rows.push({id:f.id+':'+l.id+':'+inv.id,date:f.fulfilmentDate,documentId:inv.id,documentNumber:inv.documentNumber,invoiceNumber:inv.documentNumber,orderId:f.salesOrderId,orderNumber:f.salesOrderNumber,partyId:f.customerId,partyName:customers.find(c=>c.id===f.customerId)?.businessName||f.customerId,productId:p.id,sku:l.sku,name:l.description,category:p.category,unit:l.unitSymbol,quantity,coverage,area:coverage===undefined?undefined:quantity*coverage,amount:line.lineSubtotal*quantity/line.quantity,siteId:f.siteId});
+    rows.push({id:f.id+':'+l.id+':'+inv.id,date:f.fulfilmentDate,documentId:inv.id,documentNumber:inv.documentNumber,invoiceNumber:inv.documentNumber,orderId:f.salesOrderId,orderNumber:f.salesOrderNumber,partyId:f.customerId,partyName:customers.find(c=>c.id===f.customerId)?.businessName||f.customerId,productId:p.id,sku:l.sku,name:l.description,category:p.category,unit:l.unitSymbol,quantity,baseQuantity:quantity*l.conversionToBase,coverage,area:coverage===undefined?undefined:quantity*coverage,amount:line.lineSubtotal*quantity/line.quantity,siteId:f.siteId});
     if(remaining<=0)break;
    }
   }
@@ -25,7 +25,7 @@ export function soldTransactions(products:Product[],documents:SalesDocument[],fu
  return rows;
 }
 export function boughtTransactions(products:Product[],receipts:GoodsReceipt[]):InventoryTransaction[]{
- return receipts.filter(r=>r.status==='POSTED').flatMap(r=>r.lines.flatMap(l=>{const p=products.find(p=>p.id===l.productId);if(!p||l.receivedQuantity<=0)return [];const base=p.units.find(u=>u.id===p.baseUnitId),area=base?.code==='M2'?l.receivedBaseQuantity:undefined;return [{id:r.id+':'+l.id,date:r.receiptDate,documentId:r.id,documentNumber:r.receiptNumber,orderId:r.purchaseOrderId,orderNumber:r.purchaseOrderNumber,partyId:r.supplierId,partyName:r.supplierName,productId:p.id,sku:l.sku,name:l.description,category:p.category,unit:l.unitSymbol,quantity:l.receivedQuantity,coverage:area===undefined?undefined:area/l.receivedQuantity,area,amount:l.receivedQuantity*l.unitCost,siteId:r.siteId}];}));
+ return receipts.filter(r=>r.status==='POSTED').flatMap(r=>r.lines.flatMap(l=>{const p=products.find(p=>p.id===l.productId);if(!p||l.receivedQuantity<=0)return [];const base=p.units.find(u=>u.id===p.baseUnitId),area=base?.code==='M2'?l.receivedBaseQuantity:undefined;return [{id:r.id+':'+l.id,date:r.receiptDate,documentId:r.id,documentNumber:r.receiptNumber,orderId:r.purchaseOrderId,orderNumber:r.purchaseOrderNumber,partyId:r.supplierId,partyName:r.supplierName,productId:p.id,sku:l.sku,name:l.description,category:p.category,unit:l.unitSymbol,quantity:l.receivedQuantity,baseQuantity:l.receivedBaseQuantity,coverage:area===undefined?undefined:area/l.receivedQuantity,area,amount:l.receivedQuantity*l.unitCost,siteId:r.siteId}];}));
 }
 export function transactionSummary(rows:InventoryTransaction[]){
  const accessories:Record<string,number>={};for(const r of rows.filter(r=>r.category==='Accessories'))accessories[r.unit]=(accessories[r.unit]||0)+r.quantity;

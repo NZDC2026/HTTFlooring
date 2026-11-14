@@ -1,3 +1,4 @@
+import {InventoryActivityRedirect} from '../features/inventory/pages/InventoryActivityRedirect';
 import {QuoteCreatePage} from '../features/sales/pages/QuoteCreatePage';
 import {EmailSettingsPage} from '../features/invoice-reminders/EmailSettingsPage';
 import {OwnerDashboardPage} from '../features/dashboard/pages/OwnerDashboardPage';
@@ -255,8 +256,8 @@ export const appRoutes:RouteObject[] = [
             },
             { path: "inventory/damage", element: <StockAdjustmentsPage damageOnly /> },
             { path: "inventory/adjustments", element: <StockAdjustmentsPage /> },
-            { path: "inventory/sold", element: <InventoryPage key="sold" initialKind="Sold" /> },
-            { path: "inventory/bought", element: <InventoryPage key="bought" initialKind="Bought" /> },
+            { path: "inventory/sold", element: <InventoryActivityRedirect /> },
+            { path: "inventory/bought", element: <InventoryActivityRedirect /> },
             {
                 path: "inventory/valuation",
                 element: (

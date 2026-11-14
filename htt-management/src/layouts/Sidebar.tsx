@@ -205,8 +205,6 @@ export function Sidebar() {
                                     const Icon = item.icon;
                                     const children: {label:string;path:string;permission?:Permission}[]=item.path==='/sales'?[{label:'Inoices & Statements',path:'/sales/invoice-reminders'}]:item.path==='/accounting'?[
                                         {label:'Overview',path:'/accounting'},{label:'Chart of Accounts',path:'/accounting?view=accounts'},{label:'Journal Entries',path:'/accounting/journals'},{label:'Bank Reconciliation',path:'/banking',permission:'banking.read'},{label:'Period Closing',path:'/accounting/periods'},{label:'GST / BAS',path:'/reports/tax-summary',permission:'sales.read'},{label:'Financial Reports',path:'/reports?category=Financial',permission:'sales.read'}
-                                    ]:item.path==='/inventory'?[
-                                        {label:'Sold',path:'/inventory/sold',permission:'sales.read'},{label:'Bought',path:'/inventory/bought',permission:'purchases.read'}
                                     ]:item.path==='/contacts'?[{label:'All Customers',path:'/contacts/list',permission:'contacts.write'}]:item.path==='/contacts/supplier-dashboard'?[{label:'All Suppliers',path:'/contacts/suppliers',permission:'contacts.write'}]:[];
                                     const allowedChildren=children.filter(child=>!child.permission||hasPermission(principal,child.permission));
                                     if(allowedChildren.length)return <SidebarFlyout key={item.path} label={item.label} path={item.path} icon={Icon} active={owner===item.path} childrenItems={allowedChildren} pathname={pathname} search={locationSearch}/>;
