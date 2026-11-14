@@ -1,0 +1,6 @@
+import {describe,it,expect} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {MemoryRouter} from 'react-router-dom';
+import {AdjustmentWorkspace} from './AdjustmentWorkspace';
+const render=(sample:boolean,damage=false)=>renderToStaticMarkup(<MemoryRouter><AdjustmentWorkspace sample={sample} damage={damage} onSample={()=>{}}><div>Live records</div></AdjustmentWorkspace></MemoryRouter>);
+describe('Adjustment workspace isolation',()=>{it('shows realistic pending and completed adjustment previews',()=>{const html=render(true);expect(html).toContain('ADJ-0236');expect(html).toContain('Pending review');expect(html).toContain('Rejected');expect(html).toContain('Counted / new quantity');expect(html).not.toContain('Live records');});it('keeps synthetic adjustments out of live view',()=>{const html=render(false);expect(html).toContain('Live records');expect(html).not.toContain('ADJ-0236');expect(html).not.toContain('Submit adjustment');});it('shows supplier claim links and written-off damage separately',()=>{const html=render(true,true);expect(html).toContain('CLM-0087');expect(html).toContain('Credited $256');expect(html).toContain('Our damage · written off');expect(html).toContain('Claim from supplier anyway');expect(html).not.toContain('ADJ-0236');});});
