@@ -1,8 +1,12 @@
+2026-11-14：当前开发使用 Java 邮箱密码登录，无需 Keycloak。见 [运行与验收](docs/java-login.md)。
+
 # HTT Management API
+
+**2026-11-13 客户管理增量**：客户创建/列表/详情/编辑/状态、送货地址、联系人及门户账号关联/启停已实现；Main和Validation现为V9。统一Keycloak密码、外部String ID/内部UUID，详见 **[客户管理接口与接入](docs/customer-management.md)**。development配置展示新增接口，DEMO管理员已获客户管理权限。专用Keycloak账号服务客户端的部署被自动审批拒绝，尚需明确授权；SMTP亦未配置，不能把代码完成视为真实账号开通/重置邮件已联调。
 
 日常运行、IDEA Run/Debug配置和换机接续，请先看 **[开发环境与换机手册](docs/development-setup.md)**，包含DPAPI凭据恢复、Java/浏览器证书、Maven构建、Swagger登录及故障排查。
 
-**本地真实登录已接通（开发DEMO）**：4个Keycloak测试用户已绑定 `htt_management`，邮箱密码+授权码PKCE→Java→Main的me/门店/越权验收通过。运行 `./scripts/Start-Development.ps1 -Port 8081`，打开 http://localhost:8081/swagger-ui/index.html；证书信任、密码获取和操作见 **[开发登录](docs/development-login.md)**。最终94项普通/15项真实PG及JAR通过。下方“业务身份未绑定”是早期状态；三端接入、手机号及生命周期同步仍待完成。
+**本地真实登录已接通（开发DEMO）**：4个Keycloak测试用户已绑定 `htt_management`，邮箱密码+授权码PKCE→Java→Main的me/门店/越权验收通过。运行 `./scripts/Start-Development.ps1 -Port 8070`，打开 http://localhost:8070/swagger-ui/index.html；证书信任、密码获取和操作见 **[开发登录](docs/development-login.md)**。最终94项普通/15项真实PG及JAR通过。下方“业务身份未绑定”是早期状态；三端接入、手机号及生命周期同步仍待完成。
 
 HTT三端共用的Java后端。当前有工程/数据库、Bearer身份与资源权限、独立通知和内部库存读取；客户业务本轮只完成CTX-002门店只读切片，订单/财务API尚未迁移。
 
@@ -74,14 +78,14 @@ $env:MAVEN_USER_HOME = Join-Path (Get-Location) '.cache/maven'
 java -jar target/htt-management-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
-默认仅监听 `127.0.0.1:8080`，按 Ctrl+C 退出。`local` 是无基础设施的开发/技术冒烟配置：不创建 DataSource、不运行 Flyway/JPA、不创建 RabbitMQ ConnectionFactory，也不启用 Rabbit 健康检查。它不代表数据库和消息系统已就绪，不能用于业务部署。
+默认仅监听 `127.0.0.1:8070`，按 Ctrl+C 退出。`local` 是无基础设施的开发/技术冒烟配置：不创建 DataSource、不运行 Flyway/JPA、不创建 RabbitMQ ConnectionFactory，也不启用 Rabbit 健康检查。它不代表数据库和消息系统已就绪，不能用于业务部署。
 
 `.env.example` 提供无密码、无远程地址的环境变量示例。Spring Boot/Maven 不自动加载 `.env`；通过 IDE 的环境变量设置，或在 PowerShell 中显式设置：
 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE = 'local'
 $env:SERVER_ADDRESS = '127.0.0.1'
-$env:SERVER_PORT = '8080'
+$env:SERVER_PORT = '8070'
 java -jar target/htt-management-api-0.0.1-SNAPSHOT.jar
 ```
 

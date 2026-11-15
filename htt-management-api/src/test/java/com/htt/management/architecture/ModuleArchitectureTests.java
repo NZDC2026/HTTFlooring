@@ -39,7 +39,7 @@ class ModuleArchitectureTests {
 
     // Existing flat identity module: explicit, narrow bridges until it needs internal packages.
     private static final Set<String> IDENTITY_CONTRACTS = Set.of(
-            "AccessSnapshot", "VerifiedUser", "VerifiedToken", "ResourceAccess", "AccessAudit", "CustomerBranchAccess");
+            "AccessSnapshot", "VerifiedUser", "VerifiedToken", "ResourceAccess", "AccessAudit", "CustomerBranchAccess", "CustomerManagementAccess");
 
     @Test
     void productionModulesFollowTheDependencyDirection() {

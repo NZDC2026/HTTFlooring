@@ -23,6 +23,11 @@ class OpenApiConfiguration {
         if (environment.matchesProfiles("development")) {
             Components components = new Components();
             for (String realm : new String[]{"staff", "portal"}) {
+                if (environment.getProperty("htt.auth.local-enabled",Boolean.class,false)) {
+                    components.addSecuritySchemes(realm,new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer")
+                            .description("Java login accessToken; no Keycloak or client secret"));
+                    continue;
+                }
                 String issuer = environment.getRequiredProperty("htt.auth." + realm + ".issuer");
                 components.addSecuritySchemes(realm, new SecurityScheme().type(SecurityScheme.Type.OAUTH2)
                         .flows(new OAuthFlows().authorizationCode(new OAuthFlow()

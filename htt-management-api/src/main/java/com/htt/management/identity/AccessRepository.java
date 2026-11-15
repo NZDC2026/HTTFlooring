@@ -9,6 +9,9 @@ import tools.jackson.core.JacksonException;
 
 /** Only narrow database functions may bypass RLS during identity bootstrap. */
 public class AccessRepository {
+    public boolean isManagedPortalAccount(java.util.UUID actor) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("select identity.is_managed_customer_account(?)",Boolean.class,actor));
+    }
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
 
@@ -18,6 +21,10 @@ public class AccessRepository {
     }
 
     public AccessSnapshot resolve(String issuer, String subject, AccessSnapshot.Realm realm) {
+        if (LocalAuthentication.SESSION_ISSUER.equals(issuer)) {
+            String value=jdbc.queryForObject("select identity.password_session_access(?,?)::text",String.class,subject,realm.name());
+            return value==null?null:json.treeToValue(json.readTree(value).get("access"),AccessSnapshot.class);
+        }
         String result = jdbc.queryForObject("select identity.resolve_access(?, ?, ?)::text",
                 String.class, issuer, subject, realm.name());
         return parse(result, AccessSnapshot.class);
