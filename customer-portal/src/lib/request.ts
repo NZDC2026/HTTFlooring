@@ -1,5 +1,6 @@
 import type { Context } from '../types/portal';
-type Endpoint = { path: string; method: 'GET' | 'POST' };
+import { getAccessToken } from './accessToken';
+type Endpoint = { path: string; method: 'GET' | 'POST'; authenticated?: boolean };
 type RequestOptions = { body?: unknown; token?: string | null; context?: Context | null; signal?: AbortSignal };
 export class ApiError extends Error {
   readonly status: number;
@@ -18,7 +19,9 @@ export async function request<T>(endpoint: Endpoint, options: RequestOptions = {
   if (!endpoint.path.startsWith('/api/portal/v1/') || endpoint.path.includes('..') || endpoint.path.includes('?')) throw new Error('Unsupported API endpoint.');
   const headers = new Headers({ Accept: 'application/json' });
   if (options.body !== undefined) headers.set('Content-Type', 'application/json');
-  if (options.token) headers.set('Authorization', `Bearer ${options.token}`);
+  // Public endpoints never receive credentials. `token: null` explicitly opts out.
+  const token = endpoint.authenticated === false ? null : options.token === undefined ? getAccessToken() : options.token;
+  if (token) headers.set('Authorization', `Bearer ${token}`);
   if (options.context) {
     headers.set('X-Company-Id', options.context.companyId);
     headers.set('X-Portal-Grant-Id', options.context.grantId);
