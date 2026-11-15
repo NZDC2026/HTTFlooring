@@ -38,11 +38,11 @@ export function productStockBatches(productId:string,siteId:string,onHand:number
 }
 
 /** Freeze physical allocations on new issues, including legacy weighted-average stock. */
-export function allocatePhysicalStock(history:InventoryCostMovement[],quantity:number,onHand:number):NonNullable<InventoryCostMovement['batchAllocations']>{
+export function allocatePhysicalStock(history:InventoryCostMovement[],quantity:number,onHand:number,batchId?:string):NonNullable<InventoryCostMovement['batchAllocations']>{
  const batches=history.length?physicalStockBatches(history):[{id:'legacy:opening',batchNumber:'Not recorded',incomeDate:'—',quantity:onHand}];
  let remaining=round(quantity);
  const allocations:NonNullable<InventoryCostMovement['batchAllocations']>=[];
- for(const batch of batches.slice().sort((a,b)=>(a.incomeDate==='—'?'':a.incomeDate).localeCompare(b.incomeDate==='—'?'':b.incomeDate))){
+ for(const batch of batches.filter(b=>!batchId||b.id===batchId).sort((a,b)=>(a.incomeDate==='—'?'':a.incomeDate).localeCompare(b.incomeDate==='—'?'':b.incomeDate))){
   const taken=round(Math.min(remaining,batch.quantity));
   if(taken>0)allocations.push({batchId:batch.id,batchNumber:batch.batchNumber,incomeDate:batch.incomeDate,quantity:taken});
   remaining=round(remaining-taken);if(!remaining)break;

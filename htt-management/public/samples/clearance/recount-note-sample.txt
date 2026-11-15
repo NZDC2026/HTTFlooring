@@ -1,0 +1,5 @@
+SAMPLE - Read-only synthetic warehouse recount
+ADJ-SAMPLE-CLEARANCE / L-2511 / Shade 01
+Two rolls dispatched separately; 17 rolls remain for review.
+Prepared by Jamie - Warehouse, 14 Nov 2026 10:02.
+No live inventory, attachment or notification has been changed.

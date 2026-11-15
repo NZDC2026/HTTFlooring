@@ -1,3 +1,6 @@
+import {useSalesBatchOptions} from '../../inventory/clearance/batchSalesPricing';
+import {SalesBatchPicker} from './SalesBatchPicker';
+import {buildSalesLine} from '../data/salesPricingService';
 import {ProductSearchSelect,ProductSearchSample} from '../../../components/product-search/ProductSearchSelect';
 import { PricingTimeFields, defaultPricingTime } from './PricingTimeFields';
 import { resolvePricingInstant } from '../data/pricingInstant';
@@ -50,6 +53,9 @@ interface QuoteEditFormProps {
 }
 
 interface EditLine {
+    explicitDiscountPercent?:number;
+    batchId?:string;
+    batchSiteId?:string;
     requestedArea?: number;
     editorId: string;
     originalLineId?: string;
@@ -72,6 +78,7 @@ export function QuoteEditForm({
     onCancel,
     onSaved,
 }: QuoteEditFormProps) {
+    const batchOptions=useSalesBatchOptions();
     const [delivery,setDelivery] = useState<{locationId?:string;accountingContactId?:string}>({locationId:quote.recipient?.locationId,accountingContactId:quote.recipient?.accountingContactId});
     const [
         documentDate,
@@ -87,11 +94,11 @@ export function QuoteEditForm({
             const context = resolvePricingInstant(documentDate, pricingAt, pricingTimezone);
             setLines(current => current.map(line => {
                 if (line.priceSource === "MANUAL" || !line.productId || !line.unitId) return line;
-                const price = customerPricingRepository.resolvePrice(quote.customerId, line.productId, line.unitId, documentDate, context.pricingAt);
-                return {...line, standardUnitPrice:price.basePrice, unitPrice:String(price.effectivePrice), priceSource:price.source, customerPriceId:price.customerPrice?.id};
+                const price=buildSalesLine({customerId:quote.customerId,documentDate,pricingContext:context,previewOnly:true,draft:{productId:line.productId,unitId:line.unitId,quantity:Number(line.quantity),batchId:line.batchId,batchSiteId:line.batchSiteId,discountPercent:line.explicitDiscountPercent}});
+                return {...line,standardUnitPrice:price.standardUnitPrice,unitPrice:String(price.unitPrice),priceSource:price.priceSource,customerPriceId:price.customerPriceId};
             }));
         } catch { /* The pricing field and save action report invalid timestamps. */ }
-    }, [documentDate, pricingAt, pricingTimezone, quote.customerId]);
+    }, [documentDate, pricingAt, pricingTimezone, quote.customerId,batchOptions]);
 
     const [
         expiryDate,
@@ -156,9 +163,7 @@ export function QuoteEditForm({
             current.map((line) =>
                 line.editorId ===
                     editorId
-                    ? updater(
-                        line,
-                    )
+                    ? (()=>{const next=updater(line);if(next.priceSource==='MANUAL'||!next.productId||!next.unitId)return next;try{const built=buildSalesLine({customerId:quote.customerId,documentDate,pricingAt,previewOnly:true,draft:{productId:next.productId,unitId:next.unitId,quantity:Number(next.quantity),batchId:next.batchId,batchSiteId:next.batchSiteId,discountPercent:next.explicitDiscountPercent}});return {...next,unitPrice:String(built.unitPrice),standardUnitPrice:built.standardUnitPrice,priceSource:built.priceSource};}catch{return next;}})()
                     : line,
             ),
         );
@@ -197,6 +202,7 @@ export function QuoteEditForm({
                 editorId,
                 (line) => ({
                     ...line,
+                    batchId:undefined,batchSiteId:undefined,
                     requestedArea:undefined,
                     productId,
                     unitId: "",
@@ -226,6 +232,7 @@ export function QuoteEditForm({
             editorId,
             (line) => ({
                 ...line,
+                    batchId:undefined,batchSiteId:undefined,
                 requestedArea:undefined,
 
                 productId:
@@ -411,6 +418,7 @@ export function QuoteEditForm({
 
                             quantity,
                             requestedArea:line.requestedArea,
+                            batchId:line.batchId,batchSiteId:line.batchSiteId,explicitDiscountPercent:line.explicitDiscountPercent,
 
                             standardUnitPrice:
                                 line.standardUnitPrice,
@@ -635,9 +643,7 @@ export function QuoteEditForm({
                                             key={
                                                 line.editorId
                                             }
-                                            line={
-                                                line
-                                            }
+                                            line={line} date={documentDate} pricingAt={pricingAt} onBatchChange={(batchId,batchSiteId)=>updateLine(line.editorId,current=>({...current,batchId,batchSiteId,priceSource:'STANDARD_PRICE'}))}
                                             onProductChange={(
                                                 value,
                                             ) =>
@@ -682,7 +688,7 @@ export function QuoteEditForm({
                                                         unitPrice:
                                                             value,
                                                         priceSource:
-                                                            "MANUAL",
+                                                            "MANUAL",explicitDiscountPercent:undefined,
                                                         customerPriceId:
                                                             undefined,
                                                     }),
@@ -783,7 +789,7 @@ export function QuoteEditForm({
 }
 
 function EditLineRow({
-    line,
+    line,date,pricingAt,onBatchChange,
     onProductChange,
     onUnitChange,
     onAreaChange,
@@ -792,6 +798,7 @@ function EditLineRow({
     onRemove,
 }: {
     line: EditLine;
+    date:string;pricingAt:string;onBatchChange:(batchId?:string,siteId?:string)=>void;
     onProductChange: (
         value: string,
     ) => void;
@@ -822,7 +829,7 @@ function EditLineRow({
 
     return (
         <div className="grid grid-cols-[260px_150px_110px_140px_140px_120px_52px] items-center gap-3 border-b border-[var(--color-border)] px-4 py-3 last:border-b-0">
-            <ProductSearchSelect products={mockProducts.filter(p=>p.id===line.productId||p.status==='ACTIVE'&&p.sellEnabled!==false)} value={line.productId} onChange={onProductChange}/>
+            <div><ProductSearchSelect products={mockProducts.filter(p=>p.id===line.productId||p.status==='ACTIVE'&&p.sellEnabled!==false)} value={line.productId} onChange={onProductChange}/>{line.productId&&<SalesBatchPicker productId={line.productId} unitId={line.unitId} quantity={Number(line.quantity)} date={date} pricingAt={pricingAt} batchId={line.batchId} batchSiteId={line.batchSiteId} onChange={onBatchChange}/>}</div>
 
             <select
                 value={
@@ -955,6 +962,7 @@ function lineToEditor(
         priceSource:
             line.priceSource,
 
+        batchId:line.batch?.id,batchSiteId:line.batch?.siteId,explicitDiscountPercent:line.explicitDiscountPercent,
         customerPriceId:
             line.customerPriceId,
     };
@@ -1101,6 +1109,7 @@ function formatSource(
         return "Standard";
     }
 
+    if (source === "CLEARANCE_PRICE") return "Batch clearance";
     if (source === "PROMOTIONAL_PRICE") return "Promotion";
     return "Manual";
 }

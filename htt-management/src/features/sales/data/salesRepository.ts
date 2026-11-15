@@ -1,3 +1,4 @@
+import {validateSalesBatchSnapshot,assertSalesBatchQuantities} from '../../inventory/clearance/batchSalesPricing';
 import {validateServiceSnapshot} from './serviceLines';
 import {trustedAuthorization} from '../../security/trustedAuthorization';
 import {validateSalesDiscountSnapshot} from './salesPricingService';
@@ -310,6 +311,7 @@ export const salesRepository = {
         const now =
             new Date().toISOString();
 
+        assertSalesBatchQuantities(lines);
         const quote: Quote = {
             paymentTerms:salesDocumentPaymentTerms(draft.paymentTerms,customerRepository.getById(draft.customerId),businessSettings()),
             id: createId(
@@ -415,11 +417,12 @@ export const salesRepository = {
         const pricingContext = resolvePricingInstant(draft.documentDate, draft.pricingAt ?? (draft.documentDate === existing.documentDate ? prior?.pricingAt : undefined), draft.documentDate === existing.documentDate && (!draft.pricingAt || draft.pricingAt === prior?.pricingAt) ? prior?.pricingTimezone : undefined);
         const lines: SalesDocumentLine[] = draft.lines.map(line => {
             const built = buildSalesLine({ customerId: existing.customerId, documentDate: draft.documentDate, pricingContext,
-                draft: { service:line.service,taxCode:line.taxCode,discountPercent:line.service?line.explicitDiscountPercent:undefined,productId: line.productId, unitId: line.unitId, quantity: line.quantity, requestedArea: line.requestedArea,
+                draft: { batchId:line.batchId,batchSiteId:line.batchSiteId,service:line.service,taxCode:line.taxCode,discountPercent:line.explicitDiscountPercent,productId: line.productId, unitId: line.unitId, quantity: line.quantity, requestedArea: line.requestedArea,
                     unitPrice: line.priceSource === 'MANUAL' ? (line.service?line.discountBaseUnitPrice??line.unitPrice:line.unitPrice) : undefined, priceBasis: 'Exclusive' } });
             return { ...built, id: existing.lines.find(l => l.id === line.lineId)?.id ?? built.id };
         });
 
+        assertSalesBatchQuantities(lines);
         const updated: Quote = {
             ...existing,
             recipient: draft.locationId === undefined && draft.accountingContactId === undefined ? existing.recipient : salesRecipient(existing.customerId,draft),
@@ -2240,7 +2243,7 @@ registerRepository("sales", {
             if(d.dispatchHistory!==undefined&&(!Array.isArray(d.dispatchHistory)||d.dispatchHistory.some(h=>!h.id||!Number.isFinite(Date.parse(h.at))||!['Management','Customer portal','Automation'].includes(h.source)||['actor','action','before','after','reason'].some(k=>typeof h[k as keyof typeof h]!=='string'))))throw Error('Invalid dispatch history.');
             validateDispatchFields(d);if(d.paymentTerms)validatePaymentTerms(d.paymentTerms);
             validateRecipientSnapshot(d.recipient);
-            for (const l of d.lines) {validateServiceSnapshot(l);validateSalesDiscountSnapshot(l);validateAreaSnapshot(l); validatePricingSnapshot(l);validateLineItemType(l,(snapshots.products as {products:import("../../inventory/types/product").Product[]}).products.find(p=>p.id===l.productId));}
+            for (const l of d.lines) {validateSalesBatchSnapshot(l,snapshots);validateServiceSnapshot(l);validateSalesDiscountSnapshot(l);validateAreaSnapshot(l); validatePricingSnapshot(l);validateLineItemType(l,(snapshots.products as {products:import("../../inventory/types/product").Product[]}).products.find(p=>p.id===l.productId));}
         }
     },
     snapshot: () => ({ quotes, salesOrders, invoices }),

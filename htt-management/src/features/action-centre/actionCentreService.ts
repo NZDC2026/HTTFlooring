@@ -1,3 +1,6 @@
+import {clearanceReminders,clearanceRequestLabel} from '../inventory/clearance/clearanceReminders';
+import type {SalesBatchOption} from '../inventory/clearance/batchSalesPricing';
+import type {StockAdjustment} from '../stock-adjustments/stockAdjustmentRepository';
 import { requireDateKey } from '../../lib/businessDate';
 import { hasPermission, type VerifiedPrincipal } from '../security/rbac';
 import type { SalesDocument } from '../sales/types/salesDocument';
@@ -5,6 +8,7 @@ import type { SupplierBill } from '../purchases/types/supplierBill';
 import type { Customer } from '../contacts/types/customer';
 import type { ConfigRow } from '../business-workspace/configurationState';
 export type ActionSources = {
+    clearances?:ConfigRow[]; batches?:SalesBatchOption[]; adjustments?:StockAdjustment[];
     sales: SalesDocument[];
     bills: SupplierBill[];
     tasks: ConfigRow[];
@@ -12,12 +16,13 @@ export type ActionSources = {
 };
 export type ActionItem = {
     id: string;
-    kind: 'Receivables' | 'Payables' | 'Tasks' | 'Data issues';
+    kind: 'Receivables' | 'Payables' | 'Tasks' | 'Data issues' | 'Clearance';
     number: string;
     name: string;
     detail: string;
     due: string;
     daysOverdue: number;
+    daysUntil?: number;
     amount?: number;
     path: string;
     owner?: string;
@@ -75,6 +80,7 @@ export function buildActionCentre(s: ActionSources, principal: VerifiedPrincipal
                 continue;
             rows.push({ id: 'bill:' + b.id, kind: 'Payables', number: b.billNumber, name: b.supplierName, path, due: b.dueDate, daysOverdue: days(b.dueDate, today), amount: b.totals.amountDue, detail: `Outstanding supplier bill · ${b.supplierInvoiceNumber}` });
         }
+    if(hasPermission(principal,'inventory.read'))for(const {rule,remaining,daysLeft,request}of clearanceReminders(s.clearances??[],s.batches??[],s.adjustments??[],today))rows.push({id:'clearance:'+rule.id,kind:'Clearance',daysUntil:Math.max(0,daysLeft),number:rule.batchNumber,name:rule.name,due:rule.ends,daysOverdue:Math.max(0,-daysLeft),path:request?`/inventory/adjustments?adjustment=${encodeURIComponent(request.id)}`:`/inventory?tab=clearance&clearance=${encodeURIComponent(rule.id)}`,detail:`${request?clearanceRequestLabel(request)+' · '+request.number:daysLeft<0?'Clearance expired':daysLeft===0?'Clearance ends today':'Clearance ends in '+daysLeft+' days'} · ${remaining} base units remaining${rule.shade?' · '+rule.shade:''} · Extend, cut price or request a write-off`});
     return rows.sort((a, b) => Number(b.kind === 'Data issues') - Number(a.kind === 'Data issues') || a.due.localeCompare(b.due) || Number(b.priority === 'High') - Number(a.priority === 'High') || a.id.localeCompare(b.id));
 }
 export function filterActions(items: ActionItem[], input: {

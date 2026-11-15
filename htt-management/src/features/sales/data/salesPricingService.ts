@@ -1,3 +1,4 @@
+import {resolveSalesBatch,assertBatchPriceFloor} from '../../inventory/clearance/batchSalesPricing';
 import {buildServiceLine} from './serviceLines';
 import { resolvePricingInstant, type PricingInstant } from './pricingInstant';
 import { areaQuantity } from './areaPacks';
@@ -23,13 +24,16 @@ export function buildSalesLine({
     draft,
     pricingAt,
     pricingContext,
+    previewOnly=false,
 }: {
     customerId: string;
     documentDate: string;
     draft: SalesLineDraft;
     pricingAt?: string;
     pricingContext?: PricingInstant;
+    previewOnly?: boolean;
 }): SalesDocumentLine {
+    if(draft.service&&(draft.batchId||draft.batchSiteId))throw Error('Service lines cannot select an inventory batch.');
     if(draft.service)return buildServiceLine(draft,documentDate,pricingContext?.pricingAt??pricingAt);
     if (draft.quantity <= 0) {
         throw new Error(
@@ -81,10 +85,14 @@ export function buildSalesLine({
     const hasManualPrice =
         draft.unitPrice !== undefined;
 
+    if(draft.batchId&&product.itemType&&product.itemType!=='STOCK')throw Error('Only inventory products can select a physical batch.');
+    const selected=resolveSalesBatch(product.id,unit.id,draft.batchId,draft.batchSiteId,context);
+    const clearancePrice=selected?.offer?selected.offer.pricePerBase*unit.conversionToBase:undefined;
+    const useClearance=!hasManualPrice&&clearancePrice!==undefined&&clearancePrice<=resolvedPrice.effectivePrice;
     const inputPrice =
         hasManualPrice
             ? draft.unitPrice!
-            : resolvedPrice.effectivePrice;
+            : useClearance?clearancePrice!:resolvedPrice.effectivePrice;
 
     if (!Number.isFinite(inputPrice) || inputPrice < 0) {
         throw new Error(
@@ -100,6 +108,8 @@ export function buildSalesLine({
     if (!Number.isFinite(discount) || discount < 0 || discount > 100) throw new Error('Discount must be between 0 and 100%.');
     const discountBaseUnitPrice = hasManualPrice ? exclusivePrice(inputPrice, taxRate, draft.priceBasis) : inputPrice;
     const unitPrice = discountBaseUnitPrice * (1 - discount / 100);
+    if(selected&&area.quantity*selected.batch.conversionToBase>selected.option.availableBase+1e-6)throw Error('Requested quantity exceeds available stock in the selected batch.');
+    const approvedBy=selected?assertBatchPriceFloor(selected.batch,unitPrice,selected.offer,previewOnly):undefined;
     const calculations =
         calculateSalesLine({
             taxRate,
@@ -116,9 +126,11 @@ export function buildSalesLine({
     return {
         id: createId("line"),
         ...context,
+        ...(selected?{batch:selected.batch}:{}),
+        ...(selected?.offer&&!hasManualPrice?{clearance:{id:selected.offer.id,revision:selected.offer.revision,pricePerBase:selected.offer.pricePerBase,starts:selected.offer.starts,ends:selected.offer.ends,belowCostApproved:selected.offer.allowed,...(approvedBy?{approvedBy}:{})}}:{}),
         itemType: product.itemType??"STOCK",
         ...area,
-        ...taxSnapshot(taxCode), priceBasis:hasManualPrice?(draft.priceBasis??businessSettings().basis) as 'Inclusive'|'Exclusive':'Exclusive',grossUnitPrice:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?inputPrice*(1-discount/100):undefined, promotionId: hasManualPrice ? undefined : resolvedPrice.promotionId,
+        ...taxSnapshot(taxCode), priceBasis:hasManualPrice?(draft.priceBasis??businessSettings().basis) as 'Inclusive'|'Exclusive':'Exclusive',grossUnitPrice:hasManualPrice&&(draft.priceBasis??businessSettings().basis)==='Inclusive'?inputPrice*(1-discount/100):undefined, promotionId: hasManualPrice||useClearance ? undefined : resolvedPrice.promotionId,
 
         productId:
             product.id,
@@ -146,7 +158,7 @@ export function buildSalesLine({
         priceSource:
             hasManualPrice
                 ? "MANUAL"
-                : resolvedPrice.source,
+                : useClearance?"CLEARANCE_PRICE":resolvedPrice.source,
 
         customerPriceId:
             !hasManualPrice
@@ -178,6 +190,7 @@ export function rebuildSalesLine({
 
         draft: {
             service:existingLine.service,
+            batchId:existingLine.batch?.id,batchSiteId:existingLine.batch?.siteId,
             taxCode:existingLine.taxCode,
             discountPercent:existingLine.explicitDiscountPercent,
             productId:

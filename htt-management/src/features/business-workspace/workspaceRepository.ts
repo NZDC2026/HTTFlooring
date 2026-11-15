@@ -54,7 +54,7 @@ export const workspaceDomains: Record<string, {
     required: string[];
     fields: string[];
 }> = {
-    clearances: {read:'inventory.read',write:'promotions.manage',required:['productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','price','starts','ends','reason','allowBelowCost'],fields:['productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','price','starts','ends','reason','allowBelowCost']},
+    clearances: {read:'inventory.read',write:'promotions.manage',required:['productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','price','starts','ends','reason','allowBelowCost'],fields:['shade','productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','price','starts','ends','reason','allowBelowCost']},
     procurement: {read:'purchases.read',write:'purchases.write',required:['code','links'],fields:['code','links','notes','documents','invoiceDrafts']},
     'tax-codes': { read: 'inventory.read', write: 'accounting.post', required: ['code', 'rate', 'collected', 'paid'], fields: ['code', 'rate', 'collected', 'paid', 'basis', 'report'] },
     'linked-accounts': { read: 'accounting.read', write: 'accounting.post', required: ['role', 'accountId'], fields: ['role', 'accountId'] },

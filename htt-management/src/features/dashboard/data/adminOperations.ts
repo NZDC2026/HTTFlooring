@@ -1,3 +1,4 @@
+import {adjustmentIsPending} from '../../stock-adjustments/clearanceEvidence';
 import type {HubTask} from '../../task-hub/taskHubModel';
 import type {Customer} from '../../contacts/types/customer';
 import type {CreditNote} from '../../sales/types/creditNote';
@@ -36,7 +37,7 @@ export function adminApprovalRows(input:{customers:Customer[];credits:CreditNote
  ...payments.filter(p=>p.status==='DRAFT').map(p=>({id:'payment:'+p.id,sourceId:p.id,kind:'Payment Approval' as const,details:'Supplier Payment – '+(p.reference||p.allocations.map(a=>bills.find(b=>b.id===a.supplierBillId)?.supplierName??'Supplier').join(', ')),amount:p.allocations.reduce((n,a)=>n+Math.round(a.amount*100),0)/100,requestedBy:p.createdBy,date:p.history[0]?.at.slice(0,10)??p.paymentDate,path:'/purchases/payables',status:'Pending' as const,source:'payment' as const})),
  ...credits.filter(c=>c.status==='DRAFT').map(c=>({id:'credit:'+c.id,sourceId:c.id,kind:'Credit Note' as const,details:c.creditNoteNumber+' – '+(customers.find(a=>a.id===c.customerId)?.businessName??'Customer'),amount:-c.totals.total,requestedBy:'—',date:c.creditDate,path:'/sales/credit-notes/'+encodeURIComponent(c.id),status:'Pending' as const,source:'credit' as const})),
  ...drafts.filter(d=>d.status==='DRAFT'&&d.payload.kind!=='EXPENSE'&&d.lines.some(l=>'discountPercent' in l&&Number(l.discountPercent)>0||'discountAmount' in l&&Number(l.discountAmount)>0)).map(d=>({id:'discount:'+d.id,sourceId:d.id,kind:'Special Discount' as const,details:(d.kind==='ORDER'?'Sales Order':'Invoice')+' – Discount review',requestedBy:d.history[0]?.actorId??'—',date:d.payload.documentDate,path:'/sales/drafts/'+(d.kind==='ORDER'?'orders':'invoices')+'/'+encodeURIComponent(d.id),status:'Pending' as const,source:'discount' as const,revision:d.revision})),
- ...adjustments.filter(a=>a.status==='DRAFT').map(a=>({id:'adjustment:'+a.id,sourceId:a.id,kind:'Inventory Adj.' as const,details:'Stock Adjustment – '+a.number,requestedBy:a.createdBy,date:a.date,path:'/inventory/adjustments',status:'Pending' as const,source:'adjustment' as const,revision:a.revision})),
+ ...adjustments.filter(adjustmentIsPending).map(a=>({id:'adjustment:'+a.id,sourceId:a.id,kind:'Inventory Adj.' as const,details:'Stock Adjustment – '+a.number,requestedBy:a.createdBy,date:a.date,path:'/inventory/adjustments?adjustment='+encodeURIComponent(a.id),status:'Pending' as const,source:'adjustment' as const,revision:a.revision})),
  ...customers.filter(c=>c.creditHold&&c.status==='ACTIVE').map(c=>({id:'hold:'+c.id,sourceId:c.id,kind:'Credit Hold' as const,details:'Customer – '+c.businessName,requestedBy:'—',date:c.updatedAt.slice(0,10),path:'/contacts/customers/'+encodeURIComponent(c.id),status:'Pending' as const,source:'hold' as const})),
  ];
 }

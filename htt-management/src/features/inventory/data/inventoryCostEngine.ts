@@ -82,6 +82,7 @@ export interface ReceiveInventoryCostInput
 
 export interface IssueInventoryCostInput
     extends CostReferenceInput {
+    batchId?: string;
     siteId: string;
 
     productId: string;
@@ -701,10 +702,10 @@ export function issueInventoryCost(
             existing.averageCostPerBaseUnit,
         );
 
-    const batchAllocations = allocatePhysicalStock(inventoryCostMovementRepository.getBySiteAndProduct(input.siteId,input.productId),quantityBase,existing.quantityOnHand);
+    const batchAllocations = allocatePhysicalStock(inventoryCostMovementRepository.getBySiteAndProduct(input.siteId,input.productId),quantityBase,existing.quantityOnHand,input.batchId);
 
     const issueValue = policy.costingMethod === 'FIFO'
-        ? consumeFifo(fifoLayers(inventoryCostMovementRepository.getBySiteAndProduct(input.siteId,input.productId)),quantityBase)
+        ? consumeFifo(fifoLayers(inventoryCostMovementRepository.getBySiteAndProduct(input.siteId,input.productId)),quantityBase,input.batchId)
         : calculateInventoryIssueValue({
             quantityBase,
 
@@ -813,6 +814,7 @@ export function issueInventoryCost(
                     ),
 
                 batchAllocations,
+                ...(policy.costingMethod==='FIFO'&&input.batchId?{fifoBatchId:input.batchId}:{}),
 
                 unitCostBase: policy.costingMethod==='FIFO'?roundInventoryCost(-valueChange/quantityBase):unitCostBase,
 

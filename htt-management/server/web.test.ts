@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync,readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createWebApplication } from './app';
@@ -167,6 +167,21 @@ describe('web authentication and durable business database', () => {
         expect((await portal('https://evil.example')).status).toBe(403);
         const allowed=await portal(config.portalOrigin);expect(allowed.headers.get('access-control-allow-origin')).toBe(config.portalOrigin);expect((await allowed.json()).ok).toBe(false);
         expect((await request('status',{},adminCookie)).body.value.session.user.username).toBe('admin');
+    });
+
+    it('uploads and exports clearance evidence through authenticated web endpoints and retains it through review',async()=>{
+        const call=async(repository:string,method:string,...args:unknown[])=>{const r=await request('business.command',{repository,method,args},adminCookie);expect(r.body.ok,JSON.stringify(r.body)).toBe(true);return r.body.value.result;};
+        const {businessDateKey}=await import('../src/lib/businessDate'),date=businessDateKey(new Date().toISOString());
+        const p=await call('products','save',{id:crypto.randomUUID(),sku:'WEB-EVIDENCE-'+crypto.randomUUID().slice(0,5),name:'Clearance Evidence Oak',category:'Timber',status:'ACTIVE',baseUnitId:'base',units:[{id:'base',code:'M2',name:'Square Metre',symbol:'m²',conversionToBase:1,basePrice:45,isBaseUnit:true,active:true}],createdAt:'',updatedAt:''});
+        let view=(await request('business.view',{},adminCookie)).body.value.repositories;const account=view.accounts.accounts.find((a:any)=>a.active&&a.type==='EXPENSE'),site=(await import('../src/features/inventory/data/inventorySiteRepository')).inventorySiteRepository.getActive()[0];
+        const inbound=await call('inventoryAdjustments','save',{operationId:crypto.randomUUID(),siteId:site.id,date,reason:'Isolated web attachment test receipt',lines:[{productId:p.id,unitId:'base',quantityDelta:10,unitCost:20}]});await call('inventoryAdjustments','post',{id:inbound.id,expectedRevision:inbound.revision,offsetAccountId:account.id});
+        view=(await request('business.view',{},adminCookie)).body.value.repositories;const batch=view.costMovements.movements.find((c:any)=>c.productId===p.id&&c.quantityBase>0),rule=await call('workspace_clearances','save',{name:'Clearance web test',status:'Active',productId:p.id,unitId:'base',siteId:site.id,batchId:batch.id,batchNumber:batch.referenceNumber||batch.costMovementNumber,shade:'03',initialQuantity:'10',normalPrice:'45',price:'35',starts:date,ends:date,reason:'Overstocked',allowBelowCost:'false'});
+        let row=await call('inventoryAdjustments','requestClearanceWriteOff',{operationId:crypto.randomUUID(),clearanceId:rule.id,expectedRevision:rule.revision});expect(row.status).toBe('PREPARING');expect((await request('business.command',{repository:'inventoryAdjustments',method:'submitClearance',args:[{id:row.id,expectedRevision:row.revision,reason:'Attempt without evidence'}]},adminCookie)).body.ok).toBe(false);const content=readFileSync('public/samples/clearance/damage-photo-sample.png').toString('base64'),target={kind:'Clearance write-off',id:row.id};
+        const upload=await request('attachments.select',{operationId:crypto.randomUUID(),expectedRevision:0,target,title:'Damage photo',reason:'Warehouse damage inspection',file:{name:'damage.png',content}},adminCookie);expect(upload.body.ok,JSON.stringify(upload.body)).toBe(true);const d=upload.body.value.result;expect(JSON.stringify(upload.body.value.view)).not.toContain(content);
+        expect((await request('attachments.select',{operationId:crypto.randomUUID(),expectedRevision:0,target,title:'Denied',reason:'No write authority',file:{name:'denied.txt',content:Buffer.from('Denied upload').toString('base64')}},readerCookie)).body.ok).toBe(false);
+        row=await call('inventoryAdjustments','submitClearance',{id:row.id,expectedRevision:row.revision,reason:'Uploaded damage photo verified'});row=await call('inventoryAdjustments','withdrawClearance',{id:row.id,expectedRevision:row.revision,reason:'Verify original damage evidence'});row=await call('inventoryAdjustments','resubmitClearance',{id:row.id,expectedRevision:row.revision,reason:'Evidence verified'});
+        const downloaded=await request('attachments.export',{id:d.id,versionId:d.currentVersionId},adminCookie);expect(downloaded.body.ok).toBe(true);expect(downloaded.body.value.download.content).toBe(content);expect(downloaded.body.value.download.mime).toBe('image/png');await call('inventoryAdjustments','post',{id:row.id,expectedRevision:row.revision,offsetAccountId:account.id});
+        expect((await request('business.command',{repository:'attachments',method:'change',args:[{operationId:crypto.randomUUID(),id:d.id,expectedRevision:d.revision,action:'Trashed',reason:'Try changing posted proof'}]},adminCookie)).body.ok).toBe(false);expect((await request('attachments.export',{id:d.id,versionId:d.currentVersionId},adminCookie)).body.value.download.content).toBe(content);
     });
 
 });

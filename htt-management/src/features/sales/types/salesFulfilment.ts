@@ -3,6 +3,7 @@ export type SalesFulfilmentStatus =
     | "VOIDED";
 
 export interface SalesFulfilmentLine {
+    batch?: import('../../inventory/clearance/batchSalesPricing').SalesBatch;
     id: string;
 
     salesOrderLineId: string;

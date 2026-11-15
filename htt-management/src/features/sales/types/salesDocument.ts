@@ -41,7 +41,8 @@ export type SalesPriceSource =
     | "STANDARD_PRICE"
     | "CUSTOMER_PRICE"
     | "MANUAL"
-    | "PROMOTIONAL_PRICE";
+    | "PROMOTIONAL_PRICE"
+    | "CLEARANCE_PRICE";
 
 export interface SalesRecipientSnapshot {
     billingAddress?: string;
@@ -53,6 +54,8 @@ export interface SalesRecipientSnapshot {
     accountingEmail?: string;
 }
 export interface SalesDocumentLine {
+    batch?: import('../../inventory/clearance/batchSalesPricing').SalesBatch;
+    clearance?: import('../../inventory/clearance/batchSalesPricing').ClearanceEvidence;
     service?: import("../data/serviceLines").ServiceDetails;
     pricingAt?: string;
     pricingTimezone?: string;
@@ -209,6 +212,8 @@ export type SalesDocument =
     | Invoice;
 
 export interface SalesLineDraft {
+    batchId?: string;
+    batchSiteId?: string;
     service?: import("../data/serviceLines").ServiceDetails;
     taxCode?: string;
     discountPercent?: number;
@@ -249,6 +254,8 @@ export interface SalesDocumentDraft {
 }
 
 export interface QuoteLineUpdateDraft {
+    batchId?: string;
+    batchSiteId?: string;
     service?: import("../data/serviceLines").ServiceDetails;
     requestedArea?: number;
     lineId?: string;

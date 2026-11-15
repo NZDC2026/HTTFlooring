@@ -1,3 +1,4 @@
+import {useActionCentre} from '../features/action-centre/ActionCentrePage';
 import {longestPageTitle} from './navigationState';
 import { isWeb } from "../features/security/webBridge";
 import { useSecurity, logout } from "../features/security/securityClient";
@@ -45,6 +46,7 @@ const pageNames: Record<string, string> = {
 };
 
 export function Topbar() {
+    const {items:actionItems}=useActionCentre();
     const { session } = useSecurity();
     const location = useLocation(), navigate = useNavigate();
     useEffect(() => { const shortcut = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); if(location.pathname==='/sales')document.querySelector<HTMLInputElement>('input[aria-label="Search sales documents"]')?.focus();else if(location.pathname==='/purchases'&&!location.search.includes('view=orders')&&!location.search.includes('stage='))document.querySelector<HTMLInputElement>('input[aria-label="Search purchase documents"]')?.focus();else navigate('/search'); } }; window.addEventListener('keydown', shortcut); return () => window.removeEventListener('keydown', shortcut); }, [navigate,location.pathname,location.search]);
@@ -133,7 +135,7 @@ export function Topbar() {
                 </button>
 
                 <Link to="/help" aria-label="Help" className="rounded-lg p-2 hover:bg-slate-100"><CircleHelp size={17} /></Link>
-                <Link to="/notifications" aria-label="Notifications" className="rounded-lg p-2 hover:bg-slate-100"><Bell size={17} /></Link>
+                <Link to="/notifications" aria-label="Notifications" title={`${actionItems.length} current actions`} className="relative rounded-lg p-2 hover:bg-slate-100"><Bell size={17} />{actionItems.length>0&&<span className="absolute -right-1 -top-1 rounded-full bg-emerald-700 px-1 text-[10px] text-white">{actionItems.length>99?'99+':actionItems.length}</span>}</Link>
 
                 <div className="ml-2 h-7 w-px bg-[var(--color-border)]" />
 

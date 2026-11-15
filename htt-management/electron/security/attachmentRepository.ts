@@ -147,6 +147,7 @@ registerRepository('attachments', { repository: attachmentRepository, read: 'inv
             const spec = targetSpecs[d.target.kind];
             if (!(d.target.kind==='Shipment'?(snapshots.suppliers as any)?.suppliers?.flatMap((s:any)=>s.shipments??[]):(snapshots[spec.repository] as any)?.[spec.collection])?.some((r: any) => r.id === d.target.id))
                 throw new Error('Invalid attachment business reference.');
+            if(d.target.kind==='Clearance write-off'&&!(snapshots.inventoryAdjustments as any)?.rows?.some((r:any)=>r.id===d.target.id&&r.clearanceId))throw new Error('Attachment requires a clearance write-off request.');
             if (!!d.deletedAt !== !!d.deletedBy)
                 throw new Error('Invalid attachment recycle metadata.');
             const ids = new Set<string>();

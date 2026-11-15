@@ -1,3 +1,4 @@
+import {salesBatchOptions} from '../../inventory/clearance/batchSalesPricing';
 import { isStockLine } from '../../inventory/data/itemTypes';
 import { registerRepository, snapshotRepositories } from "../../security/repositoryHost";
 import {
@@ -633,6 +634,9 @@ export const salesFulfilmentRepository =
             }
         }
 
+        const batchNeeds=new Map<string,number>();
+        for(const p of preparedLines)if(p.orderLine.batch){const b=p.orderLine.batch;if(b.siteId!==site.id)throw Error('Dispatch warehouse must match the selected batch.');batchNeeds.set(b.id,(batchNeeds.get(b.id)??0)+p.fulfilledBaseQuantity);}
+        for(const [id,qty]of batchNeeds){const b=salesBatchOptions().find(b=>b.id===id&&b.siteId===site.id);if(!b||qty>b.availableBase+1e-6)throw Error('Selected batch does not have enough remaining stock for this dispatch.');}
         const now =
             new Date()
                 .toISOString();
@@ -652,6 +656,7 @@ export const salesFulfilmentRepository =
                     id:
                         `sfl_${crypto.randomUUID()}`,
 
+                    batch:prepared.orderLine.batch?structuredClone(prepared.orderLine.batch):undefined,
                     salesOrderLineId:
                         prepared.orderLine.id,
 
@@ -789,6 +794,7 @@ export const salesFulfilmentRepository =
                     });
 
             issueInventoryCost({
+                batchId:line.batch?.id,
                 siteId:
                     site.id,
 

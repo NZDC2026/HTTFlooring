@@ -13,6 +13,7 @@ export const clearanceSuggestions=[{name:'SPC Hybrid 1800 – Grey Oak',batch:'B
 export function clearanceStatus(r:ClearanceItem,today:string){if(r.status!=='Active'||r.remaining===0)return r.remaining===0?'Sold out':'Ended';if(r.cost!==undefined&&r.price<r.cost&&!r.allowed)return 'Below cost';const days=Math.ceil((Date.parse(r.ends)-Date.parse(today))/86400000);if(days<0)return 'Ended';if(days<=7)return `Ends in ${days} days`;if(r.remaining!==undefined&&r.initial>0&&(r.initial-r.remaining)/r.initial<.1&&Date.parse(today)-Date.parse(r.starts)>14*86400000)return 'Selling slowly';return 'Active';}
 export const clearanceAttention=(r:ClearanceItem,today:string)=>['Below cost','Selling slowly'].includes(clearanceStatus(r,today))||clearanceStatus(r,today).startsWith('Ends in');
 export function validateClearance(input:Record<string,string>){
+ if(input.shade!==undefined&&(input.shade.length>80||/[\u0000-\u001f]/.test(input.shade)))throw Error('Shade must be at most 80 printable characters.');
  for(const key of ['price','normalPrice','initialQuantity'])if(!input[key]?.trim()||!Number.isFinite(Number(input[key]))||Number(input[key])<=0)throw Error('Clearance prices and quantity must be positive numbers.');
  if(Number(input.price)>Number(input.normalPrice))throw Error('Clearance price must not exceed the normal price.');
  for(const key of ['starts','ends'])if(!/^\d{4}-\d{2}-\d{2}$/.test(input[key]??'')||!Number.isFinite(Date.parse(input[key]))||new Date(input[key]+'T00:00:00Z').toISOString().slice(0,10)!==input[key])throw Error('Enter valid clearance dates.');

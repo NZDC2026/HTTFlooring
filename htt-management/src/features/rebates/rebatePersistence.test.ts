@@ -7,5 +7,5 @@ it('adds an empty rebate register to v36 without replacing existing business rec
  expect(migrateWorkspaceSnapshot(database,shape)).toBe(true);
  expect(database.repositories.sales).toEqual({invoices:[{id:'invoice-preserved'}]});
  validateRepositories(database.repositories,shape);
- const saved=sealDatabase(database);expect(saved.schemaVersion).toBe(37);expect(parseDatabase(JSON.stringify(saved))).toEqual(saved);
+ const saved=sealDatabase(database);expect(saved.schemaVersion).toBe(39);expect(parseDatabase(JSON.stringify(saved))).toEqual(saved);
 });

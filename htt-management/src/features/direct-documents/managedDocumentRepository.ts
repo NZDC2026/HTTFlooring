@@ -1,3 +1,4 @@
+import {validateSalesBatchSnapshot,assertSalesBatchQuantities} from '../inventory/clearance/batchSalesPricing';
 import {serviceAccountOptions,validateServiceSnapshot} from '../sales/data/serviceLines';
 import {notifyProcurementExpenseDraftChange} from '../procurement/invoiceDraftEvents';
 import {documentPaymentTermsSchema,salesDocumentPaymentTerms} from '../payment-terms/paymentTerms';
@@ -30,7 +31,7 @@ import { assertProductQuantity } from '../business-workspace/productRules';
 import type { SalesDocumentLine } from '../sales/types/salesDocument';
 import type { SupplierBill, SupplierBillLine } from '../purchases/types/supplierBill';
 const text = z.string().trim().min(1).max(200), optional = z.string().trim().max(2000).optional();
-const salesLine = z.object({service:z.object({title:text,subtitle:z.string().max(200),description:z.string().max(2000),accountId:text}).strict().optional(),taxCode:text.optional(), discountPercent:z.number().finite().min(0).max(100).optional(), requestedArea: z.number().finite().positive().max(1e9).optional(), productId: text, unitId: text, quantity: z.number().positive().finite(), unitPrice: z.number().nonnegative().finite().optional(), priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
+const salesLine = z.object({batchId:text.optional(),batchSiteId:text.optional(),service:z.object({title:text,subtitle:z.string().max(200),description:z.string().max(2000),accountId:text}).strict().optional(),taxCode:text.optional(), discountPercent:z.number().finite().min(0).max(100).optional(), requestedArea: z.number().finite().positive().max(1e9).optional(), productId: text, unitId: text, quantity: z.number().positive().finite(), unitPrice: z.number().nonnegative().finite().optional(), priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
 const expenseLine = z.object({ description: z.string().trim().min(1).max(500), accountId: text, quantity: z.number().positive().finite(), unitCost: z.number().nonnegative().finite(), taxCode: text, priceBasis: z.enum(['Inclusive', 'Exclusive']).optional() }).strict();
 const salesPayload = z.object({billingAddress:optional,shippingAddress:optional,shipVia:optional,salesperson:optional, paymentTerms:documentPaymentTermsSchema.optional(), deliveryBooked:z.boolean().optional(),expectedDispatchDate:text.optional(),awaitingCollection:z.boolean().optional(),kind: z.enum(['ORDER', 'INVOICE']), customerId: text, pricingAt: text.optional(), pricingTimezone: text.optional(), locationId: text.or(z.literal('')).optional(), accountingContactId: text.or(z.literal('')).optional(), documentDate: text, dueDate: text.optional(), customerReference: optional, notes: optional, lines: z.array(salesLine).min(1).max(500) }).strict();
 const billPayload = z.object({ kind: z.literal('EXPENSE'), fx:fxSchema.optional(), supplierId: text, supplierInvoiceNumber: text, documentDate: text, dueDate: text.optional(), notes: optional, lines: z.array(expenseLine).min(1).max(500) }).strict();
@@ -158,6 +159,7 @@ function build(payload: SalesPayload | ExpensePayload) {
         throw new Error('Due date is required.');
     const pricingContext = payload.kind === 'EXPENSE' ? undefined : resolvePricingInstant(payload.documentDate, payload.pricingAt, payload.pricingTimezone);
     const lines: (SalesDocumentLine | SupplierBillLine)[] = payload.kind === 'EXPENSE' ? payload.lines.map(l => { expenseAccount(l.accountId); const tax = taxSnapshot(l.taxCode), netCost = exclusivePrice(l.unitCost*(payload.fx?.rate??1), tax.taxRate, l.priceBasis), lineSubtotal = money(l.quantity * netCost), taxAmount = (l.priceBasis ?? businessSettings().basis) === 'Inclusive' ? money(l.quantity * l.unitCost*(payload.fx?.rate??1) - lineSubtotal) : money(lineSubtotal * tax.taxRate); return { id: crypto.randomUUID(), expenseAccountId: l.accountId, purchaseOrderLineId: '', productId: '', unitId: '', sku: 'SERVICE', description: l.description, unitSymbol: 'service', quantity: l.quantity, unitCost: netCost, ...tax, lineSubtotal, taxAmount, lineTotal: money(lineSubtotal + taxAmount) }; }) : payload.lines.map(l => buildSalesLine({ customerId: payload.customerId, documentDate: payload.documentDate, pricingContext, draft: l }));
+    if(payload.kind!=='EXPENSE')assertSalesBatchQuantities(lines as SalesDocumentLine[]);
     const totals = calculateDocumentTotals(lines as SalesDocumentLine[]);
     if (totals.total <= 0 || !Number.isFinite(totals.total))
         throw new Error('Document total must be finite and greater than zero.');
@@ -319,6 +321,8 @@ for (const kind of ['sales', 'expense'] as const)
                 for (const [i, line] of d.lines.entries()) {
                     const raw = d.payload.lines[i] as any, l = line as Record<string, any>;
                     if (d.kind !== 'EXPENSE') {
+                        validateSalesBatchSnapshot(l as any,snapshotsAny);
+                        if(l.batch?.id!==raw.batchId||l.batch?.siteId!==raw.batchSiteId)throw Error('Draft batch selection differs from its snapshot.');
                         validateSalesDiscountSnapshot(l as any);
                         if(l.explicitDiscountPercent!==raw.discountPercent)throw new Error('Draft discount mismatch.');
                         validateAreaSnapshot(l as any);

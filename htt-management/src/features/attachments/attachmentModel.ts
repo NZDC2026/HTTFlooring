@@ -1,7 +1,7 @@
 import { isRecycled } from '../document-recycle/recycleState';
 import { z } from 'zod';
 import { hasPermission, type Permission, type VerifiedPrincipal } from '../security/rbac';
-export const targetKinds = ['Shipment', 'Promotion', 'Return stock', 'Customer', 'Supplier', 'Quote', 'Order', 'Invoice', 'Customer credit', 'Purchase order', 'Bill', 'Supplier credit', 'Task', 'Visit', 'Job', 'Journal', 'Product'] as const;
+export const targetKinds = ['Clearance write-off', 'Shipment', 'Promotion', 'Return stock', 'Customer', 'Supplier', 'Quote', 'Order', 'Invoice', 'Customer credit', 'Purchase order', 'Bill', 'Supplier credit', 'Task', 'Visit', 'Job', 'Journal', 'Product'] as const;
 export const targetSchema = z.object({ kind: z.enum(targetKinds), id: z.string().min(1).max(200) }).strict();
 export type AttachmentTarget = z.infer<typeof targetSchema>;
 type TargetSpec = {
@@ -13,6 +13,7 @@ type TargetSpec = {
     label: string[];
 };
 export const targetSpecs: Record<AttachmentTarget['kind'], TargetSpec> = {
+    'Clearance write-off':{repository:'inventoryAdjustments',collection:'rows',read:'inventory.read',write:'inventory.adjust',path:'/inventory/adjustments?adjustment=',label:['number','reason']},
     Shipment:{repository:'suppliers',collection:'suppliers',read:'purchases.read',write:'purchases.receive',path:'/procurement?detail=',label:['number','container']},
     Promotion:{repository:'workspace_promotions',collection:'records',read:'sales.read',write:'promotions.manage',path:'/promotions?campaign=',label:['name']},
     'Return stock': {repository:'physicalCustomerReturns',collection:'drafts',read:'returns.read',write:'returns.inspect',path:'/sales/credit-returns?draft=',label:['number','invoiceNumber']},
@@ -36,7 +37,7 @@ export function targetRows(snapshots: Record<string, any>, principal: VerifiedPr
         const spec = targetSpecs[kind];
         if (!hasPermission(principal, spec.read))
             return [];
-        return (kind==='Shipment'?(snapshots.suppliers?.suppliers??[]).flatMap((s:any)=>s.shipments??[]):kind==='Promotion'?[...new Map((snapshots[spec.repository]?.[spec.collection]??[]).map((r:Record<string,string>)=>[r.campaignId||r.id,{...r,id:r.campaignId||r.id}])).values()]:(snapshots[spec.repository]?.[spec.collection] ?? [])).filter((row:Record<string,unknown>)=>kind!=='Return stock'||hasPermission(principal,'returns.create')||row.kind==='return').map((row: Record<string, unknown>) => ({ kind, id: String(row.id), label: spec.label.map(k => row[k]).filter(Boolean).join(' · ') || String(row.id), canWrite: hasPermission(principal,kind==='Task'&&row.promotionId?'promotions.manage':spec.write), path: isRecycled(String(row.id)) ? '/sales/recycle-bin' : (kind === 'Customer' || kind === 'Supplier') && !hasPermission(principal, 'contacts.write') ? '' : spec.path + encodeURIComponent(String(row.id)) }));
+        return (kind==='Shipment'?(snapshots.suppliers?.suppliers??[]).flatMap((s:any)=>s.shipments??[]):kind==='Promotion'?[...new Map((snapshots[spec.repository]?.[spec.collection]??[]).map((r:Record<string,string>)=>[r.campaignId||r.id,{...r,id:r.campaignId||r.id}])).values()]:(snapshots[spec.repository]?.[spec.collection] ?? [])).filter((row:Record<string,unknown>)=>(kind!=='Clearance write-off'||!!row.clearanceId)&&(kind!=='Return stock'||hasPermission(principal,'returns.create')||row.kind==='return')).map((row: Record<string, unknown>) => ({ kind, id: String(row.id), label: spec.label.map(k => row[k]).filter(Boolean).join(' · ') || String(row.id), canWrite: (kind!=='Clearance write-off'||row.status!=='POSTED')&&hasPermission(principal,kind==='Task'&&row.promotionId?'promotions.manage':spec.write), path: isRecycled(String(row.id)) ? '/sales/recycle-bin' : (kind === 'Customer' || kind === 'Supplier') && !hasPermission(principal, 'contacts.write') ? '' : spec.path + encodeURIComponent(String(row.id)) }));
     }) as {
         kind: AttachmentTarget['kind'];
         id: string;

@@ -23,8 +23,9 @@ export function fifoLayers(movements:InventoryCostMovement[]):FifoLayer[]{
   if(movement.fifoReturnLayerId){const source=movements.find(m=>m.id===movement.fifoReturnLayerId);
     if(movement.referenceType!=='CUSTOMER_RETURN_VOID'||movement.quantityBase>=0||!source||source.referenceType!=='CUSTOMER_RETURN'||source.quantityBase<=0||source.referenceId!==movement.referenceId)throw Error('FIFO targeted layer removal lacks matching customer return evidence.');
   }else if(movement.referenceType==='CUSTOMER_RETURN_VOID')throw Error('FIFO customer return reversal is missing its exact layer.');
+  if(movement.fifoBatchId&&(!((movement.movementType==='ISSUE'&&movement.referenceType==='SALE')||(movement.movementType==='ADJUSTMENT_OUT'&&movement.referenceType==='MANUAL'))||movement.batchAllocations?.length!==1||movement.batchAllocations[0].batchId!==movement.fifoBatchId||q(movement.batchAllocations[0].quantity)!==q(-movement.quantityBase)))throw Error('FIFO selected batch lacks matching physical allocation.');
   if(movement.quantityBase>0)layers.push({id:movement.id,quantity:movement.quantityBase,value:movement.valueChange});
-  else if(m(consumeFifo(layers,-movement.quantityBase,movement.fifoReturnLayerId)+movement.valueChange)!==0)throw Error('FIFO layer value differs from posted cost.');
+  else if(m(consumeFifo(layers,-movement.quantityBase,movement.fifoReturnLayerId??movement.fifoBatchId)+movement.valueChange)!==0)throw Error('FIFO layer value differs from posted cost.');
   priorQuantity=movement.quantityAfter;
   if(q(layers.reduce((n,l)=>n+l.quantity,0))!==movement.quantityAfter||m(layers.reduce((n,l)=>n+l.value,0))!==movement.inventoryValueAfter)throw Error('FIFO layer balance differs from inventory ledger.');
  }
