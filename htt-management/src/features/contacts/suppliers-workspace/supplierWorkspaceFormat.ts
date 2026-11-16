@@ -1,0 +1,1 @@
+export const swMoney=(value:number,currency='AUD')=>new Intl.NumberFormat('en-AU',{style:'currency',currency}).formatToParts(value).map(p=>p.type==='currency'?(currency==='USD'?'US$':currency==='CNY'?'CN¥':p.value):p.type==='literal'&&['USD','CNY'].includes(currency)?'':p.value).join('');

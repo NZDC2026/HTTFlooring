@@ -2,17 +2,17 @@ import { createHash } from 'node:crypto';
 import { extname, basename } from 'node:path';
 import { MAX_FILE_BYTES } from '../../src/features/attachments/attachmentModel';
 const types: Record<string, string> = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.csv': 'text/csv', '.txt': 'text/plain', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
-export function verifyAttachmentFile(name: string, content: string) {
+export function verifyAttachmentFile(name: string, content: string, maxBytes = MAX_FILE_BYTES) {
     if (typeof name !== 'string' || name.length > 200 || name !== basename(name) || /[\\/\x00-\x1f\x7f]/.test(name) || name === '.' || name === '..')
         throw new Error('Choose a plain file name of at most 200 characters.');
     const extension = extname(name).toLowerCase(), mime = types[extension];
     if (!mime)
         throw new Error('Supported files: PDF, PNG, JPEG, CSV, TXT, DOCX and XLSX.');
-    if (typeof content !== 'string' || content.length > Math.ceil(MAX_FILE_BYTES / 3) * 4 || /[^A-Za-z0-9+/=]/.test(content))
+    if (typeof content !== 'string' || content.length > Math.ceil(maxBytes / 3) * 4 || /[^A-Za-z0-9+/=]/.test(content))
         throw new Error('Invalid or oversized file content.');
     const bytes = Buffer.from(content, 'base64');
-    if (!bytes.length || bytes.length > MAX_FILE_BYTES || bytes.toString('base64') !== content)
-        throw new Error('Choose a nonempty file no larger than 10 MB.');
+    if (!bytes.length || bytes.length > maxBytes || bytes.toString('base64') !== content)
+        throw new Error(`Choose a nonempty file no larger than ${maxBytes/1000000} MB.`);
     const starts = (hex: string) => bytes.subarray(0, hex.length / 2).toString('hex') === hex;
     if (extension === '.pdf' && bytes.subarray(0, 5).toString() !== '%PDF-' || extension === '.png' && !starts('89504e470d0a1a0a') || ['.jpg', '.jpeg'].includes(extension) && !starts('ffd8ff') || ['.docx', '.xlsx'].includes(extension) && !starts('504b0304'))
         throw new Error('File content does not match its extension.');
@@ -29,8 +29,8 @@ export function attachmentBytes(file: {
     size: number;
     sha256: string;
     mime: string;
-}) {
-    const checked = verifyAttachmentFile(file.name, file.content);
+}, maxBytes = MAX_FILE_BYTES) {
+    const checked = verifyAttachmentFile(file.name, file.content,maxBytes);
     if (checked.size !== file.size || checked.sha256 !== file.sha256 || checked.mime !== file.mime)
         throw new Error('Attachment content integrity check failed.');
     return Buffer.from(file.content, 'base64');

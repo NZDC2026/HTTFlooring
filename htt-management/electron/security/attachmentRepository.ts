@@ -6,7 +6,7 @@ import { type VerifiedPrincipal } from '../../src/features/security/rbac';
 import { targetRows, targetSchema, targetSpecs, MAX_LIBRARY_BYTES, MAX_FILE_BYTES, type AttachmentTarget } from '../../src/features/attachments/attachmentModel';
 import { verifyAttachmentFile, attachmentBytes } from './attachmentFiles';
 const id = z.string().trim().min(1).max(200), reason = z.string().trim().min(1).max(2000), timestamp = z.string().refine(v => { const d = new Date(v); return Number.isFinite(d.getTime()) && d.toISOString() === v; });
-const version = z.object({ id, number: z.number().int().positive(), name: id, mime: id, size: z.number().int().positive().max(MAX_FILE_BYTES), sha256: z.string().regex(/^[a-f0-9]{64}$/), content: z.string().max(14000000), createdAt: timestamp, createdBy: id, restoredFrom: id.optional() }).strict();
+const version = z.object({ id, number: z.number().int().positive(), name: id, mime: id, size: z.number().int().positive().max(20000000), sha256: z.string().regex(/^[a-f0-9]{64}$/), content: z.string().max(28000000), createdAt: timestamp, createdBy: id, restoredFrom: id.optional() }).strict();
 const document = z.object({ id, title: z.string().trim().min(1).max(200), target: targetSchema, revision: z.number().int().positive(), currentVersionId: id, versions: z.array(version).min(1).max(100), createdAt: timestamp, createdBy: id, updatedAt: timestamp, updatedBy: id, deletedAt: timestamp.optional(), deletedBy: id.optional() }).strict();
 type Document = z.infer<typeof document>;
 const outcome = (d: Document) => ({ title: d.title, deleted: !!d.deletedAt, currentVersionId: d.currentVersionId, versionsCount: d.versions.length });
@@ -58,7 +58,7 @@ export const attachmentRepository = {
     targets() { return targetRows(references(), principal()); },
     checkTarget(raw: unknown) { const target = targetSchema.parse(raw); access(target, true); return true; },
     upload(raw: unknown) {
-        const input = z.object({ operationId: id, id: id.optional(), expectedRevision: z.number().int().nonnegative(), target: targetSchema, title: id, reason, file: z.object({ name: id, content: z.string().max(14000000) }).strict() }).strict().parse(raw), user = access(input.target, true), file = verifyAttachmentFile(input.file.name, input.file.content), fingerprint = hash({ ...input, file: { name: file.name, sha256: file.sha256 } }), prior = replay(input.operationId, fingerprint);
+        const input = z.object({ operationId: id, id: id.optional(), expectedRevision: z.number().int().nonnegative(), target: targetSchema, title: id, reason, file: z.object({ name: id, content: z.string().max(28000000) }).strict() }).strict().parse(raw), user = access(input.target, true), file = verifyAttachmentFile(input.file.name, input.file.content,input.target.kind==='Supplier'?20000000:MAX_FILE_BYTES), fingerprint = hash({ ...input, file: { name: file.name, sha256: file.sha256 } }), prior = replay(input.operationId, fingerprint);
         if (prior)
             return prior;
         if(input.target.kind==='Return stock'&&!['image/png','image/jpeg'].includes(file.mime))throw Error('Return damage attachments must be PNG or JPEG photographs.');
@@ -123,7 +123,7 @@ export const attachmentRepository = {
                 if (old.versions.length >= 100)
                     throw new Error('An attachment supports at most 100 versions.');
                 capacity(source.size);
-                attachmentBytes(source);
+                attachmentBytes(source,old.target.kind==='Supplier'?20000000:MAX_FILE_BYTES);
                 const v = { ...source, id: crypto.randomUUID(), number: old.versions.length + 1, createdAt: at, createdBy: user, restoredFrom: source.id };
                 d.versions.push(v);
                 d.currentVersionId = v.id;
@@ -136,7 +136,7 @@ export const attachmentRepository = {
         const input = z.object({ id, versionId: id }).strict().parse(raw), d = get(input.id), v = d.versions.find(v => v.id === input.versionId);
         if (!v)
             throw new Error('Version not found.');
-        attachmentBytes(v);
+        attachmentBytes(v,d.target.kind==='Supplier'?20000000:MAX_FILE_BYTES);
         return { ...v };
     }
 };
@@ -152,7 +152,7 @@ registerRepository('attachments', { repository: attachmentRepository, read: 'inv
                 throw new Error('Invalid attachment recycle metadata.');
             const ids = new Set<string>();
             for (const [i, v] of d.versions.entries()) {
-                attachmentBytes(v);
+                attachmentBytes(v,d.target.kind==='Supplier'?20000000:MAX_FILE_BYTES);
                 bytes += v.size;
                 if (ids.has(v.id) || v.number !== i + 1 || v.createdAt < d.createdAt || v.createdAt > d.updatedAt)
                     throw new Error('Invalid attachment version history.');

@@ -1,3 +1,4 @@
+import {CreateSupplierPage} from '../supplier-create/CreateSupplierPage';
 import {
     ArrowLeft,
     Truck,
@@ -34,7 +35,7 @@ interface Props {
     mode: SupplierFormMode;
 }
 
-export function SupplierFormPage({
+function LegacySupplierFormPage({
     mode,
 }: Props) {
     const location = useLocation();
@@ -197,3 +198,4 @@ export function SupplierFormPage({
         </div>
     );
 }
+export function SupplierFormPage({mode}:Props){return mode==='create'?<CreateSupplierPage/>:<LegacySupplierFormPage mode={mode}/>;}

@@ -9,6 +9,7 @@ describe('shared task hub',()=>{
  const result=taskHubRows([row],[{id:'c1',businessName:'Oak Customer'}],[supplier]);
  expect(result).toHaveLength(2);expect(result[0].row).toBe(row);expect(result[0].documentPath).toBe('/sales/orders/order1');expect(result[0].priority).toBe('Medium');expect(result[1].activityId).toBe('activity1');expect(result[1].documentPath).toBe('/purchases/bills/bill1');
  });
+ it('shows supplier onboarding tasks for the assigned person with their saved priority',()=>{const s={id:'supplier',businessName:'Synthetic supplier',activities:[{id:'task',kind:'Task',text:'Get certificates',assignedTo:'purchasing',assignedName:'Purchasing',priority:'High',taskType:'Documents',replies:[],actorId:'admin',actorName:'Admin',at:'2026-11-17',due:'2026-11-18'}]} as unknown as Supplier;const rows=taskHubRows([],[],[s]);expect(rows[0]).toMatchObject({owner:'purchasing',ownerName:'Purchasing',priority:'High',status:'Open'});expect(taskCounts(rows,'2026-11-17','purchasing').mine).toBe(1);});
  it('counts due, overdue, mine and completed in the current week independently',()=>{
  const samples=taskSamples('2026-11-10','u1');expect(taskCounts(samples,'2026-11-10','u1')).toEqual({mine:3,open:7,today:1,overdue:2,completed:1});
  expect(taskCounts(samples.map(r=>({...r,status:'Completed',completedAt:'2026-11-01T10:00:00Z'})),'2026-11-10','u1').completed).toBe(0);

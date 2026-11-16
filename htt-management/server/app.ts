@@ -82,6 +82,7 @@ export function createWebApplication(options: { directory: string; staticDirecto
             case 'setup': return security.setup(input);
             case 'login': return security.login(input);
             case 'logout': return security.logout();
+            case 'suppliers.assignees': return security.supplierAssignees();
             case 'tasks.assignees': return security.taskAssignees();
             case 'users.list': return security.listUsers();
             case 'users.create': return security.createUser(input);

@@ -103,6 +103,7 @@ export function registerSecurityIpc(directory: string, getWindow: (sender: WebCo
                 case 'setup': value = security.setup(input as { username: string; displayName: string; password: string }); break;
                 case 'login': value = security.login(input as { username: string; password: string }); break;
                 case 'logout': value = security.logout(); break;
+                case 'suppliers.assignees': value = security.supplierAssignees(); break;
                 case 'tasks.assignees': value = security.taskAssignees(); break;
                 case 'users.list': value = security.listUsers(); break;
                 case 'users.create': value = security.createUser(input as { username: string; displayName: string; password: string; roles: Role[] }); break;

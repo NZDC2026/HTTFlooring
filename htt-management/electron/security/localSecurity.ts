@@ -148,6 +148,7 @@ export class LocalSecurity {
         return this.status();
     }
     logout(): SecurityStatus { this.audit('session.logout', this.principal()?.userId ?? '', 'SUCCESS'); this.session = null; return this.status(); }
+    supplierAssignees(){this.require('contacts.write');return this.state.users.filter(user=>user.active&&hasPermission({userId:user.id,roles:user.roles,authenticated:true},'contacts.write')&&hasPermission({userId:user.id,roles:user.roles,authenticated:true},'purchases.read')).map(user=>({id:user.id,displayName:user.displayName}));}
     taskAssignees() {
         this.require('sales.read');
         return this.state.users.filter(user => user.active && hasPermission({

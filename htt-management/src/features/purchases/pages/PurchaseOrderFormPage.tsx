@@ -142,7 +142,7 @@ export function PurchaseOrderFormPage({
 
     return (
         <div className="pb-8">
-            <PurchaseOrderForm initialSample={query.get("sample")==="1"} quotation={quotation}
+            <PurchaseOrderForm initialSupplierId={isCreate?query.get("supplierId")||"":""} initialSample={query.get("sample")==="1"} quotation={quotation}
                 purchaseOrder={
                     purchaseOrder
                 }

@@ -19,7 +19,8 @@ export function validatePaymentTerms(terms: PaymentTerms) {
         throw new Error("Day of month must be from 1 to 31.");
     return type;
 }
-export function paymentTermsLabel(terms: PaymentTerms) {
+export function paymentTermsLabel(terms: PaymentTerms & {setup?:unknown}) {
+    if((terms.setup as {paymentMode?:string}|undefined)?.paymentMode==='Prepaid')return 'Prepaid';
     const type = validatePaymentTerms(terms);
     if (type === "COD") return "COD";
     return type === "DAY_OF_MONTH" ? `No. ${terms.paymentTermsDays} End Of Month (next month)` : `No. ${terms.paymentTermsDays} Of Day`;

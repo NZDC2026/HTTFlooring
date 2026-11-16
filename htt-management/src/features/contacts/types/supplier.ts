@@ -4,6 +4,10 @@ export type SupplierStatus =
     | "INACTIVE";
 
 export interface Supplier {
+    setup?: import('../supplier-create/supplierSetup').SupplierSetup;
+    bankDetails?: import('../supplier-create/supplierSetup').SupplierBank;
+    bankHistory?: import('zod').z.infer<typeof import('../supplier-create/supplierSetup').supplierBankHistory>[];
+    creationRequest?: import('zod').z.infer<typeof import('../supplier-create/supplierSetup').supplierCreationReceipt>;
     shipments?: import("../../incoming-shipments/shipmentModel").Shipment[];
     contacts?: import("./customer").CustomerContact[];
     activities?: import("../data/supplierActivities").SupplierActivity[];

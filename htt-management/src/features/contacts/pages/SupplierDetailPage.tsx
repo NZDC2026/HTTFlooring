@@ -1,3 +1,4 @@
+import {useAttachments} from '../../attachments/attachmentClient';
 import { SupplierPurchases } from "../../incoming-shipments/SupplierShipments";
 import { supplierContacts } from "../data/accountContacts";
 import { SupplierNotesTasks } from "../components/SupplierNotesTasks";
@@ -18,6 +19,7 @@ import {
 
 import {
     Navigate,
+    Link,
     useNavigate,
     useParams,
 } from "react-router-dom";
@@ -671,6 +673,8 @@ function OverviewTab({
         typeof useSupplierAccountsPayable
     >;
 }) {
+    const {documents}=useAttachments();
+    const supplierDocuments=documents.filter(d=>d.target.kind==='Supplier'&&d.target.id===supplier.id&&!d.deletedAt);
     const ytd = supplierYearToDate(supplier.id,bills,payments,getToday());
     return (
         <div className="grid grid-cols-[1.4fr_1fr] gap-5">
@@ -702,7 +706,7 @@ function OverviewTab({
                             }
                         />
 
-                        <Detail label="Business address" value={formatAddress(supplier)}/>
+                        <Detail label="Registration / tax ID" value={supplier.setup?.registrationId}/><Detail label="Default lead time" value={supplier.setup?`${supplier.setup.leadTimeDays} days`:undefined}/><Detail label="Business address" value={formatAddress(supplier)}/>
                         <Detail label="Website" value={supplier.website}/>
                         <Detail label="Business landline" value={supplier.phone}/>
                         <Detail label="Business email" value={supplier.email}/>
@@ -732,6 +736,8 @@ function OverviewTab({
 
             <Card><CardContent><SectionTitle>Contact Details</SectionTitle><div className="space-y-3">{supplierContacts(supplier).map(contact=><div key={contact.id} className="rounded-lg border border-[var(--color-border)] p-3"><p className="text-sm font-semibold">{contact.firstName} {contact.lastName} <span className="text-xs font-normal text-[var(--color-text-muted)]">{contact.isPrimary?" · Primary":""}{contact.isAccounting?" · Accountant":""}</span></p><p className="mt-1 text-sm">{contact.mobile||contact.phone||"No phone recorded"}</p><p className="mt-1 text-sm">{contact.email||"No email recorded"}</p></div>)}{!supplierContacts(supplier).length&&<p className="text-sm text-[var(--color-text-muted)]">No contacts recorded. Add contacts using Edit supplier.</p>}</div></CardContent></Card>
 
+            {supplier.bankDetails&&<Card data-ui="card"><CardContent><SectionTitle>Bank details · Admin &amp; Account</SectionTitle><div className="grid grid-cols-2 gap-4">{[['Beneficiary',supplier.bankDetails.beneficiary],['Bank',supplier.bankDetails.bankName],['SWIFT / BIC',supplier.bankDetails.swift],['Account / IBAN',supplier.bankDetails.account],['Bank address',supplier.bankDetails.address]].map(([label,value])=><Detail key={label} label={label} value={value}/>)}</div>{supplier.bankHistory?.map((h,i)=><p key={i} className="mt-3 text-xs text-[var(--color-text-muted)]">{h.action} · {h.actorName} · {new Date(h.at).toLocaleString()}</p>)}</CardContent></Card>}
+            {supplierDocuments.length>0&&<Card data-ui="card"><CardContent><SectionTitle>Supplier documents</SectionTitle><div className="space-y-3">{supplierDocuments.map(d=><div key={d.id}><Link className="text-sm underline text-[var(--color-primary)]" to={`/documents/${d.id}`}>{d.title}</Link><p className="text-xs text-[var(--color-text-muted)]">{d.versions.length} versions · Open to review or download</p></div>)}</div></CardContent></Card>}
             <SupplierNotesTasks supplierId={supplier.id}/>
             <Card>
                 <CardContent>

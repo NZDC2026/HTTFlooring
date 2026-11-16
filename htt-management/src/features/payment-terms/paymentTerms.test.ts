@@ -7,6 +7,7 @@ describe("payment terms", () => {
         expect(paymentDueDate("2026-11-10", {paymentTermsDays: 0})).toBe("2026-11-10");
         expect(paymentTermsLabel({paymentTermsDays: 0})).toBe("COD");
     });
+    it('preserves prepaid supplier labels without changing legacy COD dates',()=>{expect(paymentTermsLabel({paymentTermsDays:0,paymentTermsType:'COD',setup:{paymentMode:'Prepaid'}})).toBe('Prepaid');expect(paymentDueDate('2026-11-16',{paymentTermsDays:0,paymentTermsType:'COD'})).toBe('2026-11-16');});
     it.each([
         ["2026-11-10", 30, "2026-12-30"],
         ["2026-11-30", 10, "2026-12-10"],

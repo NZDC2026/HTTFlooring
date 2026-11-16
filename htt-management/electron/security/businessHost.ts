@@ -228,6 +228,7 @@ export class BusinessHost {
         const actor = this.security.require(command.permission);
         const args = structuredClone(input.args);
         this.automationEngine?.assertBankInstructionCommand(input.repository,input.method,args);
+        if(input.repository==='suppliers'&&input.method==='createAccount'){const request=args[0] as {tasks?:{owner:string;ownerName?:string}[]};const staff=this.security.supplierAssignees();for(const task of request?.tasks??[]){const assignee=staff.find(s=>s.id===task.owner);if(!assignee)throw Error('Select an active supplier task assignee.');task.ownerName=assignee.displayName;}}
         if(input.repository==='customers'&&input.method==='createAccount'){
             const request=args[0] as {tasks?:{owner:string;ownerName?:string}[];customer?:{setup?:{salesRep?:string}}};
             const staff=this.security.taskAssignees();

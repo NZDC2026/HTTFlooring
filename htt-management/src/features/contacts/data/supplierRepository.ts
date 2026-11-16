@@ -1,3 +1,4 @@
+import {supplierPublicView,supplierSetupSchema,supplierBankSchema,supplierBankHistory,supplierCreationReceipt,canSeeSupplierBank} from '../supplier-create/supplierSetup';
 import {allocateContainerCosts,saveShipmentCostsSchema,shipmentCostProducts,readLandedCostDraft} from '../../procurement/containerCostAllocation';
 import {businessDateKey} from '../../../lib/businessDate';
 import {containerPurchaseInput} from '../../incoming-shipments/containerPurchaseModel';
@@ -108,6 +109,7 @@ function mapValues(
     validatePaymentTerms(values);
     const contacts=values.contacts===undefined?undefined:normalizeAccountContacts(values.contacts);
     return {
+        ...(values.setup?{setup:supplierSetupSchema.parse(values.setup)}:{}),
         ...(contacts===undefined?{}:{contacts,contactName:contacts.find(c=>c.isPrimary)?`${contacts.find(c=>c.isPrimary)!.firstName} ${contacts.find(c=>c.isPrimary)!.lastName}`.trim():undefined}),
         businessName:
             values.businessName.trim(),
@@ -186,6 +188,10 @@ function mapValues(
 }
 
 export const supplierRepository = {
+    createAccount(_raw:import('../supplier-create/supplierOnboardingModel').SupplierOnboardingInput):{id:string;code:string}{throw Error('Secure supplier setup service required.');},
+    completeSetup(id:string,receipt:NonNullable<Supplier['creationRequest']>,bank?:Supplier['bankDetails']){const actor=trustedAuthorization.require('contacts.write');if(bank&&!canSeeSupplierBank(actor))throw Error('Permission denied: bank details require Admin or Account access.');suppliers=suppliers.map(s=>s.id===id?{...s,creationRequest:supplierCreationReceipt.parse(receipt),...(bank?{bankDetails:supplierBankSchema.parse(bank),bankHistory:[{actorId:actor.userId,actorName:actor.displayName||actor.userId,at:new Date().toISOString(),action:'Bank details recorded' as const}]}:{})}:s);emitChange();},
+    addSetupTask(id:string,task:import('zod').z.infer<typeof import('../supplier-create/supplierOnboardingModel').supplierTaskSchema>,operationId:string){const actor=trustedAuthorization.require('contacts.write'),s=suppliers.find(s=>s.id===id);if(!s)throw Error('Supplier was not found.');const at=new Date().toISOString();suppliers=suppliers.map(s=>s.id===id?{...s,activities:[...(s.activities||[]),{id:createId('supplier_task'),operationId,kind:'Task' as const,text:task.name,due:task.due,assignedTo:task.owner,assignedName:task.ownerName||task.owner,priority:task.priority,taskType:task.taskType,actorId:actor.userId,actorName:actor.displayName||actor.userId,at,replies:[]}]}:s);emitChange();},
+
     saveShipmentDates(raw:unknown){
       const actor=trustedAuthorization.require('purchases.write'),input=shipmentDateInput.parse(raw),supplier=suppliers.find(s=>s.id===input.supplierId),old=supplier?.shipments?.find(s=>s.id===input.id);if(!supplier||!old)throw Error('Shipment was not found');
       const prior=old.history.find(h=>h.operationId===input.operationId);if(prior){if(prior.request!==JSON.stringify(input))throw Error('Operation already has different dates');return old;}
@@ -365,7 +371,7 @@ export const supplierRepository = {
 
         emitChange();
 
-        return supplier;
+        return supplierPublicView(supplier,trustedAuthorization.current());
     },
 
     update(
@@ -390,6 +396,7 @@ export const supplierRepository = {
             ...mapValues(
                 values,
             ),
+            ...(!values.setup&&existing.setup&&(values.paymentTermsType!==existing.paymentTermsType||values.paymentTermsDays!==existing.paymentTermsDays)?{setup:{...existing.setup,paymentMode:values.paymentTermsType==='DAY_OF_MONTH'?'Days EOM' as const:values.paymentTermsType==='DAYS'?'Net days' as const:'COD' as const}}:{}),
 
             updatedAt:
                 new Date().toISOString(),
@@ -406,13 +413,15 @@ export const supplierRepository = {
 
         emitChange();
 
-        return updated;
+        return supplierPublicView(updated,trustedAuthorization.current());
     },
 };
 registerRepository("suppliers", {
     repository: supplierRepository, read: "purchases.read",
-    commands: {"saveShipmentDates":"purchases.write","saveShipmentGroup":"purchases.write","saveShipmentCosts":"purchases.write","saveContainerPurchase":"purchases.write","saveShipment":"purchases.write","receiveShipment":"purchases.receive","saveReceivingDraft":"purchases.receive","addActivity":"contacts.write","activityAction":"contacts.write","if": null, "create": "contacts.write", "update": "contacts.write"},
+    view: p=>({suppliers:suppliers.map(s=>supplierPublicView(s,p))}),
+    commands: {"createAccount":"contacts.write","completeSetup":null,"addSetupTask":null,"saveShipmentDates":"purchases.write","saveShipmentGroup":"purchases.write","saveShipmentCosts":"purchases.write","saveContainerPurchase":"purchases.write","saveShipment":"purchases.write","receiveShipment":"purchases.receive","saveReceivingDraft":"purchases.receive","addActivity":"contacts.write","activityAction":"contacts.write","if": null, "create": "contacts.write", "update": "contacts.write"},
     validate: (value,snapshots) => { for (const supplier of (value as {suppliers:Supplier[]}).suppliers) {
+        if(supplier.setup)supplierSetupSchema.parse(supplier.setup);if(supplier.bankDetails)supplierBankSchema.parse(supplier.bankDetails);if(supplier.bankHistory)supplier.bankHistory.forEach(h=>supplierBankHistory.parse(h));if(supplier.creationRequest)supplierCreationReceipt.parse(supplier.creationRequest);
         const shipmentIds=new Set<string>();
         for(const raw of supplier.shipments??[]){const shipment=shipmentSchema.parse(raw);if(shipment.supplierId!==supplier.id||shipmentIds.has(shipment.id)||shipment.revision!==shipment.history.length)throw Error('Invalid shipment identity or revision');shipmentIds.add(shipment.id);
             for(const line of shipment.lines){const po=(snapshots.purchaseOrders as {purchaseOrders:PurchaseOrder[]}).purchaseOrders.find(p=>p.id===line.purchaseOrderId&&p.supplierId===supplier.id);if(!po?.lines.some(l=>l.id===line.lineId)||line.received>line.quantity||(line.damaged??0)>line.received)throw Error('Invalid shipment purchase order reference');}

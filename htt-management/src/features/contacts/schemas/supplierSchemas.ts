@@ -1,3 +1,4 @@
+import {supplierSetupSchema} from '../supplier-create/supplierSetup';
 import { accountContactsSchema } from "../data/accountContacts";
 import { paymentTermsTypeSchema, validatePaymentTerms } from "../../payment-terms/paymentTerms";
 import { z } from "zod";
@@ -40,6 +41,7 @@ const optionalAbn = z
 
 export const supplierFormSchema =
     z.object({
+        setup: supplierSetupSchema.optional(),
         contacts: accountContactsSchema.optional(),
         businessName: z
             .string()
