@@ -3,6 +3,7 @@ import type { Branches, Context, Identity, LoginResult } from '../types/portal';
 import { ApiError, request } from '../lib/request';
 import { singleFlight } from '../lib/singleFlight';
 import { authStore } from '../state/authStore';
+import { clearAccessToken, setAccessToken } from '../lib/accessToken';
 
 let token: string | null = null; // Private memory only; never exposed to state/debugging tools.
 let boundContext: Context | null = null;
@@ -10,7 +11,7 @@ let loginEmail = '';
 let generation = 0;
 let logoutPending = false;
 export const RESTORE_BLOCKED = 'Persistent login is unavailable: the backend has no session recovery, refresh cookie or CSRF contract yet. Retry after the backend is updated, or log in with your password.';
-function clear(error = '') { generation++; token = null; boundContext = null; loginEmail = ''; authStore.clear('unauthenticated', error); }
+function clear(error = '') { generation++; token = null; clearAccessToken(); boundContext = null; loginEmail = ''; authStore.clear('unauthenticated', error); }
 function assertCurrent(current: number) { if (current !== generation) throw new Error('Session operation superseded.'); }
 function fixedContext(contexts: Context[]) {
   if (!Array.isArray(contexts) || !contexts.length || contexts.some(c => !c.companyId || !c.customerId || !c.grantId)
@@ -54,6 +55,7 @@ export const login = singleFlight(async (email: string, password: string) => {
     assertCurrent(current);
     if (!issued || result.tokenType !== 'Bearer' || !Number.isFinite(result.expiresIn) || result.expiresIn <= 0) throw new Error('Invalid authentication response.');
     token = issued;
+    setAccessToken(issued, result.expiresIn);
     loginEmail = email;
     await account(issued, current, email);
   } catch (error) {

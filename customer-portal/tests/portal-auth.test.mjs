@@ -13,9 +13,11 @@ const branch = { id:'branch-a', code:'SYN-B', name:'Synthetic Branch' };
 const json = (body,status=200) => new Response(JSON.stringify(body), {status,headers:{'Content-Type':'application/json'}});
 const deferred = () => { let resolve; const promise = new Promise(r=>{resolve=r;}); return {promise,resolve}; };
 const tick = () => new Promise(resolve=>setImmediate(resolve));
-function harness(bus = new Set(), authMode = 'api') {
+function harness(bus = new Set(), authMode = 'api', authDevtoolsEnabled = true) {
   let now=10000;
   const calls=[], writes=[], events=new Map(), values=new Map();
+  const devtoolsMessages=[],devtoolsConnections=[],devtoolsSubscribers=[];
+  const capture=value=>JSON.parse(JSON.stringify(value));
   const makeStorage=entries=>({getItem:k=>entries.get(k)??null,setItem:(k,v)=>{entries.set(k,v);writes.push([k,v]);},removeItem:k=>entries.delete(k)});
   const storage=makeStorage(values), sessionStorage=makeStorage(new Map());
   let handler=(url)=> url.endsWith('/auth/login') ? json({accessToken:'synthetic-access',tokenType:'Bearer',expiresIn:900})
@@ -30,20 +32,107 @@ function harness(bus = new Set(), authMode = 'api') {
   const sandbox=vm.createContext({ Headers, Response, AbortSignal, TextEncoder, crypto:webcrypto, localStorage:storage, sessionStorage,
     Date:class extends Date {static now(){return now;}}, BroadcastChannel:Channel,
     fetch:async(url,options)=>{calls.push({url,options});return handler(url,options);},
-    window:{addEventListener:(name,fn)=>{if(!events.has(name))events.set(name,new Set());events.get(name).add(fn);},removeEventListener:(name,fn)=>events.get(name)?.delete(fn),setInterval:()=>1,clearInterval:()=>{}},
+    window:{__REDUX_DEVTOOLS_EXTENSION__:{connect(options){devtoolsConnections.push(options);return {init(state){devtoolsMessages.push({type:'init',state:capture(state)});},send(action,state){devtoolsMessages.push({action:capture(action),state:capture(state)});},subscribe(listener){devtoolsSubscribers.push(listener);return()=>{};},unsubscribe(){}};}},addEventListener:(name,fn)=>{if(!events.has(name))events.set(name,new Set());events.get(name).add(fn);},removeEventListener:(name,fn)=>events.get(name)?.delete(fn),setInterval:()=>1,clearInterval:()=>{}},
   });
   const cache=new Map();
   function load(file){
     const target=path.resolve(root,file); if(cache.has(target))return cache.get(target);
     const exports={}; cache.set(target,exports);
     const code=ts.transpile(fs.readFileSync(target,'utf8'),{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2023});
-    vm.runInContext(`(function(exports,require){${code}\n})`,sandbox)(exports,name=>name === '../config/auth' ? {authMode} : name === 'react' ? {useSyncExternalStore:(_subscribe,getSnapshot)=>getSnapshot()} : name === 'zustand/vanilla' ? nativeRequire(name) : load(path.resolve(path.dirname(target),name+'.ts')));
+    vm.runInContext(`(function(exports,require){${code}\n})`,sandbox)(exports,name=>name === '../config/auth' ? {authMode,authDevtoolsEnabled} : name === 'react' ? {useSyncExternalStore:(_subscribe,getSnapshot)=>getSnapshot()} : name === 'zustand/middleware' ? load(nativeRequire.resolve(name)) : name === 'zustand/vanilla' ? nativeRequire(name) : load(path.resolve(path.dirname(target),name+'.ts')));
     return exports;
   }
   const auth=load('src/services/auth.ts'),store=load('src/state/authStore.ts').authStore;
-  return {auth,store,calls,writes,storage,sessionStorage,load,events,advance:(milliseconds=1000)=>{now+=milliseconds;},setHandler:fn=>{handler=fn;},getHandler:()=>handler};
+  return {auth,store,calls,writes,storage,sessionStorage,load,events,devtoolsMessages,devtoolsConnections,devtoolsSubscribers,advance:(milliseconds=1000)=>{now+=milliseconds;},setHandler:fn=>{handler=fn;},getHandler:()=>handler};
 }
 const signIn = h => h.auth.login('synthetic@example.invalid','synthetic-password');
+
+test('development Redux DevTools shows the full token and named actions without password payloads',async()=>{
+ const h=harness(),account=h.load('src/services/account.ts');
+ await account.login('synthetic@example.invalid','synthetic-password',false);
+ assert.equal(h.devtoolsConnections[0].name,'customer-portal/auth');
+ const loggedIn=h.devtoolsMessages.at(-1);
+ assert.equal(loggedIn.action.type,'auth/accessTokenSet');assert.equal(loggedIn.state.accessToken,'synthetic-access');
+ assert.equal(loggedIn.state.hasAccessToken,true);assert.equal(loggedIn.state.expiresAt,910000);
+ account.logout();assert.equal(h.devtoolsMessages.at(-1).action.type,'auth/accessTokenCleared');
+ assert.equal(h.devtoolsMessages.at(-1).state.hasAccessToken,false);
+ assert.ok(JSON.stringify(h.devtoolsMessages).includes('synthetic-access'));
+ assert.ok(!JSON.stringify(h.devtoolsMessages).includes('synthetic-password'));
+});
+test('Redux DevTools reports expiry and production disables extension connection',async()=>{
+ const h=harness(),account=h.load('src/services/account.ts');
+ await account.login('synthetic@example.invalid','synthetic-password',false);h.advance(900000);
+ h.load('src/lib/accessToken.ts').getAccessToken();
+ assert.equal(h.devtoolsMessages.at(-1).action.type,'auth/accessTokenExpired');
+ const production=harness(new Set(),'api',false);
+ await production.load('src/services/account.ts').login('synthetic@example.invalid','synthetic-password',false);
+ assert.equal(production.devtoolsConnections.length,0);assert.equal(production.devtoolsMessages.length,0);
+});
+test('DevTools time travel affects only the diagnostic projection, never the real request token',async()=>{
+ const h=harness(),account=h.load('src/services/account.ts');await account.login('synthetic@example.invalid','synthetic-password',false);
+ h.devtoolsSubscribers[0]({type:'DISPATCH',payload:{type:'JUMP_TO_STATE'},state:JSON.stringify({hasAccessToken:false,accessToken:null,expiresAt:null})});
+ const transport=h.load('src/lib/request.ts'),api=h.load('src/api/portal.ts').portalApi;
+ await transport.request(api.me);assert.equal(h.calls.at(-1).options.headers.get('Authorization'),'Bearer synthetic-access');
+ assert.equal(account.useLocalAccount().authenticated,true);
+});
+
+test('Zustand owns login token and notifies subscribers when cleared',async()=>{
+ const h=harness(),account=h.load('src/services/account.ts'),store=h.load('src/state/accessTokenStore.ts').accessTokenStore;
+ const changes=[];const stop=store.subscribe(state=>changes.push(state.accessToken!==null));
+ await account.login('synthetic@example.invalid','synthetic-password',true);
+ assert.equal(store.getState().accessToken,'synthetic-access');assert.equal(store.getState().expiresAt,910000);
+ assert.equal(account.useLocalAccount().authenticated,true);
+ store.getState().clearAccessToken();
+ assert.equal(account.useLocalAccount().authenticated,false);assert.equal(store.getState().expiresAt,null);
+ assert.equal(changes.at(-1),false);assert.ok(changes.includes(true));assert.equal(h.writes.length,0);stop();
+});
+test('business requests read Zustand directly and expired store credentials are cleared',async()=>{
+ const h=harness(),store=h.load('src/state/accessTokenStore.ts').accessTokenStore,transport=h.load('src/lib/request.ts'),api=h.load('src/api/portal.ts').portalApi;
+ store.getState().setAccessToken('synthetic-store-access',1);
+ await transport.request(api.me);assert.equal(h.calls.at(-1).options.headers.get('Authorization'),'Bearer synthetic-store-access');
+ h.advance();await transport.request(api.me);
+ assert.equal(h.calls.at(-1).options.headers.has('Authorization'),false);assert.equal(store.getState().accessToken,null);
+ assert.equal(harness().load('src/state/accessTokenStore.ts').accessTokenStore.getState().accessToken,null);
+ assert.equal(h.writes.length,0);
+});
+
+test('page login supplies memory Bearer automatically for business requests without persisting credentials',async()=>{
+ const h=harness(),account=h.load('src/services/account.ts'),transport=h.load('src/lib/request.ts'),api=h.load('src/api/portal.ts').portalApi;
+ await account.login('synthetic@example.invalid','synthetic-password',true);
+ await transport.request(api.me);
+ assert.equal(h.calls[0].options.headers.has('Authorization'),false);
+ assert.equal(h.calls[1].options.headers.get('Authorization'),'Bearer synthetic-access');
+ assert.equal(h.writes.length,0);assert.equal(JSON.stringify(account.useLocalAccount()).includes('synthetic-access'),false);
+});
+test('public login never receives a stored or explicitly supplied token; explicit null opts out',async()=>{
+ const h=harness(),account=h.load('src/services/account.ts'),transport=h.load('src/lib/request.ts'),api=h.load('src/api/portal.ts').portalApi;
+ await account.login('synthetic@example.invalid','synthetic-password',false);
+ await transport.request(api.login,{token:'must-not-send',body:{email:'synthetic@example.invalid',password:'synthetic-password'}});
+ await transport.request(api.me,{token:null});
+ assert.equal(h.calls[1].options.headers.has('Authorization'),false);assert.equal(h.calls[2].options.headers.has('Authorization'),false);
+});
+test('logout and expiry remove the default Bearer from subsequent business requests',async()=>{
+ for(const reason of ['logout','expiry']){
+  const h=harness(),account=h.load('src/services/account.ts'),transport=h.load('src/lib/request.ts'),api=h.load('src/api/portal.ts').portalApi;
+  await account.login('synthetic@example.invalid','synthetic-password',false);
+  if(reason==='logout')account.logout();else h.advance(900000);
+  await transport.request(api.me);
+  assert.equal(h.calls.at(-1).options.headers.has('Authorization'),false);assert.equal(account.useLocalAccount().authenticated,false);
+ }
+});
+test('failed login and Mock login cannot supply a real default Bearer',async()=>{
+ const failed=harness(),account=failed.load('src/services/account.ts'),transport=failed.load('src/lib/request.ts'),api=failed.load('src/api/portal.ts').portalApi;
+ failed.setHandler(()=>json({code:'AUTHENTICATION_REQUIRED'},401));await assert.rejects(account.login('synthetic@example.invalid','wrong',false));
+ await assert.rejects(transport.request(api.me));assert.equal(failed.calls.at(-1).options.headers.has('Authorization'),false);
+ const mock=harness(new Set(),'mock'),mockAccount=mock.load('src/services/account.ts');
+ await mockAccount.login(mockAccount.defaultProfile.email,mockAccount.DEMO_PASSWORD,false);
+ assert.equal(mock.load('src/lib/accessToken.ts').getAccessToken(),null);assert.equal(mock.calls.length,0);
+});
+test('the identity-verifying login flow uses the same automatic business Bearer and clears it on logout',async()=>{
+ const h=harness(),transport=h.load('src/lib/request.ts'),api=h.load('src/api/portal.ts').portalApi;
+ await signIn(h);await transport.request(api.me);assert.equal(h.calls.at(-1).options.headers.get('Authorization'),'Bearer synthetic-access');
+ await h.auth.logout();await transport.request(api.me);assert.equal(h.calls.at(-1).options.headers.has('Authorization'),false);
+});
 
 test('existing mock login entry uses backend response to unlock existing account hook without credential storage',async()=>{
  const h=harness(),legacy=h.load('src/services/account.ts');

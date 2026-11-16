@@ -30,7 +30,7 @@ spring:
 
 server:
   address: 127.0.0.1
-  port: 8080
+  port: 8070
   shutdown: graceful
   error:
     include-message: never
@@ -68,6 +68,12 @@ springdoc:
     enabled: false
 
 htt:
+  customers:
+    enabled: ${HTT_CUSTOMERS_ENABLED:false}
+  keycloak:
+    accounts:
+      client-id: ${HTT_KEYCLOAK_ACCOUNTS_CLIENT_ID:}
+      client-secret: ${HTT_KEYCLOAK_ACCOUNTS_CLIENT_SECRET:}
   portal:
     branches-enabled: ${HTT_PORTAL_BRANCHES_ENABLED:false}
   notification:
@@ -84,6 +90,8 @@ htt:
     # Only reviewed event types with static, non-sensitive text are enabled. No inferred business rules.
     templates: {}
   auth:
+    cookie-secure: ${HTT_AUTH_COOKIE_SECURE:true}
+    local-enabled: ${HTT_AUTH_LOCAL_ENABLED:false}
     enabled: ${HTT_AUTH_ENABLED:false}
     staff:
       issuer: ${HTT_STAFF_ISSUER:}

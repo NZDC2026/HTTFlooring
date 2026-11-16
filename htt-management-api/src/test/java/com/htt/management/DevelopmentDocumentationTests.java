@@ -16,24 +16,29 @@ import static org.hamcrest.Matchers.containsString;
 @ActiveProfiles({"test", "development"})
 class DevelopmentDocumentationTests {
     @Autowired MockMvc mvc;
+    @Autowired org.springframework.core.env.Environment environment;
 
     @Test
-    void developmentDocumentsHaveTwoExplicitRealmsAndPkceWithoutSecrets() throws Exception {
+    void developmentApiAndSwaggerUsePort8070() {
+        org.assertj.core.api.Assertions.assertThat(environment.getProperty("server.port")).isEqualTo("8070");
+        org.assertj.core.api.Assertions.assertThat(environment.getProperty("htt.auth.local-enabled")).isEqualTo("true");
+    }
+
+    @Test
+    void developmentDocumentsHaveTwoBearerContextsWithoutKeycloak() throws Exception {
         mvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.components.securitySchemes.staff.flows.authorizationCode.authorizationUrl")
-                        .value("https://192.168.10.174:18443/realms/htt-staff/protocol/openid-connect/auth"))
-                .andExpect(jsonPath("$.components.securitySchemes.portal.flows.authorizationCode.tokenUrl")
-                        .value("https://192.168.10.174:18443/realms/htt-customer/protocol/openid-connect/token"))
-                .andExpect(jsonPath("$.components.securitySchemes.staff.flows.password").doesNotExist());
+                .andExpect(jsonPath("$.components.securitySchemes.staff.type").value("http"))
+                .andExpect(jsonPath("$.components.securitySchemes.staff.scheme").value("bearer"))
+                .andExpect(jsonPath("$.components.securitySchemes.portal.scheme").value("bearer"))
+                .andExpect(jsonPath("$.components.securitySchemes.staff.flows").doesNotExist());
         mvc.perform(get("/v3/api-docs/swagger-config"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.persistAuthorization").value(false));
         mvc.perform(get("/swagger-ui/oauth2-redirect.html")).andExpect(status().isOk());
         mvc.perform(get("/swagger-ui/swagger-initializer.js"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("htt-api-swagger")))
-                .andExpect(content().string(containsString("usePkceWithAuthorizationCodeGrant")));
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("htt-api-swagger"))));
     }
 
     @Test

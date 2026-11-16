@@ -46,6 +46,10 @@ public class IdentityConfiguration {
     AccessAudit accessAudit(JdbcTemplate jdbc) { return new AccessAudit(jdbc); }
 
     @Bean
+    @ConditionalOnProperty(name="htt.customers.enabled",havingValue="true")
+    CustomerManagementAccess customerManagementAccess(AccessAudit audit) { return new CustomerManagementAccess(audit); }
+
+    @Bean
     ResourceAccess resourceAccess(AccessRepository repository, AccessAudit audit) { return new ResourceAccess(repository, audit); }
 
     @Bean
@@ -55,10 +59,12 @@ public class IdentityConfiguration {
     }
 
     @Bean("staffJwtDecoder")
+    @ConditionalOnProperty(name="htt.auth.local-enabled",havingValue="false",matchIfMissing=true)
     @ConditionalOnMissingBean(name = "staffJwtDecoder")
     JwtDecoder staffJwtDecoder(AuthenticationProperties properties) { return decoder(properties.staff()); }
 
     @Bean("portalJwtDecoder")
+    @ConditionalOnProperty(name="htt.auth.local-enabled",havingValue="false",matchIfMissing=true)
     @ConditionalOnMissingBean(name = "portalJwtDecoder")
     JwtDecoder portalJwtDecoder(AuthenticationProperties properties) { return decoder(properties.portal()); }
 
@@ -89,21 +95,31 @@ public class IdentityConfiguration {
 
     @Bean
     AuthenticationManagerResolver<HttpServletRequest> identityManagers(AuthenticationProperties properties,
-            @Qualifier("staffJwtDecoder") JwtDecoder staffDecoder,
-            @Qualifier("portalJwtDecoder") JwtDecoder portalDecoder, AccessRepository repository) {
+            @Qualifier("staffJwtDecoder") org.springframework.beans.factory.ObjectProvider<JwtDecoder> staffDecoders,
+            @Qualifier("portalJwtDecoder") org.springframework.beans.factory.ObjectProvider<JwtDecoder> portalDecoders, AccessRepository repository,
+            org.springframework.beans.factory.ObjectProvider<LocalAuthentication> locals,
+            org.springframework.beans.factory.ObjectProvider<KeycloakAccounts> accountProvider) {
+        LocalAuthentication local=locals.getIfAvailable();
+        if(local!=null) return request -> input -> {
+            var realm=request.getRequestURI().substring(request.getContextPath().length()).startsWith("/api/portal/")
+                    ? AccessSnapshot.Realm.CUSTOMER:AccessSnapshot.Realm.STAFF;
+            try { return local.authenticate(((org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthenticationToken)input).getToken(),realm); }
+            catch(DataAccessException failure) {throw new OAuth2AuthenticationException(new OAuth2Error("temporarily_unavailable"));}
+        };
+        JwtDecoder staffDecoder=staffDecoders.getObject(),portalDecoder=portalDecoders.getObject();
         properties.staff().validate();
         properties.portal().validate();
         if (properties.staff().audience().equals(properties.portal().audience())) {
             throw new IllegalStateException("Staff and portal audiences must be distinct.");
         }
-        AuthenticationManager staff = manager(staffDecoder, repository, AccessSnapshot.Realm.STAFF);
-        AuthenticationManager portal = manager(portalDecoder, repository, AccessSnapshot.Realm.CUSTOMER);
+        AuthenticationManager staff = manager(staffDecoder, repository, AccessSnapshot.Realm.STAFF,null);
+        AuthenticationManager portal = manager(portalDecoder, repository, AccessSnapshot.Realm.CUSTOMER,accountProvider.getIfAvailable());
         // Path selects the accepted token audience only. Database identity binding establishes the realm.
         return request -> request.getRequestURI().substring(request.getContextPath().length())
                 .startsWith("/api/portal/") ? portal : staff;
     }
 
-    private static AuthenticationManager manager(JwtDecoder decoder, AccessRepository repository, AccessSnapshot.Realm realm) {
+    private static AuthenticationManager manager(JwtDecoder decoder, AccessRepository repository, AccessSnapshot.Realm realm,KeycloakAccounts keycloak) {
         JwtAuthenticationProvider provider = new JwtAuthenticationProvider(decoder);
         provider.setJwtAuthenticationConverter(jwt -> {
             AccessSnapshot access;
@@ -114,6 +130,14 @@ public class IdentityConfiguration {
             }
             if (access == null || jwt.getIssuedAt().isBefore(access.tokensValidAfter())) {
                 throw new BadCredentialsException("Identity is unavailable or token has been revoked.");
+            }
+            if(realm==AccessSnapshot.Realm.CUSTOMER && keycloak!=null) {
+                try {
+                    if(repository.isManagedPortalAccount(access.actorId())&&!keycloak.active(jwt.getTokenValue()))
+                        throw new BadCredentialsException("Identity session is unavailable.");
+                } catch(org.springframework.web.server.ResponseStatusException | DataAccessException failure) {
+                    throw new OAuth2AuthenticationException(new OAuth2Error("temporarily_unavailable"));
+                }
             }
             // Ignore JWT role/scope claims. Action permissions come from current company membership.
             var authentication = UsernamePasswordAuthenticationToken.authenticated(new VerifiedUser(access, realm), null, List.of());

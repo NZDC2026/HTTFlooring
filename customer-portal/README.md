@@ -17,6 +17,8 @@ npm test
 
 `src/data/localAccount.ts` remains the original Mock implementation and data. Pages use `src/services/account.ts`, which selects real or Mock login according to `src/config/auth.ts`. Page content and layouts are unchanged by this adapter.
 
+Real login stores the access token and expiration in the memory-only Zustand store at `src/state/accessTokenStore.ts`. The real token store has no persistence, devtools or logging middleware. Development-only Redux DevTools observes a diagnostic snapshot with the complete access token. `src/lib/accessToken.ts` provides the shared access helpers. Business calls through `request(portalApi.me)` or other authenticated portal endpoints automatically add `Authorization: Bearer <accessToken>`. Public login requests never carry this header. Explicit `token: null` opts out, and logout/expiry prevents subsequent requests from using the old token. This is scoped to the same-origin portal request utility, not global fetch or unrelated external services.
+
 Real access tokens remain in private memory and expire according to `expiresIn`; Remember me does not extend or persist a real session. Backend recovery/refresh is not available yet, so reloading requires a new real login. Logout in this compatibility flow clears local login state; server revocation is not wired into the existing page header. Local Mock password reset/change is only enabled in Mock mode and does not modify backend credentials. Other business pages continue to show Mock data, not the real account's backend records.
 
 ## Local demo (Mock mode only)
@@ -52,3 +54,9 @@ Product Sales deducts confirmed return quantities and area from the original inv
 Catalogue prices are now complete local preview fixtures: all Bonita colours share $69.00 / m² with $82.00 standard price; accessory examples are Scotia $6.50, Stair Nose $45.00, Trims $12.00 per unit. These are sample values, not externally verified prices. Promotion and Clearance listings require a valid discounted price, higher standard price and positive discount; all current promotional fixtures include November 2026 start/end dates. Stock values are not invented.
 
 Three price levels: Standard Price is the list rate; customerPrice is the normal customer rate; promotionPrice is an additional promotional rate. The effective legacy price is maintained for current-price displays. For Bonita the preview rates are $82 standard, $75 customer, $69 promotional (8% off the customer rate). Promotional strikethroughs use customerPrice, not Standard Price. Accessories also have lower customer rates than standard rates, without requiring a promotion.
+
+## Redux DevTools
+
+Install the Redux DevTools browser extension, run `pnpm dev`, open browser developer tools (F12), select the Redux tab, and refresh the page. Select `customer-portal/auth` in the store dropdown. After real login, State shows `hasAccessToken: true`, the complete `accessToken`, and `expiresAt` (Unix milliseconds). The history records `auth/accessTokenSet`, `auth/accessTokenCleared` and `auth/accessTokenExpired`. Mock login does not issue a backend token, so this token view stays empty in Mock mode.
+
+The development diagnostic store sends the complete access token to the extension, including its action history. Passwords are not included. DevTools time travel changes only the diagnostic view, not the real authentication state. Production builds disable this connection. No token persistence is enabled. This uses the official Zustand devtools middleware: https://zustand.docs.pmnd.rs/reference/middlewares/devtools.html
