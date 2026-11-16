@@ -1,3 +1,4 @@
+import {CreateCustomerPage} from '../create/CreateCustomerPage';
 import {
     ArrowLeft,
 } from "lucide-react";
@@ -25,7 +26,7 @@ interface CustomerFormPageProps {
     mode: CustomerFormMode;
 }
 
-export function CustomerFormPage({
+function LegacyCustomerFormPage({
     mode,
 }: CustomerFormPageProps) {
     const navigate = useNavigate();
@@ -139,3 +140,4 @@ export function CustomerFormPage({
         </div>
     );
 }
+export function CustomerFormPage(props:CustomerFormPageProps){return props.mode==="create"?<CreateCustomerPage/>:<LegacyCustomerFormPage {...props}/>;}

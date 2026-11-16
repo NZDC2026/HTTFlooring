@@ -1,0 +1,5 @@
+import {z} from 'zod';
+import {customerFormSchema} from '../schemas/customerSchemas';
+import {customerPriceFormSchema} from '../schemas/customerPricingSchemas';
+export const onboardingInput=z.object({operationId:z.uuid(),customer:customerFormSchema,prices:z.array(customerPriceFormSchema).max(500),documents:z.array(z.object({name:z.string().min(1).max(200),content:z.string().max(14000000)}).strict()).max(20),tasks:z.array(z.object({name:z.string().trim().min(1).max(180),owner:z.string().min(1),ownerName:z.string().max(200).optional(),due:z.iso.date(),priority:z.enum(['Normal','High','Low']),remind:z.boolean()}).strict()).max(50)}).strict().superRefine((v,ctx)=>{if(!v.customer.contacts?.length)ctx.addIssue({code:'custom',message:'Contact name is required'});if(!v.customer.billingAddress?.addressLine1)ctx.addIssue({code:'custom',message:'Billing street is required'});if(new Set(v.prices.map(p=>p.productId+':'+p.unitId)).size!==v.prices.length)ctx.addIssue({code:'custom',message:'Duplicate special price'});});
+export type OnboardingInput=z.infer<typeof onboardingInput>;

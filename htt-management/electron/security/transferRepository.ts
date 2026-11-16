@@ -102,7 +102,7 @@ function apply(dataset: Dataset, mode: TransferSource['mode'], values: Record<st
     const old = mode === 'Update by ID' ? current : undefined, before = old ? canonical(dataset, old) : null, v = typed(dataset, values, old);
     let result: any;
     if (dataset === 'Customers') {
-        const data = customerFormSchema.strict().parse(v);
+        const data = customerFormSchema.omit({setup:true}).strict().parse(v);
         const { contacts: _contacts, locations: _locations, billingAddress: _billingAddress, ...duplicateData } = data;
         const others = customerRepository.getAll().filter(c => c.id !== old?.id);
         if (newMatches(duplicateCandidates({ kind: 'Customer', customerId: '', values: duplicateData }, others), old ? duplicateCandidates({ kind: 'Customer', customerId: '', values: old.raw }, others) : []))

@@ -228,6 +228,13 @@ export class BusinessHost {
         const actor = this.security.require(command.permission);
         const args = structuredClone(input.args);
         this.automationEngine?.assertBankInstructionCommand(input.repository,input.method,args);
+        if(input.repository==='customers'&&input.method==='createAccount'){
+            const request=args[0] as {tasks?:{owner:string;ownerName?:string}[];customer?:{setup?:{salesRep?:string}}};
+            const staff=this.security.taskAssignees();
+            for(const task of request?.tasks??[]){const assignee=staff.find(s=>s.id===task.owner);if(!assignee)throw Error('Select an active staff member who can manage sales tasks.');task.ownerName=assignee.displayName;}
+            if(request?.customer?.setup?.salesRep&&!staff.some(s=>s.id===request.customer!.setup!.salesRep))throw Error('Select an active sales representative.');
+        }
+
         if (['sales', 'fulfilments', 'goodsReceipts', 'supplierBills', 'supplierPayments', 'supplierCredits', 'bankTransactions', 'bankReconciliations'].includes(input.repository) && args[0] && typeof args[0] === 'object') {
             // These are actual ledger/settlement dates, not quotation/order dates or due dates.
             const dates = ['paymentDate', 'creditDate', 'allocationDate', 'voidDate', 'reversalDate', 'receiptDate', 'billDate', 'fulfilmentDate', 'transactionDate', 'transferDate', 'statementDate'];

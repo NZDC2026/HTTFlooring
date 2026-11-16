@@ -1,3 +1,4 @@
+import {CustomerLookups} from '../electron/customer-lookup/customerLookups';
 import {InvoiceReminders} from './invoiceReminders';
 import {reminderRows} from '../src/features/invoice-reminders/rules';
 import {businessSettings} from '../src/features/business-workspace/configurationState';
@@ -23,7 +24,7 @@ import { BusinessHost } from '../electron/security/businessHost';
 import { assertApprovedDesktopCommand } from '../src/features/security/optionalWorkflows';
 import { WebStorage } from './storage';
 
-export function createWebApplication(options: { directory: string; staticDirectory?: string; publicOrigin?: string; secureCookie?: boolean }) {
+export function createWebApplication(options: { directory: string; staticDirectory?: string; publicOrigin?: string; secureCookie?: boolean },customerLookups=new CustomerLookups()) {
     configureCaptureHelper(resolve(env.required('HTT_OCR_HELPER')));
     const storage = new WebStorage(options.directory);
     const security = new LocalSecurity(join(options.directory, 'security-v1.json'),
@@ -208,6 +209,13 @@ export function createWebApplication(options: { directory: string; staticDirecto
             const cookie = req.headers.cookie?.split(';').map(value => value.trim()).find(value => value.startsWith(cookieName + '='))?.slice(cookieName.length + 1);
             const rotate = action === 'setup' || action === 'login';
             const sessionId = !rotate && cookie && /^[a-f0-9]{64}$/.test(cookie) ? cookie : randomBytes(32).toString('hex');
+            // Provider I/O runs after the short permission scope so it cannot hold or inherit another user's session.
+            if(action.startsWith('customerLookup.')){
+                const prepare=queue.then(()=>{security.selectSession(sessionId);try{const actor=security.require('contacts.write');return customerLookups.prepare(action,input,actor);}finally{security.selectSession('web-idle');}});
+                queue=prepare.then(()=>{},()=>{});
+                try{const run=await prepare;reply(res,200,{ok:true,value:await run()});}catch(error){reply(res,200,{ok:false,error:error instanceof Error?error.message:'Customer lookup failed.'});}
+                return;
+            }
             // Repositories are synchronous and share process memory: serialize complete operations,
             // including bootstrap imports, so one request cannot inherit another user's principal.
             const task = queue.then(async () => {
