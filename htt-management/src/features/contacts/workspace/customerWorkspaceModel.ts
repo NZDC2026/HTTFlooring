@@ -1,3 +1,4 @@
+import {sampleStoreVisits} from './storeVisitsModel';
 import {customerPriceGroup} from '../data/customerPriceGroups';
 import {daysAgo,priorYear} from '../data/customerDashboard';
 import type {Customer} from '../types/customer';
@@ -5,7 +6,7 @@ import type {SalesDocument} from '../../sales/types/salesDocument';
 import type {CreditNote} from '../../sales/types/creditNote';
 export type CustomerKind='All'|'Store'|'Installer'|'C Customer';
 export type Health='Active'|'At risk'|'Lapsed'|'Never purchased';
-export type WorkspaceCustomer={id:string;name:string;code:string;kind:Exclude<CustomerKind,'All'>;created:string;status:Customer['status'];creditHold:boolean;contact:string;mobile:string;rep:string;balance:number;overdue:number;overdueDays?:number;creditLimit:number;lastVisit:string;original?:Customer};
+export type WorkspaceCustomer={id:string;name:string;code:string;kind:Exclude<CustomerKind,'All'>;created:string;status:Customer['status'];creditHold:boolean;contact:string;mobile:string;rep:string;repId?:string;suburb?:string;balance:number;overdue:number;overdueDays?:number;creditLimit:number;lastVisit:string;original?:Customer};
 export type CustomerFact={id:string;customerId:string;date:string;amount:number;kind:'invoice'|'credit'|'order'};
 export type WorkspaceTask={id:string;customerId:string;name:string;type:string;related:string;owner:string;ownerName:string;due:string;priority:string;status:string;auto?:boolean;action?:'visit'|'reminder';originalRevision?:string;derived?:boolean};
 export const roundMoney=(n:number)=>Math.round(n*100)/100;
@@ -32,7 +33,7 @@ export function priorChange(now:number,prior:number){return prior===0?null:(now-
 export function customerSample(today='2026-11-16'){
  const names=['ABC Flooring Pty Ltd','Oak Living Pty Ltd','Floor Plus','Urban Floors','Melbourne Interiors','Coastal Timber Floors','Westgate Flooring Depot','Sarah Nguyen'];
  const contacts=['John Smith','Emma Brown','Daniel Wilson','Olivia Martin','James Taylor','Ben Harris','Tom Nguyen','Sarah Nguyen'],phones=['0412 345 678','0411 882 920','0433 120 450','0414 909 828','','0422 610 384','0436 771 902','0408 213 557'];
- const customers:WorkspaceCustomer[]=names.map((name,i)=>({id:`cw-sample-${i}`,name,code:`CUST-${String(i+1).padStart(4,'0')}`,kind:[0,2,5,6].includes(i)?'Store':i===7?'C Customer':'Installer',created:i===7?'2026-10-03':i===1||i===4?'2026-08-01':'2024-01-01',status:i===3?'ON_HOLD':'ACTIVE',creditHold:i===3,contact:contacts[i],mobile:phones[i],rep:[0,1,4,7].includes(i)?'Front desk':'Mia Chen',balance:({0:2843.75,2:8420,5:12480,6:38650} as Record<number,number>)[i]??0,overdue:i===0?2843.75:0,overdueDays:i===0?15:undefined,creditLimit:[50000,75000,30000,0,40000,60000,120000,0][i],lastVisit:({0:daysAgo(today,7),2:daysAgo(today,39),5:daysAgo(today,4),6:daysAgo(today,19)} as Record<number,string>)[i]??''}));
+ const customers:WorkspaceCustomer[]=names.map((name,i)=>({id:`cw-sample-${i}`,name,code:`CUST-${String(i+1).padStart(4,'0')}`,kind:[0,2,5,6].includes(i)?'Store':i===7?'C Customer':'Installer',created:i===7?'2026-10-03':i===1||i===4?'2026-08-01':'2024-01-01',status:i===3?'ON_HOLD':'ACTIVE',creditHold:i===3,contact:contacts[i],mobile:phones[i],rep:[0,5].includes(i)?'Jason Wu':[2,6].includes(i)?'Mia Chen':'Front desk',repId:[0,5].includes(i)?'sample-jason':[2,6].includes(i)?'sample-mia':'sample-front',suburb:({0:'Collingwood',2:'Geelong',5:'Torquay',6:'Sunshine'} as Record<number,string>)[i]??'',balance:({0:2843.75,2:8420,5:12480,6:38650} as Record<number,number>)[i]??0,overdue:i===0?2843.75:0,overdueDays:i===0?15:undefined,creditLimit:[50000,75000,30000,0,40000,60000,120000,0][i],lastVisit:({0:daysAgo(today,7),2:daysAgo(today,39),5:daysAgo(today,4),6:daysAgo(today,19)} as Record<number,string>)[i]??''}));
  const facts:CustomerFact[]=[];const add=(customer:number,date:string,amount:number,kind:CustomerFact['kind'],count=1)=>{let used=0;for(let i=0;i<count;i++){const value=i===count-1?roundMoney(amount-used):roundMoney(amount/count);used=roundMoney(used+value);facts.push({id:`cw-fact-${facts.length}`,customerId:customers[customer].id,date,amount:value,kind});}};
  const monthSales=[18917.55,17601.35,21067.53,15104.74,5738.45],totals=[41575.91,17321.88,10959.98,8571.85],customerIndices=[6,5,2,0],counts=[[3,3,3,2,2],[3,3,3,2,2],[2,2,1,2,2],[1,1,1,1,0]],spent=[0,0,0,0];
  for(let m=0;m<5;m++){let used=0;const abc=m===3?roundMoney(totals[3]-spent[3]):m<3?roundMoney(totals[3]*monthSales[m]/72691.17):0;
@@ -42,7 +43,23 @@ export function customerSample(today='2026-11-16'){
  const lastYear=[18550,13750,16600,17804.38,10380],priorTotals=[43083.85,16907.84,7126.12,9966.57],priorSpent=[0,0,0,0];for(let m=0;m<5;m++){let used=0;for(let c=0;c<4;c++){const amount=m===4?roundMoney(priorTotals[c]-priorSpent[c]):c===3?roundMoney(lastYear[m]-used):roundMoney(lastYear[m]*priorTotals[c]/77084.38);used=roundMoney(used+amount);priorSpent[c]=roundMoney(priorSpent[c]+amount);add(customerIndices[c],`2025-${String(7+m).padStart(2,'0')}-15`,amount,'invoice',m===3?[3,3,3,1][c]:[2,2,2,1][c]);}}
  add(3,'2025-08-15',1410.8,'invoice');add(3,'2025-09-15',2070,'invoice');add(3,'2025-10-15',1984,'invoice');add(3,'2026-03-18',500,'invoice');
  for(const [c,total,count,date]of [[0,28085,12,'2026-10-02'],[5,40070,28,'2026-11-10'],[2,42060,20,'2026-11-06'],[6,119090,29,'2026-11-13'],[7,3250,1,'2026-10-21']] as const)add(c,date,total,'order',count);
- const baseTasks:[string,number,string,number,string,string,WorkspaceTask['action']?][]=[['Follow up townhouse quote',1,'Quote Follow-up',4,'High','Front desk'],['Follow up Hybrid flooring quote',2,'Quote Follow-up',3,'High','Mia Chen'],['Confirm site measure date',1,'Customer Follow-up',2,'Medium','Front desk'],['Chase overdue balance',0,'Payment Follow-up',0,'High','Account','reminder'],['Visit the store',2,'Store Visit',0,'Medium','Mia Chen','visit']];
- const tasks:WorkspaceTask[]=Array.from({length:16},(_,i)=>{const row=baseTasks[i%5];return {id:`cw-task-${i}`,customerId:customers[i===12?7:row[1]].id,name:i<5?row[0]:`${row[0]} · ${i+1}`,type:row[2],related:i===0||i===2?'QT-2051':i===1?'QT-2048':i===3?'Invoice · 15d late':i===4?'Last visit 39d ago':'Customer',owner:i===0?'sample-user':'sample-staff',ownerName:row[5],due:daysAgo(today,i<5?row[3]:i<14?-i:1),priority:row[4],status:i>=14?'Completed':'Open',auto:i===3||i===4,action:row[6]};});
- return {customers,facts,tasks};
+ const taskRows:[string,number,string,number,string,string,string,string,WorkspaceTask['action']?,boolean?][]=[
+ ['Review credit limit',6,'Customer Follow-up',-4,'Medium','sample-user','Admin','Limit $120,000.00'],
+ ['Follow up townhouse quote',1,'Quote Follow-up',4,'High','sample-front','Front desk','QT-2051'],
+ ['Follow up Hybrid flooring quote',2,'Quote Follow-up',3,'High','sample-mia','Mia Chen','QT-2048'],
+ ['Confirm site measure date',1,'Customer Follow-up',2,'Medium','sample-front','Front desk','QT-2051'],
+ ['Chase overdue balance',0,'Payment Follow-up',0,'High','sample-account','Account','Invoice · 15d late','reminder',true],
+ ['Visit the store',2,'Store Visit',0,'Medium','sample-mia','Mia Chen','Last visit 39d ago','visit',true],
+ ['Collect payment before pickup',3,'Payment Follow-up',-1,'High','sample-account','Account','SO-10441'],
+ ['Arrange showroom sample delivery',0,'Sample Delivery',-2,'Medium','sample-jason','Jason Wu','Bonita sample boards'],
+ ['Confirm new account details',4,'Customer Follow-up',-3,'Medium','sample-front','Front desk','New account'],
+ ['Confirm sample collection',7,'Sample Delivery',-4,'Medium','sample-front','Front desk','Sample set'],
+ ['Review expiring special price',5,'Special Price',-5,'Medium','sample-jason','Jason Wu','Special price expires 3 Dec'],
+ ['Check next order requirements',5,'Customer Follow-up',-6,'Medium','sample-jason','Jason Wu','Customer'],
+ ['Review trade account documents',1,'Customer Follow-up',-7,'Medium','sample-admin','Admin','Credit application'],
+ ['Follow up oak flooring quote',6,'Quote Follow-up',-8,'Medium','sample-mia','Mia Chen','QT-2039'],
+ ['Delivered oak sample boards',0,'Sample Delivery',1,'Medium','sample-jason','Jason Wu','Sample delivery'],
+ ['Confirmed delivery access',6,'Customer Follow-up',1,'Medium','sample-mia','Mia Chen','Customer']];
+ const tasks:WorkspaceTask[]=taskRows.map(([name,c,type,due,priority,owner,ownerName,related,action,auto],i)=>({id:'cw-task-'+i,customerId:customers[c].id,name,type,related,owner,ownerName,due:daysAgo(today,due),priority,status:i>=14?'Completed':'Open',action,auto}));
+ return {customers,facts,tasks,visits:sampleStoreVisits(today)};
 }
