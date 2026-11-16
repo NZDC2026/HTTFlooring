@@ -11,6 +11,7 @@ class DatabaseAdmin {
         if (args.length != 2 || !args[0].equals("provision")) {
             throw new IllegalArgumentException("Usage: DatabaseAdmin.java provision main|validation");
         }
+        if(args[1].equals("validation")) throw new IllegalStateException("Validation database retired; only Main development is supported");
         String database = switch (args[1]) {
             case "main" -> "htt_management";
             case "validation" -> "htt_management_validation";

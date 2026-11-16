@@ -15,6 +15,20 @@ import org.springframework.context.annotation.Configuration;
 class OpenApiConfiguration {
 
     @Bean
+    org.springdoc.core.customizers.OpenApiCustomizer canonicalAuthenticationPaths(Environment environment) {
+        return api->{
+            if(environment.getProperty("htt.auth.local-enabled",Boolean.class,false)&&api.getPaths()!=null) {
+                api.getPaths().keySet().removeIf(path->path.startsWith("/api/v1/auth/")||path.startsWith("/api/portal/v1/auth/"));
+                // One Java handler can serve both realms; publish each route under its actual identity domain.
+                api.getPaths().forEach((path,item)->{
+                    String tag=path.startsWith("/api/v1/customer/auth/")?"客户认证":
+                            path.startsWith("/api/v1/user/auth/")?"员工认证":null;
+                    if(tag!=null)item.readOperations().forEach(operation->operation.setTags(java.util.List.of(tag)));
+                });
+            }
+        };
+    }
+    @Bean
     OpenAPI openAPI(Environment environment) {
         OpenAPI api = new OpenAPI().info(new Info()
                 .title("HTT Management API")

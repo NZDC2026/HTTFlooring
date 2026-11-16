@@ -3,6 +3,7 @@ param(
     [switch]$Migration
 )
 $ErrorActionPreference = 'Stop'
+if ($Target -eq 'Validation') { throw 'Validation database retired. Use -Target Main; tests require HTT_TEST_ON_DEVELOPMENT_DATABASE=true.' }
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $databaseName = if ($Target -eq 'Main') { 'htt_management' } else { 'htt_management_validation' }
 $secretPath = Join-Path $projectRoot ('.local/' + $Target.ToLowerInvariant() + '-database.xml')

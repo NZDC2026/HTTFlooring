@@ -4,7 +4,8 @@ param(
     [switch]$DevelopmentData
 )
 $ErrorActionPreference = 'Stop'
-if ($Target -eq 'Main' -and $Action -eq 'rehearse') { throw 'Rehearsals only run in Validation.' }
+if ($Target -eq 'Validation') { throw 'Validation database retired. Use Main.' }
+if ($Target -eq 'Main' -and $Action -eq 'rehearse') { throw 'Legacy fixed-ID seed/remove rehearsal retired; use scoped Main integration tests.' }
 if ($Target -eq 'Main' -and $Action -ne 'check' -and -not $DevelopmentData) {
     throw 'Main writes require -DevelopmentData. Never use demonstration data in production.'
 }

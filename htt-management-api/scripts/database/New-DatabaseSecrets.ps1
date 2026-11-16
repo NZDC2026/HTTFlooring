@@ -1,5 +1,6 @@
 param([ValidateSet('Main', 'Validation')][string]$Target = 'Main')
 $ErrorActionPreference = 'Stop'
+if ($Target -eq 'Validation') { throw 'Validation database retired. Use Main.' }
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $databaseName = if ($Target -eq 'Main') { 'htt_management' } else { 'htt_management_validation' }
 $secretDirectory = Join-Path $projectRoot '.local'

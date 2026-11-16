@@ -14,15 +14,26 @@ public record AccessSnapshot(UUID actorId, String displayName, Instant tokensVal
 
     public enum Realm { STAFF, CUSTOMER }
     public enum MemberKind { UNCLASSIFIED, CUSTOMER, SALES, MANAGEMENT, OPERATIONS }
+    public enum AccessProfile { STANDARD, GROUP_READER, COMPANY_OWNER, SALES }
     public enum Scope { COMPANY, CUSTOMER, BRANCH }
     public enum ResourceKind { CUSTOMER, BRANCH, ORDER }
 
     public record CompanyAccess(UUID companyId, String companyName, UUID membershipId,
-            MemberKind memberKind, Set<String> roles, Set<String> permissions, List<Grant> grants) {
+            MemberKind memberKind, Set<String> roles, Set<String> permissions, List<Grant> grants,AccessProfile accessProfile) {
         public CompanyAccess {
             roles = Set.copyOf(roles);
             permissions = Set.copyOf(permissions);
             grants = List.copyOf(grants);
+            accessProfile = accessProfile==null?AccessProfile.STANDARD:accessProfile;
+        }
+        public CompanyAccess(UUID companyId,String companyName,UUID membershipId,MemberKind memberKind,
+                Set<String> roles,Set<String> permissions,List<Grant> grants) {
+            this(companyId,companyName,membershipId,memberKind,roles,permissions,grants,AccessProfile.STANDARD);
+        }
+        public boolean readOnly() { return accessProfile==AccessProfile.GROUP_READER; }
+        public boolean permits(String action,boolean write) { return permissions.contains(action)&&(!write||!readOnly()); }
+        public List<Grant> usableGrants() {
+            return memberKind==MemberKind.SALES?grants.stream().filter(g->g.scope()!=Scope.COMPANY).toList():grants;
         }
     }
 

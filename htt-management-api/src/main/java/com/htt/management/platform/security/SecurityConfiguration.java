@@ -20,6 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
 class SecurityConfiguration {
+    private static final String[] AUTH_PREFIXES={"/api/v1/customer/auth","/api/v1/user/auth","/api/portal/v1/auth","/api/v1/auth"};
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, Environment environment,
@@ -40,12 +41,10 @@ class SecurityConfiguration {
             }
             if (resolver != null) {
                 if(environment.getProperty("htt.auth.local-enabled",Boolean.class,false)) {
-                    authorize.requestMatchers(HttpMethod.GET,"/api/v1/auth/csrf","/api/portal/v1/auth/csrf").permitAll();
-                    authorize.requestMatchers(HttpMethod.POST,"/api/v1/customer/auth/login","/api/v1/user/auth/login",
-                            "/api/v1/auth/login","/api/portal/v1/auth/login",
-                            "/api/v1/auth/browser-login","/api/portal/v1/auth/browser-login",
-                            "/api/v1/auth/refresh","/api/portal/v1/auth/refresh",
-                            "/api/v1/auth/browser-logout","/api/portal/v1/auth/browser-logout").permitAll();
+                    for(String prefix:AUTH_PREFIXES) {
+                        authorize.requestMatchers(HttpMethod.GET,prefix+"/csrf").permitAll();
+                        authorize.requestMatchers(HttpMethod.POST,prefix+"/login",prefix+"/browser-login",prefix+"/refresh",prefix+"/logout",prefix+"/browser-logout").permitAll();
+                    }
                 } else if(environment.getProperty("htt.customers.enabled",Boolean.class,false)) {
                     authorize.requestMatchers(HttpMethod.GET,"/api/portal/v1/auth/config").permitAll();
                     authorize.requestMatchers(HttpMethod.POST,"/api/portal/v1/auth/login","/api/portal/v1/auth/forgot-password","/api/portal/v1/auth/reset-password").permitAll();
@@ -73,9 +72,15 @@ class SecurityConfiguration {
                 http.csrf(csrf->csrf.csrfTokenRepository(tokens).requireCsrfProtectionMatcher(request->{
                     if(!request.getMethod().equals("POST")) return false;
                     String path=request.getRequestURI().substring(request.getContextPath().length());
-                    return java.util.Set.of("/api/v1/auth/browser-login","/api/portal/v1/auth/browser-login",
-                            "/api/v1/auth/refresh","/api/portal/v1/auth/refresh",
-                            "/api/v1/auth/browser-logout","/api/portal/v1/auth/browser-logout").contains(path);
+                    boolean logout=java.util.Arrays.stream(AUTH_PREFIXES).anyMatch(prefix->path.equals(prefix+"/logout"));
+                    if(logout) {
+                        String authorization=request.getHeader("Authorization");
+                        // A syntactic Bearer header only selects the Bearer authentication branch;
+                        // Resource Server must verify it, and invalid tokens never fall back to cookies.
+                        boolean bearer=authorization!=null&&authorization.regionMatches(true,0,"Bearer ",0,7);
+                        return !bearer;
+                    }
+                    return java.util.Arrays.stream(AUTH_PREFIXES).anyMatch(prefix->java.util.Set.of(prefix+"/browser-login",prefix+"/refresh",prefix+"/browser-logout").contains(path));
                 }));
             } else {
                 // Historical stateless Bearer APIs do not accept cookie authentication.

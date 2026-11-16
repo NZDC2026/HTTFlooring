@@ -280,6 +280,28 @@ class AuthenticationIntegrationTests {
         mvc.perform(portalGet("branches/" + BRANCH, token(Realm.CUSTOMER), GRANT)).andExpect(status().isForbidden());
     }
 
+    @Test
+    void groupReadOnlyProfileCannotCreateOrdersEvenWithManagementKindAndWriteRole() throws Exception {
+        Grant all=new Grant(GRANT,1,Scope.COMPANY,null,null,null,Set.of());
+        CompanyAccess member=new CompanyAccess(COMPANY,"Company",UUID.randomUUID(),MemberKind.MANAGEMENT,
+                Set.of("OWNER","SALES"),Set.of("order:create","branch:read"),List.of(all),AccessProfile.GROUP_READER);
+        when(repository.resolve(properties.staff().issuer(),"subject",Realm.STAFF)).thenReturn(new AccessSnapshot(ACTOR,"Test",Instant.EPOCH,List.of(member)));
+        mvc.perform(createOrder(staffToken(),BRANCH)).andExpect(status().isForbidden());
+        mvc.perform(staffGet("branches/"+BRANCH,staffToken())).andExpect(status().isOk());
+    }
+
+    @Test
+    void salesCompanyGrantDoesNotExpandAssignedBranchScope() throws Exception {
+        var original=snapshot(MemberKind.SALES,Set.of("branch:read"));
+        var branch=original.companies().getFirst().grants().getFirst();
+        var all=new Grant(UUID.randomUUID(),1,Scope.COMPANY,null,null,null,Set.of());
+        var member=new CompanyAccess(COMPANY,"Company",UUID.randomUUID(),MemberKind.SALES,
+                Set.of("COMPANY_OWNER","ACCOUNTANT"),Set.of("branch:read"),List.of(branch,all));
+        when(repository.resolve(properties.staff().issuer(),"subject",Realm.STAFF)).thenReturn(new AccessSnapshot(ACTOR,"Test",Instant.EPOCH,List.of(member)));
+        mvc.perform(staffGet("branches/"+BRANCH,staffToken())).andExpect(status().isOk());
+        mvc.perform(staffGet("branches/"+OTHER_BRANCH,staffToken())).andExpect(status().isForbidden());
+    }
+
     private void identity(Realm realm, MemberKind kind, Set<String> permissions) {
         String issuer = realm == Realm.STAFF ? properties.staff().issuer() : properties.portal().issuer();
         when(repository.resolve(issuer, "subject", realm)).thenReturn(snapshot(kind, permissions));

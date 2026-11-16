@@ -9,6 +9,8 @@ DECLARE targets uuid[];
 BEGIN
  SELECT array_agg(id) INTO targets FROM (
  SELECT id FROM identity.refresh_family WHERE expires_at<clock_timestamp()-interval '24 hours'
+ AND (nullif(current_setting('htt.maintenance_actor_id',true),'') IS NULL
+      OR actor_id=nullif(current_setting('htt.maintenance_actor_id',true),'')::uuid)
  ORDER BY expires_at LIMIT 1000 FOR UPDATE SKIP LOCKED) expired;
  DELETE FROM identity.login_session WHERE refresh_family_id=ANY(targets);
  DELETE FROM identity.refresh_token WHERE family_id=ANY(targets);

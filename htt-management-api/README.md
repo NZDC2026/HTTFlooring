@@ -1,3 +1,5 @@
+2026-11-16：单开发库已统一至htt_management V12，Validation已退役。运行与测试见 [单库说明](docs/development-database.md)。
+
 2026-11-14：当前开发使用 Java 邮箱密码登录，无需 Keycloak。见 [运行与验收](docs/java-login.md)。
 
 # HTT Management API

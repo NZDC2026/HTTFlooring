@@ -11,6 +11,7 @@ class DemoData {
                 || !java.util.Set.of("main", "validation").contains(args[1])) {
             throw new IllegalArgumentException("Usage: DemoData.java seed|check|remove|rehearse|bind|unbind main|validation");
         }
+        if(args[1].equals("validation"))throw new IllegalStateException("Validation retired; use Main development fixtures");
         boolean main = args[1].equals("main");
         if (main && args[0].equals("rehearse")) {
             throw new IllegalStateException("Automated rehearsals are restricted to validation.");

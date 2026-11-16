@@ -40,7 +40,7 @@ public class CustomerAccountService {
         if(request.permissions()!=null&&request.permissions().stream().anyMatch(java.util.Objects::isNull)
                 ||request.branchIds()!=null&&request.branchIds().stream().anyMatch(java.util.Objects::isNull)) throw bad();
         List<String> permissions=request.permissions()==null?List.of():request.permissions().stream().distinct().sorted().toList();
-        Set<String> allowed=Set.of("customer:read","branch:read","notification:read","notification:device","customer:account:manage");
+        Set<String> allowed=Set.of("customer:read","branch:read","notification:read","notification:device","customer:account:manage","pricing:read-own");
         if(permissions.size()>allowed.size()||!allowed.containsAll(permissions)
                 || request.accountType().equals("CONTACT")&&permissions.contains("customer:account:manage")) throw bad();
         List<UUID> branches=request.branchIds()==null?List.of():request.branchIds().stream().distinct().sorted().toList();
