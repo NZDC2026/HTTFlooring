@@ -101,7 +101,7 @@ public class IdentityConfiguration {
             org.springframework.beans.factory.ObjectProvider<KeycloakAccounts> accountProvider) {
         LocalAuthentication local=locals.getIfAvailable();
         if(local!=null) return request -> input -> {
-            var realm=request.getRequestURI().substring(request.getContextPath().length()).startsWith("/api/portal/")
+            var realm=request.getRequestURI().substring(request.getContextPath().length()).matches("(?:/api/portal/.*|/api/v1/customer/auth/.*)")
                     ? AccessSnapshot.Realm.CUSTOMER:AccessSnapshot.Realm.STAFF;
             try { return local.authenticate(((org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthenticationToken)input).getToken(),realm); }
             catch(DataAccessException failure) {throw new OAuth2AuthenticationException(new OAuth2Error("temporarily_unavailable"));}

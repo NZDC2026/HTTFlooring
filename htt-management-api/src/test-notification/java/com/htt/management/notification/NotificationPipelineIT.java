@@ -46,7 +46,6 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
 import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.*;
@@ -54,9 +53,10 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Both real PostgreSQL and RabbitMQ are disposable local containers. Never connects to remote infrastructure. */
+/** Shared HTT development PostgreSQL and a disposable local RabbitMQ; fixture-only cleanup. */
 class NotificationPipelineIT {
-    static PostgreSQLContainer postgres;
+    static String databaseUrl,appUser,appPassword;
+    static java.sql.Connection testGuard;
     static RabbitMQContainer rabbit;
     static CachingConnectionFactory connection;
     static RabbitTemplate template;
@@ -82,15 +82,21 @@ class NotificationPipelineIT {
                 || ("npipe".equals(endpoint.getScheme()) && endpoint.getHost()==null && endpoint.getPath().startsWith("//./pipe/"));
         if ((!socket && !loopback(endpoint.getHost())) || !loopback(factory.dockerHostIpAddress()))
             throw new IllegalStateException("Notification tests require local Docker only.");
-        postgres=new PostgreSQLContainer("postgres:17-alpine").withDatabaseName("notification_test").withUsername("test_owner").withPassword("test-only");
-        postgres.start();
-        rabbit=new RabbitMQContainer(System.getProperty("htt.test.rabbit-image","rabbitmq:4.3-management-alpine")); rabbit.start();
-        owner=new JdbcTemplate(new DriverManagerDataSource(postgres.getJdbcUrl(),postgres.getUsername(),postgres.getPassword()));
-        owner.execute("create role htt_notification_app login nosuperuser nocreatedb nocreaterole nobypassrls password 'container-test-only'");
-        owner.execute("create schema platform");
-        Flyway.configure().dataSource(postgres.getJdbcUrl(),postgres.getUsername(),postgres.getPassword())
-                .defaultSchema("platform").createSchemas(false).cleanDisabled(true).placeholders(Map.of("runtime_role","htt_notification_app")).load().migrate();
-        var source=new DriverManagerDataSource(postgres.getJdbcUrl(),"htt_notification_app","container-test-only");
+        if(!"true".equals(System.getenv("HTT_TEST_ON_DEVELOPMENT_DATABASE")))throw new IllegalStateException("Explicit development-test opt-in required");
+        databaseUrl=System.getenv("HTT_DB_URL");appUser=System.getenv("HTT_DB_USERNAME");appPassword=System.getenv("HTT_DB_PASSWORD");
+        if(!"jdbc:postgresql://192.168.10.174:5432/htt_management?sslmode=prefer&connectTimeout=5&socketTimeout=30&ApplicationName=htt-management-api".equals(databaseUrl)
+                ||!"htt_management_app".equals(appUser)||!"htt_management_migrator".equals(System.getenv("HTT_DB_MIGRATION_USERNAME")))throw new IllegalStateException("Development database target mismatch");
+        owner=new JdbcTemplate(new DriverManagerDataSource(databaseUrl,System.getenv("HTT_DB_MIGRATION_USERNAME"),System.getenv("HTT_DB_MIGRATION_PASSWORD")));
+        try {
+            testGuard=java.sql.DriverManager.getConnection(databaseUrl,System.getenv("HTT_DB_MIGRATION_USERNAME"),System.getenv("HTT_DB_MIGRATION_PASSWORD"));
+            try(var lock=testGuard.createStatement();var r=lock.executeQuery("select pg_try_advisory_lock(744610016)")){r.next();if(!r.getBoolean(1))throw new IllegalStateException("Another integration suite is running");}
+        }catch(java.sql.SQLException failure){throw new IllegalStateException("Development test guard unavailable",failure);}
+        if(!"htt-management-api shared development/test; synthetic fixtures only".equals(owner.queryForObject("select shobj_description(oid,'pg_database') from pg_database where datname=current_database()",String.class)))throw new IllegalStateException("Database is not marked development/test");
+        if(owner.queryForObject("select (select count(*) from platform.domain_outbox)+(select count(*) from notification.delivery)+(select count(*) from notification.device)",Long.class)!=0)throw new IllegalStateException("Existing worker records; refuse global consumption");
+        Flyway.configure().dataSource(databaseUrl,System.getenv("HTT_DB_MIGRATION_USERNAME"),System.getenv("HTT_DB_MIGRATION_PASSWORD"))
+                .defaultSchema("platform").createSchemas(false).cleanDisabled(true).placeholders(Map.of("runtime_role",appUser)).load().migrate();
+        rabbit=new RabbitMQContainer(System.getProperty("htt.test.rabbit-image","rabbitmq:4.3-management-alpine"));rabbit.start();
+        var source=new DriverManagerDataSource(databaseUrl,appUser,appPassword);
         jdbc=new JdbcTemplate(source); transactions=new TransactionTemplate(new JdbcTransactionManager(source));
         store=new NotificationStore(jdbc,transactions); outbox=new OutboxStore(jdbc,transactions); events=new DomainEvents(jdbc,JSON);
         connection=new CachingConnectionFactory(rabbit.getHost(),rabbit.getAmqpPort());
@@ -111,10 +117,18 @@ class NotificationPipelineIT {
         if (listener!=null) listener.stop();
         for (String name : List.of(NotificationBroker.WORK,NotificationBroker.DEAD,"htt.notification.retry.1.v1","htt.notification.retry.2.v1")) admin.purgeQueue(name);
         for (String table : List.of("notification.delivery","notification.message","notification.recipient_cursor","notification.device","notification.inbox","platform.domain_outbox","notification.audit"))
-            owner.update("delete from "+table);
+            if(table.equals("notification.delivery"))owner.update("delete from notification.delivery where message_id in (select id from notification.message where company_id=?)",COMPANY);
+            else owner.update("delete from "+table+" where company_id=?",COMPANY);
     }
-    @AfterAll static void stop() {
-        if (connection!=null) connection.destroy(); if (rabbit!=null) rabbit.close(); if (postgres!=null) postgres.close();
+    @AfterAll static void stop() throws Exception {
+        if(owner!=null) {
+            owner.update("delete from platform.access_audit where actor_id=? or selected_company_id=?",USER,COMPANY);
+            for(String table:List.of("identity.grant_branch","identity.resource_grant","identity.member_role","identity.role_permission","identity.role","identity.company_member"))owner.update("delete from "+table+" where company_id=?",COMPANY);
+            owner.update("delete from identity.external_identity where user_id=?",USER);
+            owner.update("delete from identity.user_account where id=?",USER);owner.update("delete from identity.company where id=?",COMPANY);
+        }
+        if(testGuard!=null)testGuard.close();
+        if (connection!=null) connection.destroy(); if (rabbit!=null) rabbit.close();
     }
     @Test void committedOutboxPublishesConsumesAndDeduplicates() {
         listen(store); DomainEvent event=event();
@@ -168,9 +182,9 @@ class NotificationPipelineIT {
         listen(store);
         try (var application=new SpringApplicationBuilder(TokenConfiguration.class,HttManagementApiApplication.class).run(
                 "--server.port=0", "--server.address=127.0.0.1", "--logging.level.root=WARN",
-                "--spring.datasource.url="+postgres.getJdbcUrl(), "--spring.datasource.username=htt_notification_app",
-                "--spring.datasource.password=container-test-only", "--spring.datasource.hikari.maximum-pool-size=4",
-                "--spring.flyway.placeholders.runtime_role=htt_notification_app",
+                "--spring.datasource.url="+databaseUrl, "--spring.datasource.username="+appUser,
+                "--spring.datasource.password="+appPassword, "--spring.datasource.hikari.maximum-pool-size=4",
+                "--spring.flyway.placeholders.runtime_role="+appUser,
                 "--spring.rabbitmq.host="+rabbit.getHost(), "--spring.rabbitmq.port="+rabbit.getAmqpPort(),
                 "--spring.rabbitmq.username="+rabbit.getAdminUsername(), "--spring.rabbitmq.password="+rabbit.getAdminPassword(),
                 "--htt.notification.enabled=true", "--htt.notification.workers-enabled=false", "--htt.notification.heartbeat-ms=1000",

@@ -16,7 +16,7 @@ class LocalAuthenticationTests {
         assertThatThrownBy(()->LocalAuthentication.validateNewPassword("\u4e2d".repeat(25))).isInstanceOf(ResponseStatusException.class);
     }
     @Test void requestRecordsDoNotExposePasswordsThroughToString() {
-        assertThat(new LocalAuthenticationController.Login("email","secret").toString()).doesNotContain("secret","email");
-        assertThat(new LocalAuthenticationController.PasswordChange("old-secret","new-secret").toString()).doesNotContain("secret");
+        assertThat(new AuthenticationController.Login("email","secret").toString()).doesNotContain("secret","email");
+        assertThat(new AuthenticationController.PasswordChange("old-secret","new-secret").toString()).doesNotContain("secret");
     }
 }

@@ -19,7 +19,7 @@ public class CustomerManagementConfiguration {
         return api->{
             if(api.getPaths()==null) return;
             api.getPaths().forEach((path,item)->{
-                if(path.startsWith("/api/v1/customers")) item.readOperations().forEach(operation->
+                if(path.startsWith("/api/v1/customers")||path.startsWith("/api/v1/customer-subjects/")) item.readOperations().forEach(operation->
                     operation.addParametersItem(new io.swagger.v3.oas.models.parameters.Parameter().name("X-Company-Id").in("header").required(true)
                         .description("Select an authorized company from employee /me. This header does not grant access.")
                         .schema(new io.swagger.v3.oas.models.media.StringSchema().format("uuid"))));

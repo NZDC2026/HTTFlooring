@@ -54,11 +54,11 @@ public class ResourceAccess {
         if (user == null || owner == null || !owner.companyId().equals(company)) return false;
         CompanyAccess member = user.access().companies().stream()
                 .filter(candidate -> candidate.companyId().equals(company)).findFirst().orElse(null);
-        if (member == null || !member.permissions().contains(permission)) return false;
+        if (member == null || !member.permits(permission,formalOrder)) return false;
         // Kind is an explicit server-managed eligibility attribute, independent of role names.
         if (formalOrder && (user.realm() != Realm.STAFF || member.memberKind() != MemberKind.MANAGEMENT)) return false;
         UUID portalGrant = user.realm() == Realm.CUSTOMER ? headerId("X-Portal-Grant-Id") : null;
-        return member.grants().stream().anyMatch(grant -> {
+        return member.usableGrants().stream().anyMatch(grant -> {
             if (user.realm() == Realm.CUSTOMER
                     && (!grant.id().equals(portalGrant) || grant.scope() == Scope.COMPANY)) return false;
             if (grant.scope() == Scope.COMPANY) return true;

@@ -28,14 +28,15 @@ public class CustomerManagementAccess {
         CompanyAccess member = null;
         if (user != null && company != null) for (var candidate : user.access().companies())
             if (candidate.companyId().equals(company)) member = candidate;
-        boolean read = action.equals("customer:read");
+        boolean read = action.equals("customer:read") || action.equals("pricing:discount:read");
         boolean allowed = user != null && user.realm() == Realm.STAFF && member != null
-                && member.permissions().contains(action) && (read || member.memberKind() == MemberKind.MANAGEMENT);
-        boolean all = allowed && member.grants().stream().anyMatch(g -> g.scope() == Scope.COMPANY);
+                && member.permits(action,!read) && (read || member.memberKind() == MemberKind.MANAGEMENT);
+        boolean all = allowed && member.usableGrants().stream().anyMatch(g -> g.scope() == Scope.COMPANY);
         if (action.equals("customer:create") && !all) allowed = false;
         audit.record(request, action, company, null, allowed ? "ALLOW" : "DENY");
         if (!allowed) throw new AccessDeniedException("Access is denied.");
-        var customers = member.grants().stream().filter(g -> g.customerId() != null).map(Grant::customerId)
+        // Branch-only access does not grant the full customer aggregate and all its locations/contacts.
+        var customers = member.usableGrants().stream().filter(g -> g.scope()==Scope.CUSTOMER).map(Grant::customerId)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         return new Context(user.access().actorId(), company, all, customers);
     }

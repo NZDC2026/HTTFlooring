@@ -61,19 +61,18 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
-import org.testcontainers.DockerClientFactory;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Explicit container or dedicated validation target. Never falls back to the main database. */
+/** Explicit shared development target; production and other databases are refused. */
 class PostgresBaselineIT {
     private static final java.util.Set<UUID> CUSTOMER_HTTP_REQUESTS=java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final List<String> TABLES = List.of("identity.company", "identity.user_account",
             "identity.company_member", "crm.customer", "crm.customer_branch", "crm.customer_contact",
             "catalog.unit_of_measure", "catalog.product", "inventory.warehouse");
-    private static PostgreSQLContainer container;
+    private static final String TEST_SOURCE="synthetic-http-"+UUID.randomUUID();
+    private static Connection testGuard;
     private static String url;
     private static String appUser;
     private static String appPassword;
@@ -82,24 +81,31 @@ class PostgresBaselineIT {
 
     @BeforeAll
     static void prepareDatabase() throws Exception {
-        switch (System.getProperty("htt.test.database", "container")) {
-            case "container" -> prepareContainer();
+        switch (System.getProperty("htt.test.database", "dedicated")) {
             case "dedicated" -> prepareDedicatedDatabase();
-            default -> throw new IllegalArgumentException("htt.test.database must be container or dedicated.");
+            default -> throw new IllegalArgumentException("htt.test.database must be dedicated (shared development database).");
+        }
+        testGuard=migrationConnection();
+        try(var lock=testGuard.createStatement();var r=lock.executeQuery("select pg_try_advisory_lock(744610016)")) {
+            r.next();if(!r.getBoolean(1)) throw new IllegalStateException("Another integration suite is running");
+        }
+        // Existing pending work must never be claimed by test workers in the shared development database.
+        try(var check=testGuard.createStatement();var r=check.executeQuery("select (select count(*) from platform.domain_outbox)+(select count(*) from notification.delivery)+(select count(*) from notification.device)")) {
+            r.next();if(r.getLong(1)!=0)throw new IllegalStateException("Shared worker tables are not empty; refuse to process existing records");
         }
         migrations(migrationUser, migrationPassword).migrate();
     }
 
     @AfterAll
-    static void stopContainer() {
-        if (container != null) { container.close(); }
+    static void stopContainer() throws Exception {
+        if(testGuard!=null)testGuard.close();
     }
 
     @Test
     void migrationsAreRepeatableAndRuntimeValidationRejectsPendingChanges() {
         var flyway = migrations(migrationUser, migrationPassword);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
-        assertThat(flyway.info().applied()).hasSize(12);
+        assertThat(flyway.info().applied()).hasSize(14);
         assertThat(flyway.info().pending()).isEmpty();
         assertThat(migrations(appUser, appPassword).validateWithResult().validationSuccessful).isTrue();
         var pending = Flyway.configure().dataSource(url, appUser, appPassword)
@@ -398,52 +404,25 @@ class PostgresBaselineIT {
     }
 
     private static void prepareDedicatedDatabase() throws Exception {
+        if(!"true".equals(System.getenv("HTT_TEST_ON_DEVELOPMENT_DATABASE"))) throw new IllegalStateException("Explicit development-test opt-in required");
         url = required("HTT_DB_URL");
         var address = URI.create(url.substring("jdbc:".length()));
         if (!url.startsWith("jdbc:postgresql://") || !"192.168.10.174".equals(address.getHost())
-                || address.getPort() != 5432 || !"/htt_management_validation".equals(address.getPath())) {
-            throw new IllegalArgumentException("Dedicated tests only accept the authorized htt_management_validation database.");
+                || address.getPort() != 5432 || !"/htt_management".equals(address.getPath())) {
+            throw new IllegalArgumentException("Dedicated tests only accept the authorized htt_management development database.");
         }
         appUser = required("HTT_DB_USERNAME");
         appPassword = required("HTT_DB_PASSWORD");
         migrationUser = required("HTT_DB_MIGRATION_USERNAME");
         migrationPassword = required("HTT_DB_MIGRATION_PASSWORD");
-        if (!appUser.equals("htt_management_validation_app") || !migrationUser.equals("htt_management_validation_migrator")) {
+        if (!appUser.equals("htt_management_app") || !migrationUser.equals("htt_management_migrator")) {
             throw new IllegalArgumentException("Dedicated validation credentials do not match the target.");
         }
         try (var connection = migrationConnection(); var statement = connection.createStatement();
                 var result = statement.executeQuery("SELECT shobj_description(oid, 'pg_database') FROM pg_database "
                         + "WHERE datname = current_database()")) {
             result.next();
-            assertThat(result.getString(1)).isEqualTo("htt-management-api dedicated validation; synthetic data only");
-        }
-    }
-
-    private static void prepareContainer() throws Exception {
-        var factory = DockerClientFactory.instance();
-        var endpoint = factory.getTransportConfig().getDockerHost();
-        boolean localSocket = ("unix".equals(endpoint.getScheme()) && endpoint.getHost() == null)
-                || ("npipe".equals(endpoint.getScheme()) && endpoint.getHost() == null
-                    && endpoint.getPath().startsWith("//./pipe/"));
-        if ((!localSocket && !isLoopback(endpoint.getHost())) || !isLoopback(factory.dockerHostIpAddress())) {
-            throw new IllegalStateException("Container tests require local Docker and a loopback database host.");
-        }
-        container = new PostgreSQLContainer("postgres:17-alpine")
-                .withDatabaseName("htt_baseline_test").withUsername("htt_test_admin").withPassword("test-only");
-        container.start();
-        url = container.getJdbcUrl();
-        appUser = "htt_test_app";
-        appPassword = UUID.randomUUID().toString();
-        migrationUser = "htt_test_migrator";
-        migrationPassword = UUID.randomUUID().toString();
-        try (var admin = DriverManager.getConnection(url, container.getUsername(), container.getPassword())) {
-            execute(admin, "CREATE ROLE " + appUser + " LOGIN PASSWORD '" + appPassword + "'");
-            execute(admin, "CREATE ROLE " + migrationUser + " LOGIN PASSWORD '" + migrationPassword + "'");
-            execute(admin, "ALTER DATABASE htt_baseline_test OWNER TO " + migrationUser);
-            execute(admin, "REVOKE ALL ON DATABASE htt_baseline_test FROM PUBLIC");
-            execute(admin, "GRANT CONNECT ON DATABASE htt_baseline_test TO " + appUser);
-            execute(admin, "REVOKE ALL ON SCHEMA public FROM PUBLIC");
-            execute(admin, "CREATE SCHEMA platform AUTHORIZATION " + migrationUser);
+            assertThat(result.getString(1)).isEqualTo("htt-management-api shared development/test; synthetic fixtures only");
         }
     }
 
@@ -812,7 +791,7 @@ class PostgresBaselineIT {
                     execute(writer,"insert into identity.resource_grant(company_id,user_id,scope) values (?,?,'COMPANY')",fixture.company[i],fixture.actor[i]);
                 } else execute(writer,"insert into identity.resource_grant(company_id,user_id,scope,customer_id) values (?,?,'CUSTOMER',?)",fixture.company[i],fixture.actor[i],fixture.customer[i]);
             }
-            try(var application=new SpringApplicationBuilder(HttManagementApiApplication.class).run(
+            try(var application=new SpringApplicationBuilder(TestRequestSource.class,HttManagementApiApplication.class).run(
                     "--spring.profiles.active=database,development","--server.port=0","--spring.flyway.enabled=false",
                     "--htt.auth.local-enabled=true","--spring.datasource.url="+url,"--spring.datasource.username="+appUser,
                     "--spring.datasource.password="+appPassword,"--logging.level.root=ERROR")) {
@@ -839,6 +818,22 @@ class PostgresBaselineIT {
                 assertThat(schema.has("/api/v1/user/auth/login")).isTrue();
                 assertThat(schema.has("/api/v1/auth/login")).isFalse();
                 assertThat(schema.has("/api/portal/v1/auth/login")).isFalse();
+                assertThat(schema.has("/api/v1/customer/auth/browser-logout")).isFalse();
+                assertThat(schema.has("/api/v1/user/auth/browser-logout")).isFalse();
+                assertThat(schema.has("/api/v1/customer-subjects/{subjectId}/product-discounts/{productId}")).isTrue();
+                assertThat(schema.has("/api/portal/v1/product-discounts/resolve")).isTrue();
+                for(String prefix:List.of("/api/v1/customer/auth","/api/v1/user/auth"))for(String suffix:List.of("me","logout","change-password","csrf","browser-login","refresh"))
+                    assertThat(schema.has(prefix+"/"+suffix)).as(prefix+"/"+suffix).isTrue();
+                for(var path:schema.properties()) {
+                    String expectedTag=path.getKey().startsWith("/api/v1/customer/auth/")?"客户认证":
+                            path.getKey().startsWith("/api/v1/user/auth/")?"员工认证":null;
+                    if(expectedTag!=null)for(var operation:path.getValue().properties()) {
+                        var tags=operation.getValue().path("tags");
+                        assertThat(tags.size()).as(path.getKey()).isEqualTo(1);
+                        assertThat(tags.path(0).asText()).as(path.getKey()).isEqualTo(expectedTag);
+                    }
+                }
+                assertThat(schema.properties().stream().map(e->e.getKey()).anyMatch(path->path.startsWith("/api/v1/auth/")||path.startsWith("/api/portal/v1/auth/"))).isFalse();
 
                 assertThat(scalar(writer,"select count(*) from platform.access_audit where action='auth:login' and outcome='ALLOW' and actor_id='"+fixture.actor[0]+"'::uuid")).isEqualTo(2);
                 assertThat(customerHttp(client,origin,staffToken,fixture.company[0],"GET","/api/v1/me",null).statusCode()).isEqualTo(200);
@@ -858,7 +853,7 @@ class PostgresBaselineIT {
                 String customerId;try(var q=writer.prepareStatement("select business_id from crm.customer where id=?")){q.setObject(1,fixture.customer[0]);try(var r=q.executeQuery()){r.next();customerId=r.getString(1);}}
                 assertThat(customerHttp(client,origin,portalToken,fixture.company[0],"GET","/api/v1/customers/"+customerId,null).statusCode()).isEqualTo(401);
                 String accountPath="/api/v1/customers/"+customerId+"/accounts";
-                String accountBody=json.writeValueAsString(Map.of("accountType","CUSTOMER","loginName","new-"+fixture.actor[0]+"@test.invalid","password",password,"permissions",List.of("customer:read")));
+                String accountBody=json.writeValueAsString(Map.of("accountType","CUSTOMER","loginName","new-"+fixture.actor[0]+"@test.invalid","password",password,"permissions",List.of("customer:read","pricing:read-own")));
                 var created=customerHttp(client,origin,staffToken,fixture.company[0],"POST",accountPath,accountBody,UUID.randomUUID());
                 assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
                 assertThat(json.readTree(created.body()).get("passwordManagedByKeycloak").asBoolean()).isFalse();
@@ -869,11 +864,11 @@ class PostgresBaselineIT {
                 String childToken=json.readTree(child.body()).get("accessToken").asText();
                 var childMe=customerHttp(client,origin,childToken,fixture.company[0],"GET","/api/portal/v1/me",null);
                 assertThat(childMe.statusCode()).as(childMe.body()).isEqualTo(200);
-                var subjectIdentity=customerHttp(client,origin,childToken,fixture.company[0],"GET","/api/portal/v1/auth/customer-subject",null);
+                var subjectIdentity=customerHttp(client,origin,childToken,fixture.company[0],"GET","/api/v1/customer/auth/customer-subject",null);
                 assertThat(subjectIdentity.statusCode()).as(subjectIdentity.body()).isEqualTo(200);
                 assertThat(json.readTree(subjectIdentity.body()).path("customerSubjectId").asString()).isEqualTo(customerId);
                 assertThat(json.readTree(subjectIdentity.body()).path("accountType").asString()).isEqualTo("CUSTOMER");
-                assertThat(customerHttp(client,origin,staffToken,fixture.company[0],"GET","/api/portal/v1/auth/customer-subject",null).statusCode()).isEqualTo(401);
+                assertThat(customerHttp(client,origin,staffToken,fixture.company[0],"GET","/api/v1/customer/auth/customer-subject",null).statusCode()).isEqualTo(401);
                 // Use a real portal credential on another customer's grant: ABAC, not just realm isolation.
                 UUID foreignGrant;
                 try(var q=writer.prepareStatement("select id from identity.resource_grant where user_id=?")) {
@@ -885,7 +880,7 @@ class PostgresBaselineIT {
                     q.setObject(1,fixture.customer[0]);try(var r=q.executeQuery()){r.next();contactBusinessId=r.getString(1);}
                 }
                 String personPassword="Independent contact password 42",personEmail="person-"+fixture.actor[0]+"@test.invalid";
-                String personBody=json.writeValueAsString(Map.of("accountType","CONTACT","contactId",contactBusinessId,"loginName",personEmail,"password",personPassword,"permissions",List.of("customer:read")));
+                String personBody=json.writeValueAsString(Map.of("accountType","CONTACT","contactId",contactBusinessId,"loginName",personEmail,"password",personPassword,"permissions",List.of("customer:read","pricing:read-own")));
                 var personCreated=customerHttp(client,origin,staffToken,fixture.company[0],"POST",accountPath,personBody,UUID.randomUUID());
                 assertThat(personCreated.statusCode()).as(personCreated.body()).isEqualTo(201);
                 String wrongPassword=json.writeValueAsString(Map.of("email",personEmail,"password",password));
@@ -893,18 +888,19 @@ class PostgresBaselineIT {
                 var personLogin=customerHttp(client,origin,null,fixture.company[0],"POST","/api/portal/v1/auth/login",json.writeValueAsString(Map.of("email",personEmail,"password",personPassword)));
                 assertThat(personLogin.statusCode()).as(personLogin.body()).isEqualTo(200);
                 String personToken=json.readTree(personLogin.body()).get("accessToken").asText();
-                var personIdentity=customerHttp(client,origin,personToken,fixture.company[1],"GET","/api/portal/v1/auth/customer-subject",null);
+                var personIdentity=customerHttp(client,origin,personToken,fixture.company[1],"GET","/api/v1/customer/auth/customer-subject",null);
                 assertThat(personIdentity.statusCode()).as(personIdentity.body()).isEqualTo(200);
                 assertThat(json.readTree(personIdentity.body()).path("customerSubjectId").asString()).isEqualTo(contactBusinessId);
                 assertThat(json.readTree(personIdentity.body()).path("customerId").asString()).isEqualTo(customerId);
                 assertThat(json.readTree(personIdentity.body()).path("accountType").asString()).isEqualTo("CONTACT");
+                verifyProductDiscounts(client,origin,fixture,writer,json,staffToken,childToken,personToken,customerId,contactBusinessId,roles[0]);
                 String accountId=json.readTree(created.body()).get("id").asText();
                 assertThat(customerHttp(client,origin,staffToken,fixture.company[0],"PATCH",accountPath+"/"+accountId+"/status","{\"version\":1,\"status\":\"DISABLED\"}").statusCode()).isEqualTo(200);
                 assertThat(customerHttp(client,origin,childToken,fixture.company[0],"GET","/api/portal/v1/me",null).statusCode()).isEqualTo(401);
                 assertThat(customerHttp(client,origin,null,fixture.company[0],"POST","/api/v1/auth/login",staffBody.replace(password,"wrong-password")).statusCode()).isEqualTo(401);
                 assertThat(customerHttp(client,origin,null,fixture.company[0],"POST","/api/v1/auth/login","{\"email\":\"invalid\",\"password\":\"x\"}").statusCode()).isEqualTo(400);
                 String changed=json.writeValueAsString(Map.of("currentPassword",password,"newPassword","Changed test password 42"));
-                assertThat(customerHttp(client,origin,portalToken,fixture.company[1],"POST","/api/portal/v1/auth/change-password",changed).statusCode()).isEqualTo(204);
+                assertThat(customerHttp(client,origin,portalToken,fixture.company[1],"POST","/api/v1/customer/auth/change-password",changed).statusCode()).isEqualTo(204);
                 assertThat(customerHttp(client,origin,portalToken,fixture.company[1],"GET","/api/portal/v1/me",null).statusCode()).isEqualTo(401);
                 assertThat(customerHttp(client,origin,null,fixture.company[1],"POST","/api/portal/v1/auth/login",portalBody).statusCode()).isEqualTo(401);
                 assertThat(customerHttp(client,origin,staffToken,fixture.company[0],"POST","/api/v1/auth/logout",null).statusCode()).isEqualTo(204);
@@ -921,7 +917,7 @@ class PostgresBaselineIT {
                 execute(writer,"delete from identity.login_session where actor_id in (select actor_id from identity.customer_account where company_id in (?,?)) or actor_id in (?,?)",fixture.company[0],fixture.company[1],fixture.actor[0],fixture.actor[1]);
                 execute(writer,"delete from identity.password_credential where actor_id in (select actor_id from identity.customer_account where company_id in (?,?)) or actor_id in (?,?)",fixture.company[0],fixture.company[1],fixture.actor[0],fixture.actor[1]);
                 execute(writer,"delete from identity.employee where company_id in (?,?)",fixture.company[0],fixture.company[1]);
-                execute(writer,"delete from identity.login_rate_bucket");
+                cleanLoginBuckets(writer,fixture);
             }
         }
     }
@@ -946,6 +942,22 @@ class PostgresBaselineIT {
             assertThat(scalar(writer,"select count(*) from crm.customer where id='"+root+"'::uuid")).isZero();
             writer.rollback();
         }
+    }
+
+    @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods=false)
+    static class TestRequestSource {
+        @org.springframework.context.annotation.Bean
+        org.springframework.boot.web.servlet.FilterRegistrationBean<jakarta.servlet.Filter> syntheticSource() {
+            var registration=new org.springframework.boot.web.servlet.FilterRegistrationBean<jakarta.servlet.Filter>();
+            registration.setFilter((request,response,chain)->chain.doFilter(new jakarta.servlet.http.HttpServletRequestWrapper((jakarta.servlet.http.HttpServletRequest)request) {
+                @Override public String getRemoteAddr(){return TEST_SOURCE;}
+            },response));return registration;
+        }
+    }
+    private static void cleanLoginBuckets(Connection writer,Fixture fixture)throws SQLException {
+        var keys=new java.util.ArrayList<String>();keys.add("source:"+TEST_SOURCE);
+        for(UUID actor:fixture.actor){keys.add("password-change:"+actor);for(String prefix:List.of("local-","new-","person-","browser-","profile-"))keys.add("account:"+prefix+actor+"@test.invalid");}
+        for(String key:keys)execute(writer,"delete from identity.login_rate_bucket where bucket_hash=?",com.htt.management.identity.LocalAuthentication.digest(key));
     }
 
     private static HttpResponse<String> customerHttp(HttpClient client,String origin,String token,UUID company,String method,String path,String body)throws Exception {
@@ -993,14 +1005,14 @@ class PostgresBaselineIT {
                 if(i==0)execute(writer,"insert into identity.employee(business_id,company_id,actor_id,display_name) values (?,?,?,'TEST EMPLOYEE')","emp_"+fixture.actor[i],fixture.company[i],fixture.actor[i]);
                 else execute(writer,"insert into identity.resource_grant(id,company_id,user_id,scope,customer_id) values (?,?,?,'CUSTOMER',?)",portalGrant,fixture.company[i],fixture.actor[i],fixture.customer[i]);
             }
-            try(var application=new SpringApplicationBuilder(HttManagementApiApplication.class).run(
+            try(var application=new SpringApplicationBuilder(TestRequestSource.class,HttManagementApiApplication.class).run(
                     "--spring.profiles.active=database,development","--server.port=0","--spring.flyway.enabled=false",
                     "--htt.auth.local-enabled=true","--spring.datasource.url="+url,"--spring.datasource.username="+appUser,
                     "--spring.datasource.password="+appPassword,"--logging.level.root=ERROR")) {
                 String origin="http://127.0.0.1:"+application.getEnvironment().getProperty("local.server.port");
                 var cookies=new java.net.CookieManager(null,java.net.CookiePolicy.ACCEPT_ALL);
                 var client=HttpClient.newBuilder().cookieHandler(cookies).build();
-                String base="/api/v1/auth",portal="/api/portal/v1/auth";
+                String base="/api/v1/user/auth",portal="/api/v1/customer/auth";
                 String body=json.writeValueAsString(Map.of("email","browser-"+fixture.actor[0]+"@test.invalid","password",password));
                 assertThat(browserHttp(client,origin,"POST",base+"/browser-login",body,null).statusCode()).isEqualTo(403);
                 cookies.getCookieStore().removeAll();
@@ -1013,8 +1025,14 @@ class PostgresBaselineIT {
                 assertThat(login.statusCode()).as(login.body()).isEqualTo(200);
                 assertThat(login.headers().allValues("Set-Cookie").toString()).contains("HttpOnly","SameSite=Strict","Path=/api/v1/auth","Max-Age=").doesNotContain("Domain=");
                 assertThat(login.body()).doesNotContain("htr_",password);
+                assertThat(cookies.getCookieStore().getCookies().stream().filter(c->c.getName().equals("htt-staff-refresh")).findFirst().orElseThrow().getPath()).isEqualTo("/");
                 String token=json.readTree(login.body()).get("accessToken").asText();
                 String firstRefresh=refreshCookie(cookies,"htt-staff-refresh");
+                assertThat(customerHttp(client,origin,token,fixture.company[0],"GET","/api/v1/customer/auth/me",null).statusCode()).isEqualTo(401);
+                assertThat(customerHttp(client,origin,token,fixture.company[0],"POST","/api/v1/customer/auth/logout",null).statusCode()).isEqualTo(401);
+                assertThat(customerHttp(client,origin,token,fixture.company[0],"GET","/api/v1/auth/me",null).statusCode()).isEqualTo(200);
+                assertThat(customerHttp(client,origin,token,fixture.company[0],"GET",base+"/me",null).statusCode()).isEqualTo(200);
+
                 assertThat(browserHttp(client,origin,"GET",base+"/me",null,null).statusCode()).isEqualTo(401);
                 java.time.Instant fixedDeadline;
                 try(var q=writer.prepareStatement("select expires_at,extract(epoch from expires_at-created_at) from identity.refresh_family where actor_id=? and revoked_at is null")) {
@@ -1065,9 +1083,12 @@ class PostgresBaselineIT {
                 login=browserHttp(client,origin,"POST",base+"/browser-login",body,csrf);assertThat(login.statusCode()).isEqualTo(200);
                 String logoutToken=json.readTree(login.body()).get("accessToken").asText();String logoutRefresh=refreshCookie(cookies,"htt-staff-refresh");
                 execute(writer,"update identity.login_session set expires_at=created_at+interval '1 millisecond' where token_hash=?",com.htt.management.identity.LocalAuthentication.digest(logoutToken));
-                assertThat(browserHttp(client,origin,"POST",base+"/browser-logout",null,null).statusCode()).isEqualTo(403);
-                var out=browserHttp(client,origin,"POST",base+"/browser-logout",null,csrf);
+                assertThat(customerHttp(client,origin,logoutToken,fixture.company[0],"POST",base+"/logout",null).statusCode()).isEqualTo(401);
+                assertThat(browserHttp(client,origin,"POST",base+"/logout",null,null).statusCode()).isEqualTo(403);
+                var out=browserHttp(client,origin,"POST",base+"/logout",null,csrf);
                 assertThat(out.statusCode()).isEqualTo(204);assertThat(out.headers().allValues("Set-Cookie").toString()).contains("Max-Age=0");
+                assertThat(browserHttp(client,origin,"POST",base+"/logout",null,csrf).statusCode()).isEqualTo(204);
+                assertThat(browserHttp(client,origin,"POST",base+"/browser-logout",null,csrf).statusCode()).isEqualTo(204);
                 assertThat(customerHttp(client,origin,logoutToken,fixture.company[0],"GET",base+"/me",null).statusCode()).isEqualTo(401);
                 assertThatThrownBy(()->auth.refresh(logoutRefresh,com.htt.management.identity.AccessSnapshot.Realm.STAFF)).isInstanceOf(org.springframework.security.authentication.BadCredentialsException.class);
                 // Password changes invalidate every persistent family without relying on cookies being deleted.
@@ -1096,6 +1117,8 @@ class PostgresBaselineIT {
                 assertThat(browserHttp(client,origin,"POST",portal+"/refresh",null,csrf).statusCode()).isEqualTo(401);
                 execute(writer,"update identity.refresh_family set created_at=clock_timestamp()-interval '8 days',expires_at=clock_timestamp()-interval '2 days' where id=(select family_id from identity.refresh_token where token_hash=?)",com.htt.management.identity.LocalAuthentication.digest(concurrentRefresh));
                 try(var cleanup=writer.createStatement()) {
+                    // Restrict maintenance to this fixture; never purge other development accounts' sessions.
+                    execute(writer,"select set_config('htt.maintenance_actor_id',?,false)",fixture.actor[0].toString());
                     cleanup.execute(java.nio.file.Files.readString(java.nio.file.Path.of("scripts/database/purge-expired-browser-sessions.sql")));
                 }
                 try(var q=writer.prepareStatement("select count(*) from identity.refresh_token where token_hash=?")) {
@@ -1108,7 +1131,7 @@ class PostgresBaselineIT {
                 execute(writer,"delete from identity.refresh_family where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
                 execute(writer,"delete from identity.password_credential where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
                 execute(writer,"delete from identity.employee where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
-                execute(writer,"delete from identity.login_rate_bucket");
+                cleanLoginBuckets(writer,fixture);
             }
         }
     }
@@ -1271,6 +1294,232 @@ class PostgresBaselineIT {
         }
     }
 
+    @Test
+    void staffProfilesIsolateCompaniesComposeRolesAndRevokeExistingSessions() throws Exception {
+        try(var fixture=new Fixture();var writer=migrationConnection();var runtime=appConnection()) {
+            var encoder=new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(12);
+            String password="Synthetic staff profile password 42";
+            var json=new tools.jackson.databind.ObjectMapper();
+            for(int i=0;i<2;i++) {
+                execute(writer,"insert into identity.external_identity(issuer,subject,user_id,realm) values ('https://identity.htt.invalid/local',?,?,'STAFF')",fixture.actor[i].toString(),fixture.actor[i]);
+                execute(writer,"insert into identity.password_credential(actor_id,login_name,realm,password_hash,issuer,subject) values (?,?,'STAFF',?,'https://identity.htt.invalid/local',?)",
+                        fixture.actor[i],"profile-"+fixture.actor[i]+"@test.invalid",encoder.encode(password),fixture.actor[i].toString());
+                execute(writer,"insert into identity.employee(business_id,company_id,actor_id,display_name) values (?,?,?,'TEST PROFILE ONLY')","emp_"+UUID.randomUUID(),fixture.company[i],fixture.actor[i]);
+                execute(writer,"update crm.customer set currency='AUD' where id=?",fixture.customer[i]);
+            }
+            UUID viewRole=UUID.randomUUID(),writeRole=UUID.randomUUID();
+            execute(writer,"insert into identity.role(company_id,id,code) values (?,?,'TEST FINANCE VIEW'),(?,?,'TEST ORDER ASSISTANT')",fixture.company[0],viewRole,fixture.company[0],writeRole);
+            execute(writer,"insert into identity.role_permission(company_id,role_id,permission_code) values (?,?,'pricing:discount:read'),(?,?,'order:create'),(?,?,'customer:update')",
+                    fixture.company[0],viewRole,fixture.company[0],writeRole,fixture.company[0],writeRole);
+            configureStaff(writer,fixture.actor[0],fixture.company[0],"GROUP_READER",new UUID[0],new UUID[]{viewRole,writeRole});
+            configureStaff(writer,fixture.actor[0],fixture.company[1],"GROUP_READER",new UUID[0],null);
+            configureStaff(writer,fixture.actor[1],fixture.company[1],"COMPANY_OWNER",new UUID[0],null);
+            writer.setAutoCommit(false);
+            expectSqlState(writer,"23503","select identity.configure_staff_access(?,?,'SALES',array[?]::uuid[],null,'TEST FOREIGN CUSTOMER')",fixture.actor[0],fixture.company[0],fixture.customer[1]);
+            expectSqlState(writer,"23514","select identity.configure_staff_access(?,?,'COMPANY_OWNER',array[]::uuid[],null,'TEST FOREIGN EMPLOYEE')",fixture.actor[0],fixture.company[1]);
+            writer.rollback();writer.setAutoCommit(true);
+            var repository=new AccessRepository(new JdbcTemplate(new SingleConnectionDataSource(runtime,true)),new JsonMapper());
+            var before=repository.resolve("https://identity.htt.invalid/local",fixture.actor[0].toString(),AccessSnapshot.Realm.STAFF);
+            assertThat(before.companies()).hasSize(2);
+            assertThat(before.companies()).allSatisfy(c->{assertThat(c.readOnly()).isTrue();assertThat(c.permissions()).doesNotContain("order:create","customer:update");});
+            // Even direct business SQL under the runtime role cannot write for a group reader.
+            runtime.setAutoCommit(false);setContext(runtime,fixture.company[0],fixture.actor[0]);
+            assertThat(scalar(runtime,"select count(*) from crm.customer")).isEqualTo(1);
+            expectSqlState(runtime,"42501","insert into crm.customer(company_id,code,business_name) values (?,'READER-WRITE','TEST DENIED')",fixture.company[0]);
+            expectSqlState(runtime,"42501","select identity.configure_staff_access(?,?,'COMPANY_OWNER',array[]::uuid[],NULL,'forged')",fixture.actor[0],fixture.company[0]);
+            runtime.rollback();runtime.setAutoCommit(true);
+            String[] business=new String[2];
+            for(int i=0;i<2;i++)try(var q=writer.prepareStatement("select business_id from crm.customer where id=?")) {
+                q.setObject(1,fixture.customer[i]);try(var r=q.executeQuery()){r.next();business[i]=r.getString(1);}
+            }
+            try(var application=new SpringApplicationBuilder(TestRequestSource.class,HttManagementApiApplication.class).run(
+                    "--spring.profiles.active=database,development","--server.port=0","--server.address=127.0.0.1","--spring.flyway.enabled=false",
+                    "--htt.auth.local-enabled=true","--spring.datasource.url="+url,"--spring.datasource.username="+appUser,
+                    "--spring.datasource.password="+appPassword,"--logging.level.root=ERROR")) {
+                var client=HttpClient.newHttpClient();String origin="http://127.0.0.1:"+application.getEnvironment().getProperty("local.server.port");
+                String[] tokens=new String[2];
+                for(int i=0;i<2;i++) {
+                    var reply=customerHttp(client,origin,null,fixture.company[i],"POST","/api/v1/user/auth/login",json.writeValueAsString(Map.of("email","profile-"+fixture.actor[i]+"@test.invalid","password",password)));
+                    assertThat(reply.statusCode()).as(reply.body()).isEqualTo(200);tokens[i]=json.readTree(reply.body()).path("accessToken").asString();
+                }
+                assertThat(customerHttp(client,origin,null,fixture.company[0],"GET","/api/v1/customers",null).statusCode()).isEqualTo(401);
+                for(int i=0;i<2;i++) {
+                    var list=customerHttp(client,origin,tokens[0],fixture.company[i],"GET","/api/v1/customers",null);
+                    assertThat(list.statusCode()).as(list.body()).isEqualTo(200);
+                    assertThat(json.readTree(list.body()).size()).isEqualTo(1);
+                    assertThat(json.readTree(list.body()).path(0).path("id").asString()).isEqualTo(business[i]);
+                    assertThat(customerHttp(client,origin,tokens[0],fixture.company[i],"GET","/api/v1/customers/"+business[i],null).statusCode()).isEqualTo(200);
+                    assertThat(customerHttp(client,origin,tokens[0],fixture.company[i],"PATCH","/api/v1/customers/"+business[i]+"/status","{\"version\":1,\"status\":\"ON_HOLD\"}").statusCode()).isEqualTo(403);
+                }
+                assertThat(customerHttp(client,origin,tokens[0],UUID.randomUUID(),"GET","/api/v1/customers",null).statusCode()).isEqualTo(403);
+                assertThat(customerHttp(client,origin,tokens[1],fixture.company[0],"GET","/api/v1/customers",null).statusCode()).isEqualTo(403);
+                assertThat(customerHttp(client,origin,tokens[1],fixture.company[1],"PATCH","/api/v1/customers/"+business[1]+"/status","{\"version\":1,\"status\":\"ON_HOLD\"}").statusCode()).isEqualTo(200);
+                configureStaff(writer,fixture.actor[0],fixture.company[1],"REVOKED",new UUID[0],null);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[1],"GET","/api/v1/customers",null).statusCode()).isEqualTo(403);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/customers",null).statusCode()).isEqualTo(200);
+                configureStaff(writer,fixture.actor[0],fixture.company[0],"COMPANY_OWNER",new UUID[0],null);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"PATCH","/api/v1/customers/"+business[0]+"/status","{\"version\":1,\"status\":\"ACTIVE\"}").statusCode()).isEqualTo(200);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[1],"PATCH","/api/v1/customers/"+business[1]+"/status","{\"version\":2,\"status\":\"ACTIVE\"}").statusCode()).isEqualTo(403);
+                // Multi-role sales has the union of actions, but only assigned customers, never company scope.
+                UUID other=UUID.randomUUID();String otherBusiness="cus_"+other;
+                execute(writer,"insert into crm.customer(id,company_id,business_id,code,business_name) values (?,?,?,'TEST-UNASSIGNED','TEST ONLY')",other,fixture.company[0],otherBusiness);
+                execute(writer,"insert into pricing.product_discount(company_id,subject_id,product_id,discount_percent) values (?,?,?,10)",fixture.company[0],fixture.customer[0],fixture.product[0]);
+                configureStaff(writer,fixture.actor[0],fixture.company[0],"SALES",new UUID[]{fixture.customer[0]},new UUID[]{viewRole,writeRole});
+                // An accidentally granted COMPANY scope is ignored for SALES, including in resolve_access.
+                execute(writer,"insert into identity.resource_grant(company_id,user_id,scope) values (?,?,'COMPANY')",fixture.company[0],fixture.actor[0]);
+                var sales=repository.resolve("https://identity.htt.invalid/local",fixture.actor[0].toString(),AccessSnapshot.Realm.STAFF).companies().getFirst();
+                assertThat(sales.roles()).hasSize(3);assertThat(sales.permissions()).contains("customer:read","pricing:discount:read","order:create");
+                assertThat(sales.grants()).noneSatisfy(g->assertThat(g.scope()).isEqualTo(AccessSnapshot.Scope.COMPANY));
+                var filtered=customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/customers",null);
+                assertThat(filtered.statusCode()).as(filtered.body()).isEqualTo(200);assertThat(json.readTree(filtered.body()).size()).isEqualTo(1);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/customers/"+otherBusiness,null).statusCode()).isEqualTo(403);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"PATCH","/api/v1/customers/"+business[0]+"/status","{\"version\":2,\"status\":\"ON_HOLD\"}").statusCode()).isEqualTo(403);
+                String discount="/api/v1/customer-subjects/"+business[0]+"/product-discounts/"+fixture.product[0];
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"GET",discount,null).statusCode()).isEqualTo(200);
+                execute(writer,"delete from identity.member_role where company_id=? and user_id=? and role_id=?",fixture.company[0],fixture.actor[0],viewRole);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"GET",discount,null).statusCode()).isEqualTo(403);
+                var remaining=repository.resolve("https://identity.htt.invalid/local",fixture.actor[0].toString(),AccessSnapshot.Realm.STAFF).companies().getFirst();
+                assertThat(remaining.roles()).hasSize(2);assertThat(remaining.permissions()).contains("customer:read","order:create");
+                execute(writer,"update identity.resource_grant set enabled=false,version=version+1 where company_id=? and user_id=? and scope='CUSTOMER'",fixture.company[0],fixture.actor[0]);
+                UUID branchOnly=UUID.randomUUID();
+                execute(writer,"insert into identity.resource_grant(id,company_id,user_id,scope,customer_id) values (?,?,?,'BRANCH',?)",branchOnly,fixture.company[0],fixture.actor[0],fixture.customer[0]);
+                execute(writer,"insert into identity.grant_branch(grant_id,company_id,customer_id,branch_id) values (?,?,?,?)",branchOnly,fixture.company[0],fixture.customer[0],fixture.branch[0]);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/customers/"+business[0],null).statusCode()).isEqualTo(403);
+                var me=customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/me",null);
+                assertThat(json.readTree(me.body()).path("companies").path(0).path("accessProfile").asString()).isEqualTo("SALES");
+                configureStaff(writer,fixture.actor[0],fixture.company[0],"REVOKED",new UUID[0],null);
+                assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/customers",null).statusCode()).isEqualTo(403);
+            } finally {
+                cleanLoginBuckets(writer,fixture);
+                execute(writer,"delete from identity.login_session where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
+                execute(writer,"delete from identity.password_credential where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
+                execute(writer,"delete from identity.employee where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
+            }
+        }
+    }
+
+    private static void configureStaff(Connection connection,UUID actor,UUID company,String profile,UUID[] customers,UUID[] roles) throws SQLException {
+        try(var statement=connection.prepareStatement("select identity.configure_staff_access(?,?,?,?,?,?)")) {
+            statement.setObject(1,actor);statement.setObject(2,company);statement.setString(3,profile);
+            statement.setArray(4,connection.createArrayOf("uuid",customers));
+            if(roles==null)statement.setNull(5,java.sql.Types.ARRAY);else statement.setArray(5,connection.createArrayOf("uuid",roles));
+            statement.setString(6,"TEST ONLY synthetic staff profile configuration");statement.execute();
+        }
+    }
+
+    @Test
+    void productDiscountConstraintsAndAuditAreTransactional() throws Exception {
+        try(var fixture=new Fixture();var connection=migrationConnection()) {
+            connection.setAutoCommit(false);
+            expectSqlState(connection,"23503","insert into pricing.product_discount(company_id,subject_id,product_id,discount_percent) values (?,?,?,10)",fixture.company[0],fixture.customer[1],fixture.product[0]);
+            expectSqlState(connection,"23503","insert into pricing.product_discount(company_id,subject_id,product_id,discount_percent) values (?,?,?,10)",fixture.company[0],fixture.customer[0],fixture.product[1]);
+            expectSqlState(connection,"23514","insert into pricing.product_discount(company_id,subject_id,product_id,discount_percent) values (?,?,?,101)",fixture.company[0],fixture.customer[0],fixture.product[0]);
+            execute(connection,"insert into pricing.product_discount(company_id,subject_id,product_id,discount_percent) values (?,?,?,10)",fixture.company[0],fixture.customer[0],fixture.product[0]);
+            expectSqlState(connection,"23505","insert into pricing.product_discount(company_id,subject_id,product_id,discount_percent) values (?,?,?,20)",fixture.company[0],fixture.customer[0],fixture.product[0]);
+            execute(connection,"insert into pricing.discount_audit(company_id,subject_id,product_id,actor_id,action,discount_percent,version) values (?,?,?,?,'SET',10,1)",fixture.company[0],fixture.customer[0],fixture.product[0],fixture.actor[0]);
+            connection.rollback();
+            assertThat(scalar(connection,"select count(*) from pricing.product_discount where company_id='"+fixture.company[0]+"'::uuid")).isZero();
+            assertThat(scalar(connection,"select count(*) from pricing.discount_audit where company_id='"+fixture.company[0]+"'::uuid")).isZero();
+            connection.rollback();
+        }
+    }
+
+    private static void verifyProductDiscounts(HttpClient client,String origin,Fixture fixture,Connection writer,
+            tools.jackson.databind.ObjectMapper json,String staff,String root,String person,String customer,String contact,UUID role) throws Exception {
+        String base="/api/v1/customer-subjects/",resolve="/api/portal/v1/product-discounts/resolve";
+        String companyRule=base+customer+"/product-discounts/"+fixture.product[0];
+        String personRule=base+contact+"/product-discounts/"+fixture.product[0];
+        String ten="{\"discountPercent\":\"10\",\"version\":0}";
+        assertThat(customerHttp(client,origin,null,fixture.company[0],"PUT",companyRule,ten).statusCode()).isEqualTo(401);
+        assertThat(customerHttp(client,origin,person,fixture.company[0],"PUT",companyRule,ten).statusCode()).isEqualTo(401);
+        var saved=customerHttp(client,origin,staff,fixture.company[0],"PUT",companyRule,ten);
+        assertThat(saved.statusCode()).as(saved.body()).isEqualTo(200);
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"GET",companyRule,null).statusCode()).isEqualTo(200);
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",companyRule,ten).statusCode()).isEqualTo(409);
+        for(String value:List.of("-1","100.0001","1.23456"))
+            assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",personRule,"{\"discountPercent\":\""+value+"\",\"version\":0}").statusCode()).isEqualTo(400);
+        UUID second=UUID.randomUUID();
+        execute(writer,"insert into catalog.product(id,company_id,sku,name,base_unit_id) values (?,?,'DISCOUNT-SECOND','TEST ONLY',?)",second,fixture.company[0],fixture.unit[0]);
+        var noRule=customerHttp(client,origin,person,fixture.company[0],"POST",resolve,json.writeValueAsString(Map.of("productIds",List.of(second))));
+        assertThat(noRule.statusCode()).as(noRule.body()).isEqualTo(200);
+        assertThat(json.readTree(noRule.body()).path(0).path("source").asString()).isEqualTo("NONE");
+        String secondRule=base+customer+"/product-discounts/"+second;
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",secondRule,ten.replace("10","7.5")).statusCode()).isEqualTo(200);
+        String query=json.writeValueAsString(Map.of("productIds",List.of(fixture.product[0],second)));
+        assertThat(customerHttp(client,origin,null,fixture.company[0],"POST",resolve,query).statusCode()).isEqualTo(401);
+        assertThat(customerHttp(client,origin,person,fixture.company[0],"POST",resolve,"{\"productIds\":[]}").statusCode()).isEqualTo(400);
+        assertThat(customerHttp(client,origin,person,fixture.company[0],"POST",resolve,json.writeValueAsString(Map.of("productIds",List.of(fixture.product[1])))).statusCode()).isEqualTo(404);
+        var inherited=customerHttp(client,origin,person,fixture.company[1],"POST",resolve,query);
+        assertThat(inherited.statusCode()).as(inherited.body()).isEqualTo(200);
+        assertThat(json.readTree(inherited.body()).path(0).path("discountPercent").asString()).isEqualTo("10.0000");
+        assertThat(json.readTree(inherited.body()).path(1).path("discountPercent").asString()).isEqualTo("7.5000");
+        assertThat(json.readTree(inherited.body()).path(0).path("source").asString()).isEqualTo("COMPANY");
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",personRule,ten.replace("10","2.5")).statusCode()).isEqualTo(200);
+        var overridden=customerHttp(client,origin,person,fixture.company[0],"POST",resolve,query);
+        assertThat(json.readTree(overridden.body()).path(0).path("discountPercent").asString()).isEqualTo("2.5000");
+        assertThat(json.readTree(overridden.body()).path(0).path("source").asString()).isEqualTo("CONTACT");
+        assertThat(json.readTree(overridden.body()).path(1).path("discountPercent").asString()).isEqualTo("7.5000");
+        UUID anotherContact=UUID.randomUUID();String anotherBusiness="con_"+anotherContact;
+        execute(writer,"insert into crm.customer_contact(id,company_id,customer_id,business_id,name) values (?,?,?,?,'TEST OTHER CONTACT')",anotherContact,fixture.company[0],fixture.customer[0],anotherBusiness);
+        String anotherEmail="other-"+anotherContact+"@test.invalid",anotherPassword="Separate synthetic contact password 42";
+        String anotherAccount=json.writeValueAsString(Map.of("accountType","CONTACT","contactId",anotherBusiness,"loginName",anotherEmail,"password",anotherPassword,
+                "permissions",List.of("customer:read","pricing:read-own")));
+        var anotherCreated=customerHttp(client,origin,staff,fixture.company[0],"POST","/api/v1/customers/"+customer+"/accounts",anotherAccount,UUID.randomUUID());
+        assertThat(anotherCreated.statusCode()).as(anotherCreated.body()).isEqualTo(201);
+        var anotherLogin=customerHttp(client,origin,null,fixture.company[0],"POST","/api/v1/customer/auth/login",json.writeValueAsString(Map.of("email",anotherEmail,"password",anotherPassword)));
+        assertThat(anotherLogin.statusCode()).as(anotherLogin.body()).isEqualTo(200);
+        String anotherToken=json.readTree(anotherLogin.body()).path("accessToken").asString();
+        var anotherView=customerHttp(client,origin,anotherToken,fixture.company[0],"POST",resolve,query);
+        assertThat(anotherView.statusCode()).as(anotherView.body()).isEqualTo(200);
+        assertThat(json.readTree(anotherView.body()).path(0).path("discountPercent").asString()).isEqualTo("10.0000");
+        // The company account cannot select a contact, even with forged fields or company headers.
+        String spoof=json.writeValueAsString(Map.of("productIds",List.of(fixture.product[0]),"subjectId",contact));
+        var companyView=customerHttp(client,origin,root,fixture.company[1],"POST",resolve,spoof);
+        assertThat(companyView.statusCode()).as(companyView.body()).isEqualTo(200);
+        assertThat(json.readTree(companyView.body()).path(0).path("discountPercent").asString()).isEqualTo("10.0000");
+        assertThat(customerHttp(client,origin,staff,fixture.company[1],"PUT",companyRule,ten).statusCode()).isEqualTo(403);
+        String foreignSubject;
+        try(var q=writer.prepareStatement("select business_id from crm.customer where id=?")) {
+            q.setObject(1,fixture.customer[1]);try(var r=q.executeQuery()){r.next();foreignSubject=r.getString(1);}
+        }
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",base+foreignSubject+"/product-discounts/"+fixture.product[0],ten).statusCode()).isEqualTo(404);
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",base+customer+"/product-discounts/"+fixture.product[1],ten).statusCode()).isEqualTo(404);
+        UUID otherCustomer=UUID.randomUUID();
+        String otherBusiness="cus_"+otherCustomer;
+        execute(writer,"insert into crm.customer(id,company_id,business_id,code,business_name) values (?,?,?,'DISCOUNT-OTHER','TEST ONLY')",otherCustomer,fixture.company[0],otherBusiness);
+        execute(writer,"update identity.resource_grant set scope='CUSTOMER',customer_id=? where company_id=? and user_id=?",fixture.customer[0],fixture.company[0],fixture.actor[0]);
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",base+otherBusiness+"/product-discounts/"+fixture.product[0],ten).statusCode()).isEqualTo(403);
+        execute(writer,"update identity.resource_grant set scope='COMPANY',customer_id=null where company_id=? and user_id=?",fixture.company[0],fixture.actor[0]);
+        execute(writer,"update identity.company_member set member_kind='SALES' where company_id=? and user_id=?",fixture.company[0],fixture.actor[0]);
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",companyRule,ten).statusCode()).isEqualTo(403);
+        execute(writer,"update identity.company_member set member_kind='MANAGEMENT' where company_id=? and user_id=?",fixture.company[0],fixture.actor[0]);
+        // A weaker personal reduction still overrides the company rule; zero is explicit, not absence.
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",personRule,"{\"discountPercent\":\"0\",\"version\":1}").statusCode()).isEqualTo(200);
+        assertThat(json.readTree(customerHttp(client,origin,person,fixture.company[0],"POST",resolve,query).body()).path(0).path("discountPercent").asString()).isEqualTo("0.0000");
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"DELETE",personRule+"?version=1",null).statusCode()).isEqualTo(409);
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"DELETE",personRule+"?version=2",null).statusCode()).isEqualTo(204);
+        assertThat(json.readTree(customerHttp(client,origin,person,fixture.company[0],"POST",resolve,query).body()).path(0).path("discountPercent").asString()).isEqualTo("10.0000");
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",personRule,ten).statusCode()).isEqualTo(200);
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",personRule,"{\"discountPercent\":\"1\",\"version\":1}").statusCode()).isEqualTo(409);
+        execute(writer,"delete from identity.role_permission where company_id=? and role_id=? and permission_code='pricing:discount:write'",fixture.company[0],role);
+        assertThat(customerHttp(client,origin,staff,fixture.company[0],"PUT",companyRule,ten).statusCode()).isEqualTo(403);
+        execute(writer,"insert into identity.role_permission(company_id,role_id,permission_code) values (?,?,'pricing:discount:write')",fixture.company[0],role);
+        UUID personalActor;
+        try(var q=writer.prepareStatement("select actor_id from identity.customer_account where company_id=? and customer_subject_id=(select id from crm.customer_subject where business_id=?)")) {
+            q.setObject(1,fixture.company[0]);q.setString(2,contact);try(var r=q.executeQuery()){r.next();personalActor=r.getObject(1,UUID.class);}
+        }
+        execute(writer,"delete from identity.role_permission where company_id=? and permission_code='pricing:read-own' and role_id in (select role_id from identity.member_role where user_id=?)",fixture.company[0],personalActor);
+        assertThat(customerHttp(client,origin,person,fixture.company[0],"POST",resolve,query).statusCode()).isEqualTo(403);
+        assertThat(scalar(writer,"select count(*) from pricing.discount_audit where company_id='"+fixture.company[0]+"'::uuid")).isEqualTo(6);
+        // Concurrent editors of the same version: one succeeds, one gets a conflict, one audit row.
+        try(var executor=java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var first=executor.submit(()->customerHttp(client,origin,staff,fixture.company[0],"PUT",companyRule,"{\"discountPercent\":\"8\",\"version\":1}").statusCode());
+            var secondEdit=executor.submit(()->customerHttp(client,origin,staff,fixture.company[0],"PUT",companyRule,"{\"discountPercent\":\"9\",\"version\":1}").statusCode());
+            assertThat(List.of(first.get(),secondEdit.get())).containsExactlyInAnyOrder(200,409);
+        }
+        assertThat(scalar(writer,"select count(*) from pricing.discount_audit where company_id='"+fixture.company[0]+"'::uuid")).isEqualTo(7);
+    }
+
     private static final class Fixture implements AutoCloseable {
         final UUID[] company = {UUID.randomUUID(), UUID.randomUUID()};
         final UUID[] actor = {UUID.randomUUID(), UUID.randomUUID()};
@@ -1316,7 +1565,7 @@ class PostgresBaselineIT {
                 for (String table : List.of("notification.message","notification.recipient_cursor","notification.device","notification.inbox","platform.domain_outbox")) {
                     execute(connection,"DELETE FROM "+table+" WHERE company_id IN (?,?)",company[0],company[1]);
                 }
-                for (String table : List.of("platform.customer_change_audit","crm.customer_billing_address","crm.customer_workspace","inventory.stock_movement", "inventory.stock_balance", "catalog.product_barcode", "catalog.product_unit", "identity.grant_branch", "identity.resource_grant", "identity.member_role",
+                for (String table : List.of("platform.staff_access_change_audit","identity.staff_profile_role","pricing.discount_audit","pricing.product_discount","platform.customer_change_audit","crm.customer_billing_address","crm.customer_workspace","inventory.stock_movement", "inventory.stock_balance", "catalog.product_barcode", "catalog.product_unit", "identity.grant_branch", "identity.resource_grant", "identity.member_role",
                         "identity.role_permission", "identity.role", "inventory.warehouse", "catalog.product", "catalog.unit_of_measure",
                         "crm.customer_contact", "crm.customer_location", "crm.customer_branch", "crm.customer", "identity.company_member")) {
                     execute(connection, "DELETE FROM " + table + " WHERE company_id IN (?, ?)", company[0], company[1]);
