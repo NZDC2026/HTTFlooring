@@ -14,7 +14,7 @@ export type SalesBatch=z.infer<typeof salesBatchSchema>;
 export const clearanceEvidenceSchema=z.object({id:text,revision:text,pricePerBase:z.number().finite().positive(),starts:text,ends:text,belowCostApproved:z.boolean(),approvedBy:text.optional()}).strict();
 export type ClearanceEvidence=z.infer<typeof clearanceEvidenceSchema>;
 export type BatchClearanceOffer={id:string;revision:string;pricePerBase:number;starts:string;ends:string;status:string;allowed:boolean;requiresApproval:boolean;shade?:string};
-export type SalesBatchOption={id:string;siteId:string;productId:string;number:string;siteName?:string;shade?:string;availableBase:number;offers:BatchClearanceOffer[]};
+export type SalesBatchOption={id:string;siteId:string;productId:string;number:string;siteName?:string;shade?:string;availableBase:number;received?:string;offers:BatchClearanceOffer[]};
 let cached:SalesBatchOption[]=[];let revision=0;const listeners=new Set<()=>void>();
 export function useSalesBatchOptions(productId?:string){useSyncExternalStore(fn=>{listeners.add(fn);return()=>{listeners.delete(fn);};},()=>revision,()=>revision);return salesBatchOptions(productId);}
 function liveOptions():SalesBatchOption[]{
@@ -23,7 +23,7 @@ function liveOptions():SalesBatchOption[]{
  for(const group of groups.values()){let batches:ReturnType<typeof physicalStockBatches>;try{batches=physicalStockBatches(group);}catch{continue;}
   for(const b of batches){const source=group.find(c=>c.id===b.id&&c.quantityBase>0);if(!source)continue;
    const rows=(configurationRows.clearances??[]).filter(r=>r.batchId===source.id&&r.siteId===source.siteId&&r.productId===source.productId);
-   result.push({id:source.id,siteId:source.siteId,productId:source.productId,number:b.batchNumber,siteName:inventorySiteRepository.getById(source.siteId)?.name??source.siteId,shade:rows.find(r=>r.shade)?.shade||undefined,availableBase:b.quantity,offers:rows.map(r=>({id:r.id,revision:r.revision,pricePerBase:Number(r.price),starts:r.starts,ends:r.ends,status:r.status,allowed:r.allowBelowCost==='true',shade:r.shade||undefined,requiresApproval:Number(r.price)<source.unitCostBase&&r.allowBelowCost!=='true'}))});
+   result.push({id:source.id,siteId:source.siteId,productId:source.productId,number:b.batchNumber,received:source.occurredAt.slice(0,10),siteName:inventorySiteRepository.getById(source.siteId)?.name??source.siteId,shade:rows.find(r=>r.shade)?.shade||undefined,availableBase:b.quantity,offers:rows.map(r=>({id:r.id,revision:r.revision,pricePerBase:Number(r.price),starts:r.starts,ends:r.ends,status:r.status,allowed:r.allowBelowCost==='true',shade:r.shade||undefined,requiresApproval:Number(r.price)<source.unitCostBase&&r.allowBelowCost!=='true'}))});
   }
  }
  return result;

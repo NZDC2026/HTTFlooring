@@ -1,3 +1,4 @@
+import { NewProductPage } from "../inventory/product-setup/NewProductPage";
 import { ProductMeasureEditor } from '../inventory/components/ProductMeasureEditor';
 import { ProductDetailPage } from '../inventory/pages/ProductDetailPage';
 import { accessoryTypes, priceSubcategories } from "../contacts/data/priceCatalogue";
@@ -32,7 +33,8 @@ function Missing({ path }: {
     path: string;
 }) { return <BusinessFrame title="Record not found"><p>The business record no longer exists, or is outside your access.</p><Link className={buttonClass} to={path}>Back to register</Link></BusinessFrame>; }
 type Mode = 'list' | 'new' | 'edit' | 'detail';
-export function ProductBusinessPage({ mode, id }: {
+export function ProductBusinessPage(props: { mode: Mode; id?: string }) { const [params]=useSearchParams(); return props.mode === 'new' && params.get('editor') !== 'advanced' ? <NewProductPage/> : <ExistingProductBusinessPage {...props}/>; }
+function ExistingProductBusinessPage({ mode, id }: {
     mode: Mode;
     id?: string;
 }) {

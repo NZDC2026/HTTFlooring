@@ -1,3 +1,4 @@
+import { assertProductFloorPrice } from '../../inventory/product-setup/productFloorPrice';
 import {resolveSalesBatch,assertBatchPriceFloor} from '../../inventory/clearance/batchSalesPricing';
 import {buildServiceLine} from './serviceLines';
 import { resolvePricingInstant, type PricingInstant } from './pricingInstant';
@@ -108,6 +109,7 @@ export function buildSalesLine({
     if (!Number.isFinite(discount) || discount < 0 || discount > 100) throw new Error('Discount must be between 0 and 100%.');
     const discountBaseUnitPrice = hasManualPrice ? exclusivePrice(inputPrice, taxRate, draft.priceBasis) : inputPrice;
     const unitPrice = discountBaseUnitPrice * (1 - discount / 100);
+    assertProductFloorPrice(product,unit,unitPrice,previewOnly);
     if(selected&&area.quantity*selected.batch.conversionToBase>selected.option.availableBase+1e-6)throw Error('Requested quantity exceeds available stock in the selected batch.');
     const approvedBy=selected?assertBatchPriceFloor(selected.batch,unitPrice,selected.offer,previewOnly):undefined;
     const calculations =
