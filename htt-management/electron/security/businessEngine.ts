@@ -1,3 +1,4 @@
+import './customerOnboardingRepository';
 import '../../src/features/collection-proof/collectionProofRepository';
 import '../../src/features/stock-adjustments/stockAdjustmentRepository';
 import './yearEndRepository';

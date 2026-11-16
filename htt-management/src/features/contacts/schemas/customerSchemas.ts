@@ -1,3 +1,4 @@
+import {customerSetupSchema} from '../create/customerSetup';
 import { customerAddressSchema, deliveryAddressesSchema } from "../data/customerAddresses";
 import { accountContactsSchema } from "../data/accountContacts";
 import { paymentTermsTypeSchema, validatePaymentTerms } from "../../payment-terms/paymentTerms";
@@ -51,6 +52,7 @@ const optionalAbn = z
     );
 
 export const customerFormSchema = z.object({
+    setup: customerSetupSchema.optional(),
     pricingTier: z.enum(["STANDARD","VIP","VVIP","CONTAINER"]).optional(),
     creditHold: z.boolean().optional(),
     internalNotes: z.string().trim().max(500).optional(),

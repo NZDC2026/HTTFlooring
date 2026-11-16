@@ -1,3 +1,4 @@
+import {CustomerWorkspace} from '../workspace/CustomerWorkspace';
 import { CustomerStatusSelect } from "../components/CustomerStatusSelect";
 import { useVisits } from "../../sales-visits/visitRepository";
 import { useWorkspaceRecords } from "../../business-workspace/workspaceRepository";
@@ -270,7 +271,8 @@ function ActivityIndicator({ urgent, total }: ReturnType<typeof activityCounts>)
     </span>;
 }
 
-export function CustomersPage() {
+export function CustomersPage() { const [params]=useSearchParams();return params.get('view')==='legacy'?<LegacyCustomerRegister/>:<CustomerWorkspace initialTab="all"/>; }
+function LegacyCustomerRegister() {
     const navigate = useNavigate();
     const customerColumns = useMemo(() => columns.map(column => column.id !== "notes" ? column : {
         ...column,

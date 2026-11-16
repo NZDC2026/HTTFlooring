@@ -52,6 +52,11 @@ export interface ProductUnit {
 }
 
 export interface Product {
+    levelPrices?: import('zod').infer<typeof import('../price-updates/priceUpdateModel').levelPricesSchema>;
+    priceHistory?: import('zod').infer<typeof import('../price-updates/priceUpdateModel').priceHistorySchema>[];
+    priceFloor?: number;
+    batchMetadata?: {batchId:string;siteId:string;expiresOn?:string;shade?:string}[];
+    setup?: import("../product-setup/productSetup").ProductSetup;
     id: string;
     sku: string;
     name: string;

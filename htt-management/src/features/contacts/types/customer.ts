@@ -64,6 +64,8 @@ export interface CustomerNote {
     createdAt: string;
 }
 export interface Customer {
+    creationRequest?:{operationId:string;hash:string;actorId:string};
+    setup?: import("../create/customerSetup").CustomerSetup;
     pricingTier?: import("../data/customerPriceGroups").PricingTier;
     creditHold?: boolean;
     internalNotes?: string;

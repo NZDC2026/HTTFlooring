@@ -1,3 +1,7 @@
+import {validateProductBatchMetadata} from '../inventory/components/stockBatchExpiryModel';
+import { applyProductPrices, levelPricesSchema, priceHistorySchema, priceUpdateSchema } from '../inventory/price-updates/priceUpdateModel';
+import { trustedAuthorization } from "../security/trustedAuthorization";
+import { productSetupSchema } from "../inventory/product-setup/productSetup";
 import { accessoryTypes } from "../contacts/data/priceCatalogue";
 import { isStockProduct } from '../inventory/data/itemTypes';
 import { useSyncExternalStore } from 'react';
@@ -8,7 +12,7 @@ import { productCostingRepository } from '../inventory/data/productCostingReposi
 import { activeTaxRate } from './configurationState';
 import type { Product } from '../inventory/types/product';
 const unitSchema = z.object({ id: z.string().min(1), code: z.enum(['M2', 'LM', 'BOX', 'PIECE', 'ROLL', 'BUCKET', 'HOUR', 'JOB']), name: z.string().trim().min(1), symbol: z.string().min(1), conversionToBase: z.number().finite().positive(), basePrice: z.number().finite().nonnegative(), tradePrice:z.number().finite().nonnegative().optional(), publicPrice:z.number().finite().nonnegative().optional(), vipPrice:z.number().finite().nonnegative().optional(), vvipPrice:z.number().finite().nonnegative().optional(), containerPrice:z.number().finite().nonnegative().optional(), isBaseUnit: z.boolean(), active: z.boolean() }).strict();
-export const productSchema = z.object({ id: z.string().min(1), sku: z.string().trim().min(1).max(80), name: z.string().trim().min(1).max(180), category: z.enum(['Timber', 'Hybrid', 'Laminate', 'Vinyl', 'Carpet', 'Accessories', 'Other']), brand: z.string().optional(), collection: z.string().optional(), pattern:z.enum(["Plank","Herringbone","Chevron"]).optional(), accessoryType:z.enum(accessoryTypes).optional(), description: z.string().optional(), dimensions:z.object({lengthMm:z.number().finite().positive().optional(),widthMm:z.number().finite().positive().optional(),thicknessMm:z.number().finite().positive().optional()}).strict().optional(), status: z.enum(['ACTIVE', 'INACTIVE']), baseUnitId: z.string().min(1), measureUnitId:z.string().min(1).optional(), units: z.array(unitSchema).min(1), createdAt: z.string(), updatedAt: z.string(), referenceCostPrice: z.number().finite().nonnegative().optional(), revision: z.number().int().nonnegative().optional(), itemType: z.enum(['STOCK', 'NON_STOCK', 'SERVICE']).optional(), buyEnabled: z.boolean().optional(), sellEnabled: z.boolean().optional(), reorderPoint: z.number().finite().nonnegative().optional(), targetStock: z.number().finite().nonnegative().optional(), wholePacks: z.boolean().optional(), taxCode: z.string().min(1).optional() }).strict();
+export const productSchema = z.object({ levelPrices:levelPricesSchema.optional(), priceFloor:z.number().finite().nonnegative().optional(), priceHistory:z.array(priceHistorySchema).optional(), batchMetadata:z.array(z.object({batchId:z.string().min(1),siteId:z.string().min(1),expiresOn:z.iso.date().optional(),shade:z.string().max(80).optional()}).strict()).max(1000).optional(), setup: productSetupSchema.optional(), id: z.string().min(1), sku: z.string().trim().min(1).max(80), name: z.string().trim().min(1).max(180), category: z.enum(['Timber', 'Hybrid', 'Laminate', 'Vinyl', 'Carpet', 'Accessories', 'Other']), brand: z.string().optional(), collection: z.string().optional(), pattern:z.enum(["Plank","Herringbone","Chevron"]).optional(), accessoryType:z.enum(accessoryTypes).optional(), description: z.string().optional(), dimensions:z.object({lengthMm:z.number().finite().positive().optional(),widthMm:z.number().finite().positive().optional(),thicknessMm:z.number().finite().positive().optional()}).strict().optional(), status: z.enum(['ACTIVE', 'INACTIVE']), baseUnitId: z.string().min(1), measureUnitId:z.string().min(1).optional(), units: z.array(unitSchema).min(1), createdAt: z.string(), updatedAt: z.string(), referenceCostPrice: z.number().finite().nonnegative().optional(), revision: z.number().int().nonnegative().optional(), itemType: z.enum(['STOCK', 'NON_STOCK', 'SERVICE']).optional(), buyEnabled: z.boolean().optional(), sellEnabled: z.boolean().optional(), reorderPoint: z.number().finite().nonnegative().optional(), targetStock: z.number().finite().nonnegative().optional(), wholePacks: z.boolean().optional(), taxCode: z.string().min(1).optional() }).strict();
 const listeners = new Set<() => void>();
 let view: Product[] = [...mockProducts];
 function publish() { view = [...mockProducts]; listeners.forEach(fn => fn()); }
@@ -21,6 +25,7 @@ export function validateProducts(rows: unknown): Product[] {
     for (const p of parsed) {
         if (ids.has(p.id) || skus.has(p.sku.toLowerCase()))
             throw new Error('Duplicate product ID or SKU.');
+        if (p.setup && ((p.setup.lifecycle === 'ACTIVE') !== (p.status === 'ACTIVE'))) throw new Error('Product lifecycle and catalogue status do not match.');
         ids.add(p.id);
         skus.add(p.sku.toLowerCase());
         if(!isStockProduct(p)&&p.buyEnabled!==false)throw new Error('Non-stock/service catalogue items must use expense bills for purchasing.');
@@ -37,8 +42,27 @@ export function validateProducts(rows: unknown): Product[] {
 }
 export const productRepository = {
     subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }, getSnapshot: () => view, getAll: () => mockProducts, getById: (id: string) => mockProducts.find(p => p.id === id),
+    updatePrices(raw:unknown) {
+        const input=priceUpdateSchema.parse(raw),actor=trustedAuthorization.require('inventory.adjust');
+        const prior=mockProducts.flatMap(p=>(p.priceHistory??[]).filter(h=>h.operationId===input.operationId).map(h=>({id:p.id,entry:h})));
+        if(prior.length){if(prior.length!==input.products.length||input.products.some(row=>!prior.some(h=>h.id===row.id&&h.entry.signature===JSON.stringify(row))))throw Error('This update ID has already been used.');return {products:prior.length,prices:prior.reduce((n,h)=>n+h.entry.changes.length,0)};}
+        if(new Set(input.products.map(p=>p.id)).size!==input.products.length)throw Error('Select each product only once.');
+        const at=new Date().toISOString();let prices=0,changed=0;
+        const replacements=new Map<string,Product>();
+        for(const row of input.products){
+            const current=mockProducts.find(p=>p.id===row.id);if(!current||(current.revision??0)!==row.expectedRevision)throw Error('A selected product changed. Close this preview and try again.');
+            if(new Set(row.prices.map(p=>p.cell)).size!==row.prices.length)throw Error('Select each price only once.');
+            const next=applyProductPrices(current,row.prices,actor.userId,input.operationId,JSON.stringify(row),at);
+            if(next===current)throw Error('No prices changed for a selected product. Refresh the preview.');
+            if(next!==current){prices+=next.priceHistory!.at(-1)!.changes.length;changed++;replacements.set(current.id,next);}
+        }
+        const next=validateProducts(mockProducts.map(p=>replacements.get(p.id)??p));mockProducts.splice(0,mockProducts.length,...next);publish();return {products:changed,prices};
+    },
     save(input: Product, expectedRevision?: number) {
         const data = productSchema.parse(input) as Product, current = mockProducts.find(p => p.id === data.id);
+        if(JSON.stringify(data.priceHistory??[])!==JSON.stringify(current?.priceHistory??[]))throw Error('Price history can only be written by the price update command.');
+        validateProductBatchMetadata(data,(snapshotRepositories().costMovements as {movements:{id:string;siteId:string;productId:string;quantityBase:number}[]}|undefined)?.movements??[]);
+        if (data.setup && data.referenceCostPrice !== undefined && data.referenceCostPrice !== current?.referenceCostPrice) trustedAuthorization.require('inventory.cost.read');
         if (current && expectedRevision !== (current.revision ?? 0))
             throw new Error('Product changed since it was opened. Reload before saving.');
         if (!current && expectedRevision !== undefined)
@@ -58,6 +82,7 @@ export const productRepository = {
                     throw new Error('A referenced unit conversion cannot be changed or removed. Add a new unit instead.');
             }
         }
+        if (data.setup && current && data.status !== current.status) data.setup = {...data.setup,lifecycle:data.status};
         const now = new Date().toISOString(), product = { ...data, createdAt: current?.createdAt ?? now, updatedAt: now, revision: (current?.revision ?? 0) + 1 };
         validateProducts([...mockProducts.filter(p => p.id !== data.id), product]);
         if (current)
@@ -70,5 +95,5 @@ export const productRepository = {
         return product;
     }
 };
-registerRepository('products', { validate: (value,snapshots) => { const products=validateProducts((value as {products:unknown}).products);const taxes=(snapshots.workspace_tax_codes as {records:{code:string}[]}).records;const policies=(snapshots.costingPolicies as {policies:{productId:string;active:boolean}[]}).policies;const balances=(snapshots.stock as {balances:{productId:string;quantityOnHand:number}[]}).balances;for(const p of products.filter(p=>!isStockProduct(p)))if(policies.some(c=>c.productId===p.id&&c.active)||balances.some(b=>b.productId===p.id&&b.quantityOnHand!==0))throw new Error('Non-stock/service product has inventory activity or active costing.');if(products.some(p=>!taxes.some(t=>t.code===(p.taxCode??'GST'))))throw new Error('Backup product tax-code reference is invalid.'); }, repository: productRepository, read: 'inventory.read', commands: { save: 'inventory.adjust' }, snapshot: () => ({ products: structuredClone(mockProducts) }), restore: value => { const rows = validateProducts(value.products); mockProducts.splice(0, mockProducts.length, ...rows); view = [...mockProducts]; }, publish });
+registerRepository('products', { validate: (value,snapshots) => { const products=validateProducts((value as {products:unknown}).products);for(const p of products)validateProductBatchMetadata(p,(snapshots.costMovements as {movements:{id:string;siteId:string;productId:string;quantityBase:number}[]}).movements);const taxes=(snapshots.workspace_tax_codes as {records:{code:string}[]}).records;const policies=(snapshots.costingPolicies as {policies:{productId:string;active:boolean}[]}).policies;const balances=(snapshots.stock as {balances:{productId:string;quantityOnHand:number}[]}).balances;for(const p of products.filter(p=>!isStockProduct(p)))if(policies.some(c=>c.productId===p.id&&c.active)||balances.some(b=>b.productId===p.id&&b.quantityOnHand!==0))throw new Error('Non-stock/service product has inventory activity or active costing.');if(products.some(p=>!taxes.some(t=>t.code===(p.taxCode??'GST'))))throw new Error('Backup product tax-code reference is invalid.'); }, repository: productRepository, read: 'inventory.read', commands: { save: 'inventory.adjust', updatePrices:'inventory.adjust' }, snapshot: () => ({ products: structuredClone(mockProducts) }), restore: value => { const rows = validateProducts(value.products); mockProducts.splice(0, mockProducts.length, ...rows); view = [...mockProducts]; }, publish });
 export function useProducts() { return useSyncExternalStore(productRepository.subscribe, productRepository.getSnapshot, productRepository.getSnapshot); }

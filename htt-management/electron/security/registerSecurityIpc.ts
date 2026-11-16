@@ -1,3 +1,4 @@
+import {CustomerLookups} from '../customer-lookup/customerLookups';
 import {assertApprovedDesktopCommand} from '../../src/features/security/optionalWorkflows';
 import {PayrollFilings} from '../payroll-filing/filings';
 import {FilingStore} from '../payroll-filing/store';
@@ -29,6 +30,7 @@ export function registerSecurityIpc(directory: string, getWindow: (sender: WebCo
     let payrollFilings:PayrollFilings|undefined, payrollFilingError='';
     try {payrollFilings=new PayrollFilings(new FilingStore(directory,{available:()=>safeStorage.isEncryptionAvailable()&&(process.platform!=='linux'||safeStorage.getSelectedStorageBackend()!=='basic_text'),encrypt:value=>safeStorage.encryptString(value),decrypt:value=>safeStorage.decryptString(value)}),security,business);}
     catch {payrollFilingError='Payroll filing journal is unavailable. Preserve the full profile and OS credentials; business data has not been reset.';}
+    const customerLookups=new CustomerLookups();
     let busy = false;
     ipcMain.on('security:request', async (event, action: unknown, raw: unknown) => {
         const owner = getWindow(event.sender);
@@ -39,6 +41,7 @@ export function registerSecurityIpc(directory: string, getWindow: (sender: WebCo
             if (typeof action !== 'string' || JSON.stringify(raw ?? null).length > 60_000_000) throw new Error('Invalid desktop request.');
             const input = (raw ?? {}) as Record<string, any>;
             let value: unknown;
+            if(action.startsWith('customerLookup.')){const run=customerLookups.prepare(action,input,security.require('contacts.write'));event.returnValue={ok:true,value:await run()};return;}
             if(action.startsWith('payrollFilings.')){
                 if(!payrollFilings)throw new Error(payrollFilingError);
                 let reply:unknown;
