@@ -1,0 +1,37 @@
+#reference-dashboard .wh-attention{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:18px}
+#reference-dashboard .wh-attention .rd-attention-card{height:110px;min-height:110px;padding:14px 16px;gap:12px}
+#reference-dashboard .wh-attention .rd-attention-card strong{font-size:20px;line-height:27px}
+#reference-dashboard .wh-attention .rd-attention-card small{font-size:12px;line-height:17px}
+#reference-dashboard .wh-attention .cyan{background:#e2f3fd;color:#0284c7}
+#reference-dashboard .wh-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:18px}
+#reference-dashboard .wh-metrics>section{padding:14px;min-height:100px}
+#reference-dashboard .wh-metrics header{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#475467;gap:8px}
+#reference-dashboard .wh-metrics header b{display:flex;align-items:center;gap:7px}
+#reference-dashboard .wh-metrics header i{height:7px;width:7px;flex-shrink:0;border-radius:50%}
+#reference-dashboard .wh-metrics strong{display:block;font-size:21px;line-height:28px;margin-top:3px;letter-spacing:-.4px}
+#reference-dashboard .wh-metrics p{font-size:12px;color:#667085;margin-top:4px}
+#reference-dashboard .wh-panel{overflow:hidden;scroll-margin-top:66px;margin-bottom:18px}
+#reference-dashboard .wh-panel header{padding:17px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:51px}
+#reference-dashboard .wh-panel h2{font-size:16px!important;line-height:22px}
+#reference-dashboard .wh-panel h2 small{font-size:12px;font-weight:400;color:#667085;margin-left:10px}
+#reference-dashboard .wh-panel header>a{font-size:13px;font-weight:650;color:#087f5b;white-space:nowrap}
+#reference-dashboard .wh-table-scroll{overflow:auto;min-width:0}
+#reference-dashboard .wh-panel table{width:100%;border-collapse:collapse;font-size:13px;line-height:18px}
+#reference-dashboard .wh-panel th{background:#f8fafb;text-align:left;font-size:12px;color:#475467;padding:9px 14px;font-weight:650;white-space:nowrap}
+#reference-dashboard .wh-panel td{border-top:1px solid #edf0f2;padding:6px 14px;height:49px;vertical-align:middle}
+#reference-dashboard .wh-panel td small{display:block;font-size:12px;color:#667085;line-height:17px}
+#reference-dashboard .wh-panel td:first-child b{font-weight:650}
+#reference-dashboard .wh-panel :is(button.wh-source,a){font:inherit;color:inherit;text-align:left;border:0;background:none;padding:0;font-weight:650}
+#reference-dashboard .wh-panel button.wh-source:hover{text-decoration:underline;color:#087f5b}
+#reference-dashboard .wh-empty{padding:18px;font-size:13px;color:#667085}
+#reference-dashboard .wh-split{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:start}
+#reference-dashboard .wh-bottom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;margin-top:24px}
+#reference-dashboard #wh-partial td:nth-child(n+3):nth-child(-n+5),#reference-dashboard #wh-partial th:nth-child(n+3):nth-child(-n+5),#reference-dashboard #wh-pick :is(td,th):nth-child(4),#reference-dashboard #wh-incoming :is(td,th):nth-child(3),#reference-dashboard #wh-short :is(td,th):nth-child(3),#reference-dashboard #wh-short :is(td,th):nth-child(4){text-align:right;white-space:nowrap}
+#reference-dashboard .wh-green{color:#087f5b}#reference-dashboard .wh-blue{color:#2862ff}#reference-dashboard .wh-red{color:#d10d0d}#reference-dashboard .wh-orange{color:#b45309}
+#reference-dashboard .wh-sample{font-size:12px;color:#667085;margin-top:12px}
+@media(max-width:1400px){#reference-dashboard .wh-attention{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1000px){#reference-dashboard .wh-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}#reference-dashboard .wh-split,#reference-dashboard .wh-bottom{grid-template-columns:1fr}}
+@media(max-width:600px){#reference-dashboard .wh-attention,#reference-dashboard .wh-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}#reference-dashboard .wh-attention .rd-attention-card{height:auto;min-height:130px;padding:12px;gap:8px}#reference-dashboard .wh-panel h2 small{display:block;margin:4px 0 0}#reference-dashboard .wh-panel table{min-width:600px}#reference-dashboard #wh-pick table,#reference-dashboard #wh-partial table{min-width:950px}}
+@media print{#reference-dashboard .wh-attention{grid-template-columns:repeat(3,1fr)}#reference-dashboard .wh-panel table{min-width:0}#reference-dashboard .wh-panel{break-inside:avoid}}
+
+#reference-dashboard .wh-panel header{padding:14px 20px}#reference-dashboard .wh-panel header>a{color:#087f5b}#wh-pick table{table-layout:fixed}#wh-pick th:nth-child(1){width:8.5%}#wh-pick th:nth-child(2){width:30%}#wh-pick th:nth-child(3){width:36%}#wh-pick th:nth-child(4){width:12%}#wh-pick th:nth-child(5){width:6%}#wh-pick th:nth-child(6){width:7.5%}

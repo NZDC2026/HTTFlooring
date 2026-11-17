@@ -3,9 +3,9 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {MemoryRouter} from 'react-router-dom';
 const identity=vi.hoisted(()=>({roles:['ADMIN']}));
 vi.mock('../../security/securityClient',()=>({useSecurity:()=>({session:{user:{id:'test',username:'Ray',roles:identity.roles}}})}));
-import {OwnerDashboardPage,dashboardAccess,sampleDashboardAccess,dashboardRoleFocus,unallocatedPaymentSummary,AccountsOverviewRow} from './OwnerDashboardPage';
+import {LegacyOwnerDashboardPage as OwnerDashboardPage,dashboardAccess,sampleDashboardAccess,dashboardRoleFocus,unallocatedPaymentSummary,AccountsOverviewRow} from './OwnerDashboardPage';
 const render=(path='/dashboard?sample=1')=>renderToStaticMarkup(<MemoryRouter initialEntries={[path]}><OwnerDashboardPage/></MemoryRouter>);
-it('defaults to the new operations layout with live data and isolated sample coverage',()=>{
+it('retains the legacy operations layout with live data and isolated sample coverage',()=>{
  identity.roles=['ADMIN'];const live=render('/dashboard'),sample=render();
  for(const html of [live,sample])for(const label of ['Outstanding Dispatch','Tasks &amp; Follow-ups','Quick Actions'])expect(html).toContain(label);
  expect(live).not.toContain('Today’s To-Do');expect(sample).toContain('SO-SAMPLE-10432');

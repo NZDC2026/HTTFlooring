@@ -1,3 +1,4 @@
+import {SalesWorkspace} from '../workspace/SalesWorkspace';
 import {SalesCreateMenu} from '../components/SalesCreateMenu';
 import {SalesBatchActions} from '../components/SalesBatchActions';
 import {salesStockStatus} from '../data/salesStockStatus';
@@ -44,7 +45,9 @@ export function getSalesDocumentPath(document: SalesDocument): string {
     return `/sales/invoices/${document.id}`;
 }
 
-export function SalesOverviewPage() {
+export function SalesOverviewPage() { const [params]=useSearchParams(); return params.get('view')==='legacy'?<LegacySalesOverviewPage/>:<SalesWorkspace/>; }
+
+function LegacySalesOverviewPage() {
     const products=useProducts(),stock=useInventoryStockRows();
     const fulfilments=useSyncExternalStore(salesFulfilmentRepository.subscribe,salesFulfilmentRepository.getSnapshot,salesFulfilmentRepository.getSnapshot);
     const payments=usePayments();

@@ -7,6 +7,8 @@ import { useSecurity } from "../features/security/securityClient";
 import { hasPermission, type Permission } from "../features/security/rbac";
 import {
     BarChart3,
+    Truck,
+    ClipboardList,
     Boxes,
     Building2,
     ChevronDown,
@@ -165,6 +167,10 @@ export function Sidebar() {
         if (path === '/contacts' || path === '/contacts/suppliers') return 'contacts.write';
     };
     const visibleSections = sections.map(section => ({ ...section, items: section.items.filter(item => presentationPathEnabled(item.path)).filter(item => !permissionForPath(item.path) || hasPermission(principal, permissionForPath(item.path)!)) })).filter(section => section.items.length);
+    if((pathname==='/dashboard'||pathname==='/sales')&&!new URLSearchParams(locationSearch).has('view')){
+        const primary=[['Dashboard','/dashboard',LayoutDashboard],['Sales','/sales',ShoppingCart],['Purchases','/purchases',ReceiptText],['Inventory','/inventory',Boxes],['Customers','/contacts',ContactRound],['Suppliers','/contacts/supplier-dashboard',Truck],['Tasks','/tasks',ClipboardList],['Finance','/accounting',Landmark],['Reports','/reports',BarChart3],['Settings','/settings',Settings]] as const;
+        return <aside className="htt-sidebar rd-sidebar fixed bottom-0 left-0 top-0 z-30 flex w-[var(--sidebar-width)] flex-col"><Link className="rd-brand" to="/dashboard"><i/><div><strong>HTT Flooring</strong><small>MANAGEMENT SYSTEM</small></div></Link><nav aria-label="Main navigation">{primary.filter(([,path])=>!permissionForPath(path)||hasPermission(principal,permissionForPath(path)!)).map(([label,path,Icon])=><Link key={path} to={path} aria-current={owner===path?'page':undefined}><Icon size={18}/><span>{label}</span></Link>)}<details className="rd-more"><summary>More workspaces</summary>{visibleSections.flatMap(s=>s.items).filter(item=>!primary.some(([,path])=>path===item.path)).map(item=><Link key={item.path} to={item.path}><item.icon size={16}/>{item.label}</Link>)}</details></nav><Link className="rd-business" to="/settings">{businessSettings().companyName}<small>{businessSettings().currency} · {businessSettings().timezone}</small></Link></aside>;
+    }
     return (
         <aside
             className="

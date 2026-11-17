@@ -1,3 +1,4 @@
+import {ReferenceDashboard} from '../reference/ReferenceDashboard';
 import {PromotionExpiryNotice} from '../../promotions/PromotionExpiryNotice';
 import {ReturnWorkQueue} from '../../customer-returns/ReturnWorkQueue';
 import {useCustomerDeposits,depositBalanceAt,type DepositState} from '../../customer-deposits/customerDepositRepository';
@@ -128,7 +129,8 @@ function WarehouseDashboardExtras({sample,from,to,site}:{sample:boolean;from:str
  </Panel>
  </div></section>;
 }
-export function OwnerDashboardPage(){
+export function OwnerDashboardPage(){const [params]=useSearchParams();return params.get('view')==='legacy'?<LegacyOwnerDashboardPage/>:<ReferenceDashboard/>;}
+export function LegacyOwnerDashboardPage(){
  const [params]=useSearchParams();
  const {session}=useSecurity(),principal=session&&{userId:session.user.id,roles:session.user.roles,authenticated:true as const},liveAccess=dashboardAccess(principal);
  const [today,setToday]=useState(()=>businessDateKey(new Date().toISOString()));
