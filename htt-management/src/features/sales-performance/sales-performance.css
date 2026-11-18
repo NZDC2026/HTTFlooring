@@ -1,0 +1,133 @@
+/* Fixed desktop component density; wide viewports provide extra chart and table width. */
+body main #sales-performance-workspace .pf-heading-row{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px;min-height:38px}
+body main #sales-performance-workspace .op-heading{margin:0;flex:1;gap:18px}
+body main #sales-performance-workspace .op-heading h1{white-space:nowrap}
+body main #sales-performance-workspace .op-heading p{font-size:14px!important;line-height:22px!important}
+body main #sales-performance-workspace .pf-heading-row>label{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:650;white-space:nowrap}
+body main #sales-performance-workspace select[data-ui=field]{height:40px!important;min-height:40px!important;border:1px solid #d6dddb;background:#fff;border-radius:8px;font-size:13px!important;padding:8px 12px;color:#182230}
+body main #sales-performance-workspace .pf-heading-row select{width:220px;font-weight:650}
+body main #sales-performance-workspace .op-tabs button{font-size:14px!important;line-height:20px!important;min-height:42px!important;height:42px!important;padding:10px 16px!important}
+body main #sales-performance-workspace>.op-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+body main #sales-performance-workspace .op-metrics>section{height:105px;min-height:105px;padding:15px 18px}
+body main #sales-performance-workspace .op-green,body main #sales-performance-workspace .pf-green{color:#17863c!important}
+body main #sales-performance-workspace .pf-muted{color:#98a2b3!important}
+body main #sales-performance-workspace .pf-rep-grid,body main #sales-performance-workspace .pf-rules-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;align-items:start}
+body main #sales-performance-workspace :is(.pf-rep,.pf-chart,.pf-mix,.pf-history,.pf-bonuses,.pf-rule-card,.pf-empty){background:#fff;border:1px solid #e5e9ed;border-radius:14px;box-shadow:none;overflow:hidden;margin:0;padding:20px}
+body main #sales-performance-workspace .pf-rep{min-height:342px}
+body main #sales-performance-workspace .pf-rep>header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+body main #sales-performance-workspace .pf-avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:750;flex-shrink:0}
+body main #sales-performance-workspace .pf-rep header p{font-size:13px;line-height:18px;color:#667085;margin:0}
+body main #sales-performance-workspace .pf-rep header>.op-badge{margin-left:auto}
+body main #sales-performance-workspace .op-badge{min-height:0!important;height:auto!important;line-height:17px!important;padding:2px 9px!important}
+body main #sales-performance-workspace .op-badge.amber{background:#fff2bf;color:#a34c00}
+body main #sales-performance-workspace .pf-sales{display:flex;align-items:baseline;gap:10px;margin:0 0 32px}
+body main #sales-performance-workspace .pf-sales strong{font-size:30px!important;line-height:36px;font-weight:750;letter-spacing:-.4px}
+body main #sales-performance-workspace .pf-sales>b{font-size:15px!important;color:#344054}
+body main #sales-performance-workspace .pf-progress{position:relative;margin:0 0 16px;padding-top:5px}
+body main #sales-performance-workspace .pf-progress-track{background:#edf1f0;border-radius:12px;height:14px;overflow:hidden;position:relative;display:flex}
+body main #sales-performance-workspace .pf-progress-track>i{height:14px;display:block;border-radius:12px}
+body main #sales-performance-workspace .pf-progress-track>.pf-forecast{position:absolute;border-radius:0;opacity:.17;background:repeating-linear-gradient(45deg,currentColor 0,currentColor 6px,transparent 6px,transparent 12px)}
+body main #sales-performance-workspace .pf-progress>span{position:absolute;bottom:-4px;height:35px;border-left:2px dashed #98a2b3;padding-left:4px;font-size:11px;color:#667085;line-height:16px}
+body main #sales-performance-workspace .pf-progress .pf-kpi-mark{left:76.923%;font-weight:650;color:#182230}
+body main #sales-performance-workspace .pf-progress .pf-stretch-mark{left:92.308%}
+body main #sales-performance-workspace .pf-rep-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px;margin:0 0 12px}
+body main #sales-performance-workspace .pf-rep-stats b{font-size:15px!important;line-height:20px;display:block}
+body main #sales-performance-workspace .pf-rep footer{border-top:1px solid #e9edf2;padding-top:10px;display:flex;gap:10px;align-items:center;font-size:13px;line-height:20px}
+body main #sales-performance-workspace .pf-rep footer>span{font-size:21px}
+body main #sales-performance-workspace .pf-rep footer b{font-size:14px}
+body main #sales-performance-workspace .pf-charts-grid{display:grid;grid-template-columns:1.3fr 1fr;align-items:start;gap:16px;margin-bottom:18px}
+body main #sales-performance-workspace :is(.pf-chart,.pf-history)>header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px}
+body main #sales-performance-workspace .pf-chart svg{width:100%;height:270px;display:block;overflow:hidden}
+body main #sales-performance-workspace .pf-chart svg text{font-size:12px;fill:#667085}
+body main #sales-performance-workspace .pf-chart>p{font-size:12px;line-height:18px;color:#667085;margin:8px 0 0}
+body main #sales-performance-workspace .pf-legend,body main #sales-performance-workspace .pf-heat-legend{display:flex;align-items:center;gap:12px;font-size:12px;white-space:nowrap}
+body main #sales-performance-workspace .pf-legend span,body main #sales-performance-workspace .pf-heat-legend span{display:inline-flex;align-items:center;gap:5px}
+body main #sales-performance-workspace .pf-legend i{width:12px;height:3px;border-radius:3px}
+body main #sales-performance-workspace .pf-heat-legend{color:#667085}
+body main #sales-performance-workspace .pf-heat-legend i{width:12px;height:12px;border-radius:3px}
+body main #sales-performance-workspace .pf-mix>h2{margin-bottom:14px}
+body main #sales-performance-workspace .pf-mix article{padding-bottom:16px;margin-bottom:14px;border-bottom:1px solid #e9edf2;font-size:13px}
+body main #sales-performance-workspace .pf-mix article:last-child{border:0;margin:0;padding:0}
+body main #sales-performance-workspace .pf-mix article header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+body main #sales-performance-workspace .pf-mix-bar{display:flex;height:10px;border-radius:8px;overflow:hidden;margin-bottom:6px}
+body main #sales-performance-workspace .pf-mix-labels{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#344054}
+body main #sales-performance-workspace .pf-mix-labels i{width:8px;height:8px;border-radius:1px;display:inline-block;margin-right:4px}
+body main #sales-performance-workspace .pf-mix article p{font-size:12px;line-height:18px;color:#667085;margin:6px 0 0}
+body main #sales-performance-workspace .pf-scroll{overflow-x:auto;max-width:100%}
+body main #sales-performance-workspace .pf-history{padding:18px 20px}
+body main #sales-performance-workspace .pf-history table{table-layout:fixed;min-width:1240px;border-collapse:separate;border-spacing:3px 2px}
+body main #sales-performance-workspace .pf-history th{border:0!important;padding:4px 0!important;background:#fff!important;font-size:11px!important;line-height:18px!important;color:#667085;text-align:center;font-weight:650!important}
+body main #sales-performance-workspace .pf-history th:first-child{width:86px;text-align:left;color:#182230}
+body main #sales-performance-workspace .pf-history th:last-child{width:100px}
+body main #sales-performance-workspace .pf-history td{border:0!important;padding:0!important;text-align:center;height:64px;background:#fff!important}
+body main #sales-performance-workspace .pf-history td button[data-ui=button]{display:flex;flex-direction:column;gap:0;width:100%;height:64px!important;min-height:64px!important;border:0;border-radius:7px;padding:5px 2px!important;font-size:12px!important;line-height:17px!important;cursor:pointer;color:#182230}
+body main #sales-performance-workspace .pf-history td button.under{background:#ffe1e3}
+body main #sales-performance-workspace .pf-history td button.near{background:#fff3c0}
+body main #sales-performance-workspace .pf-history td button.hit{background:#3ee17e}
+body main #sales-performance-workspace .pf-history td button.stretch{background:#21813c;color:white}
+body main #sales-performance-workspace .pf-history td button small{font-size:10px!important;line-height:14px!important;color:inherit}
+body main #sales-performance-workspace .pf-history td button strong{font-size:10px!important;line-height:14px!important}
+body main #sales-performance-workspace .pf-history td button[aria-pressed=true]{outline:2px solid #182230;outline-offset:0}
+body main #sales-performance-workspace .pf-year-bonus b{font-size:13px!important}
+body main #sales-performance-workspace .pf-year-bonus small{font-size:10px!important}
+body main #sales-performance-workspace .pf-history>p{font-size:12px;color:#667085;margin:14px 0 0}
+body main #sales-performance-workspace .pf-bonuses{padding:0}
+body main #sales-performance-workspace .pf-bonuses>header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+body main #sales-performance-workspace .pf-bonuses header p{font-size:13px;color:#667085;margin:0;line-height:20px}
+body main #sales-performance-workspace .pf-bonuses table{table-layout:fixed;min-width:1160px}
+body main #sales-performance-workspace .pf-bonuses th{padding:12px 6px!important;font-size:12px!important;line-height:18px!important;background:#f8fafb!important;border:0!important;text-align:right}
+body main #sales-performance-workspace .pf-bonuses td{height:62px;padding:12px 6px!important;font-size:14px!important;line-height:19px!important;border:0!important;border-top:1px solid #edf0f3!important;background:#fff!important;text-align:right;vertical-align:middle}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):first-child{padding-left:16px!important;text-align:left;width:6.3%}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):nth-child(2){text-align:left;width:14.5%}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):nth-child(3){width:10%}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):nth-child(4){width:8.2%}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):nth-child(5){width:4.5%}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):nth-child(6){width:5.4%}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):nth-child(7){text-align:left;width:20.5%;font-size:13px!important;color:#344054}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):nth-child(8){width:8%}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):nth-child(9){width:8%}
+body main #sales-performance-workspace .pf-bonuses :is(th,td):last-child{text-align:left;width:15.6%;padding-right:16px!important}
+body main #sales-performance-workspace .pf-bonuses td:nth-child(7)>span,body main #sales-performance-workspace .pf-bonuses td:nth-child(8)>b{display:block;line-height:19px;font-size:13px}
+body main #sales-performance-workspace .pf-bonuses td:nth-child(4){color:#667085!important}
+body main #sales-performance-workspace .pf-bonuses .pf-muted{color:#98a2b3!important}
+body main #sales-performance-workspace .pf-rule-card>h2{margin-bottom:14px}
+body main #sales-performance-workspace .pf-rule-card>p{font-size:13px;line-height:19px;color:#667085;margin:12px 0 14px}
+body main #sales-performance-workspace .pf-rule-card>p:last-child{margin-bottom:0}
+body main #sales-performance-workspace .pf-kpi-table{width:100%;table-layout:fixed;margin:0 0 12px}
+body main #sales-performance-workspace .pf-kpi-table :is(th,td){border:0!important;padding:7px 4px!important;background:#fff!important;font-size:13px!important;line-height:20px!important;text-align:right}
+body main #sales-performance-workspace .pf-kpi-table th{background:#f8fafb!important;height:42px;font-size:12px!important}
+body main #sales-performance-workspace .pf-kpi-table :is(th,td):first-child{width:49%;text-align:left}
+body main #sales-performance-workspace input[data-ui=field]{width:100%;height:40px!important;min-height:40px!important;border:1px solid #d6dddb;border-radius:8px;padding:8px 12px;font-size:14px!important;background:#fff;color:#182230;text-align:right;appearance:textfield}
+body main #sales-performance-workspace input::-webkit-inner-spin-button{appearance:none}
+body main #sales-performance-workspace .pf-kpi-table input{text-align:center}
+body main #sales-performance-workspace .pf-counts{display:grid;gap:6px;font-weight:650;font-size:13px}
+body main #sales-performance-workspace .pf-counts select{width:100%;font-size:13px!important}
+body main #sales-performance-workspace .pf-rule-fields{display:grid;gap:14px}
+body main #sales-performance-workspace .pf-rule-fields>label{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}
+body main #sales-performance-workspace .pf-rule-fields label>div{flex:1}
+body main #sales-performance-workspace .pf-rule-fields small{font-size:12px!important;line-height:18px}
+body main #sales-performance-workspace .pf-rule-value{width:150px;display:flex;align-items:center;gap:7px;flex-shrink:0}
+body main #sales-performance-workspace .pf-rule-value input{width:132px}
+body main #sales-performance-workspace .pf-example{padding:12px 14px;border-radius:12px;background:#f6f8f7;font-size:13px;line-height:19px;margin-top:14px}
+body main #sales-performance-workspace .pf-example>span{font-size:12px;color:#667085}
+body main #sales-performance-workspace .pf-rule-card footer{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+body main #sales-performance-workspace button[data-ui=button]:not(.pf-history button){height:36px!important;min-height:36px!important;padding:7px 14px!important}
+body main #sales-performance-workspace .pf-error{color:#c31828;background:#fff2f3;border:1px solid #ffc7cd;border-radius:8px;padding:12px}
+body main #sales-performance-workspace .pf-empty{font-size:13px;color:#667085}
+@media(max-width:1500px){body main #sales-performance-workspace .pf-heading-row{align-items:flex-start}body main #sales-performance-workspace .op-heading{align-items:flex-start}body main #sales-performance-workspace .pf-heading-row .op-heading p{max-width:600px}body main #sales-performance-workspace .pf-heading-row>label{flex-direction:column;align-items:flex-start}}
+@media(max-width:1100px){body main #sales-performance-workspace .pf-rep-grid,body main #sales-performance-workspace .pf-rules-grid,body main #sales-performance-workspace .pf-charts-grid{grid-template-columns:1fr}body main #sales-performance-workspace .pf-heading-row{flex-wrap:wrap}body main #sales-performance-workspace .pf-heading-row>label{flex-direction:row;align-items:center}body main #sales-performance-workspace .op-heading{flex-direction:column;align-items:flex-start}body main #sales-performance-workspace .op-heading p{border:0;padding:0}}
+@media(max-width:700px){body main #sales-performance-workspace>.op-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}body main #sales-performance-workspace .pf-rep-stats{grid-template-columns:repeat(2,minmax(0,1fr))}body main #sales-performance-workspace .pf-sales strong{font-size:28px!important}body main #sales-performance-workspace :is(.pf-rep,.pf-chart,.pf-mix,.pf-history,.pf-rule-card){padding:16px}body main #sales-performance-workspace .pf-chart>header,body main #sales-performance-workspace .pf-history>header{flex-wrap:wrap}body main #sales-performance-workspace .pf-kpi-table{min-width:0}body main #sales-performance-workspace .pf-rule-fields>label{align-items:flex-start}body main #sales-performance-workspace .pf-rule-value{width:110px}body main #sales-performance-workspace .pf-rule-value input{width:90px}body main #sales-performance-workspace .pf-bonuses>header{flex-wrap:wrap}body main #sales-performance-workspace .pf-chart svg{height:230px}body main #sales-performance-workspace .pf-history .pf-heat-legend{gap:8px;flex-wrap:wrap}body main #sales-performance-workspace .pf-rule-card input{padding:6px!important;font-size:13px!important}}
+@media print{body main #sales-performance-workspace .pf-heading-row>label,body main #sales-performance-workspace .pf-rule-card footer{display:none}body main #sales-performance-workspace .pf-rep-grid,body main #sales-performance-workspace .pf-charts-grid{grid-template-columns:1fr 1fr}body main #sales-performance-workspace .pf-rep,body main #sales-performance-workspace .pf-chart,body main #sales-performance-workspace .pf-history{break-inside:avoid}body main #sales-performance-workspace .pf-history td button[data-ui=button]{display:flex!important;print-color-adjust:exact}body main #sales-performance-workspace .pf-scroll{overflow:visible}}
+body main #sales-performance-workspace .op-tabs button{height:41px!important;min-height:41px!important}
+body main #sales-performance-workspace .pf-rep{padding-top:18px;padding-bottom:18px}
+body main #sales-performance-workspace .pf-chart>header{margin-bottom:6px}
+body main #sales-performance-workspace .pf-chart svg{height:264px}
+body main #sales-performance-workspace .pf-rule-card{padding-top:18px;padding-bottom:18px}
+body main #sales-performance-workspace .pf-kpi-table td{height:54px!important}
+body main #sales-performance-workspace .pf-heading-row{scroll-margin-top:76px}
+@media(max-width:700px){body main #sales-performance-workspace .pf-chart svg{height:230px}}
+body main #sales-performance-workspace .pf-history thead th{font-size:12px!important}
+body main #sales-performance-workspace .pf-history tbody th{font-size:13px!important}
+body main #sales-performance-workspace .pf-history td button small,body main #sales-performance-workspace .pf-history td button strong{font-size:11px!important;line-height:15px!important}
+body main #sales-performance-workspace .pf-bonuses td{padding-top:10px!important;padding-bottom:10px!important;line-height:18px!important}
+body main #sales-performance-workspace .pf-bonuses td:nth-child(7)>span,body main #sales-performance-workspace .pf-bonuses td:nth-child(8)>b{line-height:18px}

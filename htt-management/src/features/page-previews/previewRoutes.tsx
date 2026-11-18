@@ -25,6 +25,7 @@ import { RecurringPage } from '../recurring/RecurringPage';
 import { RecordSearchPage } from '../record-search/RecordSearchPage';
 import { SavedReportsPage } from '../saved-reports/SavedReportsPage';
 import { ReportPacksPage } from '../report-packs/ReportPacksPage';
+import {SalesPerformancePage} from '../sales-performance/SalesPerformancePage';
 import { NetAnalysisPage } from '../net-analysis/NetAnalysisPage';
 import { CashReportsPage } from '../cash-reports/CashReportsPage';
 import { SupplierReturnsPage } from '../supplier-returns/SupplierReturnsPage';
@@ -72,7 +73,8 @@ function FlowRoute({ id }: { id: string }) {
  else if(id==='bank-import'||id==='bank-workbench') node=<BankClosurePage key={id} importOnly={id==='bank-import'}/>;
  else if(id.startsWith('receipt')||id.startsWith('customer-refund')||id.startsWith('supplier-refund'))node=<SettlementPage key={id+previewId} kind={id.startsWith('receipt')?'receipt':id.startsWith('customer')?'customer-refund':'supplier-refund'} mode={id.endsWith('-new')?'new':id.endsWith('-detail')?'detail':'list'} id={previewId}/>;
  else if (id==='cash-flow'||id==='banking-report') node=<CashReportsPage key={id} banking={id==='banking-report'}/>;
- else if (['sales-report','purchases-report'].includes(id)) node = <NetAnalysisPage key={id} purchases={id==='purchases-report'}/>;
+ else if(id==='sales-report')node=<SalesPerformancePage/>;
+ else if(id==='purchases-report')node=<NetAnalysisPage purchases/>;
  else if (['sales-order', 'sales-order-edit', 'invoice', 'invoice-edit', 'bill', 'bill-edit'].includes(id)) node = <ManagedDocumentPage key={id+previewId} kind={id.startsWith('sales-order')?'ORDER':id.startsWith('invoice')?'INVOICE':'EXPENSE'} mode={id.endsWith('edit')?'edit':'new'} id={previewId}/>;
  else if (id === 'recycle-bin') node = <RecycleBinPage />;
  else if(id==='payroll-report') node=<PayrollSummaryPage/>;

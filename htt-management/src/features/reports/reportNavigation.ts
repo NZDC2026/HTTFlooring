@@ -1,6 +1,6 @@
 export const reportCategories=['Summaries','Sales','Purchases','Accounts (AR / AP)','Inventory','Financial','Custom Reports'] as const;
 export const reportLinks=[
- {category:'Sales',name:'Sales Analysis',path:'/reports/sales-analysis',permission:'sales.read'},
+ {category:'Sales',name:'Sales Analysis',path:'/reports/sales-analysis?view=analysis',permission:'sales.read'},
  {category:'Sales',name:'Product Sales',path:'/inventory/sold',permission:'inventory.read'},
  {category:'Sales',name:'Customer Sales Performance',path:'/contacts',permission:'sales.read'},
  {category:'Purchases',name:'Purchase Analysis',path:'/reports/purchase-analysis',permission:'purchases.read'},
