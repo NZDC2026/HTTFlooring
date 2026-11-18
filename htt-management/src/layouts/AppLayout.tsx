@@ -38,7 +38,7 @@ export function AppLayout() {
     const navigationOpen = navigationPath === location.pathname;
     const setNavigationOpen = (open: boolean) => setNavigationPath(open ? location.pathname : null);
     const primaryWorkspace=isPrimaryWorkspace(location.pathname);
-    const reportsWorkspace=(location.pathname==='/sales'&&!new URLSearchParams(location.search).has('view'))||location.pathname.startsWith('/reports')||location.pathname==='/dashboard'||location.pathname==='/reports/aged-payables'||location.pathname==='/accounting'||location.pathname==='/banking'||location.pathname.startsWith('/banking/');
+    const reportsWorkspace=(location.pathname==='/sales'&&!new URLSearchParams(location.search).has('view'))||location.pathname.startsWith('/reports')||location.pathname==='/dashboard'||location.pathname==='/promotions'||location.pathname==='/reports/aged-payables'||location.pathname==='/accounting'||location.pathname==='/banking'||location.pathname.startsWith('/banking/');
     const purchaseEditor=/^\/purchases\/(new|[^/]+\/edit)$/.test(location.pathname);
     const purchasesOverview=location.pathname==='/purchases'&&!new URLSearchParams(location.search).get('view')&&!new URLSearchParams(location.search).get('stage');
     const isDemoVisit = new URLSearchParams(location.search).get("demo") === "1";
@@ -51,7 +51,7 @@ export function AppLayout() {
             <div id="htt-main-navigation" className={navigationOpen ? "htt-navigation is-open" : "htt-navigation"} onKeyDown={event => { if(event.key === 'Escape') setNavigationOpen(false); }}><Sidebar /></div>
             <Topbar />
 
-            <main data-module-theme={location.pathname==='/dashboard'?undefined:"light"} data-wide-content={location.pathname.startsWith("/promotions")||location.pathname.startsWith("/purchases")?"true":undefined} data-desktop-workspace={/^\/(dashboard|sales|promotions|procurement)(\/|$)/.test(location.pathname)?"true":undefined}
+            <main data-document-entry={(/^\/sales\/(quotes|drafts\/(orders|invoices))\/new$/.test(location.pathname)||location.pathname==='/sales/credit-returns'&&new URLSearchParams(location.search).get('new')==='1')?"true":undefined} data-module-theme={location.pathname==='/dashboard'?undefined:"light"} data-wide-content={location.pathname.startsWith("/promotions")||location.pathname.startsWith("/purchases")?"true":undefined} data-desktop-workspace={/^\/(dashboard|sales|promotions|procurement)(\/|$)/.test(location.pathname)?"true":undefined}
                 className="
           min-h-screen
           pl-[var(--sidebar-width)]
@@ -72,7 +72,7 @@ export function AppLayout() {
                         </div>
                     )}
                     {!primaryWorkspace && searchReturn && location.pathname !== '/search/records' && <Link className="workspace-back" to={searchReturn}><ArrowLeft size={15}/>Back to record search</Link>}
-                    {(!searchReturn||location.pathname==='/search/records')&&<WorkspaceBack contentRef={pageContentRef}/>}<div data-primary-workspace={primaryWorkspace?'true':undefined} ref={pageContentRef} onClickCapture={e=>{if(e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;const link=(e.target as Element).closest<HTMLAnchorElement>('a.workspace-back');if(!link)return;const target=link.hash.slice(1);if(!target.startsWith('/'))return;const restored=listReturnLocation(session?.user.id??'',target);if(restored!==target){e.preventDefault();e.stopPropagation();navigate(restored);}}}><p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess>{!reportsWorkspace&&!purchasesOverview&&!purchaseEditor&&!/^\/sales\/(quotes|drafts\/(orders|invoices))\/new$/.test(location.pathname)&&<ModuleNavigation/>}<Outlet /></RouteAccess></div>
+                    {(!searchReturn||location.pathname==='/search/records')&&<WorkspaceBack contentRef={pageContentRef}/>}<div className="workspace-page-content" data-primary-workspace={primaryWorkspace?'true':undefined} ref={pageContentRef} onClickCapture={e=>{if(e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey)return;const link=(e.target as Element).closest<HTMLAnchorElement>('a.workspace-back');if(!link)return;const target=link.hash.slice(1);if(!target.startsWith('/'))return;const restored=listReturnLocation(session?.user.id??'',target);if(restored!==target){e.preventDefault();e.stopPropagation();navigate(restored);}}}><p className="mb-3 text-xs text-slate-500">{businessSettings().companyName} · {businessSettings().currency}</p><RouteAccess>{!reportsWorkspace&&!purchasesOverview&&!purchaseEditor&&!/^\/sales\/(quotes|drafts\/(orders|invoices))\/new$/.test(location.pathname)&&<ModuleNavigation/>}<Outlet /></RouteAccess></div>
                 </div>
             </main>
         </div>

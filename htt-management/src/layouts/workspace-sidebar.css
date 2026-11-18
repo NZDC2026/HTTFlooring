@@ -1,0 +1,13 @@
+/* Fixed desktop density, shared by every workspace. */
+.htt-navigation .workspace-sidebar{background:#f3f5f7;color:#182230;border-right:1px solid #e5e9ed}
+.workspace-sidebar .workspace-brand{display:flex;align-items:center;gap:12px;padding:24px 24px 22px;min-height:94px;color:#182230}
+.workspace-brand>i{display:block;width:22px;height:27px;background:linear-gradient(125deg,transparent 30%,#13c86b 31% 57%,#087f5b 58% 77%,transparent 78%);flex-shrink:0}
+.workspace-brand strong{font-size:16px;line-height:1.4;font-weight:750}.workspace-brand small{display:block;font-size:10px;letter-spacing:1.4px;color:#6b7280;margin-top:2px}
+.htt-navigation .workspace-sidebar nav{flex:1;overflow-y:auto;padding:0 12px 12px}
+.workspace-sidebar nav section{margin:0 0 18px}.workspace-sidebar nav h2{margin:0;padding:7px 12px 5px;font-size:10px;letter-spacing:.8px;text-transform:uppercase;font-weight:750;color:#929cab}
+.htt-navigation .workspace-sidebar nav a,.workspace-sidebar .workspace-settings{display:flex;align-items:center;gap:13px;height:38px;padding:0 12px;font-size:14px;font-weight:550;border-radius:9px;color:#182230}
+.htt-navigation .workspace-sidebar nav a svg{width:18px;height:18px;color:currentColor}
+.htt-navigation .workspace-sidebar nav a[aria-current=page]{background:#e1f5e9;color:#087f5b;font-weight:750;border-radius:9px}
+.workspace-sidebar .workspace-settings{margin:0 16px;padding:16px 8px;height:60px;border-top:1px solid #e5e9ed;border-radius:0;flex-shrink:0}
+.workspace-more summary{font-size:11px;color:#6b7280;padding:8px 12px;cursor:pointer}.workspace-sidebar .workspace-more a{font-size:12px}
+@media(max-height:850px){.workspace-sidebar nav section{margin-bottom:10px}.workspace-sidebar .workspace-brand{min-height:80px;padding-top:18px;padding-bottom:18px}.htt-navigation .workspace-sidebar nav a{height:34px}}

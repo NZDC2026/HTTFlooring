@@ -37,6 +37,27 @@
  main[data-module-theme=light] :is(.container-line-totals,.container-totals,.sp-total,.sc-total,.entry-product-totals){font-size:13px!important;line-height:1.45}
  main[data-module-theme=light] :is(.container-line-totals,.container-totals,.sp-total,.sc-total,.entry-product-totals) :is(strong,b,span){font-size:inherit!important}
 }
+
+/* One shared toolbar offset; page headings always start below the fixed toolbar. */
+@media screen{
+ body:has(.workspace-topbar) main.min-h-screen{padding-top:var(--topbar-height)!important}
+}
+@media screen and (min-width:1101px){
+ body main[data-module-theme=light]>div{padding-top:24px!important;padding-bottom:32px!important}
+ body main .workspace-page-content>p:first-child{display:none}
+ body main:has(#customer-workspace)>div{padding:28px clamp(24px,6.25vw,160px) 32px!important}
+ body main #customer-workspace.cw-workspace{padding:0;background:transparent}
+ body main #customer-workspace .cw-heading{margin-bottom:14px;min-height:40px}
+ body main #customer-workspace .cw-main-tabs{margin-bottom:20px}
+ body main #customer-workspace .cw-sample-bar{right:0;top:58px}
+ body main #customer-workspace .cw-stats .cw-stat{flex-direction:column;gap:0;min-height:150px}
+ body main #customer-workspace .cw-stats .cw-stat-icon{margin-bottom:0}
+ body main #customer-workspace .cw-overview-grid{grid-template-columns:minmax(0,2.05fr) minmax(340px,1fr)}
+ body main[data-document-entry=true]>div{padding:24px clamp(24px,6.25vw,160px) 32px!important}
+ body main[data-module-theme=light] .purchases-overview{margin-top:0}
+ body main[data-module-theme=light] .taskhub>.taskhub-hero{padding:0 220px 0 0;min-height:88px;background:transparent;border-radius:0}
+ body main[data-module-theme=light] .taskhub-hero>.taskhub-create{right:0;top:0}
+}
 @media screen and (min-width:1100px){
  /* Feature-local density rules must not override the shared table scale. */
  main[data-module-theme=light][data-module-theme=light] table :is(th,td){font-size:13px!important;line-height:1.45}

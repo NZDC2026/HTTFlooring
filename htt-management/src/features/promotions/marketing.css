@@ -1,0 +1,108 @@
+/* Reference campaign workspace. Type, fields and rows keep the same size on both desktops. */
+.marketing-workspace{font:14px/1.45 Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#182230;min-width:0}
+.marketing-workspace *{box-sizing:border-box}.marketing-workspace :is(h1,h2,p){margin:0}.marketing-workspace small{font-size:12px;color:#667085}
+.marketing-workspace .mk-heading{display:flex;align-items:center;gap:16px;margin-bottom:18px;min-height:40px}
+.marketing-workspace .mk-heading h1{font-size:28px!important;line-height:36px;font-weight:750;letter-spacing:-.6px}
+.marketing-workspace .mk-heading p{border-left:1px solid #d6dce1;padding:10px 0 10px 16px;color:#344054;font-size:14px}
+.marketing-workspace .mk-navigation{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.marketing-workspace .mk-sample{font-size:10px;background:#e1f5e9;color:#087f5b;border-radius:12px;padding:3px 8px}
+.marketing-workspace [data-ui=button]{display:inline-flex;justify-content:center;align-items:center;gap:7px;border:1px solid #d6dde0;border-radius:8px;padding:8px 14px;min-height:38px;background:#fff;color:#182230;font-weight:600;font-size:13px;line-height:20px;white-space:nowrap;cursor:pointer;box-shadow:none}
+.marketing-workspace [data-ui=button]:disabled{opacity:.45;cursor:default}
+.marketing-workspace [data-ui=field]{border:1px solid #d6dde0;border-radius:10px;background:#fff;padding:9px 12px;height:40px;min-height:40px;font-size:14px;line-height:20px;max-width:100%;color:#182230}
+.marketing-workspace :is(button,input,select,textarea):focus-visible{outline:2px solid #087f5b;outline-offset:2px}
+.marketing-workspace .mk-segments{display:inline-flex;gap:2px;padding:3px;background:#e9ecef;border-radius:10px;flex-shrink:0}
+.marketing-workspace .mk-segments [data-ui=button]{border:0;min-height:32px;height:32px;padding:6px 13px;background:transparent;color:#475467}
+.marketing-workspace .mk-segments [aria-pressed=true]{background:#fff;color:#182230;box-shadow:0 1px 3px #18223020}
+.marketing-workspace .mk-layout{display:grid;grid-template-columns:minmax(0,946fr) minmax(340px,380fr);gap:18px;align-items:start;width:82%;min-width:0}
+.marketing-workspace .mk-main{min-width:0}
+.marketing-workspace [data-ui=card]{border:1px solid #e5e9ed;border-radius:15px;background:#fff;box-shadow:none}
+.marketing-workspace .mk-composer{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.marketing-workspace .mk-form-row{display:grid;grid-template-columns:116px minmax(0,1fr);gap:16px;align-items:center}
+.marketing-workspace .mk-form-row>b{font-size:14px;font-weight:650}.marketing-workspace .mk-form-row>div{min-width:0}
+.marketing-workspace .mk-kind-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:center}
+.marketing-workspace .mk-kind-options button{white-space:normal;text-align:left;justify-content:start;align-items:start;gap:10px;min-height:66px;height:auto;padding:12px 14px;font-size:14px;border-radius:12px}
+.marketing-workspace .mk-kind-options button[aria-pressed=true]{border:2px solid #22a447;background:#f3faf6;padding:11px 13px}
+.marketing-workspace .mk-kind-options svg{color:#087f5b;flex-shrink:0;margin-top:2px}
+.marketing-workspace .mk-kind-options small{display:block;line-height:20px;font-weight:400;margin-top:2px}
+.marketing-workspace .mk-kind-options strong{font-size:14px;font-weight:700}
+.marketing-workspace .mk-promotion{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.marketing-workspace .mk-promotion select{width:420px}
+.marketing-workspace .mk-promotion a{font-size:14px;color:#087f5b;font-weight:650;text-decoration:none;white-space:nowrap}
+.marketing-workspace .mk-inline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.marketing-workspace .mk-message-fields{display:flex;flex-direction:column;gap:8px}
+.marketing-workspace .mk-message-fields textarea{height:82px;min-height:82px;resize:vertical;width:100%}
+.marketing-workspace .mk-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.marketing-workspace .mk-summary>div{padding:12px 14px;border-radius:13px;background:#f5f7f7;min-height:72px}
+.marketing-workspace .mk-summary .receive{background:#f1faf5}.marketing-workspace .mk-summary .missing{background:#fff4dc}
+.marketing-workspace .mk-summary strong{display:block;font-size:22px;line-height:28px;font-weight:750}.marketing-workspace .mk-summary small{font-size:12px}
+.marketing-workspace .mk-recipients{overflow:hidden}
+.marketing-workspace .mk-recipients>header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 14px}
+.marketing-workspace h2{font-size:16px!important;line-height:22px;font-weight:700}
+.marketing-workspace .mk-recipients>header h2{flex:0 0 116px}
+.marketing-workspace .mk-recipients>header input{width:220px;flex:1 1 180px;height:36px;min-height:36px}
+.marketing-workspace .mk-recipients>header select{width:130px;height:36px;min-height:36px;font-size:13px;padding:6px 10px}
+.marketing-workspace .mk-recipients>header select:last-child{width:160px}
+.marketing-workspace .mk-table-scroll{overflow-x:auto;max-width:100%}
+.marketing-workspace table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}
+.marketing-workspace .mk-recipients table{min-width:890px}
+.marketing-workspace table :is(td,th){border-bottom:1px solid #edf0f2;text-align:left;padding:10px 8px;white-space:nowrap}
+.marketing-workspace table th{background:#f8fafb;color:#667085;font-size:12px;font-weight:650}
+.marketing-workspace .mk-recipients tbody tr{height:43px}
+.marketing-workspace .mk-recipients th:first-child,.marketing-workspace .mk-recipients td:first-child{width:40px;padding-left:18px;padding-right:6px}
+.marketing-workspace input[type=checkbox]{appearance:auto;accent-color:#24a449;width:15px;height:15px;min-height:15px;margin:0;vertical-align:middle;cursor:pointer}
+.marketing-workspace .mk-recipients th:nth-child(2){width:30%}.marketing-workspace .mk-recipients th:last-child{white-space:normal;width:90px}
+.marketing-workspace .mk-customer{padding:0;border:0;background:transparent;font-weight:700;color:#182230;font-size:13px;text-align:left;cursor:pointer}
+.marketing-workspace .mk-recipients td:nth-child(n+5){color:#667085;font-size:12px}
+.marketing-workspace .mk-recipients td:nth-child(6){font-size:12px;color:#344054}
+.marketing-workspace .mk-ineligible{opacity:.5}.marketing-workspace .mk-ineligible [data-ui=badge]{font-size:11px;margin-left:6px;border-radius:10px;padding:2px 7px;background:#edf0f2;font-weight:650}
+.marketing-workspace .mk-no-address{color:#e65b20}
+.marketing-workspace .mk-recipients>footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;font-size:12px;color:#667085}
+.marketing-workspace .mk-recipients>footer>div{display:flex;align-items:center;gap:8px}
+.marketing-workspace .mk-recipients>footer button{font-size:12px;padding:4px 9px;min-height:30px;height:30px}
+.marketing-workspace .mk-preview{position:sticky;top:calc(var(--topbar-height) + 14px);padding:18px 20px;min-width:0}
+.marketing-workspace .mk-preview>header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+.marketing-workspace .mk-preview>header small{font-size:12px;text-align:right;overflow-wrap:anywhere}
+.marketing-workspace .mk-preview article{border:1px solid #e0e5eb;border-radius:12px;overflow:hidden}
+.marketing-workspace .mk-email-header{background:#f6f7f8;padding:10px 14px;font-size:12px;line-height:18px;color:#344054;overflow-wrap:anywhere;border-bottom:1px solid #edf0f2}
+.marketing-workspace .mk-email-body{padding:16px;font-size:13px;line-height:20px}
+.marketing-workspace .mk-email-body p{margin:0 0 20px}.marketing-workspace .mk-email-body p:first-child{margin-bottom:20px}.marketing-workspace .mk-email-body p:last-of-type{margin:10px 0 14px}
+.marketing-workspace .mk-email-body table{font-size:13px}.marketing-workspace .mk-email-body :is(td,th){padding:6px 4px;white-space:normal;background:transparent;font-size:13px;color:#182230}
+.marketing-workspace .mk-email-body th{font-weight:700}.marketing-workspace .mk-email-body :is(th,td):nth-child(n+2){text-align:right;white-space:nowrap}
+.marketing-workspace .mk-email-body thead{background:transparent}
+.marketing-workspace .mk-email-body s{color:#98a2b3}.marketing-workspace .mk-email-body td b{color:#d71920}.marketing-workspace .mk-email-body td small{font-size:11px}
+.marketing-workspace .mk-email-body footer{border-top:1px solid #edf0f2;padding-top:10px;font-size:11px;line-height:17px;color:#98a2b3}.marketing-workspace .mk-email-body footer span{text-decoration:underline}
+.marketing-workspace .mk-message-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.marketing-workspace .mk-send{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:12px;border-top:1px solid #edf0f2;padding-top:12px}
+.marketing-workspace .mk-primary[data-ui=button]{background:#087f5b;border-color:#087f5b;color:#fff;min-height:40px}
+.marketing-workspace .mk-delivery-note{margin-top:12px;color:#667085;font-size:12px}
+.marketing-workspace .mk-pdf{display:flex;align-items:center;gap:8px;border:1px solid #e5e9ed;padding:10px;border-radius:8px;margin-bottom:12px;overflow-wrap:anywhere}
+.marketing-workspace .mk-history{padding:20px;width:82%}.marketing-workspace .mk-history>header{display:flex;justify-content:space-between;gap:16px;margin-bottom:16px}.marketing-workspace .mk-history>header span{font-size:12px;color:#667085}
+.marketing-workspace .mk-history [data-ui=badge]{font-size:12px;border-radius:12px;padding:3px 9px}.marketing-workspace .mk-sent{background:#e1f5e9;color:#087f5b}.marketing-workspace .mk-scheduled{background:#fff4dc;color:#a16600}
+.marketing-workspace .mk-notice{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #b8ddca;border-radius:10px;background:#f1faf5;font-size:13px;margin-bottom:16px}.marketing-workspace .mk-notice button{margin-left:auto}
+.marketing-workspace .mk-empty{padding:30px;text-align:center;color:#667085;font-size:13px}
+@media screen and (min-width:1100px){
+ body main:has(.marketing-workspace)>div{padding:24px 28px 32px!important}
+ body main:has(.marketing-workspace) .workspace-page-content>p,body main:has(.marketing-workspace) .workspace-back,body main:has(.marketing-workspace) .module-navigation{display:none!important}
+ body main[data-module-theme=light] #marketing-workspace [data-ui=field]{height:40px!important;min-height:40px!important;font-size:14px!important}
+ body main[data-module-theme=light] #marketing-workspace .mk-recipients>header [data-ui=field]{height:36px!important;min-height:36px!important;font-size:13px!important}
+ body main[data-module-theme=light] #marketing-workspace textarea[data-ui=field]{height:82px!important;min-height:82px!important}
+ body main[data-module-theme=light] #marketing-workspace .mk-segments button{min-height:32px!important;height:32px!important}
+ body main[data-module-theme=light] #marketing-workspace .mk-kind-options button{min-height:66px!important;height:auto!important;align-items:flex-start;justify-content:flex-start;padding:12px 14px;gap:10px}
+ body main[data-module-theme=light] #marketing-workspace .mk-kind-options button[aria-pressed=true]{padding:11px 13px}
+ body main[data-module-theme=light] #marketing-workspace .mk-kind-options button:nth-child(2){height:88px!important;min-height:88px!important}
+ body main[data-module-theme=light] #marketing-workspace .mk-customer{min-height:0!important;height:auto!important;padding:0!important;line-height:20px;border:0;background:transparent;justify-content:flex-start}
+ body main[data-module-theme=light] #marketing-workspace .mk-form-row:has(.mk-message-fields){align-items:start}
+ body main[data-module-theme=light] #marketing-workspace .mk-form-row:has(.mk-message-fields)>b{padding-top:10px}
+ body main[data-module-theme=light] #marketing-workspace .mk-primary{min-height:40px!important;height:40px!important;background:#2ca24e;border-color:#2ca24e}
+ body main[data-module-theme=light] #marketing-workspace .mk-recipients>footer button{height:30px!important;min-height:30px!important}
+ body main[data-module-theme=light] #marketing-workspace table :is(th,td){padding:10px 8px}
+ body main[data-module-theme=light] #marketing-workspace .mk-recipients th:first-child,body main[data-module-theme=light] #marketing-workspace .mk-recipients td:first-child{padding-left:18px;padding-right:6px}
+ body main[data-module-theme=light] #marketing-workspace .mk-recipients td:nth-child(n+5){font-size:12px!important}
+ body main[data-module-theme=light] #marketing-workspace .mk-email-body :is(td,th){padding:6px 4px;background:transparent}
+ body main[data-module-theme=light] #marketing-workspace small{font-size:12px}
+}
+@media(max-width:1650px){.marketing-workspace .mk-layout,.marketing-workspace .mk-history{width:100%}}
+@media(max-width:1150px){.marketing-workspace .mk-layout{grid-template-columns:minmax(0,1fr) 340px}.marketing-workspace .mk-form-row{grid-template-columns:1fr;gap:8px}.marketing-workspace .mk-promotion select{width:100%}.marketing-workspace .mk-kind-options{grid-template-columns:1fr}.marketing-workspace .mk-kind-options button{min-height:60px}}
+@media(max-width:900px){.marketing-workspace .mk-layout{grid-template-columns:1fr}.marketing-workspace .mk-preview{position:static}.marketing-workspace .mk-heading{align-items:flex-start;flex-direction:column;gap:6px}.marketing-workspace .mk-heading p{border:0;padding:0}.marketing-workspace .mk-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.marketing-workspace .mk-layout,.marketing-workspace .mk-history{width:100%}}
+@media(max-width:600px){.marketing-workspace .mk-composer,.marketing-workspace .mk-preview{padding:15px}.marketing-workspace .mk-navigation{flex-wrap:wrap}.marketing-workspace .mk-recipients>header input{width:100%;flex-basis:100%}.marketing-workspace .mk-recipients>footer{align-items:flex-start;flex-direction:column}.marketing-workspace .mk-heading h1{font-size:26px!important}}
+@media print{.marketing-workspace .mk-main,.marketing-workspace .mk-send,.marketing-workspace .mk-navigation{display:none}.marketing-workspace .mk-layout{display:block;width:100%}.marketing-workspace .mk-preview{position:static;width:100%;max-width:600px}}

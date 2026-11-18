@@ -22,8 +22,8 @@ main[data-desktop-workspace] :is(.owner-welcome,.proc-heading,.returns-heading,.
 main :is(.owner-panel,.reception-panel,.sp-card,.proc-card,.promo-panel,.entry-card,.pu-card){border-color:#e5e9ed;background:#fff;box-shadow:0 2px 5px #18223008}
 main :is(.proc-primary,.returns-primary,.promo-primary,.entry-save){background:#087f5b;color:#fff}
 @media(min-width:1100px){
- body:has(.owner-reference)>#root header.fixed{display:none}
- body:has(.owner-reference) main{padding-top:0}
+ body:has(.owner-reference)>#root header.fixed:not(.workspace-topbar){display:none}
+ body:has(.owner-reference) main{padding-top:var(--topbar-height)}
  body:has(.owner-reference) main>div{padding:0 20px 20px!important}
  body:has(.owner-reference) [data-primary-workspace]>p{display:none}
  main[data-desktop-workspace] .owner-reference{padding:0;border:0;border-radius:0;box-shadow:none;background:transparent;color:#182230;overflow:visible}

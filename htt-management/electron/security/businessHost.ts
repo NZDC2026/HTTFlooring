@@ -1,4 +1,8 @@
 import {optionalWorkflows,assertApprovedDesktopCommand} from '../../src/features/security/optionalWorkflows';
+import {dashboardAvailability} from '../../src/features/dashboard/reference/dashboardAvailability';
+import {stockSignalsProjection} from '../../src/features/dashboard/reference/stockSignalsProjection';
+import {businessDateKey} from '../../src/lib/businessDate';
+import type {PayrollState} from '../../src/features/payroll/data/payrollModel';
 import {configureYearEndBackup} from './yearEndBackup';
 import type { AutomationKind } from '../../src/features/recurring/recurringAutomationRepository';
 import { configureDocumentPurgeBackup } from './documentPurgeBackup';
@@ -43,7 +47,7 @@ export class BusinessHost {
         let saved: Database | LegacyDatabase | undefined;
         if (this.storage.read(this.path) !== undefined) {
             saved = parseDatabase(this.storage.read(this.path)!);
-            if (saved.schemaVersion !== 39) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
+            if (saved.schemaVersion !== 41) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');
@@ -106,7 +110,7 @@ export class BusinessHost {
         if (migrationSource) {
             atomicJson(join(dirname(this.path), `pre-migration-v${saved!.schemaVersion}-${randomUUID()}.json`), migrationSource);
             this.persist();
-            this.security.audit('business.migrate.v39', 'local-desktop-profile', 'SUCCESS', 'users.manage');
+            this.security.audit('business.migrate.v41', 'local-desktop-profile', 'SUCCESS', 'users.manage');
         }
         if (!saved) {
             this.persist();
@@ -213,6 +217,17 @@ export class BusinessHost {
         this.security.audit('business.restore', 'business-data-only', 'SUCCESS', 'users.manage', commandId);
         // Restart is mandatory: repository closures, subscriptions and cached
         // initialization flags must all be reconstructed from the restored file.
+    }
+    dashboardStockSignals(input:{workspace?:string}={}) {
+        this.security.require('inventory.read');
+        if (!this.initialized || this.blocked) throw new Error('Business data is not available.');
+        return stockSignalsProjection(this.security.principal(),snapshotRepositories(),input.workspace??'Front desk',businessDateKey(new Date().toISOString()));
+    }
+    staffAvailability() {
+        this.security.require('inventory.read');
+        if (!this.initialized || this.blocked) throw new Error('Business data is not available.');
+        const payroll=snapshotRepositories().payroll as PayrollState | undefined;
+        return dashboardAvailability(payroll?.employees??[],payroll?.leave??[],businessDateKey(new Date().toISOString()));
     }
     view(): BusinessView {
         const principal = this.security.principal(); if (!principal || !this.initialized) throw new Error('Login and desktop data initialization required.');

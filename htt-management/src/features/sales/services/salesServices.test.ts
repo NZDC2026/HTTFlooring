@@ -1,0 +1,11 @@
+import {describe,it,expect} from 'vitest';
+import {sampleClaims,filterClaims,sampleReminderRows,priceListSample} from './salesServicesModel';
+import {validateClaim} from './claimValidation';
+describe('sales service Sample boundaries and calculations',()=>{
+ it('covers new, checking, waiting, approved and closed claims with matching totals',()=>{const rows=sampleClaims();expect(filterClaims(rows,'Open','')).toHaveLength(2);expect(filterClaims(rows,'Waiting for supplier','')).toHaveLength(1);expect(filterClaims(rows,'Decided','')).toHaveLength(2);expect(rows.reduce((n,r)=>n+r.cost,0)).toBe(1144);expect(filterClaims(rows,'All','INV-3448').map(r=>r.number)).toEqual(['CL-1003']);});
+ it('preserves all eight account balances and overdue ageing without rounding drift',()=>{const rows=sampleReminderRows();expect(new Set(rows.map(r=>r.customerId)).size).toBe(8);expect(rows).toHaveLength(20);expect(Math.round(rows.reduce((n,r)=>n+r.amount,0)*100)/100).toBe(91965.85);expect(Math.round(rows.filter(r=>r.days<0).reduce((n,r)=>n+r.amount,0)*100)/100).toBe(10503.01);});
+ it('includes current, promotional, incoming and upcoming price states',()=>{expect(priceListSample).toHaveLength(10);expect(priceListSample.filter(p=>p.promo!==undefined)).toHaveLength(4);expect(priceListSample.filter(p=>p.future)).toHaveLength(2);expect(priceListSample.find(p=>p.code==='HYB-65-NAT')?.promo).toBe(48.6);});
+});
+const valid={date:'2026-11-16',state:'New',boxes:'1',channel:'Phone',notes:'Customer supplied box label and floor photos.',photos:'[]',invoiceId:'invoice',productId:'product',customerId:'customer'};
+it.each([{boxes:'0'},{boxes:'1.5'},{state:'Credited'},{date:'invalid'},{channel:'Unknown'},{notes:''},{photos:'[{"name":"x","data":"https://example.com/image.jpg"}]'}])('rejects invalid claim evidence and quantities %j',change=>expect(()=>validateClaim({...valid,...change})).toThrow());
+it('validates invoice ownership and affected quantity before any claim is saved',()=>{const invoice={id:'invoice',type:'INVOICE',customerId:'customer',status:'ISSUED',lines:[{productId:'product',quantity:2}]} as never;expect(()=>validateClaim(valid,[invoice])).not.toThrow();expect(()=>validateClaim({...valid,customerId:'other'},[invoice])).toThrow('belonging');expect(()=>validateClaim({...valid,boxes:'3'},[invoice])).toThrow('quantity');});

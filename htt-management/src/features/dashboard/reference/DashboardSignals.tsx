@@ -1,0 +1,30 @@
+import {useEffect,useState} from 'react';
+import {Link} from 'react-router-dom';
+import {Clock,RefreshCw,Check,Truck,X} from 'lucide-react';
+import {useCustomers} from '../../contacts/data/useCustomers';
+import {hasPermission,type VerifiedPrincipal} from '../../security/rbac';
+import {nativeRequest} from '../../security/repositoryHost';
+import {sampleStockSignals,type StockSignals} from './stockSignalsModel';
+import type {StaffAvailability} from './dashboardAvailability';
+import './dashboard-signals.css';
+export type DashboardRole='Admin'|'Account'|'Front desk'|'Sales'|'Warehouse';
+const date=(d:string)=>new Date(d+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'});
+export function WhosAway({sample,today,role}:{sample:boolean;today:string;role:DashboardRole}){
+ const [rows,setRows]=useState<StaffAvailability[]>([]),[error,setError]=useState(false);
+ useEffect(()=>{if(sample)return;let active=true;const read=()=>{try{const result=nativeRequest<StaffAvailability[]>('dashboard.availability');if(active){setRows(result);setError(false);}}catch{if(active)setError(true);}};read();const timer=setInterval(read,60000);return()=>{active=false;clearInterval(timer);};},[sample,today]);
+ const shown=sample?[{id:'sample-lisa',name:'Lisa',start:today,end:'2026-11-18'},{id:'sample-tom',name:'Tom',start:'2026-11-20',end:'2026-11-20'}]:rows;
+ return <section data-ui="card" className={'ds-away'+(role==='Front desk'?' ds-away-inline':'')} aria-label="Who’s away"><strong>Who’s away</strong>{shown.map(r=><span data-ui="badge" key={r.id} className={r.start<=today?'ds-away-today':''}>{r.name.split(' ')[0]} · {r.start<=today?'today, back '+date(new Date(Date.parse(r.end)+86400000).toISOString().slice(0,10)):date(r.start)}</span>)}{!shown.length&&<small>{error?'Staff availability unavailable':'No approved absences this week'}</small>}{role==='Admin'&&<Link to={'/payroll/employees'+(sample?'?sample=1':'')}>Employees →</Link>}</section>;
+}
+export function DashboardStockSignals({sample,today,principal,role}:{sample:boolean;today:string;principal:VerifiedPrincipal|null;role:DashboardRole}){
+ const customers=useCustomers(),[detail,setDetail]=useState<{title:string;rows:string[]}|null>(null),[live,setLive]=useState<StockSignals|null>(null),[error,setError]=useState(false);
+ useEffect(()=>{if(sample)return;let active=true;const read=()=>{try{const result=nativeRequest<StockSignals>('dashboard.stockSignals',{workspace:role});if(active){setLive(result);setError(false);}}catch{if(active)setError(true);}};read();const timer=setInterval(read,60000);window.addEventListener('focus',read);return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',read);};},[sample,role,principal?.userId,today]);
+ const data=sample?sampleStockSignals():live;
+ if(!data)return <section className="ds-stock" aria-label="Stock and containers"><header><strong>Stock &amp; containers</strong></header><small>{error?'Stock and container data unavailable':'Loading stock & containers…'}</small></section>;
+ const allowLate=role!=='Warehouse'&&hasPermission(principal,'sales.read'),allowReorder=['Admin','Account'].includes(role)&&hasPermission(principal,'purchases.read'),cards=[
+  ...(allowLate?[{key:'late',title:`${data.late.length} order${data.late.length===1?'':'s'} hit by late containers`,text:data.late.length?data.late.slice(0,1).map(r=>`${r.number} · ${sample?'Coastal Timber Floors':customers.find(c=>c.id===r.customerId)?.businessName||'Customer'} → ${date(r.eta)}`).join(''):'No orders affected by a late container',Icon:Clock,tone:'late',path:'/sales?special=awaiting',rows:data.late.map(r=>`${r.number} · expected stock ${date(r.eta)}`)}]:[]),
+  ...(allowReorder?[{key:'reorder',title:`${data.reorder.length} products to order now`,text:data.reorder.length?data.reorder.slice(0,2).map(r=>r.name).join(', ')+(data.reorder.length>2?' ...':''):'No products need replenishment',Icon:RefreshCw,tone:'reorder',path:'/purchases?tab=reorder',rows:data.reorder.map(r=>r.name)}]:[]),
+  {key:'ready',title:`${data.ready.length} orders ready to pick`,text:data.ready.length?data.ready.slice(0,2).map(r=>r.number).join(' · '):'Nothing waiting on a landed container',Icon:Check,tone:data.ready.length?'ready':'empty',path:'/sales?special=awaiting',rows:data.ready.map(r=>r.number)},
+  {key:'containers',title:`${data.containers.length} containers this week`,text:data.containers.length?data.containers.slice(0,2).map(r=>`${r.number} · ${date(r.eta)} · ${r.quantity}`).join('\n'):'No containers expected in the next 7 days',Icon:Truck,tone:'containers',path:role==='Warehouse'?'/inventory?filter=incoming':'/purchases?tab=water',rows:data.containers.map(r=>`${r.number} · ${date(r.eta)} · ${r.quantity}`)},
+ ];
+ return <section className="ds-stock" aria-label="Stock and containers"><header><strong>Stock &amp; containers</strong><small>live from On the water and the Reorder plan</small></header><div className="ds-signal-grid" style={{gridTemplateColumns:`repeat(${cards.length},minmax(0,1fr))`}}>{cards.map(c=>{const content=<><i><c.Icon size={17}/></i><div><strong>{c.title}</strong><small>{c.text}</small></div></>;return sample?<button data-ui="card" className={'ds-signal ds-'+c.tone} key={c.key} onClick={()=>setDetail({title:c.title,rows:c.rows.length?c.rows:[c.text]})}>{content}</button>:<Link data-ui="card" className={'ds-signal ds-'+c.tone} key={c.key} to={c.path}>{content}</Link>;})}</div>{detail&&<div className="ds-overlay" onKeyDown={e=>{if(e.key==='Escape')setDetail(null);}} onClick={()=>setDetail(null)}><section data-module-theme="light" role="dialog" aria-modal="true" aria-label={detail.title} onClick={e=>e.stopPropagation()}><header><h2>{detail.title}</h2><button data-ui="button" autoFocus aria-label="Close stock preview" onClick={()=>setDetail(null)}><X size={18}/></button></header><p>Sample · Read-only · Quantities only</p>{detail.rows.map((r,i)=><p key={i}>{r}</p>)}<button data-ui="button" onClick={()=>setDetail(null)}>Close</button></section></div>}</section>;
+}

@@ -17,7 +17,8 @@ describe('exclusive workspace navigation',()=>{
  it.each(['/sales/credit-returns','/sales/customer-returns/new','/purchases/incoming-shipments','/settings/employees','/settings/trash','/settings/preferences'])('renders exactly one current entry for %s',path=>{
  const html=renderToStaticMarkup(<MemoryRouter initialEntries={[path]}><Sidebar/></MemoryRouter>);
  expect(html.match(/aria-current="page"/g)).toHaveLength(1);
- expect(html).toContain(`href="${sidebarOwner(path)}"`);
+ const target=path.startsWith('/sales/')?'/sales':path.startsWith('/purchases/')?'/purchases':'/settings';
+ expect(html).toContain(`href="${target}"`);
  });
  it('requires a path boundary and unique navigation roots',()=>{expect(sidebarOwner('/sales-other')).toBeUndefined();expect(new Set(navigationOwners).size).toBe(navigationOwners.length);});
  it('uses the most specific page title independent of declaration order',()=>expect(longestPageTitle('/sales/credit-returns/123',{'/sales':'Sales','/sales/credit-returns':'Credit'})).toBe('/sales/credit-returns'));

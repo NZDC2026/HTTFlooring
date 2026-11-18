@@ -1,3 +1,4 @@
+import {InventoryScanPage} from '../inventory/InventoryScanPage';
 import { TasksPage } from '../task-hub/TasksPage';
 import {YearEndPage} from '../year-end/YearEndPage';
 import {PayrollFilingsPage} from '../payroll-filing/PayrollFilingsPage';
@@ -89,6 +90,7 @@ function CustomerReturnRoute() { const {id}=useParams(); return <PreviewAccess p
 function CustomerDepositRoute() { const {id}=useParams(); return <PreviewAccess permission="sales.read"><CustomerDepositsPage key={id??'list'}/></PreviewAccess>; }
 function SupplierPrepaymentRoute(){const {id}=useParams();return <PreviewAccess permission="purchases.read"><SupplierPrepaymentsPage key={id??'list'}/></PreviewAccess>;}
 export const additionalRoutes: RouteObject[] = [
+ {path:"inventory/scan",element:<PreviewAccess permission="inventory.read"><InventoryScanPage/></PreviewAccess>},
  {path:'accounting/year-end',element:<PreviewAccess permission="accounting.read"><YearEndPage/></PreviewAccess>},
  {path:'payroll/transmissions',element:<PreviewAccess permission="payroll.read"><PayrollFilingsPage/></PreviewAccess>},
  {path:'banking/feeds',element:<PreviewAccess permission="banking.read"><BankFeedsPage/></PreviewAccess>},

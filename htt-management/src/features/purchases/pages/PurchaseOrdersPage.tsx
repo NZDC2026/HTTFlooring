@@ -1,4 +1,5 @@
 import {PurchasesOverview} from './PurchasesOverview';
+import {PurchaseWorkspace} from '../workspace/PurchaseWorkspace';
 import {DateRangePicker} from '../../../components/date-range/DateRangePicker';
 import {useListState} from '../../../hooks/useListState';
 import {PurchasePostingAlerts} from '../components/PurchasePostingAlerts';
@@ -21,7 +22,7 @@ import './purchase-register.css';
 const num=(n:number)=>n.toLocaleString('en-AU',{maximumFractionDigits:4});
 const money=(n:number)=>n.toLocaleString('en-AU',{style:'currency',currency:businessSettings().currency});
 const date=(v:string|undefined)=>v?new Date(v+'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}):'—';
-export function PurchaseOrdersPage(){const [query]=useSearchParams();return query.get('stage')==='quotation'||query.get('view')==='orders'?<PurchaseOrderRegister/>:<PurchasesOverview/>;}
+export function PurchaseOrdersPage(){const [query]=useSearchParams();return query.get('stage')==='quotation'||query.get('view')==='orders'?<PurchaseOrderRegister/>:query.get('view')==='legacy-bills'?<PurchasesOverview/>:<PurchaseWorkspace/>;}
 function PurchaseOrderRegister(){
  const [stageQuery]=useSearchParams(),isQuotation=stageQuery.get("stage")==="quotation";
  const orders=usePurchaseOrders(),receipts=useGoodsReceipts(),bills=useSupplierBills(),navigate=useNavigate();

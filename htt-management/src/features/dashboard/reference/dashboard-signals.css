@@ -1,0 +1,25 @@
+#reference-dashboard .ds-away{min-height:44px;display:flex;align-items:center;gap:8px;padding:10px 14px;margin-bottom:26px;font-size:13px}
+#reference-dashboard .ds-away>strong{font-size:13px;font-weight:700;white-space:nowrap}
+#reference-dashboard .ds-away [data-ui=badge]{display:inline-flex;min-height:22px;line-height:18px;border-radius:12px;padding:2px 10px;background:#f0f2f5;color:#475467;font-size:13px;font-weight:550;white-space:nowrap}
+#reference-dashboard .ds-away [data-ui=badge].ds-away-today{background:#fff3d9;color:#9e4700;font-weight:650}
+#reference-dashboard .ds-away>a{margin-left:auto;color:#087f5b;font-size:13px;font-weight:650;white-space:nowrap}
+#reference-dashboard .ds-away>small{font-size:12px;color:#667085}
+#reference-dashboard .ds-stock{padding:12px 14px;background:#f9fbfa;border:1px solid #e5e9ed;border-radius:15px;margin-bottom:22px;min-width:0}
+#reference-dashboard .ds-stock>header{display:flex;align-items:baseline;gap:9px;margin-bottom:7px}
+#reference-dashboard .ds-stock>header>strong{font-size:14px;line-height:18px;font-weight:700}
+#reference-dashboard .ds-stock>header>small{font-size:12px;color:#667085;line-height:18px}
+#reference-dashboard .ds-signal-grid{display:grid;gap:10px}
+#reference-dashboard .ds-signal{display:flex;align-items:flex-start;gap:12px;text-align:left;min-width:0;min-height:82px;padding:12px 14px;border-radius:12px;font:inherit;cursor:pointer}
+#reference-dashboard .ds-signal.ds-late{border-color:#ffa4aa}#reference-dashboard .ds-signal.ds-reorder{border-color:#f5c54f}#reference-dashboard .ds-signal.ds-containers{border-color:#b5d2ff}
+#reference-dashboard .ds-signal>i{display:grid;place-items:center;flex-shrink:0;width:34px;height:34px;border-radius:10px;font-style:normal;background:#f1f3f6;color:#98a2b3}
+#reference-dashboard .ds-signal.ds-late>i{background:#ffe7e8;color:#f12539}#reference-dashboard .ds-signal.ds-reorder>i{background:#fff4df;color:#cb6800}#reference-dashboard .ds-signal.ds-containers>i{background:#e8efff;color:#2463ff}#reference-dashboard .ds-signal.ds-ready>i{background:#e1f5e9;color:#087f5b}
+#reference-dashboard .ds-signal>div{min-width:0}#reference-dashboard .ds-signal strong{display:block;font-size:18px;line-height:24px;font-weight:750;letter-spacing:-.2px;color:#182230}#reference-dashboard .ds-signal.ds-empty strong{color:#98a2b3}
+#reference-dashboard .ds-signal small{display:block;font-size:12px;line-height:17px;color:#667085;white-space:pre-line;margin-top:1px}
+#reference-dashboard .ds-overlay{position:fixed;inset:0;z-index:90;background:#18223066;padding:24px;display:flex;align-items:center;justify-content:center}
+#reference-dashboard .ds-overlay>[role=dialog]{width:min(600px,100%);max-height:calc(100dvh - 48px);overflow:auto;padding:24px;border:1px solid #e5e9ed;border-radius:14px;background:#fff;box-shadow:0 16px 50px #18223033}
+#reference-dashboard .ds-overlay header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+#reference-dashboard .ds-overlay header h2{font-size:18px!important}#reference-dashboard .ds-overlay p{margin:12px 0;font-size:14px;line-height:22px}#reference-dashboard .ds-overlay [data-ui=button]{border:1px solid #e5e9ed;min-height:34px;background:#fff;color:#182230}
+@media screen and (min-width:1100px){#reference-dashboard .rd-content.rd-content{padding:28px clamp(24px,6.25vw,160px) 24px}}
+@media(max-width:1100px){#reference-dashboard .ds-signal-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}#reference-dashboard .ds-stock>header{flex-wrap:wrap;gap:3px 9px}#reference-dashboard .ds-away{flex-wrap:wrap}}
+@media(max-width:600px){#reference-dashboard .ds-signal-grid{grid-template-columns:1fr!important}#reference-dashboard .ds-stock{padding:12px}#reference-dashboard .ds-away{gap:7px}#reference-dashboard .ds-away>a{margin-left:0}#reference-dashboard .ds-signal strong{font-size:17px}#reference-dashboard .ds-overlay{padding:12px}#reference-dashboard .ds-overlay>[role=dialog]{padding:18px}}
+@media print{#reference-dashboard .ds-away,#reference-dashboard .ds-overlay{display:none}#reference-dashboard .ds-stock{break-inside:avoid}}

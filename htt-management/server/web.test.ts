@@ -35,6 +35,22 @@ describe('web authentication and durable business database', () => {
         expect(Object.keys(bootstrap.body.value.repositories).length).toBeGreaterThan(10);
         expect((await request('setup', { username: 'other', displayName: 'Other', password })).body.ok).toBe(false);
     });
+    it('shares only operational availability and quantity signals with warehouse staff', async () => {
+        expect((await request('dashboard.availability')).body.ok).toBe(false);
+        expect((await request('dashboard.stockSignals',{workspace:'Warehouse'})).body.ok).toBe(false);
+        const created=await request('users.create',{username:'warehouseavailability',displayName:'Warehouse availability test',password,roles:['WAREHOUSE']},adminCookie);
+        expect(created.body.ok,JSON.stringify(created.body)).toBe(true);
+        const login=await request('login',{username:'warehouseavailability',password});
+        const availability=await request('dashboard.availability',{},login.cookie);
+        expect(availability.body.ok,JSON.stringify(availability.body)).toBe(true);
+        for(const row of availability.body.value)expect(Object.keys(row).sort()).toEqual(['end','id','name','start']);
+        const signals=await request('dashboard.stockSignals',{workspace:'Warehouse'},login.cookie);
+        expect(signals.body.ok,JSON.stringify(signals.body)).toBe(true);
+        expect(signals.body.value.late).toEqual([]);expect(signals.body.value.reorder).toEqual([]);
+        expect(Object.keys(signals.body.value).sort()).toEqual(['containers','late','ready','reorder']);
+        const view=await request('business.view',{},login.cookie);
+        expect(Object.values(view.body.value.repositories.payroll).flat()).toEqual([]);
+    });
     it('previews unpaid invoice and customer statement batches without emailing or changing financial balances', async () => {
         expect((await request('invoiceReminders.view')).body.ok).toBe(false);
         const call=async(repository:string,method:string,...args:unknown[])=>{const r=await request('business.command',{repository,method,args},adminCookie);expect(r.body.ok,JSON.stringify(r.body)).toBe(true);return r.body.value.result;};
@@ -146,7 +162,7 @@ describe('web authentication and durable business database', () => {
         expect((await request('business.bootstrap', {}, adminCookie)).body.ok).toBe(true);
         const after = await request('business.backup.save', {}, adminCookie);
         expect(after.body.value.download.repositories).toEqual(before);
-        expect((await request('users.list', {}, adminCookie)).body.value).toHaveLength(2);
+        expect((await request('users.list', {}, adminCookie)).body.value).toHaveLength(3);
     });
     it('logs out only the current browser and rejects incorrect passwords', async () => {
         const login = await request('login', { username: 'reader', password }); readerCookie = login.cookie;
