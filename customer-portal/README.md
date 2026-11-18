@@ -65,3 +65,17 @@ The development diagnostic store sends the complete access token to the extensio
 ## Dashboard and inventory reference design
 
 Dashboard and Inventory use the supplied screenshot design, with a 1212px content column, sticky navigation, compact category filters, gradient series covers and stock/arrival cards. `src/data/portalPreview.ts` contains independent read-only display fixtures for the ten reference ranges, the credit limit and display-board counts. These are local examples, not live inventory or changes to invoice product data. Existing ranges retain their original colour-detail routes; new Quercus, Terra and Nordic ranges have local colour previews. Dashboard balances and activity derive from the local ledger and documents; changing the period updates activity. Rebate navigation retains the requested historical settlement view.
+
+## Local document and display-board workflows
+
+Display Boards uses the reference store/series matrix, stand list and request dialog. New, update and return requests persist locally under `htt.portal.board-requests.v1`; no notification is transmitted. Duplicate pending requests are rejected, and request counts update the header and Dashboard.
+
+Quotes and Orders use `src/data/documentWorkflow.ts` on top of the existing calculated fixtures. Accepting an open, unexpired quote creates one local order and moves it out of the quote list. Cancelling moves it to Cancelled. Order delivery/pick-up dates are editable and persist locally under `htt.portal.document-workflow.v1`; completed orders remain read-only. Financial-year/month/year filters, searches and status tabs operate locally.
+
+Invoices retain the existing reactive credit ledger, with oldest-due sorting, clickable ageing buckets, paid/credit progress, closed-invoice tab and printable account statement. All displayed balances still reflect explicit credit applications only.
+
+## Invoice archive, statements and Product Sales
+
+Credit Notes lists credits with remaining value; fully applied credits appear in Closed alongside paid invoices. Closed groups by settlement month, filters by period/type/search, and links the original documents. `src/data/invoiceArchive.ts` supplies a separate paid July invoice example without changing the existing outstanding ledger. Account Statement is a standalone printable page at `/invoices/statement`; its as-at selector excludes later credit issuance and allocations, and reconciles invoice balances, unapplied credits, ageing and net balance.
+
+Product Sales uses independent local aggregate purchase fixtures in `src/data/purchaseAnalytics.ts` to reproduce the supplied reference design. These fixtures are examples rather than live purchases. Confirmed local returns adjust the original invoice month in the aggregates, independent of credit allocation. Monthly totals, category/pattern/series rows, colour allocations and CSV exports reconcile to the same cents and quantities. The current partial month is excluded from the chart's completed-month average. Search, category filters, month selection, previous/year comparison, colour expansion, series trend selection and CSV generation all run locally.

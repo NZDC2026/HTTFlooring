@@ -258,3 +258,87 @@ test('accessories secondary menu maps existing items to their matching categorie
  assert.equal(products.filterProductSeries('','Accessories','','Relevance','Glue').length,0);
  assert.equal(products.filterProductSeries('','Accessories','','Relevance','All').length,3);
 });
+
+test('local quote decisions create one order, retain totals, and persist order schedules',()=>{
+ globalThis.localStorage=storage();
+ const workflow=loader({react:{useSyncExternalStore:()=>{}}})('src/data/documentWorkflow.ts');
+ const date=new Date(2026,10,19);
+ const before=workflow.getWorkflowDocuments().find(record=>record.id==='quo-10605');
+ const id=workflow.acceptQuote('quo-10605',date);
+ const docs=workflow.getWorkflowDocuments(),order=docs.find(record=>record.id===id);
+ assert.equal(order.kind,'orders');assert.equal(order.status,'Processing');assert.equal(order.total,before.total);assert.equal(order.total,682);
+ assert.equal(docs.find(record=>record.id==='quo-10605').status,'Accepted');
+ assert.throws(()=>workflow.acceptQuote('quo-10605',date));assert.equal(workflow.getWorkflowDocuments().filter(record=>record.sourceQuote==='quo-10605').length,1);
+ workflow.cancelQuote('quo-10601',date);assert.equal(workflow.getWorkflowDocuments().find(record=>record.id==='quo-10601').status,'Cancelled');
+ assert.throws(()=>workflow.cancelQuote('quo-10570',date));
+ assert.throws(()=>workflow.saveOrderSchedule('ord-10540','Delivery','2026-11-25',date));
+ assert.throws(()=>workflow.saveOrderSchedule('ord-10560','Delivery','2026-11-10',date));
+ assert.throws(()=>workflow.saveOrderSchedule('ord-10560','Delivery','2027-02-31',date));
+ workflow.saveOrderSchedule('ord-10560','Pick up','2026-11-25',date);
+ const restored=loader({react:{useSyncExternalStore:()=>{}}})('src/data/documentWorkflow.ts').getWorkflowDocuments().find(record=>record.id==='ord-10560');
+ assert.equal(restored.method,'Pick up');assert.equal(restored.fulfillmentDate,'2026-11-25');assert.equal(restored.total,3342.99);
+});
+test('display board requests validate, persist and prevent duplicate pending submissions',()=>{
+ globalThis.localStorage=storage();
+ const board=loader({react:{useSyncExternalStore:()=>{}}})('src/data/boardRequests.ts');
+ const input={store:board.boardStores[0],series:'Bonita',type:'Stand',quantity:1,note:'Local preview test',action:'New'};
+ assert.throws(()=>board.addBoardRequest({...input,quantity:0}));assert.throws(()=>board.addBoardRequest({...input,series:'Unknown'}));
+ const created=board.addBoardRequest(input);assert.equal(created.id,'DBR-0413');assert.equal(created.status,'Requested');
+ assert.throws(()=>board.addBoardRequest(input));
+ const restored=loader({react:{useSyncExternalStore:()=>{}}})('src/data/boardRequests.ts').getBoardRequests();
+ assert.equal(restored.length,3);assert.equal(restored[0].note,input.note);
+});
+
+test('account statements reflect credits as of the selected date without double deductions',()=>{
+ globalThis.localStorage=storage();
+ const modules=loader({react:{useSyncExternalStore:()=>{}}});
+ const returns=modules('src/data/returnNotes.ts'),ledger=modules('src/data/ledger.ts').calculateLedger(returns.getReturnNotes());
+ const statements=modules('src/data/accountStatement.ts');
+ const current=statements.accountStatement(ledger,new Date(2026,10,19));
+ assert.equal(current.summary.outstanding,ledger.invoiceSummary.outstanding);assert.equal(current.unapplied,ledger.unappliedCredit);
+ assert.equal(current.net,Math.round((ledger.invoiceSummary.outstanding-ledger.unappliedCredit)*100)/100);
+ const october=statements.accountStatement(ledger,new Date(2026,9,31));
+ assert.equal(october.unapplied,0);assert.equal(october.invoices.find(invoice=>invoice.id==='inv-10521').balance,7675.98);
+ assert.equal(current.invoices.some(invoice=>invoice.id==='inv-10355'),false);
+ const july=statements.accountStatement(ledger,new Date(2026,6,25));assert.equal(july.invoices.find(invoice=>invoice.id==='inv-10355').balance,3342.99);
+});
+test('purchase analytics reconcile category totals, colour allocation, net returns and CSV',()=>{
+ const analytics=loader()('src/data/purchaseAnalytics.ts');const date=new Date(2026,10,19);
+ const report=analytics.purchaseReport([],'2026-11',date);
+ assert.equal(report.totalCents,10286578);assert.equal(Number(report.flooring.toFixed(2)),1187.19);assert.equal(report.rows.length,10);
+ for(const row of report.rows){const colours=analytics.allocateColours(row);assert.equal(colours.reduce((sum,colour)=>sum+colour.amountCents,0),row.amountCents);assert.equal(Math.round(colours.reduce((sum,colour)=>sum+colour.quantity,0)*100),Math.round(row.quantity*100));assert.ok(colours.every(colour=>colour.quantity>=0&&colour.amountCents>=0));}
+ assert.equal(report.monthly.at(-2).series.reduce((sum,row)=>sum+row.amountCents,0),18600000);
+ const fake={id:'r',invoiceId:'inv-10521',status:'Confirmed',creditNote:{total:328.8,subtotal:298.91,items:[{productId:'bonita-natural-oak',quantity:2,totalSize:4.332,amountCents:29891}]}};
+ const original=analytics.purchaseReport([],'2026-10',date),net=analytics.purchaseReport([fake],'2026-10',date);
+ assert.equal(original.totalCents-net.totalCents,32880);assert.equal(Number((original.flooring-net.flooring).toFixed(2)),4.33);
+ assert.equal(analytics.purchaseReport([{...fake,status:'Requested'}],'2026-10',date).totalCents,original.totalCents);
+ const csv=analytics.salesCsv(report.rows);assert.ok(csv.includes('Amount (incl. GST)'));assert.ok(csv.includes('Quercus'));assert.equal(csv.split('\r\n').length,1+report.rows.reduce((sum,row)=>sum+row.count,0));
+});
+
+test('shared date ranges handle fiscal boundaries, full custom days and leap months',()=>{
+ const dates=load('src/data/tradeDates.ts');const june=new Date(2026,5,12);
+ assert.equal(dates.dateISO(dates.periodStart('This financial year',june)),'2025-07-01');
+ assert.equal(dates.dateISO(dates.periodEnd('Last financial year',june)),'2025-06-30');
+ assert.equal(dates.dateISO(dates.periodEnd('Last month',new Date(2024,2,5))),'2024-02-29');
+ const value='Custom|2026-09-01|2026-09-30';
+ assert.equal(dates.periodStart(value,now).getHours(),0);assert.equal(dates.periodEnd(value,now).getHours(),23);
+ assert.equal(dates.dateISO(dates.periodStart('Yesterday',new Date(2026,0,1))),'2025-12-31');
+});
+test('rebates use stepped marginal tiers and rounded historical settlements',()=>{
+ const rebates=load('src/data/rebatePrograms.ts');const tiers=rebates.rebatePrograms[0].tiers;
+ assert.equal(rebates.tierRebate(349.99,tiers),0);assert.equal(rebates.tierRebate(350,tiers),0);
+ assert.equal(rebates.tierRebate(600,tiers),297);assert.equal(rebates.tierRebate(900,tiers),726);
+ assert.equal(rebates.rebateSettlements.reduce((s,r)=>s+Math.round(r.amount*100),0),78183);
+ assert.equal(rebates.rebateSettlements.at(-1).amount,0);
+});
+test('custom purchase ranges aggregate selected days and compare equal duration',()=>{
+ const analytics=loader({react:{useSyncExternalStore:()=>{}}})('src/data/purchaseAnalytics.ts');
+ const report=analytics.purchaseReport([], '2026-11',new Date(2026,10,19),'previous','Custom|2026-11-18|2026-11-18');
+ assert.equal(report.totalCents,10286578);assert.equal(report.previousEnd.getDate(),17);assert.equal(report.previousStart.getDate(),17);
+ const empty=analytics.purchaseReport([], '2026-11',new Date(2026,10,19),'previous','Custom|2026-11-19|2026-11-19');assert.equal(empty.totalCents,0);
+});
+test('account changes queue review requests without modifying the signed-in profile',()=>{
+ const saved=new Map();const old=globalThis.localStorage;globalThis.localStorage={getItem:k=>saved.get(k)??null,setItem:(k,v)=>saved.set(k,v)};
+ const oldCrypto=globalThis.crypto;if(!oldCrypto)globalThis.crypto=webcrypto;
+ try{const requests=load('src/data/accountRequests.ts');assert.throws(()=>requests.submitAccountRequest('Add contact',{name:''}));assert.throws(()=>requests.submitAccountRequest('Add contact',{name:'Sample',email:'bad'}));const request=requests.submitAccountRequest('Add contact',{name:' Sample Contact ',email:'sample@example.com'});assert.equal(request.status,'Pending review');assert.equal(request.values.name,'Sample Contact');assert.equal(requests.getAccountRequests().length,1);assert.equal(saved.size,1);}finally{globalThis.localStorage=old;if(!oldCrypto)delete globalThis.crypto;}
+});

@@ -1,43 +1,26 @@
-import { Search } from "lucide-react";
-import { useSearchParams, Link } from "react-router-dom";
+import ClosedDocumentsPanel from "../components/ClosedDocumentsPanel";
+import { useState } from "react";
+import { FileText,Search } from "lucide-react";
+import { useSearchParams,Link } from "react-router-dom";
+import PortalHeader from "../components/PortalHeader";
+import TradePageHeader from "../components/TradePageHeader";
 import CreditNotesPanel from "../components/CreditNotesPanel";
 import ReturnsPanel from "../components/ReturnsPanel";
-import PortalHeader from "../components/PortalHeader";
 import { useInvoiceLedger } from "../data/ledger";
+const money=(value:number)=>value.toLocaleString("en-AU",{style:"currency",currency:"AUD"});
+const colors=["#d5e6da","#fae7c5","#ed854b","#e1523d","#e2babb"];
+const bucketIndex=(days:number)=>days<=0?0:days<=30?1:days<=60?2:days<=90?3:4;
+export default function InvoicesPage(){
+ const {invoices,invoiceSummary,credits,unappliedCredit}=useInvoiceLedger();const [params,setParams]=useSearchParams();const [now]=useState(()=>new Date());const [period,setPeriod]=useState("This financial year");
+ const tab=params.get("tab")??"invoices",query=params.get("q")??"",status=params.get("status")??"All",age=params.get("age")??"";
+ const setFilter=(key:string,value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);if(value)next.set(key,value);else next.delete(key);return next;},{replace:true});
+ const outstanding=invoices.filter(invoice=>invoice.balance>0);const oldest=Math.max(0,...outstanding.map(invoice=>invoice.overdueDays));
+ const visible=invoices.filter(invoice=>(tab==="closed"?invoice.balance===0:invoice.balance>0)&&`${invoice.invoiceNumber} ${invoice.items.map(item=>item.description).join(" ")}`.toLowerCase().includes(query.toLowerCase())&&(status==="All"||(status==="Overdue"?invoice.overdueDays>0:status==="Due soon"?invoice.overdueDays===0:invoice.status===status))&&(!age||bucketIndex(invoice.overdueDays)===Number(age))).sort((a,b)=>new Date(a.dueDate).getTime()-new Date(b.dueDate).getTime());
+ return <><PortalHeader/><main className="trade-page"><TradePageHeader title="Invoices" description={tab==="credits"?"Credit notes not yet applied. HTT’s system applies them to your invoices; applied ones move to Closed.":tab==="closed"?"Fully paid invoices and applied credit notes, by month. Use the date at the top right to look back.":"Your unpaid invoices, oldest due first. Fully paid invoices move to Closed."} period={tab==="closed"?period:undefined} onPeriod={setPeriod} now={now}/><section className="reference-width trade-content"><nav className="trade-tabs">{[{id:"invoices",label:"Invoices"},{id:"credits",label:"Credit Notes"},{id:"closed",label:"Closed"}].map(item=><Link key={item.id} to={item.id==="invoices"?"/invoices":`/invoices?tab=${item.id}`} className={tab===item.id?"active":""}>{item.label}</Link>)}<Link className="trade-text-button statement-button" to="/invoices/statement"><FileText size={16}/> Statement</Link></nav>
+ {tab==="credits"?<CreditNotesPanel/>:tab==="returns"?<ReturnsPanel/>:tab==="closed"?<ClosedDocumentsPanel period={period} now={now}/>:<><div className="trade-summary invoice-reference-summary"><article><small><i className="dot blue"/>Balance due</small><strong>{money(invoiceSummary.outstanding)}</strong><p>{invoiceSummary.outstandingCount} unpaid invoices · {money(Math.max(0,invoiceSummary.outstanding-unappliedCredit))} after credit</p></article><article className="overdue-card"><small><i className="dot red"/>Overdue</small><strong>{money(invoiceSummary.overdue)}</strong><p>{invoiceSummary.overdueCount===invoiceSummary.outstandingCount?"all ":""}{invoiceSummary.overdueCount} invoices · oldest {oldest} days</p></article><article><small><i className="dot green"/>Credit available</small><strong>{money(unappliedCredit)}</strong><p>{credits.filter(credit=>credit.remainingAmount>0).length} credit {credits.filter(credit=>credit.remainingAmount>0).length===1?"note":"notes"} · <Link to="/invoices?tab=credits">HTT applies to your invoices ›</Link></p></article></div>
+ {tab!=="closed"&&<section className="reference-aging"><h2>Ageing <small>How long your balance has been overdue · click a period to filter</small></h2><div className="reference-aging-bar">{invoiceSummary.aging.map((bucket,index)=><button key={bucket.label} aria-label={`Filter ${bucket.label}`} onClick={()=>setFilter("age",age===String(index)?"":String(index))} style={{background:colors[index],width:`${invoiceSummary.outstanding?bucket.balance/invoiceSummary.outstanding*100:20}%`}}/>)}</div><div className="reference-aging-buckets">{invoiceSummary.aging.map((bucket,index)=>{const count=outstanding.filter(invoice=>bucketIndex(invoice.overdueDays)===index).length;return <button key={bucket.label} className={`${bucket.balance===0?"empty":""} ${age===String(index)?"selected":""}`} onClick={()=>setFilter("age",age===String(index)?"":String(index))}><small><i style={{background:colors[index]}}/>{bucket.label}</small><strong>{money(bucket.balance)}</strong><span>{count?`${count} invoices · ${Math.round(bucket.balance/invoiceSummary.outstanding*100)}%`:"—"}</span></button>;})}</div></section>}
+ <div className="trade-invoice-filter"><Search size={16}/><input aria-label="Search invoices" placeholder="Search invoice, order, PO or product..." value={query} onChange={event=>setFilter("q",event.target.value)}/><div className="trade-segment">{["All","Overdue","Due soon"].map(value=><button key={value} className={status===value?"active":""} onClick={()=>setFilter("status",value)}>{value}<span>{invoices.filter(invoice=>(tab==="closed"?invoice.balance===0:invoice.balance>0)&&(value==="All"||value==="Overdue"&&invoice.overdueDays>0||value==="Due soon"&&invoice.overdueDays===0)).length}</span></button>)}</div></div>
+ <div className="trade-table-scroll"><table className="trade-table reference-invoices-table"><thead><tr>{["INVOICE","PRODUCT","DUE DATE","AMOUNT (INCL. GST)","PAID","BALANCE","STATUS",""] .map((label,index)=><th key={index}>{label}</th>)}</tr></thead><tbody>{visible.map(invoice=>{const settled=invoice.paid+invoice.creditApplied,percent=Math.min(100,Math.round(settled/invoice.total*100));return <tr className={invoice.overdueDays>0?"overdue-invoice-row":""} key={invoice.id}><td><div className="invoice-reference-number"><i><FileText size={16}/></i><Link className="trade-number" to={`/invoices/${invoice.id}`}>{invoice.invoiceNumber}<small>Issued {invoice.issueDate}</small></Link></div></td><td>{invoice.items[0]?.description}{invoice.items.length>1&&<small>+{invoice.items.length-1} more</small>}</td><td>{invoice.dueDate}</td><td className="trade-amount">{money(invoice.total)}</td><td className="invoice-paid-cell">{settled>0?<><span>{money(settled)} <small>{percent}%</small></span><div><i style={{width:`${percent}%`}}/></div><small>{invoice.creditApplied>0?<>Credit {credits.filter(credit=>credit.applications.some(application=>application.invoiceId===invoice.id)).map(credit=><Link className="applied-credit-inline" to={`/invoices/credits/${credit.id}`} key={credit.id}>{credit.number}</Link>)}</>:invoice.balance===0?"Paid":"Part paid"}</small></>:<span className="not-paid">Not paid</span>}</td><td className="trade-amount">{money(invoice.balance)}</td><td><span className={`trade-badge ${invoice.overdueDays>0?"red":invoice.balance===0?"green":"neutral"}`}>{invoice.overdueDays>0?`${invoice.overdueDays} days overdue`:invoice.balance===0?"Paid":"Due soon"}</span></td><td><Link aria-label={`View ${invoice.invoiceNumber}`} to={`/invoices/${invoice.id}`}>›</Link></td></tr>;})}</tbody></table>{!visible.length&&<div className="empty-state"><p>{tab==="closed"?"No closed invoices match your filters.":"No invoices match your filters."}</p><button className="trade-button secondary" onClick={()=>setParams(tab==="closed"?{tab:"closed"}:{})}>Clear filters</button></div>}</div><p className="trade-record-count">{visible.length} records{age&&<button className="trade-text-button" onClick={()=>setFilter("age","")}> · Clear ageing filter</button>}</p></>}
 
-const money = (value: number) => value.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
-
-export default function InvoicesPage() {
-  const {invoices,invoiceSummary}=useInvoiceLedger();
-  const [params,setParams]=useSearchParams();
-  const creditsTab=params.get("tab")==="credits";
-  const returnsTab=params.get("tab")==="returns";
-  const query=params.get("q")??"", status=params.get("status")??"All";
-  const setFilter=(key:string,value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);next.set(key,value);return next;},{replace:true});
-  const visibleInvoices=invoices.filter(invoice=>invoice.invoiceNumber.toLowerCase().includes(query.trim().toLowerCase()) && (status==="All" || invoice.status===status));
-  const { outstanding, outstandingCount, overdue, overdueCount, paidCount, aging } = invoiceSummary;
-
-  return <><PortalHeader /><main className="invoices-page">
-    <section className="invoices-heading"><h1>Invoices</h1><p>View invoices, outstanding balances and return notes.</p></section>
-    <section className="invoice-content">
-      <nav className="document-tabs" aria-label="Invoice documents"><Link to="/invoices" aria-current={!returnsTab&&!creditsTab?"page":undefined} className={!returnsTab&&!creditsTab?"active":""}>Invoices</Link><Link to="/invoices?tab=credits" aria-current={creditsTab?"page":undefined} className={creditsTab?"active":""}>Credit Notes</Link></nav>
-      {creditsTab ? <CreditNotesPanel/> : returnsTab ? <ReturnsPanel/> : <>
-      <div className="invoice-summary">
-        <div><small>Outstanding</small><strong>{money(outstanding)}</strong><span>{outstandingCount} invoices</span></div>
-        <div className="danger-card"><small>Overdue</small><strong>{money(overdue)}</strong><span>{overdueCount} {overdueCount===1?"invoice":"invoices"}</span></div>
-        <div><small>Paid</small><strong>{paidCount}</strong><span>invoices paid</span></div>
-      </div>
-      <div className="invoice-search"><Search size={18}/><input aria-label="Search invoice number" value={query} onChange={event=>setFilter("q",event.target.value)} placeholder="Search invoice number..." /><select aria-label="Invoice status" value={status} onChange={event=>setFilter("status",event.target.value)}>{["All","Outstanding","Overdue","Paid"].map(value=><option key={value}>{value}</option>)}</select></div>
-      <div className="invoice-table">
-        <div className="invoice-table-head"><span>Invoice</span><span>Issue Date</span><span>Due Date</span><span>Amount</span><span>Balance</span><span>Status</span></div>
-        {visibleInvoices.map(i => <Link className="invoice-line" to={`/invoices/${i.id}`} key={i.id}>
-          <strong>{i.invoiceNumber}</strong><span>{i.issueDate}</span><span>{i.dueDate}</span><span>{money(i.total)}</span><span>{money(i.balance)}</span>
-          <span className={`invoice-status ${i.status.toLowerCase()}`}>{i.status === "Overdue" ? `${i.overdueDays} days overdue` : i.status}</span>
-        </Link>)}
-        {visibleInvoices.length===0 && <div className="empty-state"><p>No invoices match your search.</p><button className="outline-copper-button" onClick={()=>setParams({})}>Clear filters</button></div>}
-      </div>
-      <div className="aging"><h2>Account Aging</h2><div>{aging.map(bucket => <span key={bucket.label}>{bucket.label} <strong>{money(bucket.balance)}</strong></span>)}</div></div>
-      </>}
-    </section>
-  </main></>;
+ </section></main></>;
 }

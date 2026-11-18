@@ -1,20 +1,21 @@
-import { ArrowLeft, Download, Search } from "lucide-react";
+import TradeDocumentsList from "./TradeDocumentsList";
+import { useWorkflowDocuments } from "../data/documentWorkflow";
+import { ArrowLeft, Download } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
-import { salesDocuments, type DocumentKind } from "../data/salesDocuments";
+import { type DocumentKind } from "../data/salesDocuments";
 import { useLocalAccount } from "../services/account";
 const money=(value:number)=>value.toLocaleString("en-AU",{style:"currency",currency:"AUD"});
 const statusClass=(status:string)=>["Accepted","Completed"].includes(status)?"paid":status==="Expired"?"overdue":"outstanding";
 const area=(value:number|undefined)=>value==null?"-":`${value.toFixed(3)} m²`;
 export default function SalesDocumentsPage({kind}:{kind:DocumentKind}) {
  const {id}=useParams();
- const [params,setParams]=useSearchParams();
+ const [params]=useSearchParams();
  const {profile}=useLocalAccount();
- const title=kind==="quotes"?"Quotes":"Orders", singular=kind==="quotes"?"Quote":"Order";
+ const singular=kind==="quotes"?"Quote":"Order";
  const dateLabel=kind==="quotes"?"Valid Until":"Expected Date";
- const records=salesDocuments.filter(record=>record.kind===kind);
- const query=params.get("q")??"",status=params.get("status")??"All";
- const update=(key:string,value:string)=>setParams(previous=>{const next=new URLSearchParams(previous);next.set(key,value);return next;},{replace:true});
+ const documents=useWorkflowDocuments();
+ const records=documents.filter(record=>record.kind===kind);
  const listUrl=`/${kind}${params.size?`?${params}`:""}`;
  if(id){
   const record=records.find(record=>record.id===id);
@@ -27,12 +28,5 @@ export default function SalesDocumentsPage({kind}:{kind:DocumentKind}) {
    <button className="primary-button invoice-download" onClick={()=>window.print()}><Download size={17}/> Print / Save PDF</button>
   </section>}</main></>;
  }
- const summaryStatuses=kind==="quotes"?["Open","Accepted","Expired"]:["Processing","Ready for Collection","Completed"];
- const visible=records.filter(record=>(`${record.number} ${record.reference}`.toLowerCase().includes(query.trim().toLowerCase()))&&(status==="All"||record.status===status));
- return <><PortalHeader/><main className="invoices-page"><section className="invoices-heading"><h1>{title}</h1><p>{kind==="quotes"?"View quotations, pricing and validity dates.":"Track orders, expected dates and order status."}</p></section><section className="invoice-content">
- <nav className="document-tabs" aria-label={`${singular} documents`}><Link to={`/${kind}`} className="active" aria-current="page">{title}</Link></nav>
- <div className="invoice-summary">{summaryStatuses.map(value=>{const matches=records.filter(record=>record.status===value);return <div key={value} className={value==="Expired"?"danger-card":undefined}><small>{value}</small><strong>{money(matches.reduce((sum,record)=>sum+Math.round(record.total*100),0)/100)}</strong><span>{matches.length} {matches.length===1?singular.toLowerCase():kind}</span></div>;})}</div>
- <div className="invoice-search"><Search size={18}/><input aria-label={`Search ${kind}`} placeholder={`Search ${singular.toLowerCase()} number or reference...`} value={query} onChange={event=>update("q",event.target.value)}/><select aria-label={`${singular} status`} value={status} onChange={event=>update("status",event.target.value)}>{["All",...new Set(records.map(record=>record.status))].map(value=><option key={value}>{value}</option>)}</select></div>
- <div className="invoice-table"><div className="invoice-table-head"><span>{singular}</span><span>Issue Date</span><span>{dateLabel}</span><span>Amount</span><span>Reference</span><span>Status</span></div>{visible.map(record=><Link className="invoice-line" key={record.id} to={`/${kind}/${record.id}${params.size?`?${params}`:""}`}><strong>{record.number}</strong><span>{record.issued}</span><span>{record.date}</span><span>{money(record.total)}</span><span>{record.reference}</span><span className={`invoice-status ${statusClass(record.status)}`}>{record.status}</span></Link>)}{!visible.length&&<div className="empty-state"><p>No {kind} match your search.</p><button className="outline-copper-button" onClick={()=>setParams({})}>Clear filters</button></div>}</div>
- </section></main></>;
+ return <TradeDocumentsList kind={kind}/>;
 }

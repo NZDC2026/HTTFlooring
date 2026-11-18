@@ -1,3 +1,4 @@
+import { archivedInvoices } from "../data/invoiceArchive";
 import { ArrowLeft, Download } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
@@ -8,7 +9,7 @@ const area = (value: number | null | undefined) => value == null ? "-" : `${valu
 export default function InvoiceDetailPage(){
  const {invoices,credits}=useInvoiceLedger();
  const {profile}=useLocalAccount();
- const {id}=useParams(); const invoice=invoices.find(i=>i.id===id);
+ const {id}=useParams(); const invoice=[...invoices,...archivedInvoices].find(i=>i.id===id);
  if(!invoice) return <><PortalHeader/><main className="invoice-detail"><h1>Invoice not found</h1></main></>;
  const items = invoice.items;
  const totals = invoice;

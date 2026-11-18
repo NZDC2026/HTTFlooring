@@ -11,3 +11,7 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>,
 );
 import "./reference.css";
+import "./trade.css";
+import "./analytics.css";
+
+import "./account-rebate.css";

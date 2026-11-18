@@ -1,5 +1,7 @@
+import StatementPage from "./pages/StatementPage";
+import ProductSalesPage from "./pages/ProductSalesPage";
+import DisplayBoardsPage from "./pages/DisplayBoardsPage";
 import PreviewRangePage from "./pages/PreviewRangePage";
-import PortalOverviewPage from "./pages/PortalOverviewPage";
 import RebatePage from "./pages/RebatePage";
 import SalesDocumentsPage from "./pages/SalesDocumentsPage";
 import DispatchFollowupPage from "./pages/DispatchFollowupPage";
@@ -42,8 +44,8 @@ export default function App() {
         <Route element={<RequireAccount/>}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/ranges/:id" element={<PreviewRangePage/>} />
-        <Route path="/display-boards" element={<PortalOverviewPage kind="boards"/>} />
-        <Route path="/sales" element={<PortalOverviewPage kind="sales"/>} />
+        <Route path="/display-boards" element={<DisplayBoardsPage/>} />
+        <Route path="/sales" element={<ProductSalesPage/>} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/series/:id" element={<SeriesPage />} />
         <Route path="/collections/:id" element={<SeriesPage />} />
@@ -52,6 +54,7 @@ export default function App() {
         <Route path="/quotes/:id" element={<SalesDocumentsPage kind="quotes" />} />
         <Route path="/orders" element={<SalesDocumentsPage kind="orders" />} />
         <Route path="/orders/:id" element={<SalesDocumentsPage kind="orders" />} />
+        <Route path="/invoices/statement" element={<StatementPage/>} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/invoices/credits/:id" element={<CreditDetailPage />} />
         <Route path="/invoices/returns/:id" element={<ReturnDetailPage />} />
