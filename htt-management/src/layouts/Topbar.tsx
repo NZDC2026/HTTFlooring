@@ -1,3 +1,4 @@
+import {usePersonalPreferences} from '../features/settings/data/usePersonalPreferences';
 import {NotificationBell} from './NotificationBell';
 import {useEffect} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
@@ -22,7 +23,8 @@ export function Topbar() {
   };
   window.addEventListener('keydown', shortcut); return () => window.removeEventListener('keydown', shortcut);
  }, [navigate, sample]);
- const name = sample ? 'Ray' : session?.user.displayName ?? 'Signed out';
+ const preferences=usePersonalPreferences(session?.user.id??'');
+ const name = sample ? 'Ray' : preferences.profileName||session?.user.displayName||'Signed out';
  return <header className="workspace-topbar fixed" aria-label="Workspace toolbar">
   <button data-ui="button" className="workspace-global-search" aria-label="Search workspace" onClick={search}><Search size={16}/><span>Search customers, orders, products, suppliers</span><kbd>/</kbd></button>
   <div className="workspace-role-preview"><span>{sample ? 'Preview as' : 'Workspace'}{sample && <small className="workspace-sample-label">Sample · Read-only</small>}</span><div role="group" aria-label={sample ? 'Sample role preview' : 'Current workspace role'}>{workspacePreviewRoles.map(r => <button data-ui="button" key={r} aria-pressed={(sample ? role : actual) === r} disabled={!sample} onClick={() => selectRole(r)}>{r}</button>)}</div></div>

@@ -54,3 +54,9 @@ body:has(#reports-reference) .workspace-sidebar .workspace-brand{min-height:72px
 @media(max-width:800px){#reports-reference [data-report="Sales by customer"] table{min-width:1050px}#reports-reference .rr-performance-detail>.rr-top-list{margin-top:0}}
 #reports-reference .rr-bar-pair i.rr-negative-bar{background:repeating-linear-gradient(135deg,#c8d0da 0 4px,#fff 4px 8px)!important;border:1px solid #8491a2}
 #reports-reference .rr-negative-note{display:block;margin-top:4px;font-size:11px!important}
+/* Reference category positions use fixed controls at every desktop width. */
+#reports-reference .rr-tabs [data-report-category="Summary"]{min-width:123px}
+#reports-reference .rr-tabs [data-report-category="Sales"]{min-width:94px}
+#reports-reference .rr-tabs [data-report-category="Customers & suppliers"]{min-width:215px}
+#reports-reference .rr-tabs [data-report-category="Purchasing"]{min-width:135px}
+#reports-reference .rr-tabs [data-report-category="Stock"]{min-width:96px}

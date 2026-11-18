@@ -11,9 +11,9 @@ const originalLandingPages: { path: string; label: string; permission?: Permissi
     { path: '/payroll', label: 'Payroll', permission: 'payroll.read' }, { path: '/documents', label: 'Documents' },
 ];
 export const landingPages=originalLandingPages.filter(p=>presentationPathEnabled(p.path));
-export const preferenceSchema = z.object({ version: z.literal(1), landingPage: z.enum(['', '/workspace', '/dashboard', '/sales', '/purchases', '/inventory', '/banking', '/payroll', '/documents']), density: z.enum(['Comfortable', 'Compact']), reduceMotion: z.boolean() }).strict();
+export const preferenceSchema = z.object({ version: z.literal(1), landingPage: z.enum(['', '/workspace', '/dashboard', '/sales', '/purchases', '/inventory', '/banking', '/payroll', '/documents']), density: z.enum(['Comfortable', 'Compact']), reduceMotion: z.boolean(), profileName:z.string().trim().max(100).default(''), mobile:z.string().trim().max(40).default(''), dateFormat:z.enum(['DD/MM/YYYY','MM/DD/YYYY','YYYY-MM-DD']).default('DD/MM/YYYY'), emailSignature:z.string().max(1500).default(''), notifyTasks:z.boolean().default(true), notifyApprovals:z.boolean().default(true), dailySummary:z.boolean().default(false) }).strict();
 export type PersonalPreferences = z.infer<typeof preferenceSchema>;
-export const defaultPreferences: PersonalPreferences = Object.freeze({ version: 1, landingPage: '', density: 'Comfortable', reduceMotion: false });
+export const defaultPreferences: PersonalPreferences = Object.freeze({ version: 1, landingPage: '', density: 'Comfortable', reduceMotion: false,profileName:'',mobile:'',dateFormat:'DD/MM/YYYY',emailSignature:'',notifyTasks:true,notifyApprovals:true,dailySummary:false });
 export const preferencePrefix = 'ui-preferences:v1:';
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 export function createPreferenceStore(storage?: StorageLike) {

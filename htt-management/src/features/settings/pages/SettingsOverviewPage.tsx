@@ -1,5 +1,6 @@
+import {SettingsReferenceWorkspace} from '../reference/SettingsReferenceWorkspace';
 import {optionalWorkflows} from '../../security/optionalWorkflows';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { FinancialSettingsPage } from '../../finance-foundation/FoundationPages';
 import { BusinessFrame } from '../../business-workspace/MasterDataPages';
 import { roles, permissionsForRole, hasPermission, type Permission } from '../../security/rbac';
@@ -16,8 +17,10 @@ const originalCapabilities: { id: string; name: string; status: string; descript
 ];
 const capabilities=originalCapabilities.map(c=>c.id==='banking'&&!optionalWorkflows.electronicPayments?{...c,name:'Bank feeds',status:'Configurable Basiq feed',description:'Bank statement import, reviewed feeds and reconciliation. Electronic payment preparation is disabled.',links:c.links.filter(l=>l.path!=='/banking/instruction-files')}:c.id==='email'&&!optionalWorkflows.onlineCollection?{...c,status:'Configurable email delivery',description:'Prepare sales documents and purchase orders, send reviewed email and manage invoice reminders. Online collection and remittance advice are disabled.',links:c.links.map(l=>l.path==='/documents/communications'?{...l,label:'Communications & reminders'}:l)}:c);
 export function SettingsOverviewPage() {
+    const [params]=useSearchParams();
     const { pathname } = useLocation(), { integrationId } = useParams(), { session } = useSecurity();
     const principal = session && { userId: session.user.id, roles: session.user.roles, authenticated: true as const };
+    if((pathname==='/settings'||pathname==='/settings/preferences')&&params.get('view')!=='legacy')return <SettingsReferenceWorkspace/>;
     if (pathname.includes('/preferences')) return <PersonalPreferencesPage />;
     const isRoles = pathname.includes('/roles'), isIntegrations = pathname.includes('/integrations');
     if (!isRoles && !isIntegrations) return <><Link className={buttonClass} to="/settings/invoice-email">Invoices &amp; Statements · Email settings</Link><FinancialSettingsPage /></>;

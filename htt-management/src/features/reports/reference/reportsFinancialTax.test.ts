@@ -1,0 +1,6 @@
+import {expect,it} from 'vitest';
+import {financialTax} from './useReportsFinancial';
+import type {AnalysisDocument} from '../../net-analysis/netAnalysisService';
+const doc=(patch:Partial<AnalysisDocument>={},taxReport='G11')=>({id:'bill',number:'BILL-1',kind:'BILL' as const,partyId:'supplier',partyName:'Supplier',date:'2026-11-01',status:'OPEN',subtotal:100,tax:10,total:110,path:'/purchases/bills/bill',...patch,lines:[{lineSubtotal:100,taxAmount:10,taxReport}]});
+it('nets mapped supplier tax credits and dated voids without carrying opening records or drafts',()=>{const sources=[doc(),doc({id:'credit',kind:'SUPPLIER_CREDIT'}),doc({id:'void',status:'VOID',voidedAt:'2026-11-05'}),doc({id:'draft',status:'DRAFT'}),doc({id:'opening',openingBalanceImportId:'batch'})];const r=financialTax(sources,'2026-11-01','2026-11-16');expect(r.values['1B']).toBe(0);expect(r.values.G11).toBe(0);expect(r.purchaseCount).toBe(3);expect(financialTax([sources[2]],'2026-11-05','2026-11-16').values['1B']).toBe(-10);});
+it('leaves unavailable capital classifications blank instead of inventing a tax mapping',()=>{const r=financialTax([doc({},'')],'2026-11-01','2026-11-16');expect(r.values.G10).toBeUndefined();expect(r.values.G11).toBeUndefined();expect(r.values['1B']).toBe(10);expect(r.unmapped).toBe(true);});
