@@ -1,0 +1,8 @@
+export function InventoryProductThumb({kind='oak',colour}:{kind?:string;colour?:string}){
+ if(colour)return <span aria-hidden="true" className={'ir-colour'+(colour==='stripe'?' ir-stripe':'')} style={colour==='stripe'?undefined:{background:colour}}/>;
+ if(kind==='pail')return <span aria-hidden="true" className="ir-pail"/>;
+ if(kind==='bag')return <svg aria-hidden="true" className="ir-thumb" viewBox="0 0 52 40"><path d="M13 3h26l-2 6 3 28H12l3-28z" fill="#c8af74" stroke="#a89672"/><path d="M16 8h20v24H16z" fill="#ecebdc"/><path d="M19 15h14v11H19z" fill="#758c42"/><path d="M17 9h18v5H17z" fill="#b33023"/><path d="M14 35h24" stroke="#82713c"/></svg>;
+ const grey=kind==='grey'||kind==='roll',dark=kind==='dark';
+ if(kind==='roll')return <svg aria-hidden="true" className="ir-thumb" viewBox="0 0 52 40"><path d="m5 24 34-14 10 9L15 34z" fill="#dedddb"/><path d="m5 24 10 10V22L39 10" fill="#c8c6c3"/><ellipse cx="11" cy="28" rx="7" ry="5" fill="#aaa7a2" transform="rotate(25 11 28)"/><ellipse cx="11" cy="28" rx="3" ry="2" fill="#67645f"/></svg>;
+ return <svg aria-hidden="true" className="ir-thumb" viewBox="0 0 52 40"><path d="m3 25 34-16 13 9-34 16z" fill="#000" opacity=".08"/><path d="m3 23 34-16 13 9-34 16z" fill={grey?'#b3ada5':dark?'#994e18':'#c18a45'}/><path d="m3 23 13 9v3L3 26z" fill={grey?'#81796d':'#825529'}/><path d="m16 32 34-16v3L16 35z" fill={grey?'#a09990':'#aa6f30'}/><path d="m7 22 29-13M11 25 39 12M15 28 43 15M19 29 45 17" stroke={grey?'#dbd5cb':'#dfb67d'} strokeWidth=".7"/><path d="m13 22 10-3m-4 7 16-6m-6 1 9-3" fill="none" stroke={grey?'#9d978e':'#a77739'} strokeWidth=".55"/></svg>;
+}

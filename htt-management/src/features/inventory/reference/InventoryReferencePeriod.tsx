@@ -1,0 +1,9 @@
+import {useState} from 'react';
+import {CalendarDays,ChevronDown} from 'lucide-react';
+import {ServiceDialog} from '../../sales/services/SalesServicesWorkspace';
+import type {DateRange} from '../../../components/date-range/DateRangePicker';
+export function InventoryReferencePeriod({value,onChange,label='Inventory period'}:{value:DateRange;onChange:(value:DateRange)=>void;label?:string}){
+ const [open,setOpen]=useState(false),[preset,setPreset]=useState('Last 30 days'),[draft,setDraft]=useState(value);
+ const date=(d:string)=>d?new Date(d+'T00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'}):'Choose date';
+ return <><button data-ui="button" className="iw-period" aria-label={label} onClick={()=>{setDraft(value);setOpen(true);}}><CalendarDays size={15}/><b>{preset}</b><span>{date(value.from)} – {date(value.to)}</span><ChevronDown size={13}/></button>{open&&<ServiceDialog title={label} onClose={()=>setOpen(false)}><div className="iw-period-options">{[7,30,90].map(n=><button data-ui="button" key={n} onClick={()=>{const to=value.to||'2026-11-16';const next={from:new Date(Date.parse(to+'T00:00Z')-n*86400000).toISOString().slice(0,10),to};onChange(next);setPreset('Last '+n+' days');setOpen(false);}}>Last {n} days</button>)}</div><form className="iw-period-form" onSubmit={e=>{e.preventDefault();if(draft.from&&draft.to&&draft.from<=draft.to){onChange(draft);setPreset('Custom range');setOpen(false);}}}><label>From<input required data-ui="field" type="date" value={draft.from} max={draft.to} onChange={e=>setDraft(r=>({...r,from:e.target.value}))}/></label><label>To<input required data-ui="field" type="date" value={draft.to} min={draft.from} onChange={e=>setDraft(r=>({...r,to:e.target.value}))}/></label><footer><button data-ui="button" type="button" onClick={()=>setOpen(false)}>Cancel</button><button data-ui="button">Apply</button></footer></form></ServiceDialog>}</>;
+}

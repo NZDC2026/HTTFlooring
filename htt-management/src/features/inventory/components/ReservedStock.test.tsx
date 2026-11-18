@@ -7,3 +7,8 @@ describe('Reserved Stock',()=>{
  it('only permits positive quantities that fit a single batch',()=>{expect(eligibleBatch(516,450)).toBe(true);expect(eligibleBatch(420,450)).toBe(false);expect(eligibleBatch(516,0)).toBe(false);expect(eligibleBatch(516,-1)).toBe(false);});
  it('has unique order IDs and populated product batch allocations',()=>{expect(new Set(reservationSamples.map(o=>o.id)).size).toBe(reservationSamples.length);expect(reservationSamples.every(o=>o.items.every(([,n,b])=>n>0&&!!b))).toBe(true);});
 });
+it('reconciles the expanded sample order count and reserved flooring total',()=>{
+ expect(reservationSamples).toHaveLength(14);
+ const quantity=reservationSamples.reduce((n,o)=>n+o.items.filter(([i])=>[0,1,2,9].includes(i)).reduce((sum,[,qty])=>sum+qty,0),0);
+ expect(quantity).toBe(328);expect(reservationSamples.filter(o=>!o.delivery)).toHaveLength(4);
+});

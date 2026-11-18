@@ -1,10 +1,11 @@
 import {describe,it,expect} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {MemoryRouter} from 'react-router-dom';
-import {InventoryStockList,stockListSamples} from './InventoryStockList';
-const render=(filter='',sample=true)=>renderToStaticMarkup(<MemoryRouter><InventoryStockList items={[]} sample={sample} canCost canWrite initialFilter={filter}/></MemoryRouter>);
+import {InventoryStockList} from './InventoryStockList';
+import {inventoryReferenceSamples} from '../reference/inventoryReferenceSamples';
+const render=(filter='',sample=true,canCost=true)=>renderToStaticMarkup(<MemoryRouter><InventoryStockList items={[]} sample={sample} canCost={canCost} canWrite initialFilter={filter}/></MemoryRouter>);
 describe('Stock List reference workspace',()=>{
- it('renders ten products, expanded oldest batches and all reference filter groups',()=>{const html=render();for(const text of ['Engineered Oak 2200','B2408-17','B2409-03','B2410-11','Oldest · ship first','Different shade','Out of stock 1','Low stock 3','Has incoming 8','Slow moving 2','Old lots 2','Price (Ex GST)','Rows per page'])expect(html).toContain(text);expect(stockListSamples).toHaveLength(10);});
- it('honors incoming out-of-stock and low-stock entry filters',()=>{const out=render('out');expect(out).toContain('Herringbone – Crosswood Oak');expect(out).not.toContain('TM-OAK-2200-NA');const low=render('low');expect(low).toContain('Stair Nose – Oak');expect(low).not.toContain('TM-OAK-2200-NA');});
- it('does not inject sample products into a live empty list',()=>{const html=render('',false);expect(html).toContain('No products match');expect(html).not.toContain('TM-OAK-2200-NA');});
+ it('shows 34 products including separate display assets and reconciled per-pack quantities',()=>{const html=render();for(const text of ['Bonita Plank – Natural Oak','B2408-17','B2409-03','B2410-11','Oldest · ship first','Different shade','Out of stock 1','Low stock 13','Has incoming 25','Slow moving 2','Old lots 2','Samples &amp; displays 13','Expiring soon 2','Price (Ex GST)','Rows per page','Full range colour book 2027','L-2512','Expired 15 days ago','not for sale','108,766.00','3,554.00'])expect(html).toContain(text);expect(inventoryReferenceSamples).toHaveLength(34);expect(inventoryReferenceSamples[0].onHand/inventoryReferenceSamples[0].pack!).toBeCloseTo(120);expect(inventoryReferenceSamples.filter(r=>r.category==='Samples & displays')).toHaveLength(13);});
+ it('filters incoming, shortage, expiry and display assets without mixing them',()=>{const out=render('out');expect(out).toContain('Bonita Herringbone – Natural Oak');expect(out).not.toContain('ENG-BP-NAT');const low=render('low');expect(low).toContain('Stair Nose – Oak');expect(low).not.toContain('ENG-BP-NAT');const assets=render('samples');expect(assets).toContain('SW-BOOK');expect(assets).not.toContain('ENG-BP-NAT');const expiry=render('expiring');expect(expiry).toContain('L-2512');expect(expiry).toContain('L-2604');expect(expiry).not.toContain('ENG-BP-NAT');});
+ it('does not inject sample stock or cost values into live or restricted lists',()=>{const html=render('',false);expect(html).toContain('No products match');expect(html).not.toContain('ENG-BP-NAT');const hidden=render('',true,false);expect(hidden).not.toContain('108,766.00');expect(hidden).not.toContain('Cost $');});
 });

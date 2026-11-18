@@ -18,7 +18,7 @@ import { downloadFile, csvText } from '../../../lib/csv';
 import { payrollClient, usePayroll } from '../data/payrollClient';
 import { employeeFields, itemFields, runFields, round, type Employee, type PayItem, type PayRun, type PayrollState } from '../data/payrollModel';
 const today = () => businessDateKey(new Date().toISOString()), amount = (n: number) => n.toFixed(2);
-const links = [['/payroll', 'Overview'], ['/payroll/employees', 'Employees'], ['/payroll/pay-items', 'Pay items'], ['/payroll/timesheets', 'Timesheets'], ['/payroll/leave', 'Leave'], ['/payroll/pay-runs', 'Pay runs'], ['/payroll/filing', 'Filing review'], ['/payroll/transmissions', 'Transmissions'], ['/reports/payroll-summary', 'Summary'], ['/settings/payroll', 'Settings']];
+const links = [['/payroll', 'Overview'], ['/payroll/employees', 'Employees'], ['/payroll/pay-items', 'Pay items'], ['/payroll/hours', 'Timesheets'], ['/payroll/leave', 'Leave'], ['/payroll/pay-runs', 'Pay runs'], ['/payroll/filing', 'Filing review'], ['/payroll/transmissions', 'Transmissions'], ['/reports/payroll-summary', 'Summary'], ['/settings/payroll', 'Settings']];
 function Frame({ title, children, actions, error = '', notice = '' }: {
     title: string;
     actions?: ReactNode;

@@ -1,3 +1,4 @@
+import { WorkPage } from '../features/operations-workspace/WorkPage';
 import {InventoryActivityRedirect} from '../features/inventory/pages/InventoryActivityRedirect';
 import {QuoteCreatePage} from '../features/sales/pages/QuoteCreatePage';
 import {EmailSettingsPage} from '../features/invoice-reminders/EmailSettingsPage';
@@ -101,7 +102,8 @@ export const appRoutes:RouteObject[] = [
             { path: 'payroll/pay-runs/new', element: <PayRunFormPage /> },
             { path: 'payroll/pay-runs/:runId', element: <PayRunDetailPage /> },
             { path: 'payroll/pay-runs/:runId/payslips/:employeeId', element: <PayslipPage /> },
-            { path: 'payroll/timesheets', element: <TimesheetsPage /> },
+            { path: 'payroll/timesheets', element: <WorkPage /> },
+            { path: 'payroll/hours', element: <TimesheetsPage /> },
             { path: 'payroll/leave', element: <LeavePage /> },
             { path: 'documents/upload', element: <DocumentUploadPage /> },
             { path: 'documents/:documentId', element: <DocumentDetailPage /> },
