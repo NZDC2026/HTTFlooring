@@ -8,7 +8,7 @@ describe('sales claims schema migration',()=>{
   expect(migrateWorkspaceSnapshot(db,{workspace_sales_claims:{records:[],history:[]}})).toBe(true);
   expect(db.repositories.workspace_sales_claims).toEqual({records:[],history:[]});
   for(const key of Object.keys(repositories))expect(db.repositories[key]).toEqual(repositories[key as keyof typeof repositories]);
-  const sealed=sealDatabase(db);expect(sealed.schemaVersion).toBe(41);expect(parseDatabase(JSON.stringify(sealed))).toEqual(sealed);
+  const sealed=sealDatabase(db);expect(sealed.schemaVersion).toBe(43);expect(parseDatabase(JSON.stringify(sealed))).toEqual(sealed);
  });
  it('rejects claim records falsely labelled as a legacy schema',()=>{
   const body={schemaVersion:39,savedAt:'2026-11-18T00:00:00Z',storage:{},repositories:{workspace_sales_claims:{records:[{id:'claim'}],history:[]}}};

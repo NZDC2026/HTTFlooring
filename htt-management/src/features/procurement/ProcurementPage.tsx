@@ -1,6 +1,8 @@
+import {publicPreview} from '../security/webBridge';
+import {CreateContainerShipment as LegacyContainerPurchase} from '../incoming-shipments/CreateContainerShipment';
 import {ShipmentCostDetail} from './ShipmentCostDetail';
 import {allocateContainerCosts,readLandedCostDraft,shipmentCostProducts} from './containerCostAllocation';
-import {CreateContainerShipment} from '../incoming-shipments/CreateContainerShipment';
+import {ShipmentEntryWorkspace as CreateContainerShipment} from '../purchases/entry/ShipmentEntryWorkspace';
 import {useState,useEffect,useRef} from 'react';
 import {useSearchParams,useLocation} from 'react-router-dom';
 import {Truck,Ship,Package,CheckCircle2,Check,Layers,Plus,Search,List,LayoutGrid,MoreHorizontal,ShieldCheck,FileText,Calculator} from 'lucide-react';
@@ -29,7 +31,7 @@ export function procurementShipmentSamples(today:string):ProcurementShipmentRow[
 export function ProcurementPage(){
  const [params]=useSearchParams(),read=usePermission('purchases.read'),write=usePermission('purchases.write'),receive=usePermission('purchases.receive');
  const batches=useWorkspaceRecords('procurement'),pos=usePurchaseOrders(),bills=useSupplierBills(),suppliers=useSuppliers();
- const [sample,setSample]=useState(params.get('sample')==='1'),[detailId,setDetailId]=useState(params.get('detail')??''),[query,setQuery]=useState(''),[scope,setScope]=useState('All Shipments'),[page,setPage]=useState(0),[grid,setGrid]=useState(false),[selected,setSelected]=useState(''),[checked,setChecked]=useState<string[]>([]),[menu,setMenu]=useState(''),[creating,setCreating]=useState(params.get('create')==='shipment'),[batchEditor,setBatchEditor]=useState(false),[editor,setEditor]=useState<Shipment|null>(),[receiving,setReceiving]=useState<Shipment>(),[notice,setNotice]=useState('');
+ const [sample,setSample]=useState(publicPreview||params.get('sample')==='1'),[detailId,setDetailId]=useState(params.get('detail')??''),[query,setQuery]=useState(''),[scope,setScope]=useState('All Shipments'),[page,setPage]=useState(0),[grid,setGrid]=useState(false),[selected,setSelected]=useState(''),[checked,setChecked]=useState<string[]>([]),[menu,setMenu]=useState(''),[creating,setCreating]=useState(params.get('create')==='shipment'),[batchEditor,setBatchEditor]=useState(false),[editor,setEditor]=useState<Shipment|null>(),[receiving,setReceiving]=useState<Shipment>(),[notice,setNotice]=useState('');
  const navigation=useLocation(),previousNavigation=useRef(navigation.key);
  useEffect(()=>{if(previousNavigation.current===navigation.key)return;previousNavigation.current=navigation.key;setCreating(params.get('create')==='shipment');setDetailId(params.get('detail')??'');setBatchEditor(false);setEditor(undefined);setReceiving(undefined);setMenu('');setNotice('');},[navigation.key,params]);
  const today=businessDateKey(new Date().toISOString()),allShipments=suppliers.flatMap(s=>s.shipments??[]),orders=[...pos,...bills.map(b=>procurementInvoice(b,pos))];
@@ -41,6 +43,7 @@ export function ProcurementPage(){
  if(!read)return <p>Permission required: purchasing access.</p>;
  const detail=rows.find(r=>r.id===detailId);
  if(detail)return <ShipmentCostDetail key={detail.id} row={detail} sample={sample} onBack={()=>setDetailId('')} onManage={()=>{setDetailId('');setBatchEditor(true);}} onPrevious={()=>{const i=rows.findIndex(r=>r.id===detailId);setDetailId(rows[(i-1+rows.length)%rows.length].id);}} onNext={()=>{const i=rows.findIndex(r=>r.id===detailId);setDetailId(rows[(i+1)%rows.length].id);}}/>;
+ if(params.get('create')==='container-purchase')return <LegacyContainerPurchase sample={sample} onClose={()=>{window.location.hash='/purchases?tab=shipments'+(sample?'&sample=1':'');}} onSaved={()=>{window.location.hash='/purchases?tab=shipments';}}/>;
  if(creating)return <CreateContainerShipment key={sample?'sample':'live'} sample={sample} onPreview={()=>setSample(true)} onClose={()=>setCreating(false)} onSaved={()=>{setCreating(false);setNotice('Container purchase saved. Linked shipments and purchase orders are available.');}}/>;
  if(batchEditor)return <div className="procurement-hub"><button className="proc-back" onClick={()=>setBatchEditor(false)}>← Back to Incoming Shipment</button><ProcurementBatchWorkspace/></div>;
  const metrics=[{title:'Total Shipments',Icon:Package,count:rows.length,filter:'All Shipments'},{title:'In Transit',Icon:Ship,count:rows.filter(r=>r.status==='In Transit').length,filter:'In Transit'},{title:'Arriving Soon (7 Days)',Icon:Package,count:rows.filter(r=>r.status==='Arriving Soon').length,filter:'Arriving Soon'},{title:'Partially Received',Icon:CheckCircle2,count:rows.filter(r=>r.status==='Partially Received').length,filter:'Partially Received'},{title:'Received',Icon:Check,count:rows.filter(r=>r.status==='Received').length,filter:'Received'}];

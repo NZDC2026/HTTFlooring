@@ -95,3 +95,5 @@
  body main #purchase-workspace .pw-shipments td:last-child .pw-primary{min-width:80px}
  body main #purchase-workspace .pw-shipments td:nth-child(8) small{font-size:11px;line-height:17px}
 }
+
+#purchase-workspace .pw-new nav{width:252px;padding:6px;border-radius:13px;z-index:60;box-shadow:0 14px 32px #18223024}#purchase-workspace .pw-new nav :is(a,button[data-ui=button]){width:100%;display:flex;justify-content:flex-start;align-items:center;gap:12px;padding:10px 12px;min-height:52px!important;height:auto!important;border:0!important;border-radius:8px;background:white;text-align:left;font-size:13px}#purchase-workspace .pw-new nav :is(a,button):hover{background:#f3f8f5}#purchase-workspace .pw-new nav b{display:block;font-size:13px;color:#182230;font-weight:700}#purchase-workspace .pw-new nav small{display:block;white-space:normal;font-size:11px;line-height:17px;color:#667085}

@@ -47,7 +47,7 @@ export class BusinessHost {
         let saved: Database | LegacyDatabase | undefined;
         if (this.storage.read(this.path) !== undefined) {
             saved = parseDatabase(this.storage.read(this.path)!);
-            if (saved.schemaVersion !== 41) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
+            if (saved.schemaVersion !== 43) { migrationSource = structuredClone(saved); migratePeriodSnapshot(saved); }
             this.values = saved.storage;
         } else {
             this.security.require('users.manage');
@@ -110,7 +110,7 @@ export class BusinessHost {
         if (migrationSource) {
             atomicJson(join(dirname(this.path), `pre-migration-v${saved!.schemaVersion}-${randomUUID()}.json`), migrationSource);
             this.persist();
-            this.security.audit('business.migrate.v41', 'local-desktop-profile', 'SUCCESS', 'users.manage');
+            this.security.audit('business.migrate.v43', 'local-desktop-profile', 'SUCCESS', 'users.manage');
         }
         if (!saved) {
             this.persist();

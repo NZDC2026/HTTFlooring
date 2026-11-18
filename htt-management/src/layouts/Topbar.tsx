@@ -1,6 +1,7 @@
+import {NotificationBell} from './NotificationBell';
 import {useEffect} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
-import {Bell, Search, Download, CircleHelp, LogOut} from 'lucide-react';
+import {Search, Download, CircleHelp, LogOut} from 'lucide-react';
 import {useActionCentre} from '../features/action-centre/ActionCentrePage';
 import {useSecurity, logout} from '../features/security/securityClient';
 import {isWeb, publicPreview} from '../features/security/webBridge';
@@ -25,6 +26,6 @@ export function Topbar() {
  return <header className="workspace-topbar fixed" aria-label="Workspace toolbar">
   <button data-ui="button" className="workspace-global-search" aria-label="Search workspace" onClick={search}><Search size={16}/><span>Search customers, orders, products, suppliers</span><kbd>/</kbd></button>
   <div className="workspace-role-preview"><span>{sample ? 'Preview as' : 'Workspace'}{sample && <small className="workspace-sample-label">Sample · Read-only</small>}</span><div role="group" aria-label={sample ? 'Sample role preview' : 'Current workspace role'}>{workspacePreviewRoles.map(r => <button data-ui="button" key={r} aria-pressed={(sample ? role : actual) === r} disabled={!sample} onClick={() => selectRole(r)}>{r}</button>)}</div></div>
-  <div className="workspace-user-tools"><details className="workspace-user-menu"><summary aria-label="User menu"><span className="workspace-avatar">{name.charAt(0).toUpperCase()}</span><span><b>{name}</b><small>{sample ? role : actual}</small></span></summary><nav><Link to="/settings/security">Account settings</Link><Link to="/help"><CircleHelp size={15}/>Help</Link>{isWeb && <a href="/downloads/index.html"><Download size={15}/>Download desktop app</a>}<button onClick={logout}><LogOut size={15}/>Sign out</button></nav></details><Link className="workspace-notifications" to={"/notifications" + (sample ? "?sample=1" : "")} aria-label="Notifications" title={sample ? 'Sample · Read-only preview' : `${items.length} current actions`}><Bell size={19}/>{(sample || items.length > 0) && <span>{sample ? 2 : items.length > 99 ? '99+' : items.length}</span>}</Link></div>
+  <div className="workspace-user-tools"><details className="workspace-user-menu"><summary aria-label="User menu"><span className="workspace-avatar">{name.charAt(0).toUpperCase()}</span><span><b>{name}</b><small>{sample ? role : actual}</small></span></summary><nav><Link to="/settings/security">Account settings</Link><Link to="/help"><CircleHelp size={15}/>Help</Link>{isWeb && <a href="/downloads/index.html"><Download size={15}/>Download desktop app</a>}<button onClick={logout}><LogOut size={15}/>Sign out</button></nav></details><NotificationBell key={sample?'sample':session?.user.id??'signed-out'} sample={sample} userId={session?.user.id??'signed-out'} items={items} role={sample?role:actual}/></div>
  </header>;
 }

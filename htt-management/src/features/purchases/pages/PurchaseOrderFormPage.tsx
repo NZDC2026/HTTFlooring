@@ -1,3 +1,7 @@
+import {readReorderHandoff} from '../supply/reorderHandoff';
+import {useLocation} from 'react-router-dom';
+import {publicPreview} from '../../security/webBridge';
+import {PurchaseOrderEntryWorkspace} from '../entry/PurchaseOrderEntryWorkspace';
 import { feedback } from "../../../components/ui/feedback";
 
 import {
@@ -33,6 +37,7 @@ export function PurchaseOrderFormPage({
     mode,
 }: Props) {
     const [query]=useSearchParams();
+    const entryLocation=useLocation(),handoff=readReorderHandoff(entryLocation.state?.reorderPlan,publicPreview||query.get("sample")==="1");
     const navigate =
         useNavigate();
 
@@ -140,6 +145,7 @@ export function PurchaseOrderFormPage({
         );
     }
 
+    if(isCreate&&!quotation)return <PurchaseOrderEntryWorkspace sample={publicPreview||query.get("sample")==="1"} initialSupplierId={handoff?.supplierId??query.get("supplierId")??""} initialPlan={handoff} onSave={handleSave} onCancel={()=>navigate("/purchases?tab=orders"+(query.get("sample")==="1"?"&sample=1":""))}/>;
     return (
         <div className="pb-8">
             <PurchaseOrderForm initialSupplierId={isCreate?query.get("supplierId")||"":""} initialSample={query.get("sample")==="1"} quotation={quotation}

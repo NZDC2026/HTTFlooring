@@ -20,6 +20,7 @@ import {
     Navigate,
     useNavigate,
     useParams,
+    useSearchParams,
 } from "react-router-dom";
 
 import {
@@ -47,6 +48,7 @@ import {
 } from "../components/PurchaseOrderStatusBadge";
 
 export function CreateSupplierBillPage() {
+    const [entryQuery]=useSearchParams();
     const navigate =
         useNavigate();
 
@@ -59,23 +61,24 @@ export function CreateSupplierBillPage() {
             purchaseOrderId,
         );
 
+    const [declaredAmount,setDeclaredAmount]=useState(entryQuery.get("declaredAmount")??"");
     const [fx,setFx] = useState<FxSnapshot | undefined>(purchaseOrder?.fx);
     const [
         supplierInvoiceNumber,
         setSupplierInvoiceNumber,
-    ] = useState("");
+    ] = useState(entryQuery.get("supplierInvoiceNumber")??"");
 
     const [
         billDate,
         setBillDate,
     ] = useState(
-        getToday(),
+        entryQuery.get("billDate")??getToday(),
     );
 
     const [
         dueDate,
         setDueDate,
-    ] = useState(() => purchaseOrder ? purchaseDueDate(getToday(),orderDefaults(purchaseOrder)) : "");
+    ] = useState(() => entryQuery.get("dueDate")??(purchaseOrder ? purchaseDueDate(entryQuery.get("billDate")??getToday(),orderDefaults(purchaseOrder)) : ""));
 
     const [
         notes,
@@ -324,6 +327,7 @@ export function CreateSupplierBillPage() {
 
     function handleCreateBill() {
         setError(null);
+        if(declaredAmount && (!Number.isFinite(Number(declaredAmount)) || Number(declaredAmount)<=0 || Math.abs(preview.total-Math.round(Number(declaredAmount)*(fx?.rate??1)*100)/100)>.02)){setError("Review quantities and costs: the bill total must match the supplier invoice amount entered in Purchases.");return;}
 
         if (
             !supplierInvoiceNumber.trim()
@@ -509,6 +513,7 @@ export function CreateSupplierBillPage() {
 
     return (
         <div className="sales-entry unified-entry"><DocumentEntrySample kind="Supplier Bill"/>
+            {entryQuery.has('declaredAmount')&&<label className="block rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">Supplier invoice amount ({fx?.currency??businessSettings().currency}) · Review PO quantities, costs and GST to match this amount.<input aria-label="Declared supplier invoice amount" type="number" min="0.01" step="0.01" value={declaredAmount} onChange={e=>setDeclaredAmount(e.target.value)} className="ml-3 rounded border bg-white px-3 py-2"/></label>}
             <CurrencyFields value={fx} baseCurrency={businessSettings().currency} onChange={setFx}/><p className="my-2 text-sm">Unit costs in {fx?.currency === "CNY" ? "RMB" : fx?.currency ?? businessSettings().currency}; totals in {businessSettings().currency}.</p>
 
             <button

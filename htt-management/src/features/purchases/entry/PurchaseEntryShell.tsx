@@ -1,0 +1,7 @@
+import {nativeMoney} from '../workspace/purchaseWorkspaceModel';
+import type {ReactNode} from 'react';
+import {Link} from 'react-router-dom';
+import './purchase-entry-workspace.css';
+export function PurchaseEntryShell({sample,shipment=false,children}:{sample:boolean;shipment?:boolean;children:ReactNode}){return <div id="purchase-entry-workspace" data-module-theme="light"><header className="pe-heading"><h1>Purchases</h1><p>{shipment?'Containers on the way, receiving and landed cost.':'Purchase orders, supplier bills and what we owe.'}</p></header><nav className="pe-tabs" aria-label="Purchase sections">{[['Overview','overview'],['Purchase orders','orders'],['Shipments','shipments'],['Supplier bills','bills'],['On the water','water'],['Reorder plan','reorder']].map(([label,key])=><Link key={key} aria-current={shipment&&key==='shipments'?'page':undefined} to={'/purchases?tab='+key+(sample?'&sample=1':'')}>{label}{sample&&!shipment&&key==='bills'&&<span className="pe-overdue">4 overdue</span>}</Link>)}</nav>{children}</div>}
+export const entryMoney=nativeMoney;
+export function EntryFooter({missing,children,sample}:{missing:string[];children:ReactNode;sample:boolean}){return <footer className="pe-footer"><div><span>{missing.length?<><b>Missing:</b> {missing.join(' · ')}</>:sample?'Sample · Isolated preview · No live records changed':'Ready to save'}</span><div>{children}</div></div></footer>}

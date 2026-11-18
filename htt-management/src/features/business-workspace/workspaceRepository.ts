@@ -1,3 +1,7 @@
+import {validateSupply} from '../purchases/supply/supplyModel';
+import {snapshotSupplySources,liveSupply} from '../purchases/supply/supplySources';
+import {validateRebateLedger,monthlyRebates} from '../rebates/workspace/rebateWorkspaceModel';
+import {rebateEvents} from '../rebates/workspace/rebateSources';
 import {validateDisplays} from '../contacts/displays/displayModel';
 import {validateClaim} from '../sales/services/claimValidation';
 import {physicalStockBatches} from '../inventory/data/productStockBatches';
@@ -56,6 +60,8 @@ export const workspaceDomains: Record<string, {
     required: string[];
     fields: string[];
 }> = {
+    'supply-planning': {read:'purchases.read',write:'purchases.write',required:['data'],fields:['data']},
+    'rebate-workspace': {read:'sales.read',write:'accounting.post',required:['data'],fields:['data']},
     'customer-displays': {read:'sales.read',write:'sales.write',required:['data'],fields:['data']},
     'sales-claims': {read:'sales.read',write:'sales.write',required:['customerId','invoiceId','productId','date','channel','problem','boxes','notes','state'],fields:['customerId','invoiceId','productId','date','channel','problem','boxes','notes','state','batch','photos']},
     clearances: {read:'inventory.read',write:'promotions.manage',required:['productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','price','starts','ends','reason','allowBelowCost'],fields:['shade','productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','price','starts','ends','reason','allowBelowCost']},
@@ -100,6 +106,24 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
         if(!(domain==='tasks'&&key==='customerId'&&input.promotionId))requiredText(input[key], key);
     if (!['Active', 'Inactive', 'Open', 'In progress', 'Completed'].includes(input.status ?? 'Active'))
         throw new Error('Invalid business status.');
+    if(domain==='supply-planning'){
+      if(input.name!=='Incoming sales & reorder'||rows.some(r=>r.id!==input.id))throw Error('The incoming planning register must retain its identity.');
+      const data=validateSupply(JSON.parse(input.data)),old=rows.find(r=>r.id===input.id),before=old?validateSupply(JSON.parse(old.data)):undefined;
+      if(checkReferences){const changed=data.allocations.filter(a=>JSON.stringify(before?.allocations.find(b=>b.id===a.id))!==JSON.stringify(a));if(changed.length||JSON.stringify(before?.allocations??[])!==JSON.stringify(data.allocations))trustedAuthorization.require('sales.read');const sources=snapshotSupplySources(snapshotRepositories()),view=liveSupply(sources,data,businessDateKey(new Date().toISOString()));validateSupply(data,view.containers,view.orders,changed);}
+    }
+    if(domain==='rebate-workspace'){
+      if(input.name!=='Monthly rebates'||rows.some(r=>r.id!==input.id))throw Error('The monthly rebate workspace must retain its identity.');
+      const snapshots=checkReferences?snapshotRepositories():undefined,data=validateRebateLedger(JSON.parse(input.data),snapshots?(snapshots.customers as {customers:{id:string}[]}).customers.map(c=>c.id):undefined,snapshots?(snapshots.products as {products:{id:string}[]}).products.map(p=>p.id):undefined);
+      if(checkReferences&&snapshots){const before=rows.find(r=>r.id===input.id),old=before?validateRebateLedger(JSON.parse(before.data)):undefined;
+       for(const agreement of old?.agreements??[]){const next=data.agreements.find(a=>a.id===agreement.id);if(next&&next.customerId!==agreement.customerId)throw Error('A rebate agreement must retain its customer identity.');if(!next&&old?.approvals.some(a=>a.rows.some(r=>r.customerId===agreement.customerId)))throw Error('Keep agreements referenced by approved rebates.');}
+       for(const approved of old?.approvals??[])if(JSON.stringify(data.approvals.find(a=>a.month===approved.month))!==JSON.stringify(approved))throw Error('An approved rebate record cannot be altered or removed.');
+       for(const approved of data.approvals.filter(a=>!old?.approvals.some(b=>b.month===a.month))){if(approved.status!=='Approved')throw Error('Rebate approval does not confirm a bank payment or credit settlement.');if(approved.month>=businessDateKey(new Date().toISOString()).slice(0,7))throw Error('Only a completed rebate month can be approved.');
+        const events=rebateEvents((snapshots.sales as {invoices:import('../sales/types/salesDocument').SalesDocument[]}).invoices,(snapshots.physicalCustomerReturns as {drafts:import('../customer-returns/returnInspectionModel').ReturnInspectionDraft[]}).drafts,(snapshots.products as {products:import('../inventory/types/product').Product[]}).products,(snapshots.physicalCustomerReturns as {returns:import('../customer-returns/customerReturnRepository').CustomerReturn[]}).returns),result=monthlyRebates(data,events,approved.month);
+        if(result.warnings.length)throw Error('Review legacy return inspection dates before approving rebates.');
+        if(approved.signature!==result.signature||approved.total!==result.total.rebate||JSON.stringify(approved.rows)!==JSON.stringify(result.rows.map(r=>({customerId:r.customerId,bought:r.bought,returned:r.returned,net:r.net,rebate:r.rebate}))))throw Error('Rebate sources changed. Recalculate and review the month before approval.');
+       }
+      }
+    }
     if(domain==='customer-displays'){if(input.name!=='Displays & samples'||rows.some(r=>r.id!==input.id))throw Error('The display register must have a single stable identity.');validateDisplays(JSON.parse(input.data),checkReferences?(snapshotRepositories().customers as {customers:{id:string}[]}).customers.map(c=>c.id):undefined);}
     if(domain==='sales-claims')validateClaim(input,checkReferences?(snapshotRepositories().sales as {invoices:import('../sales/types/salesDocument').SalesDocument[]}).invoices:undefined);
     if(domain==='clearances'){validateClearance(input);if(checkReferences){const p=getProductById(input.productId);if(!p||input.unitId!==p.baseUnitId)throw Error('Select the clearance product base unit.');const snapshots=snapshotRepositories();const source=(snapshots.costMovements as {movements:import('../inventory/types/inventoryCost').InventoryCostMovement[]}).movements.find(m=>m.id===input.batchId&&m.productId===input.productId&&m.siteId===input.siteId&&m.quantityBase>0);if(!source)throw Error('Select a recorded batch for this product and site.');if(Number(input.initialQuantity)>source.quantityBase)throw Error('Clearance quantity exceeds the received batch quantity.');const prior=rows.find(r=>r.id===input.id);if(prior&&['productId','siteId','batchId','batchNumber','unitId','initialQuantity','normalPrice','starts'].some(k=>prior[k]!==input[k]))throw Error('Clearance batch scope and starting quantity cannot be changed.');if(!prior){const history=(snapshots.costMovements as {movements:import('../inventory/types/inventoryCost').InventoryCostMovement[]}).movements.filter(c=>c.productId===input.productId&&c.siteId===input.siteId),available=physicalStockBatches(history).find(b=>b.id===input.batchId)?.quantity??0;if(Number(input.initialQuantity)>available)throw Error('Clearance quantity exceeds the remaining batch stock.');}if(input.allowBelowCost==='true')trustedAuthorization.require('promotions.margin');if((input.status??'Active')==='Active'&&rows.some(r=>r.id!==input.id&&r.status==='Active'&&r.batchId===input.batchId&&r.siteId===input.siteId&&r.starts<=input.ends&&r.ends>=input.starts))throw Error('An active clearance already covers this batch and date range.');}}
@@ -396,6 +420,8 @@ function validateConfigurationReferences(domain: string, value: unknown, snapsho
         records: ConfigRow[];
     }).records;
     for (const row of records) {
+        if(domain==='supply-planning'){const data=validateSupply(JSON.parse(row.data)),sources=snapshotSupplySources(snapshots);for(const a of data.allocations)if(!sources.suppliers.some(s=>s.shipments?.some(c=>c.id===a.shipmentId))||!sources.sales.some(o=>o.id===a.orderId&&o.lines.some(l=>l.id===a.lineId&&l.productId===a.productId)))throw Error('Invalid incoming allocation source.');}
+        if(domain==='rebate-workspace')validateRebateLedger(JSON.parse(row.data),customers.map(c=>c.id),products.map(p=>p.id));
         if(domain==='customer-displays')validateDisplays(JSON.parse(row.data),customers.map(c=>c.id));
         if(domain==='sales-claims')validateClaim(row,(snapshots.sales as {invoices:import('../sales/types/salesDocument').SalesDocument[]}).invoices);
         if(domain==='procurement')validateProcurement(row,records,(snapshots.purchaseOrders as {purchaseOrders:import('../purchases/types/purchaseOrder').PurchaseOrder[]}).purchaseOrders,(snapshots.supplierBills as {supplierBills:import('../purchases/types/supplierBill').SupplierBill[]}).supplierBills);

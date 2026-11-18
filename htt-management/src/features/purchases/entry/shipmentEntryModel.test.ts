@@ -1,0 +1,8 @@
+import {it,expect} from 'vitest';
+import {allocatePurchaseLine} from './shipmentEntryModel';
+import type {ContainerDraft} from '../../incoming-shipments/containerPurchaseModel';
+const container=(number:string):ContainerDraft=>({operationId:number,number,size:'40HQ',etd:'',eta:'2026-11-28',status:'In Transit',invoiceNumber:'',invoiceAmount:0,lines:[]});
+const line={productId:'product',unitId:'box',purchaseOrderId:'po',lineId:'line',quantity:100,unitPrice:54};
+it('merges repeated allocations to the same container without mutating the pending draft',()=>{const before=[container('a')],first=allocatePurchaseLine(before,0,line,400),next=allocatePurchaseLine(first,0,line,300);expect(before[0].lines).toEqual([]);expect(first[0].lines[0].quantity).toBe(100);expect(next[0].lines).toHaveLength(1);expect(next[0].lines[0].quantity).toBe(200);});
+it('keeps split PO allocations in separate containers and rejects unavailable quantities',()=>{const first=allocatePurchaseLine([container('a'),container('b')],0,line,400),next=allocatePurchaseLine(first,1,{...line,quantity:300},300);expect(next.map(c=>c.lines[0].quantity)).toEqual([100,300]);expect(()=>allocatePurchaseLine(next,1,{...line,quantity:1},0)).toThrow(/remaining/);});
+it('rejects missing containers, unlinked lines and invalid quantities without changing a draft',()=>{const rows=[container('a')];expect(()=>allocatePurchaseLine(rows,2,line,400)).toThrow(/container/);expect(()=>allocatePurchaseLine(rows,0,{...line,purchaseOrderId:undefined},400)).toThrow(/purchase order/);for(const quantity of [NaN,Infinity,0,-1])expect(()=>allocatePurchaseLine(rows,0,{...line,quantity},400)).toThrow(/remaining/);expect(rows[0].lines).toEqual([]);});
