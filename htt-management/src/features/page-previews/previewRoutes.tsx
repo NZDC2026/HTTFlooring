@@ -1,3 +1,4 @@
+import {TemplatesEditor} from '../document-templates/TemplatesEditor';
 import {InventoryScanPage} from '../inventory/InventoryScanPage';
 import { TasksPage } from '../task-hub/TasksPage';
 import {YearEndPage} from '../year-end/YearEndPage';
@@ -50,6 +51,7 @@ export function PreviewAccess({ permission, children }: { permission: Permission
 }
 function ModuleRoute({ moduleId, mode }: { moduleId: string; mode: 'list' | 'new' | 'edit' | 'detail' }) {
  const { previewId } = useParams(), m = previewModules.find(m => m.id === moduleId)!;
+ if(m.id==='templates'&&mode==='list')return <PreviewAccess permission={m.permission}><TemplatesEditor/></PreviewAccess>;
  if(m.id==='pay-items')return <PreviewAccess permission={m.permission}><PayItemsPage key={`${mode}/${previewId}`}/></PreviewAccess>;
  if(m.id==='filing')return <PreviewAccess permission={m.permission}><PayrollFilingPage key={`${mode}/${previewId}`}/></PreviewAccess>;
  if(m.id==='jobs')return <PreviewAccess permission={m.permission}><JobCostingPage key={`${mode}/${previewId}`} mode={mode} id={previewId}/></PreviewAccess>;

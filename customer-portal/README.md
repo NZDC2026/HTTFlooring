@@ -1,6 +1,6 @@
 # HTT Flooring customer portal
 
-Local React + TypeScript customer portal. Login can use the Java backend or an explicit, independent Mock mode. Existing business data remains local preview data.
+Local React + TypeScript customer portal. Local development defaults to the independent Mock mode; backend login is available with `dev:api`. Existing business data remains local preview data.
 
 ```sh
 npm install
@@ -12,7 +12,8 @@ npm test
 
 ## Login modes
 
-- `pnpm dev`: real `POST /api/portal/v1/auth/login`, through the existing `/api` proxy to port 8070. Credentials are verified only by the backend. Successful login updates the existing in-memory account hook and follows the original return route, while the Mock page content and business fixtures remain unchanged. Rejected credentials and service errors never fall back to Mock login.
+- `pnpm dev` / `npm run dev`: local demo mode (`vite --mode mock`), using the demo account without a backend service.
+- `pnpm dev:api` / `npm run dev:api`: real `POST /api/portal/v1/auth/login`, through the existing `/api` proxy to port 8070. Credentials are verified only by the backend. Successful login updates the existing in-memory account hook and follows the original return route, while the Mock page content and business fixtures remain unchanged. Rejected credentials and service errors never fall back to Mock login.
 - `pnpm dev:mock`: explicit Mock mode (`vite --mode mock`), using the original demo credentials and local flows below. It never calls the backend login endpoint. Mock sessions retain the original `htt.local.session.v1` key; real mode ignores these sessions.
 
 `src/data/localAccount.ts` remains the original Mock implementation and data. Pages use `src/services/account.ts`, which selects real or Mock login according to `src/config/auth.ts`. Page content and layouts are unchanged by this adapter.

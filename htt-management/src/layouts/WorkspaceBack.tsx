@@ -4,7 +4,7 @@ import {useEffect,useState,type RefObject} from 'react';
 import {ArrowLeft} from 'lucide-react';
 import {Link,useLocation,useNavigate} from 'react-router-dom';
 import './workspace-back.css';
-export const primaryWorkspacePaths=['/','/dashboard','/workspace','/sales','/sales/credit-returns','/promotions','/procurement','/purchases','/purchases/incoming-shipments','/inventory','/banking','/accounting','/payroll','/reports','/contacts','/contacts/supplier-dashboard','/tasks','/tools/import-export','/settings','/settings/employees','/settings/trash','/settings/preferences'];
+export const primaryWorkspacePaths=['/documents/templates','/','/dashboard','/workspace','/sales','/sales/credit-returns','/promotions','/procurement','/purchases','/purchases/incoming-shipments','/inventory','/banking','/accounting','/payroll','/reports','/contacts','/contacts/supplier-dashboard','/tasks','/tools/import-export','/settings','/settings/employees','/settings/trash','/settings/preferences'];
 export const isPrimaryWorkspace=(path:string)=>primaryWorkspacePaths.includes(path.replace(/\/$/,'')||'/');
 /** A safe destination when a page is opened directly or in a new desktop window. */
 export function workspaceBackTarget(path:string):string{
