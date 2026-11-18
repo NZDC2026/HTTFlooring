@@ -114,7 +114,7 @@ export function AccountFormPage({
     ) {
         return (
             <Navigate
-                to="/accounting"
+                to="/accounting/ledger"
                 replace
             />
         );
@@ -126,7 +126,7 @@ export function AccountFormPage({
     ) {
         return (
             <Navigate
-                to="/accounting"
+                to="/accounting/ledger"
                 replace
             />
         );
@@ -142,12 +142,12 @@ export function AccountFormPage({
             }
             onCancel={() =>
                 navigate(
-                    "/accounting",
+                    "/accounting/ledger",
                 )
             }
             onSaved={() =>
                 navigate(
-                    "/accounting",
+                    "/accounting/ledger",
                 )
             }
         />

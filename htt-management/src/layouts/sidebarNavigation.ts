@@ -45,6 +45,8 @@ export function sidebarNavigation(role: WorkspacePreviewRole, sample: boolean, p
   )})).filter(group=>group.items.length);
 }
 export function sidebarActivePath(pathname: string): string|undefined {
+  if(pathname==='/payroll'||(pathname.startsWith('/payroll/')&&!pathname.startsWith('/payroll/employees')&&!pathname.startsWith('/payroll/timesheets')))return '/accounting';
+  if(pathname.startsWith("/banking")) return "/accounting";
   const paths = sidebarGroups.flatMap(group=>group.items.map(item=>item.path));
   if (pathname.startsWith('/contacts/suppliers')) return '/contacts/supplier-dashboard';
   if (pathname.startsWith('/procurement')) return '/purchases';

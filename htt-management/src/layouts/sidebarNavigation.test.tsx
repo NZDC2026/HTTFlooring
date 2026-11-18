@@ -21,6 +21,7 @@ describe('reference role menus',()=>{
   });
   it('does not allow an unauthenticated live menu',()=>expect(sidebarNavigation('Admin',false,null)).toEqual([]));
   it.each([
+    ['/payroll','/accounting'],['/payroll/pay-runs/example','/accounting'],['/payroll/employees','/payroll/employees'],['/payroll/timesheets','/payroll/timesheets'],
     ['/reports/sales-analysis','/reports/sales-analysis'],['/reports/sales-analysis/detail','/reports/sales-analysis'],['/reports/aged-payables','/reports'],
     ['/inventory/scan','/inventory'],['/inventory/sales-dispatch','/inventory/sales-dispatch'],['/contacts/suppliers/example','/contacts/supplier-dashboard'],
   ])('keeps exactly one primary owner for %s',(path,active)=>expect(sidebarActivePath(path)).toBe(active));

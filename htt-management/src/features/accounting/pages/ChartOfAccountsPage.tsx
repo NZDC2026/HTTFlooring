@@ -11,7 +11,7 @@ import {businessSettings} from '../../business-workspace/configurationState';
 import type {Account,AccountType} from '../types/account';
 import './accounting-workspace.css';
 
-const tabs=[['Overview','/accounting',Landmark],['Chart of Accounts','/accounting?view=accounts',Layers],['Journal Entries','/accounting/journals',BookOpen],['Bank Reconciliation','/banking',Landmark],['Period Closing','/accounting/periods',CalendarDays],['GST / BAS','/reports/tax-summary',FileText],['Financial Reports','/reports?category=Financial',ChartNoAxesCombined]] as const;
+const tabs=[['Overview','/accounting/ledger?view=legacy',Landmark],['Chart of Accounts','/accounting/ledger?view=legacy&accounts=1',Layers],['Journal Entries','/accounting/journals',BookOpen],['Bank Reconciliation','/banking',Landmark],['Period Closing','/accounting/periods',CalendarDays],['GST / BAS','/reports/tax-summary',FileText],['Financial Reports','/reports?category=Financial',ChartNoAxesCombined]] as const;
 const types:('ALL'|AccountType)[]=['ALL','ASSET','LIABILITY','EQUITY','REVENUE','EXPENSE'];
 const labels={ALL:'All',ASSET:'Asset',LIABILITY:'Liability',EQUITY:'Equity',REVENUE:'Revenue',EXPENSE:'Expense'};
 const sampleNames=['Operating Bank','Savings Bank','Accounts Receivable','Inventory','GST Receivable','Accounts Payable','Goods Received Not Invoiced',"Owner’s Equity",'Retained Earnings','Sales Revenue'];

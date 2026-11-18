@@ -1,0 +1,26 @@
+import {accountingPeriodRepository} from '../../accounting/data/accountingPeriodRepository';
+import {useSyncExternalStore} from 'react';
+import {useBankAccounts} from '../data/useBanking';
+import {useAccounts,useJournalEntries} from '../../accounting/data/useAccounting';
+import {bankReconciliationRepository} from '../data/bankReconciliationRepository';
+import {bankTransactionRepository} from '../data/bankTransactionRepository';
+import {calculateBankRegister} from '../data/bankRegisterService';
+import {useStatementLines} from '../../finance-closure/bankStatementRepository';
+import {useSalesDocuments} from '../../sales/data/useSalesDocuments';
+import {useCustomers} from '../../contacts/data/useCustomers';
+import {useSupplierBills} from '../../purchases/data/useSupplierBills';
+import {usePayments} from '../../sales/data/usePayments';
+import {businessSettings} from '../../business-workspace/configurationState';
+import {usePermission} from '../../security/usePermission';
+import type {BankingAccount,BankingPayment,ReconcileLine,ReferenceExpense} from './bankingReferenceModel';
+export function useBankingReference(today:string){const bankRows=useBankAccounts(),journals=useJournalEntries(),accounts=useAccounts(),statements=useStatementLines(),documents=useSalesDocuments(),customers=useCustomers(),bills=useSupplierBills(),payments=usePayments(),salesRead=usePermission('sales.read'),purchasesRead=usePermission('purchases.read'),currency=businessSettings().currency;
+ const periods=useSyncExternalStore(accountingPeriodRepository.subscribe,accountingPeriodRepository.getAll,accountingPeriodRepository.getAll),closedThrough=periods.filter(p=>p.status==='CLOSED').map(p=>p.endDate).sort().at(-1);
+ const reconciliations=useSyncExternalStore(bankReconciliationRepository.subscribe,bankReconciliationRepository.getSnapshot,bankReconciliationRepository.getSnapshot),transactions=useSyncExternalStore(bankTransactionRepository.subscribe,bankTransactionRepository.getTransactionsSnapshot,bankTransactionRepository.getTransactionsSnapshot),transfers=useSyncExternalStore(bankTransactionRepository.subscribe,bankTransactionRepository.getTransfersSnapshot,bankTransactionRepository.getTransfersSnapshot);
+ const banks:BankingAccount[]=bankRows.filter(b=>b.active&&b.currency===currency).map((b,i)=>{const latest=reconciliations.filter(r=>r.bankAccountId===b.id).sort((a,z)=>z.statementDate.localeCompare(a.statementDate))[0];return {id:b.id,name:b.name,detail:b.bankName+' · ••'+b.accountNumber.slice(-4),type:b.accountType==='CREDIT_CARD'?'card':'cash',balance:calculateBankRegister(b,journals,today).closingBalance,color:['green','cyan','purple','amber'][i%4],reconciled:latest?'Reconciled to '+latest.statementDate:'Not reconciled',pending:statements.filter(s=>s.bankAccountId===b.id&&s.status==='UNMATCHED').length,locked:closedThrough??'Not recorded'};});
+ const receivables:BankingPayment[]=salesRead?documents.filter(d=>d.type==='INVOICE'&&!['DRAFT','VOID'].includes(d.status)).map(d=>({id:d.id,number:d.documentNumber,contact:customers.find(c=>c.id===d.customerId)?.businessName??d.customerId,contactId:d.customerId,date:d.documentDate,due:d.type==='INVOICE'?d.dueDate:d.documentDate,total:d.totals.total,paid:d.type==='INVOICE'?d.totals.total-d.amountDue:0,path:'/sales/invoices/'+d.id})):[];
+ const payables:BankingPayment[]=purchasesRead?bills.filter(b=>!['DRAFT','VOID'].includes(b.status)).map(b=>({id:b.id,number:b.billNumber,contact:b.supplierName,contactId:b.supplierId,date:b.billDate,due:b.dueDate,total:b.totals.total,paid:b.totals.total-b.totals.amountDue,path:'/purchases/bills/'+b.id,foreignNote:b.fx&&b.fx.currency!==b.fx.baseCurrency?'Saved base currency · '+b.fx.currency+' source document':undefined})):[];
+ const lines:ReconcileLine[]=statements.filter(s=>s.status!=='IGNORED').map(s=>({id:s.id,bankId:s.bankAccountId,date:s.date,description:s.description,amount:s.amount,state:s.status==='UNMATCHED'?'Allocate me':s.status==='POSTED'?'Allocated · rule':'Matched',detail:s.reference,path:'/banking/workbench'}));
+ const expenses:ReferenceExpense[]=transactions.filter(t=>t.direction==='MONEY_OUT'&&banks.some(b=>b.id===t.bankAccountId)&&accounts.find(a=>a.id===t.offsetAccountId)?.type==='EXPENSE').map(t=>{const account=accounts.find(a=>a.id===t.offsetAccountId);return {id:t.id,date:t.transactionDate,payee:t.description,category:account?account.code+' '+account.name:t.offsetAccountId,bankId:t.bankAccountId,amount:t.amount,gst:0,receipt:''};});
+ const received=payments.filter(p=>p.status!=='REVERSED'&&p.paymentDate.startsWith(today.slice(0,7))).reduce((n,p)=>n+p.amount,0);
+ return {banks,receivables,payables,lines,expenses,transfers:transfers.filter(t=>banks.some(b=>b.id===t.fromBankAccountId)&&banks.some(b=>b.id===t.toBankAccountId)).map(t=>({id:t.id,from:t.fromBankAccountId,to:t.toBankAccountId,date:t.transferDate,amount:t.amount,description:t.description})),received,currency,hasForeignBanks:bankRows.some(b=>b.currency!==currency)};
+}

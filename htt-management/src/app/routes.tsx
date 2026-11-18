@@ -1,3 +1,7 @@
+import {PayrollReferenceEntry} from '../features/payroll/reference/PayrollReferenceWorkspace';
+import {AccountingReferenceEntry} from '../features/accounting/reference/AccountingReferenceWorkspace';
+import {BankingReferenceEntry} from '../features/banking/reference/BankingReferenceWorkspace';
+import {EmployeesReferencePage} from '../features/people-reference/EmployeesReferencePage';
 import { WorkPage } from '../features/operations-workspace/WorkPage';
 import {InventoryActivityRedirect} from '../features/inventory/pages/InventoryActivityRedirect';
 import {QuoteCreatePage} from '../features/sales/pages/QuoteCreatePage';
@@ -20,7 +24,7 @@ import { SupplierDashboardPage } from "../features/contacts/pages/SupplierDashbo
 import { PurchaseOutputPage } from '../features/document-output/PurchaseOutputPage';
 import { additionalRoutes } from '../features/page-previews/previewRoutes';
 import { WorkspaceSearchPage, HelpPage, NotificationsPage } from '../layouts/WorkspaceUtilityPages';
-import { EmployeesPage, EmployeeDetailPage, EmployeeFormPage, PayRunsPage, PayRunFormPage, PayRunDetailPage, PayslipPage, TimesheetsPage, LeavePage } from '../features/payroll/pages/PayrollWorkspacePages';
+import { EmployeeDetailPage, EmployeeFormPage, PayRunsPage, PayRunFormPage, PayRunDetailPage, PayslipPage, TimesheetsPage, LeavePage } from '../features/payroll/pages/PayrollWorkspacePages';
 import { DocumentUploadPage, DocumentDetailPage } from '../features/documents/pages/DocumentWorkspacePages';
 import { ReportsLibraryPage } from '../features/reports/pages/ReportsLibraryPage';
 import { NotFoundPage } from '../layouts/NotFoundPage';
@@ -63,7 +67,6 @@ import { SupplierCreditDetailPage } from "../features/purchases/pages/SupplierCr
 import { InventoryPage } from "../features/inventory/pages/InventoryPage";
 import { InventoryValuationPage } from "../features/inventory/pages/InventoryValuationPage";
 import { InventoryGlReconciliationPage } from "../features/inventory/pages/InventoryGlReconciliationPage";
-import { ChartOfAccountsPage } from "../features/accounting/pages/ChartOfAccountsPage";
 import { AccountFormPage } from "../features/accounting/pages/AccountFormPage";
 import { JournalRegisterPage } from "../features/accounting/pages/JournalRegisterPage";
 import { JournalEntryDetailPage } from "../features/accounting/pages/JournalEntryDetailPage";
@@ -76,12 +79,10 @@ import { FinanceControlsPage } from "../features/accounting/pages/FinanceControl
 import { FinancialRecoveryReviewPage } from "../features/accounting/pages/FinancialRecoveryReviewPage";
 import { AccountsReceivableGlReconciliationPage } from "../features/accounting/pages/AccountsReceivableGlReconciliationPage";
 import { AccountsPayableGlReconciliationPage } from "../features/accounting/pages/AccountsPayableGlReconciliationPage";
-import { BankingPage } from "../features/banking/pages/BankingPage";
 import { BankAccountDetailPage } from "../features/banking/pages/BankAccountDetailPage";
 import { CreateBankTransactionPage } from "../features/banking/pages/CreateBankTransactionPage";
 import { CreateBankTransferPage } from "../features/banking/pages/CreateBankTransferPage";
 import { BankReconciliationPage } from "../features/banking/pages/BankReconciliationPage";
-import { PayrollOverviewPage } from "../features/payroll/pages/PayrollOverviewPage";
 import { DocumentsOverviewPage } from "../features/documents/pages/DocumentsOverviewPage";
 import { SettingsOverviewPage } from "../features/settings/pages/SettingsOverviewPage";
 
@@ -94,7 +95,7 @@ export const appRoutes:RouteObject[] = [
             { path: 'search', element: <WorkspaceSearchPage /> },
             { path: 'help', element: <HelpPage /> },
             { path: 'notifications', element: <NotificationsPage /> },
-            { path: 'payroll/employees', element: <EmployeesPage /> },
+            { path: 'payroll/employees', element: <EmployeesReferencePage /> },
             { path: 'payroll/employees/new', element: <EmployeeFormPage /> },
             { path: 'payroll/employees/:employeeId', element: <EmployeeDetailPage /> },
             { path: 'payroll/employees/:employeeId/edit', element: <EmployeeFormPage /> },
@@ -275,7 +276,7 @@ export const appRoutes:RouteObject[] = [
             {
                 path: "banking",
                 element: (
-                    <BankingPage />
+                    <BankingReferenceEntry />
                 ),
             },
             {
@@ -314,8 +315,11 @@ export const appRoutes:RouteObject[] = [
             {
                 path: "accounting",
                 element: (
-                    <ChartOfAccountsPage />
+                    <BankingReferenceEntry />
                 ),
+            },
+            {
+                path: "accounting/ledger", element: <AccountingReferenceEntry />
             },
             {
                 path: "accounting/accounts/new",
@@ -392,7 +396,7 @@ export const appRoutes:RouteObject[] = [
             },
             {
                 path: "payroll",
-                element: <PayrollOverviewPage />,
+                element: <PayrollReferenceEntry />,
             },
             {
                 path: "reports/summaries",

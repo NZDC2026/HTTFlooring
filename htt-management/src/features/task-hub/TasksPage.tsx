@@ -1,3 +1,4 @@
+import {TasksReferencePage} from '../people-reference/TasksReferencePage';
 import {useDashboardEntry} from '../../hooks/useDashboardEntry';
 import {DateRangePicker} from '../../components/date-range/DateRangePicker';
 import {useListState} from '../../hooks/useListState';
@@ -15,7 +16,7 @@ import {workspaceRepositories} from '../business-workspace/workspaceRepository';
 import {downloadFile,csvText} from '../../lib/csv';
 import './tasks-page.css';
 import {TaskCalendar, MyTaskProgress} from './TaskSidebar';
-export function TasksPage(){
+export function LegacyTasksPage(){
  const hub=useTaskHub(),{session}=useSecurity(),write=usePermission('sales.write'),supplierWrite=usePermission('contacts.write');
  const today=new Date().toLocaleDateString('en-CA',{timeZone:businessSettings().timezone});
  const userId=session?.user.id??'';
@@ -57,3 +58,5 @@ export function TasksPage(){
 
  </div>;
 }
+
+export function TasksPage(){const [params]=useSearchParams();return params.get("view")==="legacy"?<LegacyTasksPage/>:<TasksReferencePage/>;}

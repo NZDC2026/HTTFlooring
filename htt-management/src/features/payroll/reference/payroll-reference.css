@@ -1,0 +1,146 @@
+@media screen {
+main:has(#payroll-reference)>div{padding:24px 32px 32px!important}
+#payroll-reference{width:calc(100% - 220px);max-width:none;color:#182230;font-size:14px}
+#payroll-reference h1{font-size:28px!important;line-height:38px!important;font-weight:700;letter-spacing:-.7px;color:#151c28;margin:0}
+#payroll-reference h2{font-size:16px!important;line-height:22px!important;font-weight:650;color:#151c28;margin:0}
+#payroll-reference p{margin:0}#payroll-reference small{display:block;font-size:12px;line-height:16px;color:#667085}
+#payroll-reference button{font:inherit;cursor:pointer}#payroll-reference button:disabled{opacity:.45;cursor:default}
+#payroll-reference [data-ui=card]{background:#fff;border:1px solid #e5e9ed;border-radius:15px;overflow:hidden;box-shadow:none}
+#payroll-reference [data-ui=button],.ss-dialog:has(.yr-dialog-form) [data-ui=button]{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px!important;height:auto;background:#fff;color:#182230;border:1px solid #d9e0df;border-radius:9px;padding:8px 14px;font-size:13px!important;line-height:18px;font-weight:550;white-space:nowrap}
+#payroll-reference .yr-primary[data-ui=button],.ss-dialog .yr-primary[data-ui=button]{background:#13a34a!important;border-color:#13a34a!important;color:#fff!important}
+#payroll-reference .op-badge{display:inline-flex;min-height:0!important;border:0;border-radius:20px;padding:2px 9px!important;font-size:11px!important;line-height:16px;font-weight:600;white-space:nowrap}
+#payroll-reference .op-badge.green{background:#e8f7ed!important;color:#078531!important}#payroll-reference .op-badge.gray{background:#f0f2f5!important;color:#475467!important}#payroll-reference .op-badge.amber{background:#fff3dd!important;color:#ba4c00!important}#payroll-reference .op-badge.blue{background:#e9efff!important;color:#174dff!important}
+#payroll-reference .yr-heading{display:flex;align-items:center;gap:14px;min-height:40px;margin-bottom:18px}
+#payroll-reference .yr-heading h1{padding-right:14px;border-right:1px solid #d7dfe5}
+#payroll-reference .yr-heading>p{font-size:14px;line-height:20px;color:#344054;flex:1}
+#payroll-reference .yr-heading>div{display:flex;align-items:center;gap:10px;flex-shrink:0}
+#payroll-reference .yr-heading .op-badge{font-size:12px!important;padding:6px 12px!important;line-height:16px}
+#payroll-reference .yr-heading [data-ui=button]{min-height:36px!important}
+#payroll-reference .yr-tabs{display:flex;gap:4px;border-bottom:1px solid #dfe5e8;margin-bottom:18px}
+#payroll-reference .yr-tabs button{display:flex;align-items:center;border:0;border-bottom:2px solid transparent;background:transparent;color:#475467;font-size:14px!important;font-weight:550;padding:10px 16px!important;line-height:20px;min-height:0!important;height:42px!important;white-space:nowrap}
+#payroll-reference .yr-tabs button[aria-current=page]{color:#078531;border-bottom-color:#16833a}
+#payroll-reference .yr-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+#payroll-reference .yr-metrics>section{height:104px;padding:16px 18px}
+#payroll-reference .yr-metrics>section>small:first-child{font-size:13px;line-height:18px;margin-bottom:4px}
+#payroll-reference .yr-metrics strong{display:block;font-size:24px;line-height:28px;font-weight:700;margin-bottom:4px}
+#payroll-reference .yr-next{border-color:#aee8bf}
+#payroll-reference .yr-next header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 20px 0}
+#payroll-reference .yr-next header p{font-size:13px;line-height:18px;color:#667085}
+#payroll-reference .yr-next-totals{display:flex;gap:28px;margin:14px 20px 16px}
+#payroll-reference .yr-next-totals small{font-size:13px;line-height:16px;margin-bottom:2px}
+#payroll-reference .yr-next-totals strong{display:block;font-size:22px;font-weight:700;line-height:26px}
+#payroll-reference .yr-commission-alert{margin:0 20px 18px;border:1px solid #ffd18f;border-radius:10px;background:#fff8ed;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;min-height:52px;color:#a33c00;font-size:13px;line-height:18px}
+#payroll-reference .yr-commission-alert button{min-height:30px!important;height:30px!important;padding:5px 10px;border-color:#9bdfad;color:#078531;font-size:12px!important}
+#payroll-reference .yr-commission-alert.approved{background:#f1fbf4;border-color:#aee8bf;color:#087f5b}
+#payroll-reference .yr-blue-note{padding:10px 12px;border:1px solid #d6e3ff;border-radius:10px;background:#eff4ff;color:#1e40af;font-size:13px;line-height:19px;font-weight:550;margin:18px 0}
+#payroll-reference .yr-scroll{overflow-x:auto;max-width:100%}
+#payroll-reference table{width:100%;border-collapse:collapse;font-size:14px}
+#payroll-reference th{font-size:12px!important;line-height:18px!important;font-weight:600!important;text-transform:none;background:#f9fafb;color:#182230;text-align:left;padding:12px!important;height:62px!important;white-space:nowrap}
+#payroll-reference td{height:62px!important;padding:12px!important;border:0!important;border-top:1px solid #edf0f2!important;line-height:18px!important;font-size:14px!important;background:#fff!important;color:#182230}
+#payroll-reference td b{font-weight:650}
+#payroll-reference .yr-runs>header{height:56px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 20px}
+#payroll-reference .yr-runs>header p{color:#667085;font-size:13px}
+#payroll-reference .yr-runs> .yr-scroll>table{min-width:1080px}
+#payroll-reference .yr-runs>.yr-scroll>table>thead>tr>th:nth-child(n+4):nth-child(-n+8),#payroll-reference .yr-run-row>td:nth-child(n+4):nth-child(-n+8){text-align:right}
+#payroll-reference .yr-run-row>td:first-child{padding-left:18px!important;padding-right:0!important;color:#748094}
+#payroll-reference .yr-runs>.yr-scroll>table>thead>tr>th:nth-child(n+9),#payroll-reference .yr-run-row>td:nth-child(n+9){padding-left:0!important;text-align:left}
+#payroll-reference .yr-run-row>td:nth-child(3){color:#667085;font-size:13px!important}
+#payroll-reference .yr-run-date{font-weight:650!important}
+#payroll-reference .yr-run-row small{font-size:12px;line-height:16px;margin:0!important}
+#payroll-reference .yr-plain{background:transparent;border:0;padding:0!important;min-height:0!important;height:auto!important;line-height:18px!important;font-size:14px!important;text-align:left}
+#payroll-reference .yr-expand{display:flex;align-items:center;color:#748094}
+#payroll-reference .yr-outline-green[data-ui=button]{min-height:30px!important;height:30px!important;border-color:#9bdfad;color:#078531;padding:5px 10px;font-size:12px!important}
+#payroll-reference .yr-purple{color:#7c3aff!important}
+#payroll-reference .yr-run-row.expanded>td,#payroll-reference .yr-run-expanded>td{background:#f5fbf7!important}
+#payroll-reference .yr-run-expanded>td{padding:8px 20px 16px 56px!important;text-align:left}
+#payroll-reference .yr-run-expanded>td>div{border:1px solid #e5e9ed;border-radius:12px;overflow:hidden;background:#fff}
+#payroll-reference .yr-run-expanded table{min-width:1000px}
+#payroll-reference .yr-run-expanded th{height:40px!important;font-size:12px!important;padding:10px 12px!important}
+#payroll-reference .yr-run-expanded td{height:40.5px!important;padding:10px 12px!important;font-size:14px!important}
+#payroll-reference .yr-run-expanded td:nth-child(2){font-size:13px!important;color:#667085}
+#payroll-reference .yr-run-expanded th:not(:first-child),#payroll-reference .yr-run-expanded td:not(:first-child){text-align:right}
+#payroll-reference .yr-detail-caption{font-size:11px;line-height:16px;color:#667085;padding:10px 12px;background:#f8fafb}
+#payroll-reference .yr-detail-source{margin:10px 12px}
+#payroll-reference .yr-commission-months{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+#payroll-reference .yr-commission-months>button{height:60px!important;min-width:110px;padding:9px 14px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px}
+#payroll-reference .yr-commission-months>button>b{font-size:14px;line-height:18px;font-weight:600}
+#payroll-reference .yr-commission-months>button.selected{background:#f1fbf4;border-color:#13a34a;color:#078531}
+#payroll-reference .yr-commissions header{display:flex;align-items:center;gap:16px;padding:18px 20px 16px;min-height:92px}
+#payroll-reference .yr-commissions header>div:first-child{flex:1;min-width:0}
+#payroll-reference .yr-commissions header p{font-size:13px;line-height:18px;color:#667085}
+#payroll-reference .yr-commissions header>div:last-child{display:flex;gap:12px}
+#payroll-reference .yr-commissions table{min-width:850px}
+#payroll-reference .yr-commissions th,#payroll-reference .yr-commissions td{padding:12px 16px!important}
+#payroll-reference .yr-commissions th:nth-child(n+2):nth-child(-n+4),#payroll-reference .yr-commissions td:nth-child(n+2):nth-child(-n+4){text-align:right}
+#payroll-reference .yr-commissions th:last-child,#payroll-reference .yr-commissions td:last-child{text-align:left;padding-left:0!important}
+#payroll-reference .yr-sales-link{display:block;min-height:0!important;height:auto!important;border:0;background:transparent;padding:0!important;font-size:12px!important;line-height:16px;color:#078531;text-decoration:underline}
+#payroll-reference .yr-commission-total td{background:#f2fbf5!important;font-weight:650}
+#payroll-reference .yr-provider{padding:20px 20px 18px;margin-bottom:18px}
+#payroll-reference .yr-provider>h2,#payroll-reference .yr-mapping>h2{margin-bottom:14px}
+#payroll-reference .yr-provider>p,#payroll-reference .yr-mapping>p{color:#667085;font-size:13px;line-height:18px;margin-bottom:14px}
+#payroll-reference .yr-provider>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+#payroll-reference .yr-provider [role=radio]{height:62px!important;display:flex;align-items:flex-start;justify-content:flex-start;text-align:left;gap:10px;padding:12px 14px}
+#payroll-reference .yr-provider [role=radio]>i{display:block;width:18px;height:18px;border:2px solid #c2cad3;border-radius:50%;flex-shrink:0;margin-top:1px}
+#payroll-reference .yr-provider [role=radio]>span{white-space:normal}
+#payroll-reference .yr-provider [role=radio] b{font-size:14px;font-weight:650;line-height:18px}
+#payroll-reference .yr-provider [role=radio] small{font-size:12px;line-height:16px;font-weight:400}
+#payroll-reference .yr-provider [role=radio].selected{border-color:#13a34a;background:#f1fbf4;box-shadow:0 0 0 3px #e5f8eb}
+#payroll-reference .yr-provider [role=radio].selected>i{border-color:#13a34a;position:relative}
+#payroll-reference .yr-provider [role=radio].selected>i:after{content:'';position:absolute;inset:3px;border-radius:50%;background:#13a34a}
+#payroll-reference .yr-live-provider{margin-top:16px}
+#payroll-reference .yr-flow-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+#payroll-reference .yr-flow-grid>section{padding:20px;min-height:244px}
+#payroll-reference .yr-flow-grid h2{margin-bottom:14px}
+#payroll-reference .yr-flow-grid ul{list-style:none;display:grid;gap:14px;margin:0;padding:0}
+#payroll-reference .yr-flow-grid li{display:flex;gap:10px;font-size:13px;line-height:20px}
+#payroll-reference .yr-flow-grid li>svg{color:#078531;flex-shrink:0;margin-top:3px}
+#payroll-reference .yr-flow-grid>section:last-child li>svg{color:#174dff}
+#payroll-reference .yr-mapping{padding:20px}
+#payroll-reference .yr-mapping>.yr-scroll{border:1px solid #e5e9ed;border-radius:12px}
+#payroll-reference .yr-mapping table{min-width:600px}
+#payroll-reference .yr-mapping th,#payroll-reference .yr-mapping td{height:41px!important;padding:10px 12px!important;background:#fff!important;border-bottom:1px solid #edf0f2!important;line-height:20px!important;font-size:14px!important;text-align:left}
+#payroll-reference .yr-mapping th{width:230px}
+#payroll-reference .yr-sample-footer{display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:11px;color:#667085;margin-top:18px}
+#payroll-reference .yr-sample-footer label{display:flex;align-items:center;gap:6px}
+#payroll-reference .yr-sample-footer a{color:#087f5b;text-decoration:underline}
+#payroll-reference .yr-notice{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#e8f7ed;color:#087f5b;font-size:13px;line-height:18px;padding:10px 14px;margin-bottom:12px;border-radius:9px}
+#payroll-reference .yr-notice button{border:0;background:transparent;min-height:0!important;height:auto!important}
+#payroll-reference .yr-empty{padding:24px;color:#667085;font-size:13px}
+.ss-dialog:has(.yr-dialog-form){width:660px}.yr-dialog-form{display:grid;gap:12px;font-size:14px}.yr-dialog-form small{font-size:11px;color:#667085;line-height:16px}.yr-dialog-form [role=alert]{color:#c51c24}.yr-dialog-form .yr-scroll{overflow:auto}.yr-dialog-form table{width:100%;min-width:520px;border-collapse:collapse}.yr-dialog-form th,.yr-dialog-form td{padding:10px 8px;text-align:right;border-bottom:1px solid #e5e9ed;white-space:nowrap}.yr-dialog-form th:first-child,.yr-dialog-form td:first-child{text-align:left}
+body:has(#payroll-reference) .workspace-sidebar .workspace-brand{min-height:72px;height:72px;padding:14px 24px}body:has(#payroll-reference) .workspace-sidebar nav section{margin-bottom:0}body:has(#payroll-reference) .workspace-sidebar nav section:first-child{margin-bottom:6px}body:has(#payroll-reference) .workspace-sidebar nav h2{line-height:13px;height:25px;padding:7px 12px 5px}body:has(#payroll-reference) .htt-navigation .workspace-sidebar nav a{height:36px;font-weight:500}body:has(#payroll-reference) .htt-navigation .workspace-sidebar nav a[aria-current=page]{font-weight:650}body:has(#payroll-reference) .htt-navigation .workspace-sidebar nav .workspace-finance-children a{height:29px;font-size:13px;padding:3px 0}
+@media(min-width:1300px){#payroll-reference .yr-runs,#payroll-reference .yr-runs>.yr-scroll{overflow:visible}#payroll-reference .yr-runs>.yr-scroll>table>thead{position:sticky;top:52px;z-index:4}}
+@media(max-width:1699px){#payroll-reference{width:100%}#payroll-reference .yr-heading{flex-wrap:wrap}#payroll-reference .yr-heading>p{min-width:50%}}
+@media(max-width:1100px){#payroll-reference .yr-metrics,#payroll-reference .yr-provider>div{grid-template-columns:repeat(2,minmax(0,1fr))}#payroll-reference .yr-flow-grid{grid-template-columns:1fr}#payroll-reference .yr-commissions header{flex-wrap:wrap}}
+@media(max-width:700px){main:has(#payroll-reference)>div{padding:18px!important}#payroll-reference .yr-heading h1{border:0;padding:0}#payroll-reference .yr-heading>p{flex-basis:100%}#payroll-reference .yr-heading>div{flex-wrap:wrap;flex-shrink:1}#payroll-reference .yr-heading .op-badge{white-space:normal;font-size:11px!important}#payroll-reference .yr-tabs{overflow:auto}#payroll-reference .yr-metrics,#payroll-reference .yr-provider>div{grid-template-columns:1fr}#payroll-reference .yr-next header,#payroll-reference .yr-commission-alert{flex-wrap:wrap}#payroll-reference .yr-next-totals{display:grid;grid-template-columns:1fr 1fr;gap:16px}#payroll-reference .yr-runs>header{height:auto;flex-wrap:wrap}#payroll-reference .yr-flow-grid>section{min-height:0}#payroll-reference .yr-commissions header>div:first-child{flex-basis:100%}#payroll-reference .yr-commissions header>div:last-child{flex-wrap:wrap}.yr-dialog-form table{font-size:12px}}
+}
+@media print{#payroll-reference{width:100%}#payroll-reference .yr-tabs,#payroll-reference .yr-sample-footer,#payroll-reference .yr-heading>div,#payroll-reference .yr-notice{display:none}#payroll-reference .yr-scroll{overflow:visible}#payroll-reference table{width:100%}#payroll-reference .yr-plain,#payroll-reference .yr-run-date{display:inline!important;color:inherit}#payroll-reference tr{break-inside:avoid}#payroll-reference thead{display:table-header-group}}
+@media screen{
+#payroll-reference{padding-bottom:56px}
+#payroll-reference h1{letter-spacing:.3px}
+#payroll-reference .yr-heading>div{gap:11px}
+#payroll-reference .yr-heading .op-badge{min-width:324px;justify-content:center}
+#payroll-reference .yr-heading [data-ui=button]{width:117px}
+@media(max-width:700px){#payroll-reference .yr-heading .op-badge{min-width:0}}
+}
+@media print{#payroll-reference[data-sample=true]:before{content:'Sample · Isolated payroll preview · Not a payslip, journal or provider transmission';display:block;font-size:11px;margin-bottom:12px;color:#475467}}
+@media screen{
+#payroll-reference{font-family:Arial,Helvetica,sans-serif}
+#payroll-reference h1{letter-spacing:0}
+#payroll-reference .yr-heading{gap:13px}
+#payroll-reference .yr-heading h1{padding-right:13px}
+.ss-dialog:has(.yr-dialog-form){font-family:Arial,Helvetica,sans-serif}
+}
+@media screen{
+#payroll-reference .yr-tabs button{padding-inline:17px!important}
+#payroll-reference .yr-next-totals{gap:32px}
+#payroll-reference .yr-commission-alert{margin-bottom:19px}
+#payroll-reference .yr-runs>header{height:55px}
+#payroll-reference .yr-commission-months>button{min-width:115px}
+#payroll-reference .yr-commission-months>button:nth-child(4){min-width:111px}
+#payroll-reference .yr-commission-months>button:last-child{min-width:117px}
+#payroll-reference .yr-commissions header{min-height:90px;padding:17px 20px 15px}
+#payroll-reference .yr-provider{padding-top:19px}
+#payroll-reference .yr-flow-grid li{font-size:14px;line-height:20px}
+#payroll-reference .yr-flow-grid ul{gap:16px}
+}
+@media print{#payroll-reference{font-family:Arial,Helvetica,sans-serif}}
