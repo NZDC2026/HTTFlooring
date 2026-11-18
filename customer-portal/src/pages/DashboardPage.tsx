@@ -1,109 +1,34 @@
-import { AlertCircle, ArrowUpRight, MapPin, Search, Package, FileText, Truck, Wallet } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { CalendarDays, MapPin, Search, Wallet, Truck, Package, ArrowUpRight } from "lucide-react";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import PortalHeader from "../components/PortalHeader";
+import SystemDate from "../components/SystemDate";
 import { useInvoiceLedger } from "../data/ledger";
-import { productCollections } from "../data/products";
-
-const money = (value: number) => value.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
-
-
 import { useLocalAccount } from "../services/account";
-const categories = [
-    {
-        name: "Engineered Timber",
-        image:
-            "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-        name: "Hybrid",
-        image:
-            "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-        name: "Laminate",
-        image:
-            "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=600&q=80",
-    },
-    {
-        name: "Accessories",
-        image:
-            "https://images.unsplash.com/photo-1600585152915-d208bec867a1?auto=format&fit=crop&w=600&q=80",
-    },
-];
-
-export default function DashboardPage() {
-    const {invoiceSummary,unappliedCredit,credits}=useInvoiceLedger();
-    const {profile}=useLocalAccount(); const navigate=useNavigate();
-    const { outstanding, outstandingCount, overdue, overdueCount, attentionInvoice } = invoiceSummary;
-    return (
-        <>
-            <PortalHeader />
-
-            <main className="dashboard">
-                <section className="dashboard-hero">
-                    <div>
-                        <h1>
-                            Welcome back,
-                            <br />
-                            {profile.businessName}
-                        </h1>
-
-                        <div className="location">
-                            <MapPin size={21} />
-                            <div>
-                                <small>Your stock location</small>
-                                <strong>{profile.region}</strong>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="dashboard-content">
-                    <nav className="portal-quick-actions" aria-label="Customer quick actions">
-                        <Link to="/inventory"><Package size={22}/>Check stock</Link>
-                        <Link to="/quotes"><FileText size={22}/>My quotes</Link>
-                        <Link to="/orders"><Truck size={22}/>Track orders</Link>
-                        <Link to="/invoices"><Wallet size={22}/>Invoices &amp; payments</Link>
-                    </nav>
-                    <div className="account-summary-cards dashboard-account-summary">
-                        <div><small>Outstanding</small><strong>{money(outstanding)}</strong><span>{outstandingCount} {outstandingCount === 1 ? "invoice" : "invoices"}</span></div>
-                        <div className="overdue-summary"><small>Overdue</small><strong>{money(overdue)}</strong><span>{overdueCount} {overdueCount === 1 ? "invoice" : "invoices"}</span></div>
-                        <Link to="/invoices?tab=credits" className="credit-summary"><small>Credit</small><strong>{money(unappliedCredit)}</strong><span>{credits.filter(credit=>credit.remainingAmount>0).length} unapplied credit {credits.filter(credit=>credit.remainingAmount>0).length===1?"note":"notes"}</span></Link>
-                        {attentionInvoice && <Link to={`/invoices/${attentionInvoice.id}`} className="payment-attention"><AlertCircle size={20}/><div><small>Payment attention</small><strong>{attentionInvoice.invoiceNumber} · {money(attentionInvoice.balance)}</strong><span>{attentionInvoice.overdueDays} days overdue</span></div></Link>}
-                    </div>
-                    <form className="search-large" onSubmit={event=>{event.preventDefault();const values=new FormData(event.currentTarget);navigate(`/inventory?q=${encodeURIComponent(String(values.get("q")??""))}`);}}>
-                        <Search size={20} />
-                        <input name="q" aria-label="Search inventory" placeholder="Search product, colour, SKU or keyword..."/>
-                        <button aria-label="Search inventory">
-                            <Search size={19} />
-                        </button>
-                    </form>
-
-                    <div className="product-collections" aria-label="Featured product collections">
-                        {productCollections.map(collection => (
-                            <Link className={`collection-card collection-${collection.id}`} to={`/collections/${collection.id}`} key={collection.id}>
-                                <img src={collection.image} alt="" loading="lazy"/>
-                                <div className="collection-card-content">
-                                    <h3>{collection.name}</h3>
-                                    <p>{collection.description}</p>
-                                    <span>View products <ArrowUpRight size={17}/></span>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-
-                    <h3>Browse Products</h3>
-
-                    <div className="category-grid">
-                        {categories.map((category) => (
-                            <Link to={`/inventory?category=${encodeURIComponent(category.name)}`} className="category-card" key={category.name}>
-                                <img src={category.image} alt="" />
-                                <div>{category.name} →</div>
-                            </Link>
-                        ))}
-                    </div>
-                </section>
-            </main>
-        </>
-    );
+import { salesDocuments } from "../data/salesDocuments";
+import { previewRanges, displayBoards, creditLimit } from "../data/portalPreview";
+import { productCollections } from "../data/products";
+const money=(value:number)=>value.toLocaleString("en-AU",{style:"currency",currency:"AUD"});
+export default function DashboardPage(){
+ const {profile}=useLocalAccount();const {invoiceSummary,invoices,credits,unappliedCredit}=useInvoiceLedger();const navigate=useNavigate();
+ const [now]=useState(()=>new Date());const [period,setPeriod]=useState("This month");
+ const start=new Date(now.getFullYear(),period==="This quarter"?Math.floor(now.getMonth()/3)*3:period==="This year"?0:now.getMonth(),1);
+ const dateLabel=`${start.toLocaleDateString("en-AU",{day:"numeric",month:"short"})} – ${now.toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"})}`;
+ const periodDocs=salesDocuments.filter(document=>new Date(document.issued)>=start&&new Date(document.issued)<=now);
+ const quotes=periodDocs.filter(document=>document.kind==="quotes"),orders=periodDocs.filter(document=>document.kind==="orders");
+ const purchases=invoices.filter(invoice=>new Date(invoice.issueDate)>=start&&new Date(invoice.issueDate)<=now);
+ const sum=(items:{total:number}[])=>items.reduce((total,item)=>total+Math.round(item.total*100),0)/100;
+ const oldest=invoices.filter(invoice=>invoice.balance>0).sort((a,b)=>b.overdueDays-a.overdueDays)[0];
+ const ready=salesDocuments.find(document=>document.status==="Ready for Collection");
+ const used=invoiceSummary.outstanding+sum(salesDocuments.filter(document=>document.kind==="orders"&&document.status!=="Completed"));
+ const greeting=now.getHours()<12?"Good morning":now.getHours()<18?"Good afternoon":"Good evening";
+ const categories=["Engineered Timber","Hybrid","Laminate","Accessories"];
+ return <><PortalHeader/><main className="reference-dashboard"><div className="reference-width"><div className="reference-welcome"><div><h1>{greeting}, {profile.firstName}</h1><p>{profile.businessName} <span>·</span> <MapPin size={14}/> Stock location <strong>{profile.region}</strong></p></div><div className="dashboard-period"><label><CalendarDays size={17}/><select aria-label="Dashboard period" value={period} onChange={event=>setPeriod(event.target.value)}>{["This month","This quarter","This year"].map(value=><option key={value}>{value}</option>)}</select><span>{dateLabel}</span></label><SystemDate/></div></div>
+ <form className="reference-stock-search dashboard-stock-search" onSubmit={event=>{event.preventDefault();navigate(`/inventory?q=${encodeURIComponent(String(new FormData(event.currentTarget).get("q")??""))}`);}}><Search size={18}/><input name="q" aria-label="Search inventory" placeholder="Search product, colour, SKU or keyword..."/><button>Search stock</button></form>
+ <div className="reference-finance"><Link to="/invoices" className="reference-card balance-card"><small>Balance due</small><strong>{money(invoiceSummary.outstanding)}</strong><p>{invoiceSummary.overdueCount===invoiceSummary.outstandingCount?"all ":""}{invoiceSummary.overdueCount} invoices overdue{oldest&&<> · oldest <b>{oldest.invoiceNumber}</b> {oldest.overdueDays} days</>}</p></Link><Link to="/account" className="reference-card"><small>Credit limit</small><div className="credit-limit-number"><strong>{money(used)}</strong><span>of {money(creditLimit)}</span></div><div className="credit-limit-track"><i style={{width:`${Math.min(100,used/creditLimit*100)}%`}}/></div><p>{Math.round(used/creditLimit*100)}% used · {money(Math.max(0,creditLimit-used))} available · incl. open orders</p></Link><Link to="/invoices?tab=credits" className="reference-card available-credit"><small>Credit notes available</small><strong>{money(unappliedCredit)}</strong><p>{credits.filter(credit=>credit.remainingAmount>0).length} credit {credits.filter(credit=>credit.remainingAmount>0).length===1?"note":"notes"} · HTT applies them to your invoices</p></Link></div>
+ <div className="reference-attention-layout"><section className="reference-card attention-list"><h2>Needs your attention <span>{(invoiceSummary.overdueCount?1:0)+(ready?1:0)+1}</span></h2>{invoiceSummary.overdueCount>0&&<Link to="/invoices?status=Overdue" className="attention-row red"><i><Wallet size={17}/></i><div><b>{invoiceSummary.overdueCount} invoices overdue</b> · {money(invoiceSummary.overdue)}<small>Oldest {oldest?.invoiceNumber} · {oldest?.overdueDays} days overdue</small></div><strong>View invoices ›</strong></Link>}{ready&&<Link to={`/orders/${ready.id}`} className="attention-row amber"><i><Truck size={17}/></i><div><b>{ready.number}</b> is ready for pick up<small>Pick up date was {ready.date}</small></div><strong>View order ›</strong></Link>}<Link to="/rebates" className="attention-row amber"><i><Package size={17}/></i><div><b>Product rebates</b>: your settlement history<small>Review rebate amounts and settlement periods</small></div><strong>View rebate ›</strong></Link></section><div className="reference-side-cards"><section className="reference-card manager-card"><div><i>DC</i><div><small>Your account manager</small><b>Daniel Chen</b></div></div><p><a href="tel:0400111222">☎ 0400 111 222</a><a href="mailto:daniel@httflooring.com.au">✉ Email</a></p></section><section className="reference-card boards-summary"><h2>Display boards <Link to="/display-boards">View ›</Link></h2><div>{displayBoards.map(board=><span key={board.name}><strong>{board.count}</strong><small>{board.name.toLowerCase()}</small></span>)}</div><Link className="boards-notice" to="/display-boards">⚠ 2 worth updating · ◷ 1 request in progress · updated</Link></section></div></div>
+ <div className="reference-activity-heading"><h2>Activity</h2><span>{period} · {dateLabel} — change the date at the top right</span></div><div className="reference-activity"><Link to="/quotes"><small>Quotes issued</small><strong>{quotes.length}</strong><span>{money(sum(quotes))}</span></Link><Link to="/orders"><small>Orders placed</small><strong>{orders.length}</strong><span>{money(sum(orders))}</span></Link><Link to="/sales"><small>Purchases (incl. GST)</small><strong>{money(sum(purchases))}</strong><span>{purchases.reduce((sum,invoice)=>sum+invoice.items.reduce((total,item)=>total+(item.totalSize??0),0),0).toLocaleString("en-AU",{maximumFractionDigits:2})} m² flooring · view sales ›</span></Link></div>
+ <div className="reference-collections">{productCollections.map((collection,index)=><Link key={collection.id} to={`/collections/${collection.id}`} className={`tone-${["stone","sky","mist"][index]}`}><small>{collection.id==="promotion"?previewRanges.filter(range=>range.promotion).length:collection.id==="new"?6:3} products · {collection.id==="new"?"Latest additions":collection.id==="promotion"?"Ends 30 Nov":"While stock lasts"}</small><div><h2>{collection.name}</h2><p>{collection.description}</p><span>View products <ArrowUpRight size={12}/></span></div></Link>)}</div>
+ <h2 className="browse-reference-heading">Browse products</h2><div className="reference-browse">{categories.map(category=><div key={category}><Link to={`/inventory?category=${encodeURIComponent(category)}`}><b>{category}</b><span>→</span></Link><div>{(category==="Accessories"?["Scotia","Stair Noses","Aluminium Trim"]:["Plank","Herringbone","Chevron"]).map(pattern=><Link key={pattern} to={`/inventory?category=${encodeURIComponent(category)}&subcategory=${encodeURIComponent(pattern)}`}>{pattern==="Aluminium Trim"?"Trims":pattern==="Stair Noses"?"Stair Nose":pattern}</Link>)}</div></div>)}</div>
+ </div></main></>;
 }

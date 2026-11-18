@@ -1,3 +1,4 @@
+import {marketingPolicySchema} from '../document-templates/marketingTemplateModel';
 import {emailPolicySchema} from '../document-templates/emailTemplateModel';
 import {templateDesignSchema} from '../document-templates/templateDesign';
 import {accessPolicySchema} from '../settings/reference/settingsAccessModel';
@@ -78,7 +79,7 @@ export const workspaceDomains: Record<string, {
     jobs: { read: 'accounting.read', write: 'accounting.post', required: ['code', 'customerId', 'starts', 'ends', 'budget', 'costBudget'], fields: ['code', 'customerId', 'owner', 'starts', 'ends', 'budget', 'costBudget'] },
     tasks: { read: 'sales.read', write: 'sales.write', required: ['customerId', 'owner', 'due', 'priority', 'notes'], fields: ['promotionId','customerId', 'owner', 'due', 'priority', 'notes', 'taskType', 'documentType', 'documentId', 'sourceQuoteId', 'sourceSalesDraftId', 'completedAt', 'completedBy', 'completedByName', 'orderId', 'deliveryAt', 'deliveryAddress', 'ownerName', 'reminderAt', 'reminderTimeZone', 'snoozedUntil', 'paymentFollowupData'] },
     'bank-rules': { read: 'banking.read', write: 'banking.write', required: ['field', 'operator', 'value', 'accountId', 'taxCode'], fields: ['field', 'operator', 'value', 'accountId', 'taxCode', 'enabled', 'conditions', 'match', 'priority', 'automatic', 'bankAccountId'] },
-    templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper', 'layoutPolicy', 'emailPolicy'] },
+    templates: { read: 'accounting.read', write: 'accounting.post', required: ['kind', 'subject', 'body'], fields: ['kind', 'subject', 'body', 'footer', 'logo', 'paper', 'layoutPolicy', 'emailPolicy', 'marketingPolicy'] },
     'custom-reports': { read: 'accounting.read', write: 'accounting.post', required: ['dataset', 'columns', 'basis'], fields: ['dataset', 'columns', 'filter', 'basis', 'favourite'] },
     'report-packs': { read: 'accounting.read', write: 'accounting.post', required: ['periodStart', 'periodEnd', 'reports'], fields: ['periodStart', 'periodEnd', 'reports', 'cover', 'introduction'] },
     settings: { read: 'inventory.read', write: 'accounting.post', required: ['section'], fields: ['accessPolicy','operationsPolicy','legalName','website','footerNote','documentsPolicy','salesPolicy','paymentBankName','paymentAccountName','paymentBsb','paymentAccountNumber','paymentInstructions','termsType', 'reportDefaults', 'termsPolicy', 'paymentMethod', 'section', 'companyName', 'currency', 'timezone', 'yearEnd', 'gstCode', 'quotePrefix', 'orderPrefix', 'invoicePrefix', 'creditPrefix', 'purchasePrefix', 'terms', 'sender', 'payCycle', 'payDay', 'filingRegion', 'basis', 'precision', 'header', 'logo', 'nextQuote', 'nextOrder', 'nextInvoice', 'nextCredit', 'nextPurchase', 'billPrefix', 'supplierCreditPrefix', 'nextBill', 'nextSupplierCredit', 'tradingName', 'identifier', 'email', 'phone', 'address'] },
@@ -256,6 +257,7 @@ function validate(domain: string, input: Record<string, string>, rows: ConfigRow
     if (domain === 'report-packs' && checkReferences) parseReportSelection(input.reports);
     if (domain === 'report-packs' && (!validDate(input.periodStart) || !validDate(input.periodEnd) || input.periodEnd < input.periodStart))
         throw new Error('Invalid report period.');
+    if(domain==='templates'&&input.marketingPolicy)marketingPolicySchema.parse(JSON.parse(input.marketingPolicy));
     if(domain==='templates'&&input.emailPolicy)emailPolicySchema.parse(JSON.parse(input.emailPolicy));
     if(domain === 'templates' && input.layoutPolicy)templateDesignSchema.parse(JSON.parse(input.layoutPolicy));
     if (domain === 'settings') {

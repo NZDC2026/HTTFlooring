@@ -1,3 +1,5 @@
+import PreviewRangePage from "./pages/PreviewRangePage";
+import PortalOverviewPage from "./pages/PortalOverviewPage";
 import RebatePage from "./pages/RebatePage";
 import SalesDocumentsPage from "./pages/SalesDocumentsPage";
 import DispatchFollowupPage from "./pages/DispatchFollowupPage";
@@ -39,6 +41,9 @@ export default function App() {
 
         <Route element={<RequireAccount/>}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/ranges/:id" element={<PreviewRangePage/>} />
+        <Route path="/display-boards" element={<PortalOverviewPage kind="boards"/>} />
+        <Route path="/sales" element={<PortalOverviewPage kind="sales"/>} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/series/:id" element={<SeriesPage />} />
         <Route path="/collections/:id" element={<SeriesPage />} />

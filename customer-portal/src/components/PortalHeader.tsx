@@ -7,16 +7,18 @@ export default function PortalHeader() {
     return (
         <header className="portal-header">
             <NavLink to="/dashboard" className="brand">
-                <span className="brand-mark">HT</span>
+                <span className="reference-brand-mark" aria-hidden="true"><i/><i/></span>
                 <span>HTT FLOORING</span>
             </NavLink>
 
             <nav className="portal-nav">
                 <NavLink to="/dashboard">Dashboard</NavLink>
-                <NavLink to="/inventory" className={({isActive})=>isActive || (pathname.startsWith("/series/") || pathname.startsWith("/collections/")) || pathname.startsWith("/products/") ? "active" : ""}>Inventory Lookup</NavLink>
+                <NavLink to="/inventory" className={({isActive})=>isActive || (pathname.startsWith("/series/") || pathname.startsWith("/collections/")) || pathname.startsWith("/products/") || pathname.startsWith("/ranges/") ? "active" : ""}>Inventory</NavLink>
+                <NavLink to="/display-boards">Display Boards <span className="nav-count">1</span></NavLink>
                 <NavLink to="/quotes">Quotes</NavLink>
                 <NavLink to="/orders">Orders</NavLink>
                 <NavLink to="/invoices">Invoices</NavLink>
+                <NavLink to="/sales">Sales</NavLink>
                 <NavLink to="/rebates">Rebate</NavLink>
                 <NavLink to="/account">My Account</NavLink>
             </nav>
