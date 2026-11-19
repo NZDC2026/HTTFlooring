@@ -68,6 +68,8 @@ springdoc:
     enabled: false
 
 htt:
+  companies:
+    enabled: ${HTT_COMPANIES_ENABLED:false}
   customers:
     enabled: ${HTT_CUSTOMERS_ENABLED:false}
   keycloak:

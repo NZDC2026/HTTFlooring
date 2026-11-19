@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnProperty(name = "htt.auth.enabled", havingValue = "true")
 public class CurrentUserController {
     public record Company(UUID actorId, UUID companyId, String companyName, UUID membershipId, Set<String> permissions,
-            Set<String> roles,AccessSnapshot.MemberKind memberKind,AccessSnapshot.AccessProfile accessProfile,boolean readOnly) {}
-    public record StaffSession(List<Company> companies) {}
+            Set<String> roles,AccessSnapshot.MemberKind memberKind,AccessSnapshot.AccessProfile accessProfile,boolean readOnly,String city) {}
+    public record StaffSession(List<Company> companies,Set<String> globalPermissions) {}
     public record Context(UUID companyId, String companyName, UUID grantId, long grantVersion,
             UUID customerId, String customerCode, String customerName) {}
     public record PortalSession(List<Context> contexts, Instant dataAsOf) {}
@@ -26,7 +26,7 @@ public class CurrentUserController {
     public StaffSession staff(@AuthenticationPrincipal VerifiedUser user) {
         return new StaffSession(user.access().companies().stream().map(company -> new Company(
                 user.access().actorId(), company.companyId(), company.companyName(), company.membershipId(),
-                company.permissions(),company.roles(),company.memberKind(),company.accessProfile(),company.readOnly())).toList());
+                company.permissions(),company.roles(),company.memberKind(),company.accessProfile(),company.readOnly(),company.city())).toList(),user.access().globalPermissions());
     }
 
     @GetMapping("/api/portal/v1/me")

@@ -7,9 +7,13 @@ import java.util.UUID;
 
 /** Server-owned access state, reloaded for every authenticated request. */
 public record AccessSnapshot(UUID actorId, String displayName, Instant tokensValidAfter,
-        List<CompanyAccess> companies) {
+        List<CompanyAccess> companies,Set<String> globalPermissions) {
     public AccessSnapshot {
         companies = List.copyOf(companies);
+        globalPermissions = globalPermissions==null?Set.of():Set.copyOf(globalPermissions);
+    }
+    public AccessSnapshot(UUID actorId,String displayName,Instant tokensValidAfter,List<CompanyAccess> companies) {
+        this(actorId,displayName,tokensValidAfter,companies,Set.of());
     }
 
     public enum Realm { STAFF, CUSTOMER }
@@ -19,12 +23,16 @@ public record AccessSnapshot(UUID actorId, String displayName, Instant tokensVal
     public enum ResourceKind { CUSTOMER, BRANCH, ORDER }
 
     public record CompanyAccess(UUID companyId, String companyName, UUID membershipId,
-            MemberKind memberKind, Set<String> roles, Set<String> permissions, List<Grant> grants,AccessProfile accessProfile) {
+            MemberKind memberKind, Set<String> roles, Set<String> permissions, List<Grant> grants,AccessProfile accessProfile,String city) {
         public CompanyAccess {
             roles = Set.copyOf(roles);
             permissions = Set.copyOf(permissions);
             grants = List.copyOf(grants);
             accessProfile = accessProfile==null?AccessProfile.STANDARD:accessProfile;
+        }
+        public CompanyAccess(UUID companyId,String companyName,UUID membershipId,MemberKind memberKind,
+                Set<String> roles,Set<String> permissions,List<Grant> grants,AccessProfile accessProfile) {
+            this(companyId,companyName,membershipId,memberKind,roles,permissions,grants,accessProfile,null);
         }
         public CompanyAccess(UUID companyId,String companyName,UUID membershipId,MemberKind memberKind,
                 Set<String> roles,Set<String> permissions,List<Grant> grants) {

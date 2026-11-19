@@ -105,7 +105,7 @@ class PostgresBaselineIT {
     void migrationsAreRepeatableAndRuntimeValidationRejectsPendingChanges() {
         var flyway = migrations(migrationUser, migrationPassword);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
-        assertThat(flyway.info().applied()).hasSize(14);
+        assertThat(flyway.info().applied()).hasSize(16);
         assertThat(flyway.info().pending()).isEmpty();
         assertThat(migrations(appUser, appPassword).validateWithResult().validationSuccessful).isTrue();
         var pending = Flyway.configure().dataSource(url, appUser, appPassword)
@@ -1295,6 +1295,23 @@ class PostgresBaselineIT {
     }
 
     @Test
+    void companyCityIsMetadataAndDoesNotBroadenCompanyAccess() throws Exception {
+        try(var fixture=new Fixture();var writer=migrationConnection();var runtime=appConnection()) {
+            writer.setAutoCommit(false);
+            expectSqlState(writer,"23514","update identity.company set city=' ' where id=?",fixture.company[0]);
+            expectSqlState(writer,"23514","update identity.company set city=' Sydney' where id=?",fixture.company[0]);
+            expectSqlState(writer,"22001","update identity.company set city=? where id=?","x".repeat(101),fixture.company[0]);
+            writer.rollback();writer.setAutoCommit(true);
+            // Equal city labels do not merge companies or confer cross-company membership.
+            execute(writer,"update identity.company set city='Sydney' where id in (?,?)",fixture.company[0],fixture.company[1]);
+            runtime.setAutoCommit(false);setContext(runtime,fixture.company[0],fixture.actor[0]);
+            assertThat(scalar(runtime,"select count(*) from identity.company where city='Sydney'")).isEqualTo(1);
+            expectSqlState(runtime,"42501","update identity.company set city='Melbourne' where id=?",fixture.company[0]);
+            runtime.rollback();
+        }
+    }
+
+    @Test
     void staffProfilesIsolateCompaniesComposeRolesAndRevokeExistingSessions() throws Exception {
         try(var fixture=new Fixture();var writer=migrationConnection();var runtime=appConnection()) {
             var encoder=new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(12);
@@ -1306,6 +1323,7 @@ class PostgresBaselineIT {
                         fixture.actor[i],"profile-"+fixture.actor[i]+"@test.invalid",encoder.encode(password),fixture.actor[i].toString());
                 execute(writer,"insert into identity.employee(business_id,company_id,actor_id,display_name) values (?,?,?,'TEST PROFILE ONLY')","emp_"+UUID.randomUUID(),fixture.company[i],fixture.actor[i]);
                 execute(writer,"update crm.customer set currency='AUD' where id=?",fixture.customer[i]);
+                execute(writer,"update identity.company set city=? where id=?",i==0?"Melbourne":"Sydney",fixture.company[i]);
             }
             UUID viewRole=UUID.randomUUID(),writeRole=UUID.randomUUID();
             execute(writer,"insert into identity.role(company_id,id,code) values (?,?,'TEST FINANCE VIEW'),(?,?,'TEST ORDER ASSISTANT')",fixture.company[0],viewRole,fixture.company[0],writeRole);
@@ -1321,6 +1339,7 @@ class PostgresBaselineIT {
             var repository=new AccessRepository(new JdbcTemplate(new SingleConnectionDataSource(runtime,true)),new JsonMapper());
             var before=repository.resolve("https://identity.htt.invalid/local",fixture.actor[0].toString(),AccessSnapshot.Realm.STAFF);
             assertThat(before.companies()).hasSize(2);
+            assertThat(before.companies().stream().map(AccessSnapshot.CompanyAccess::city)).containsExactlyInAnyOrder("Melbourne","Sydney");
             assertThat(before.companies()).allSatisfy(c->{assertThat(c.readOnly()).isTrue();assertThat(c.permissions()).doesNotContain("order:create","customer:update");});
             // Even direct business SQL under the runtime role cannot write for a group reader.
             runtime.setAutoCommit(false);setContext(runtime,fixture.company[0],fixture.actor[0]);
@@ -1343,6 +1362,16 @@ class PostgresBaselineIT {
                     assertThat(reply.statusCode()).as(reply.body()).isEqualTo(200);tokens[i]=json.readTree(reply.body()).path("accessToken").asString();
                 }
                 assertThat(customerHttp(client,origin,null,fixture.company[0],"GET","/api/v1/customers",null).statusCode()).isEqualTo(401);
+                var companyInfo=customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/me",null);
+                assertThat(companyInfo.statusCode()).isEqualTo(200);
+                var companyNodes=json.readTree(companyInfo.body()).path("companies");
+                assertThat(java.util.stream.StreamSupport.stream(companyNodes.spliterator(),false).map(c->c.path("city").asString()))
+                        .containsExactlyInAnyOrder("Melbourne","Sydney");
+                var canonicalInfo=customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/user/auth/me",null);
+                assertThat(canonicalInfo.statusCode()).isEqualTo(200);
+                assertThat(java.util.stream.StreamSupport.stream(json.readTree(canonicalInfo.body()).path("access").path("companies").spliterator(),false)
+                        .map(c->c.path("city").asString())).containsExactlyInAnyOrder("Melbourne","Sydney");
+                verifyCompanyCreation(client,origin,fixture,writer,runtime,json,tokens[0],tokens[1]);
                 for(int i=0;i<2;i++) {
                     var list=customerHttp(client,origin,tokens[0],fixture.company[i],"GET","/api/v1/customers",null);
                     assertThat(list.statusCode()).as(list.body()).isEqualTo(200);
@@ -1390,12 +1419,71 @@ class PostgresBaselineIT {
                 configureStaff(writer,fixture.actor[0],fixture.company[0],"REVOKED",new UUID[0],null);
                 assertThat(customerHttp(client,origin,tokens[0],fixture.company[0],"GET","/api/v1/customers",null).statusCode()).isEqualTo(403);
             } finally {
+                var createdCompanies=new java.util.ArrayList<UUID>();
+                try(var q=writer.prepareStatement("select company_id from identity.company_creation where actor_id in (?,?)")) {
+                    q.setObject(1,fixture.actor[0]);q.setObject(2,fixture.actor[1]);try(var r=q.executeQuery()){while(r.next())createdCompanies.add(r.getObject(1,UUID.class));}
+                }
+                execute(writer,"delete from identity.company_creation where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
+                execute(writer,"delete from identity.platform_grant where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
+                for(UUID createdCompany:createdCompanies)execute(writer,"delete from identity.company where id=?",createdCompany);
                 cleanLoginBuckets(writer,fixture);
                 execute(writer,"delete from identity.login_session where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
                 execute(writer,"delete from identity.password_credential where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
                 execute(writer,"delete from identity.employee where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
             }
         }
+    }
+
+    private static void verifyCompanyCreation(HttpClient client,String origin,Fixture fixture,Connection writer,Connection runtime,
+            tools.jackson.databind.ObjectMapper json,String group,String owner) throws Exception {
+        String path="/api/v1/companies",code="TEST-"+UUID.randomUUID().toString().toUpperCase(java.util.Locale.ROOT);
+        String body=json.writeValueAsString(Map.of("code",code,"name","Synthetic Company","city","Sydney"));
+        UUID operation=UUID.randomUUID();
+        var apiDoc=client.send(HttpRequest.newBuilder(URI.create(origin+"/v3/api-docs")).GET().build(),HttpResponse.BodyHandlers.ofString());
+        var requestSchema=json.readTree(apiDoc.body()).path("components").path("schemas").path("CreateCompanyRequest").path("properties");
+        assertThat(requestSchema.has("code")&&requestSchema.has("name")&&requestSchema.has("city")).isTrue();
+        assertThat(customerHttp(client,origin,null,fixture.company[0],"POST",path,body,operation).statusCode()).isEqualTo(401);
+        assertThat(customerHttp(client,origin,group,fixture.company[0],"POST",path,body,operation).statusCode()).isEqualTo(403);
+        for(UUID actor:fixture.actor)execute(writer,"insert into identity.platform_grant(actor_id,permission_code,reason) values (?,'company:create','TEST ONLY')",actor);
+        // Even accidental global/company grants do not make a company owner a platform administrator.
+        execute(writer,"insert into identity.role_permission(company_id,role_id,permission_code) select company_id,role_id,'company:create' from identity.member_role where user_id=? on conflict do nothing",fixture.actor[1]);
+        assertThat(customerHttp(client,origin,owner,fixture.company[1],"POST",path,body,operation).statusCode()).isEqualTo(403);
+        var identity=customerHttp(client,origin,group,fixture.company[0],"GET","/api/v1/me",null);
+        assertThat(json.readTree(identity.body()).path("globalPermissions").path(0).asString()).isEqualTo("company:create");
+        assertThat(customerHttp(client,origin,group,fixture.company[0],"POST",path,body).statusCode()).isEqualTo(400);
+        assertThat(customerHttp(client,origin,group,fixture.company[0],"POST",path,"{\"code\":\"BAD\",\"name\":\"\",\"city\":\"Sydney\"}",UUID.randomUUID()).statusCode()).isEqualTo(422);
+        var created=customerHttp(client,origin,group,fixture.company[0],"POST",path,body,operation);
+        assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+        UUID company=UUID.fromString(json.readTree(created.body()).path("id").asString());
+        assertThat(json.readTree(created.body()).path("city").asString()).isEqualTo("Sydney");
+        var replay=customerHttp(client,origin,group,fixture.company[1],"POST",path,body,operation);
+        assertThat(replay.statusCode()).as(replay.body()).isEqualTo(201);
+        assertThat(json.readTree(replay.body()).path("id").asString()).isEqualTo(company.toString());
+        assertThat(customerHttp(client,origin,group,fixture.company[0],"POST",path,body.replace("Sydney","Melbourne"),operation).statusCode()).isEqualTo(409);
+        assertThat(customerHttp(client,origin,group,fixture.company[0],"POST",path,body,UUID.randomUUID()).statusCode()).isEqualTo(409);
+        assertThat(scalar(writer,"select count(*) from identity.company_creation where actor_id='"+fixture.actor[0]+"'::uuid")).isEqualTo(1);
+        assertThat(scalar(writer,"select count(*) from identity.company_member where company_id='"+company+"'::uuid")).isZero();
+        assertThat(scalar(writer,"select count(*) from crm.customer_workspace where company_id='"+company+"'::uuid")).isZero();
+        assertThat(customerHttp(client,origin,group,company,"GET","/api/v1/customers",null).statusCode()).isEqualTo(403);
+        String concurrentCode="TEST-"+UUID.randomUUID().toString().toUpperCase(java.util.Locale.ROOT);UUID concurrentKey=UUID.randomUUID();
+        String concurrentBody=json.writeValueAsString(Map.of("code",concurrentCode,"name","Synthetic Concurrent Company","city","Melbourne"));
+        try(var executor=java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var first=executor.submit(()->customerHttp(client,origin,group,fixture.company[0],"POST",path,concurrentBody,concurrentKey));
+            var second=executor.submit(()->customerHttp(client,origin,group,fixture.company[0],"POST",path,concurrentBody,concurrentKey));
+            var firstReply=first.get();var secondReply=second.get();
+            assertThat(firstReply.statusCode()).as(firstReply.body()).isEqualTo(201);assertThat(secondReply.statusCode()).as(secondReply.body()).isEqualTo(201);
+            assertThat(json.readTree(firstReply.body()).path("id").asString()).isEqualTo(json.readTree(secondReply.body()).path("id").asString());
+        }
+        runtime.setAutoCommit(false);
+        String rollbackCode="TEST-"+UUID.randomUUID().toString().toUpperCase(java.util.Locale.ROOT);
+        execute(runtime,"select identity.create_company(?,?,? ,?,'Rollback only','Sydney')",fixture.actor[0],UUID.randomUUID(),"b".repeat(64),rollbackCode);
+        expectSqlState(runtime,"42501","select * from identity.platform_grant");
+        runtime.rollback();runtime.setAutoCommit(true);
+        try(var q=writer.prepareStatement("select count(*) from identity.company where code=?")){q.setString(1,rollbackCode);try(var r=q.executeQuery()){r.next();assertThat(r.getLong(1)).isZero();}}
+        execute(writer,"update identity.platform_grant set enabled=false,version=version+1 where actor_id=?",fixture.actor[0]);
+        assertThat(customerHttp(client,origin,group,fixture.company[0],"POST",path,body,operation).statusCode()).isEqualTo(403);
+        var revoked=customerHttp(client,origin,group,fixture.company[0],"GET","/api/v1/me",null);
+        assertThat(json.readTree(revoked.body()).path("globalPermissions").size()).isZero();
     }
 
     private static void configureStaff(Connection connection,UUID actor,UUID company,String profile,UUID[] customers,UUID[] roles) throws SQLException {

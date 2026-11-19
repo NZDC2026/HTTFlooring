@@ -10,6 +10,8 @@ springdoc:
     disable-swagger-default-url: true
     persist-authorization: false
 htt:
+  companies:
+    enabled: true
   customers:
     enabled: true
   auth:
