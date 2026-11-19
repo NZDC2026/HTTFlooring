@@ -23,6 +23,7 @@ class ModuleArchitectureTests {
     private static final Map<String, Set<String>> DEPENDENCIES = Map.ofEntries(
             Map.entry("platform", Set.of()),
             Map.entry("identity", Set.of("platform")),
+            Map.entry("hr", Set.of("identity")),
             Map.entry("notification", Set.of("identity", "platform")),
             Map.entry("crm", Set.of("identity", "platform")),
             Map.entry("catalog", Set.of("identity", "platform")),

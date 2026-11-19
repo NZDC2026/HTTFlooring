@@ -105,7 +105,7 @@ class PostgresBaselineIT {
     void migrationsAreRepeatableAndRuntimeValidationRejectsPendingChanges() {
         var flyway = migrations(migrationUser, migrationPassword);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
-        assertThat(flyway.info().applied()).hasSize(16);
+        assertThat(flyway.info().applied()).hasSize(17);
         assertThat(flyway.info().pending()).isEmpty();
         assertThat(migrations(appUser, appPassword).validateWithResult().validationSuccessful).isTrue();
         var pending = Flyway.configure().dataSource(url, appUser, appPassword)
@@ -1372,6 +1372,7 @@ class PostgresBaselineIT {
                 assertThat(java.util.stream.StreamSupport.stream(json.readTree(canonicalInfo.body()).path("access").path("companies").spliterator(),false)
                         .map(c->c.path("city").asString())).containsExactlyInAnyOrder("Melbourne","Sydney");
                 verifyCompanyCreation(client,origin,fixture,writer,runtime,json,tokens[0],tokens[1]);
+                verifyEmployeeDirectory(client,origin,fixture,writer,runtime,json,tokens[0],tokens[1]);
                 for(int i=0;i<2;i++) {
                     var list=customerHttp(client,origin,tokens[0],fixture.company[i],"GET","/api/v1/customers",null);
                     assertThat(list.statusCode()).as(list.body()).isEqualTo(200);
@@ -1431,6 +1432,111 @@ class PostgresBaselineIT {
                 execute(writer,"delete from identity.password_credential where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
                 execute(writer,"delete from identity.employee where actor_id in (?,?)",fixture.actor[0],fixture.actor[1]);
             }
+        }
+    }
+
+    private static void verifyEmployeeDirectory(HttpClient client, String origin, Fixture fixture,
+            Connection writer, Connection runtime, tools.jackson.databind.ObjectMapper json,
+            String groupToken, String ownerToken) throws Exception {
+        String path = "/api/v1/employees";
+        UUID company = fixture.company[1], foreignCompany = fixture.company[0];
+        UUID actor = fixture.actor[1], role = UUID.randomUUID(), foreign = UUID.randomUUID();
+        String minimal = """
+                {"fullName":"  Synthetic Employee  ","startDate":"2026-11-16"}
+                """;
+        assertThat(customerHttp(client,origin,null,company,"GET",path,null).statusCode()).isEqualTo(401);
+        assertThat(customerHttp(client,origin,ownerToken,company,"GET",path,null).statusCode()).isEqualTo(403);
+        execute(writer,"insert into identity.role(company_id,id,code) values (?,?,'TEST EMPLOYEE DIRECTORY')",company,role);
+        execute(writer,"insert into identity.member_role(company_id,user_id,role_id) values (?,?,?),(?,?,?)",
+                company,actor,role,company,fixture.actor[0],role);
+        for (String permission : List.of("payroll:read","payroll:manage","payroll:sensitive:read")) {
+            execute(writer,"insert into identity.role_permission(company_id,role_id,permission_code) values (?,?,?)",
+                    company,role,permission);
+        }
+        try {
+            execute(writer, """
+                    insert into hr.employee(id,company_id,employee_code,full_name,start_date,employment_type,
+                        employment_category,created_by,updated_by,request_id,request_hash)
+                    values (?,?,'TEST-FOREIGN','Foreign employee',date '2026-11-16','FULL_TIME','PERMANENT',?,?,?,repeat('0',64))
+                    """, foreign,foreignCompany,fixture.actor[0],fixture.actor[0],UUID.randomUUID());
+            UUID key = UUID.randomUUID();
+            assertThat(customerHttp(client,origin,groupToken,company,"POST",path,minimal,key).statusCode()).isEqualTo(403);
+            assertThat(customerHttp(client,origin,ownerToken,foreignCompany,"POST",path,minimal,key).statusCode()).isEqualTo(403);
+            assertThat(customerHttp(client,origin,ownerToken,company,"POST",path,minimal).statusCode()).isEqualTo(400);
+            assertThat(customerHttp(client,origin,ownerToken,company,"POST",path,
+                    minimal.replace("2026-11-16","2026-02-30"),key).statusCode()).isEqualTo(400);
+            assertThat(customerHttp(client,origin,ownerToken,company,"POST",path,
+                    minimal.replace("}",",\"payRate\":15}"),key).statusCode()).isEqualTo(422);
+            assertThat(customerHttp(client,origin,ownerToken,company,"POST",path,
+                    minimal.replace("}",",\"createMyobEmployee\":true}"),key).statusCode()).isEqualTo(400);
+
+            try (var requests = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+                var a = requests.submit(() -> customerHttp(client,origin,ownerToken,company,"POST",path,minimal,key));
+                var b = requests.submit(() -> customerHttp(client,origin,ownerToken,company,"POST",path,minimal,key));
+                var created = a.get();
+                var replay = b.get();
+                assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+                assertThat(replay.statusCode()).as(replay.body()).isEqualTo(201);
+                var summary = json.readTree(created.body());
+                assertThat(json.readTree(replay.body())).isEqualTo(summary);
+                assertThat(summary.path("employeeCode").asString()).isEqualTo("EMP-000001");
+                assertThat(summary.path("fullName").asString()).isEqualTo("Synthetic Employee");
+                assertThat(summary.path("startDate").asString()).isEqualTo("2026-11-16");
+                assertThat(summary.path("employmentType").asString()).isEqualTo("FULL_TIME");
+                assertThat(summary.path("loginStatus").asString()).isEqualTo("NOT_LINKED");
+                assertThat(summary.path("myobStatus").asString()).isEqualTo("NOT_LINKED");
+                String location = created.headers().firstValue("Location").orElseThrow();
+                assertThat(location).isEqualTo(path+"/"+summary.path("id").asString());
+                var detail = customerHttp(client,origin,ownerToken,company,"GET",location,null);
+                assertThat(detail.statusCode()).as(detail.body()).isEqualTo(200);
+                assertThat(json.readTree(detail.body()).path("employmentCategory").asString()).isEqualTo("PERMANENT");
+                assertThat(customerHttp(client,origin,ownerToken,company,"POST",path,
+                        minimal.replace("Synthetic Employee","Different Name"),key).statusCode()).isEqualTo(409);
+                assertThat(customerHttp(client,origin,ownerToken,company,"GET",path+"/"+foreign,null).statusCode()).isEqualTo(404);
+            }
+            var paid = customerHttp(client,origin,ownerToken,company,"POST",path,"""
+                    {"fullName":"Synthetic Left Employee","position":"Loader","startDate":"2026-11-16",
+                     "mobile":"+61 0400","email":"synthetic@test.invalid","emergencyContact":"Test only",
+                     "payBasis":"HOURLY","payRate":25.10,"commissionPercent":2.5}
+                    """,UUID.randomUUID());
+            assertThat(paid.statusCode()).as(paid.body()).isEqualTo(201);
+            String paidLocation = paid.headers().firstValue("Location").orElseThrow();
+            UUID paidId = UUID.fromString(json.readTree(paid.body()).path("id").asString());
+            execute(writer,"update hr.employee set status='LEFT' where company_id=? and id=?",company,paidId);
+            var list = customerHttp(client,origin,ownerToken,company,"GET",path+"?q=synthetic&limit=1",null);
+            assertThat(list.statusCode()).as(list.body()).isEqualTo(200);
+            var page = json.readTree(list.body());
+            assertThat(page.path("items").size()).isEqualTo(1);
+            assertThat(page.path("total").asLong()).isEqualTo(1);
+            assertThat(page.path("counts").path("all").asLong()).isEqualTo(2);
+            assertThat(page.path("counts").path("left").asLong()).isEqualTo(1);
+            var left = customerHttp(client,origin,ownerToken,company,"GET",path+"?q=loaDer&status=LEFT",null);
+            assertThat(json.readTree(left.body()).path("items").path(0).path("id").asString()).isEqualTo(paidId.toString());
+            assertThat(left.body()).doesNotContain("synthetic@test.invalid","payRate");
+            var privileged = customerHttp(client,origin,ownerToken,company,"GET",paidLocation,null);
+            assertThat(json.readTree(privileged.body()).path("sensitive").path("payRate").asString()).isEqualTo("25.10");
+            var redacted = customerHttp(client,origin,groupToken,company,"GET",paidLocation,null);
+            assertThat(redacted.statusCode()).as(redacted.body()).isEqualTo(200);
+            assertThat(redacted.body()).doesNotContain("sensitive","synthetic@test.invalid");
+            runtime.setAutoCommit(false);
+            try {
+                setContext(runtime,company,fixture.actor[0]);
+                assertThat(scalar(runtime,"select count(*) from hr.employee")).isEqualTo(2);
+                assertThat(scalar(runtime,"select count(*) from hr.employee_private")).isZero();
+            } finally {
+                runtime.rollback();
+                runtime.setAutoCommit(true);
+            }
+            execute(writer,"delete from identity.role_permission where company_id=? and role_id=? and permission_code='payroll:read'",
+                    company,role);
+            assertThat(customerHttp(client,origin,ownerToken,company,"GET",paidLocation,null).statusCode()).isEqualTo(403);
+        } finally {
+            execute(writer,"delete from hr.employee_private where company_id=?",company);
+            execute(writer,"delete from hr.employee where company_id=? or (company_id=? and id=?)",company,foreignCompany,foreign);
+            execute(writer,"delete from hr.employee_number where company_id=?",company);
+            execute(writer,"delete from identity.member_role where company_id=? and role_id=?",company,role);
+            execute(writer,"delete from identity.role_permission where company_id=? and role_id=?",company,role);
+            execute(writer,"delete from identity.role where company_id=? and id=?",company,role);
         }
     }
 
