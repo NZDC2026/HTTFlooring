@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HTT Customer Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600&display=swap"><link rel="stylesheet" href="./portal.css">
+</head><body class="pzoff hasst"><header>
+  <div class="wrap">
+    <a class="logo" href="#/dashboard"><i><b></b><b></b></i>HTT FLOORING</a>
+    <nav class="main" id="nav"><a href="#/dashboard" class="active">Home</a><a href="#/inventory" class="">Product</a><a href="#/boards" class="">Display Boards<span class="navbadge" title="1 request update">1</span></a><div class="navdd "><a href="#/quotes" class="">Purchases<span class="navbadge red" title="1 expiring by tomorrow · 2 delayed or not collected · 4 overdue">7</span> <span class="ddc">▾</span></a>
+        <div class="ddm"><a href="#/quotes" class="">Reserve<em>2</em><i class="paltag amb" title="1 expiring by tomorrow">1 expiring</i></a><a href="#/orders" class="">Orders<em>2</em><i class="paltag " title="2 delayed or not collected">2 late</i></a><a href="#/invoices" class="">Invoices<em>4</em><i class="paltag " title="4 overdue">4 overdue</i></a></div></div><a href="#/sales" class="">Insights</a><a href="#/rebates" class="">Deal</a><a href="#/account" class="">My Account</a></nav>
+    <div class="who">
+      <span id="stsw"><label class="stsw" title="Switch store"><span>📍</span><select onchange="setStore(this.value)"><option value="all" selected="">All stores</option><option value="ADR-01" title="ABC Flooring Richmond">Richmond</option><option value="ADR-02" title="ABC Flooring Geelong">Geelong</option></select></label></span>
+      <button id="pzbtn" class="pzbtn " onclick="pzToggle()" title="Prices hidden — staff: click to show"><span class="pzi">🔒</span><span><b>Prices hidden</b><small>Tap to show</small></span></button>
+      <div><div class="n" id="who-name">ABC Flooring Pty Ltd</div><div class="l" id="who-loc">Melbourne</div></div>
+      <a class="icon-btn cartbtn" href="#/cart" title="New quote / order"><svg width="17" height="17" fill="none" stroke="#fff" stroke-width="1.6"><path d="M1.5 2h2l1.8 8.5h8L15 4.5H4.5"></path><circle cx="6.5" cy="14" r="1.1"></circle><circle cx="12.5" cy="14" r="1.1"></circle></svg><span id="cartn" class="" style="display: none;"></span></a>
+      <a class="icon-btn" href="#/account" title="My account"><svg width="16" height="16" fill="none" stroke="#fff" stroke-width="1.6"><circle cx="8" cy="5" r="3"></circle><path d="M2 15c1-4 11-4 12 0"></path></svg></a>
+      <button class="icon-btn" title="Log out" onclick="portalLogout()"><svg width="16" height="16" fill="none" stroke="#fff" stroke-width="1.6"><path d="M6 2H2v12h4M10 4l4 4-4 4M14 8H6"></path></svg></button>
+    </div>
+  </div>
+</header>
+<div id="pzbar" class="pzbar" style="display: none;"></div>
+<main id="app"></main><div class="toast" id="toast"></div><div class="modal" id="modal" onclick="if(event.target===this)closeModal()"></div>
+<script src="./portal.js"></script><script src="./bridge.js"></script></body></html>

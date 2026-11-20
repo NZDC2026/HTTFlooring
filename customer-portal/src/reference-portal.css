@@ -1,0 +1,2 @@
+.reference-portal-frame{position:fixed;inset:0;display:block;width:100%;height:100%;border:0;background:#f5f3ee;color-scheme:light}
+@media print{.reference-portal-frame{position:static;height:100vh}}

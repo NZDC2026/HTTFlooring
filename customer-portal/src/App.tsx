@@ -1,3 +1,5 @@
+import ReferencePortal from "./pages/ReferencePortal";
+import {authMode} from "./config/auth";
 import StatementPage from "./pages/StatementPage";
 import ProductSalesPage from "./pages/ProductSalesPage";
 import DisplayBoardsPage from "./pages/DisplayBoardsPage";
@@ -28,6 +30,10 @@ function RequireAccount() {
 }
 function ScrollToTop() { const {pathname} = useLocation(); useEffect(()=>{window.scrollTo(0,0);},[pathname]); return null; }
 export default function App() {
+  if(authMode==="mock")return <BrowserRouter><Routes>
+    <Route path="/" element={<Navigate to="/dashboard" replace/>}/><Route path="/login" element={<LoginPage/>}/><Route path="/register" element={<RegisterPage/>}/><Route path="/application-submitted" element={<ApplicationSubmittedPage/>}/><Route path="/follow-up" element={<DispatchFollowupPage/>}/>
+    <Route element={<RequireAccount/>}><Route path="*" element={<ReferencePortal/>}/></Route>
+  </Routes></BrowserRouter>;
   return (
     <BrowserRouter>
       <ScrollToTop/><Routes>
