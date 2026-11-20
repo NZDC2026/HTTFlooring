@@ -1,3 +1,4 @@
+import { authMode } from "../config/auth";
 import { useRef, useState } from "react";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -95,7 +96,7 @@ export default function LoginPage() {
               ? "Use your local recovery code to set a new password."
               : "Log in to check stock availability and invoices."}
           </p>
-          <div className="local-notice">
+          {authMode === "mock" ? <div className="local-notice">
             Local demo account: <strong>{defaultProfile.email}</strong>
             <br />
             Initial password: <strong>{DEMO_PASSWORD}</strong>
@@ -107,7 +108,7 @@ export default function LoginPage() {
             )}
             <br />
             Credentials and changes stay in this browser.
-          </div>
+          </div> : <div className="local-notice">Sign in with your HTT account. Business pages currently use clearly labelled sample data.</div> }
           {error && (
             <p role="alert" className="form-error">
               {error}
@@ -172,7 +173,7 @@ export default function LoginPage() {
             </label>
           )}
           <div className="login-options">
-            {!reset && (
+            {!reset && authMode === "mock" && (
               <label>
                 <input name="remember" type="checkbox" defaultChecked />{" "}
                 Remember me
@@ -182,8 +183,9 @@ export default function LoginPage() {
               type="button"
               className="text-button"
               onClick={() => {
-                setReset(!reset);
                 setError("");
+                if(authMode === "api"){setMessage("Password recovery is not connected. Contact HTT to reset your password.");return;}
+                setReset(!reset);
                 setMessage("");
               }}
             >

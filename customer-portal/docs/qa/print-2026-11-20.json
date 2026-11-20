@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-20",
+  "browser": "Google Chrome 157 on macOS",
+  "paper": "A4 portrait; 14 mm vertical / 12 mm horizontal margins",
+  "settings": "Save as PDF; headers/footers off; background graphics on",
+  "documents": [
+    {
+      "file": "quote-ready.pdf",
+      "pages": 1,
+      "reference": "QUO-10601",
+      "expectedTotal": "6,630.98",
+      "textAndRender": "pass"
+    },
+    {
+      "file": "order-isolated.pdf",
+      "pages": 1,
+      "reference": "ORD-10560",
+      "expectedTotal": "3,342.99",
+      "textAndRender": "pass"
+    },
+    {
+      "file": "invoice-isolated.pdf",
+      "pages": 1,
+      "reference": "INV-10540",
+      "expectedTotal": "7,623.73",
+      "textAndRender": "pass"
+    },
+    {
+      "file": "credit-isolated.pdf",
+      "pages": 1,
+      "reference": "CN-1002",
+      "expectedTotal": "328.80",
+      "textAndRender": "pass"
+    },
+    {
+      "file": "statement-isolated.pdf",
+      "pages": 1,
+      "reference": "Account Statement",
+      "expectedTotal": "24,324.62",
+      "textAndRender": "pass"
+    },
+    {
+      "file": "multipage-isolated.pdf",
+      "pages": 7,
+      "reference": "PRINT-LAYOUT-TEST",
+      "expectedTotal": "13,206.60",
+      "textAndRender": "pass"
+    }
+  ],
+  "automatedTests": 80,
+  "physicalPrinter": "Not used; saved through the actual browser print dialog.",
+  "data": "Local sample fixtures; no business API or emails.",
+  "rendering": "Every saved page rendered and visually checked with PDFium; all 80 stress rows unique, repeated table headers, one final total."
+}

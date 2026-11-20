@@ -1,0 +1,35 @@
+/* Same document typography, colours and hierarchy as the published reference. */
+@page { size: A4 portrait; margin: 14mm 12mm; }
+body.print-document { background:#fff; margin:0; color:var(--ink); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.print-document .doc { box-sizing:border-box; width:100%; max-width:186mm; margin:0 auto; padding:0; border:0; border-radius:0; box-shadow:none; overflow:visible; overflow-wrap:anywhere; }
+.print-document .doc h1 { font-size:36px; }
+.print-document .doc .top { display:flex; flex-wrap:nowrap; gap:16px; padding-bottom:18px; break-inside:avoid; }
+.print-document .doc .meta { display:grid; grid-template-columns:1fr 1fr 2fr; gap:16px; margin:20px 0 16px; break-inside:avoid; }
+.print-document .doc table { table-layout:auto; width:100%; min-width:0!important; }
+.print-document .doc th { padding:10px 7px; white-space:normal; }
+.print-document .doc td { padding:12px 7px; font-size:12px; vertical-align:top; }
+.print-document .doc thead { display:table-header-group; }
+.print-document .doc tr { break-inside:avoid; page-break-inside:avoid; }
+.print-document .doc .totals { width:80mm; max-width:100%; margin-left:auto; break-inside:avoid; page-break-inside:avoid; }
+.print-document .doc .aging { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; break-inside:avoid; }
+.print-document .doc .aging>div { padding:10px 8px; font-size:11px; }
+.print-document .doc .aging b { font-size:14px; }
+.print-document .responsive-table-viewport { display:contents; overflow:visible; }
+.print-document a { color:inherit; text-decoration:none; }
+.print-document .otop { flex-wrap:wrap; }
+.print-toolbar { display:flex; align-items:center; gap:12px; padding:12px 18px; background:#f1efea; font:13px var(--sans); margin-bottom:24px; }
+.print-toolbar span { margin-right:auto; }.print-toolbar button { padding:8px 12px; cursor:pointer; }
+@media screen { .print-document .doc { padding:12mm; max-width:210mm; } }
+@media print {
+ .print-toolbar { display:none!important; }
+ html,body.print-document { width:auto!important; height:auto!important; overflow:visible!important; }
+ .print-document .doc { padding:0!important; max-width:none; }
+ .print-document .doc .meta { display:grid!important; }
+}
+@media print { body.print-document>*:not(.doc):not(.print-toolbar) { display:none!important; } }
+@media print {
+ html>*:not(head):not(body) { display:none!important; }
+ .print-document [id*="merlin"],.print-document [class*="merlin"] { display:none!important; }
+}
+.print-document .print-lines td:not(:first-child) { white-space:nowrap; overflow-wrap:normal; }
+.print-document .print-lines th:first-child { width:38%; }

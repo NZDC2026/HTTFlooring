@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {useLocation,useNavigate} from 'react-router-dom';
+import {authMode} from '../config/auth';
 import {logout} from '../services/account';
 const toReference=(route:string)=>route.replace(/^\/display-boards(?=[/?]|$)/, '/boards');
 const toLocal=(route:string)=>route.replace(/^\/boards(?=[/?]|$)/, '/display-boards');
@@ -8,7 +9,7 @@ export default function ReferencePortal(){
  const location=useLocation(),navigate=useNavigate(),frame=useRef<HTMLIFrameElement>(null);
  useEffect(()=>{const previous=document.title;document.title="HTT Customer Portal";return()=>{document.title=previous;};},[]);
  const route=toReference(location.pathname+location.search),currentRoute=useRef(route);
- const [source]=useState(()=>`/reference-portal/index.html#${route==='/'?'/dashboard':route}`);
+ const [source]=useState(()=>`/reference-portal/index.html?businessPreview=${authMode}#${route==='/'?'/dashboard':route}`);
  useEffect(()=>{currentRoute.current=route;frame.current?.contentWindow?.postMessage({type:'htt-reference:navigate',route},window.location.origin);},[route]);
  useEffect(()=>{
   const receive=(event:MessageEvent)=>{

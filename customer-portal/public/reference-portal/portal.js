@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars, no-unused-expressions -- Classic script: handlers are referenced by the supplied HTML templates. */
 
+// QA previews use an isolated namespace; ordinary previews retain existing local records.
+function referenceStorageKey(kind){const qa=new URLSearchParams(location.search||'').get('qa');return 'htt.reference.'+(qa&&/^[a-z0-9-]{1,40}$/i.test(qa)?'qa.'+qa+'.':'')+kind+'.v1';}
 /* =====================================================================
    数据区 —— 内容全部来自 2026-11-18 在线门户截取的页面。
    接系统时，把这里换成 API 返回的数据即可。
@@ -116,7 +118,7 @@ const qtyUnit = (p,n) => boxOf(p) ? `box${n!==1?'es':''}` : (p.unit==='length'?`
 function estReady(){ if(!CART.length) return null; let d=earliestDate('Delivery');
   for(const x of CART.map(cartLine)){ if(!x.short) continue; const eta=(x.p.incoming||[]).map(i=>i.eta).sort()[0]; if(!eta) return 'tbc'; const e=nextBiz(isoAdd(eta,1)); if(e>d) d=e; }
   return d; }
-function cartLine(c){ const p=byId(c.id), b=boxOf(p), amt=b?r2(b*c.qty):c.qty, price=unitPrice(p);
+function cartLine(c){ const p=byId(c.id), b=boxOf(p), amt=b?b*c.qty:c.qty, price=unitPrice(p);
   const short = !p.madeToOrder && (p.stock==null || amt>p.stock);
   return {c, p, b, amt, price, total:r2(amt*price), short, S:SERIES.find(x=>x.id===p.series)}; }
 function draftTitle(){ const n=CART.length; return DRAFT.editing ? `Editing ${DRAFT.editing} · ${n} line${n!==1?'s':''}` : `Unsaved draft · ${DRAFT.type==='quote'?'Quote':'Order'} · ${n} line${n!==1?'s':''}`; }
@@ -141,7 +143,7 @@ function discardDraft(id){ closeDrafts(); const d = id===DRAFT.id ? {draft:DRAFT
 function draftList(){ if(hasContent() && !DRAFT.id) DRAFT.id='D'+Date.now(); if(hasContent() && !DRAFT.store) DRAFT.store=newDocStore();
   const L=[...(hasContent()?[{id:DRAFT.id, cart:CART, draft:DRAFT, at:DRAFT_SAVED?+DRAFT_SAVED:Date.now(), active:true}]:[]), ...DRAFTS];
   return L.filter(d=> STORE==='all' ? allowedStores().includes(d.draft.store||newDocStore()) : (d.draft.store||newDocStore())===STORE); }
-const draftAmt = d => r2(d.cart.reduce((t,c)=>{ const p=byId(c.id); if(!p) return t; const b=boxOf(p); return t + (b? r2(b*c.qty)*unitPrice(p) : c.qty*unitPrice(p)); },0));
+const draftAmt = d => r2(d.cart.reduce((t,c)=>{ const p=byId(c.id); if(!p) return t; const b=boxOf(p); return t + lineAmt({box:b,qty:c.qty,price:unitPrice(p)}); },0));
 const draftName = d => d.draft.editing ? `Editing ${d.draft.editing}` : (d.draft.type==='quote'?'Quote':'Order')+' draft';
 function agoTxt(t){ const m=Math.round((Date.now()-t)/60000); return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' days ago'; }
 function draftRow(d, full){ const n=d.cart.length, st=STORE==='all'&&STORES().length>1?`<span class="drst">📍 ${esc(stShort(d.draft.store||newDocStore()))}</span>`:'';
@@ -187,11 +189,16 @@ function addFromCatalog(id, qty){ if(!can('place')){ toast('Your login can\'t cr
   m.style.display='flex'; }
 function cartAdd(id, qty){ qty=Math.max(1,Math.round(+qty||1)); const ex=CART.find(c=>c.id===id); if(ex) ex.qty+=qty; else CART.push({id,qty}); updateCartBadge();
   const p=byId(id); toast(`Added ${qty} ${qtyUnit(p,qty)} · ${(SERIES.find(x=>x.id===p.series)||{}).name} ${p.colour}`); render(); }
+function stageCartQty(id,value,isArea){
+ const c=CART.find(item=>item.id===id),v=Number(value);if(!c||!Number.isFinite(v)||v<=0)return;
+ const b=boxOf(byId(id));if(isArea&&b){c.qty=Math.max(1,Math.ceil(v/b-1e-9));c.want=r2(v);}else{c.qty=Math.max(1,Math.round(v));c.want=null;}
+ draftSave();
+}
 function cartSet(id, qty){ const c=CART.find(x=>x.id===id); if(!c) return; c.qty=Math.max(1,Math.round(+qty||1)); if(c.mode!=='m2') c.want=null; render(); }
 /* 按 m² 输入：自动进位到整箱，记住客户输入的 m² 方便对照 */
-function cartMode(id,m){ const c=CART.find(x=>x.id===id); if(!c) return; c.mode=m; if(m==='box') c.want=null; render(); setTimeout(()=>{ const r=[...document.querySelectorAll('.nft tbody tr')][CART.indexOf(c)]; const i=r&&r.querySelector(m==='m2'?'.m2in input':'.pqs input'); if(i){ i.focus(); i.select(); } },0); }
+function cartMode(id,m){ const c=CART.find(x=>x.id===id); if(!c) return; c.mode=m; if(m==='box') c.want=null; render(); setTimeout(()=>{ const r=[...document.querySelectorAll('.nft tbody tr')][CART.indexOf(c)]; const i=r&&r.querySelector('.qgrp input'); if(i){ i.focus(); i.select(); } },0); }
 function cartSetM2(id, v){ const c=CART.find(x=>x.id===id), p=byId(id), b=boxOf(p); if(!c||!b) return; v=+v;
-  if(!(v>0)){ render(); return; } c.qty=Math.max(1,Math.ceil(r2(v/b)-1e-9)); c.want=r2(v); render(); }
+  if(!Number.isFinite(v)||!(v>0)){ render(); return; } c.qty=Math.max(1,Math.ceil(v/b-1e-9)); c.want=r2(v); render(); }
 function cartDel(id){ CART=CART.filter(c=>c.id!==id); render(); }
 /* 产品页：数量（箱）+ 加入购物车 */
 function addCartBox(p){
@@ -260,7 +267,7 @@ document.addEventListener('mousedown', e=>{ if(!e.target.closest('.pp')) ppClose
 let DRAFT = {type:'quote', step:1, ref:'', method:'Delivery', wanted:null, note:'', ship:null, editShip:false};
 const QUOTE_DAYS = 2;   // 网上报价有效期 48 小时（按日期算：开单日 + 2 天）
 const QUOTE_LBL = '48 hours';
-function dSet(k,v){ DRAFT[k]=v; clearTimeout(dSet._t); dSet._t=setTimeout(draftSave,400); }
+function dSet(k,v){ if(k==='step'&&v===2){const invalid=[...document.querySelectorAll('.nft input[type="number"]')].find(input=>!input.value||!(Number(input.value)>0)||!input.checkValidity());if(invalid){toast('Enter a valid positive quantity.');invalid.focus();return;}} DRAFT[k]=v; clearTimeout(dSet._t); dSet._t=setTimeout(draftSave,400); }
 let RV_STYLE='c';
 function reviewBox(t){ const L=CART.map(cartLine), boxes=L.filter(x=>x.b).reduce((n,x)=>n+x.c.qty,0), m2=r2(L.filter(x=>x.b).reduce((n,x)=>n+x.amt,0)), sub=r2(L.reduce((n,x)=>n+x.total,0));
   const qty = x => `${x.c.qty} ${esc(qtyUnit(x.p,x.c.qty))}`;
@@ -347,7 +354,7 @@ function cartPage(){
   const missing = [!L.length?'At least one product':'', t==='order'&&shortN?`${shortN} item${shortN>1?'s':''} short of stock (quote only)`:''].filter(Boolean);
   const opts = Object.keys(CAT_TREE).map(c=>`<optgroup label="${c}">${PRODUCTS.filter(p=>(SERIES.find(x=>x.id===p.series)||{}).cat===c).map(p=>{const S=SERIES.find(x=>x.id===p.series);return `<option value="${p.id}">${S.name} ${esc(p.colour)} · ${p.code}</option>`;}).join('')}</optgroup>`).join('');
   return `<div class="nf"><div class="wrap">
-    ${ed?`<div class="edbar"><b>Editing quote ${ed}</b><span>Saving updates the same quote, restarts the ${QUOTE_LBL} validity and notifies HTT${(QUOTES.find(q=>q.no===ed)||{}).freight?' · the delivery fee will be re-quoted':''}.</span><button class="lnkbtn" onclick="if(confirm('Stop editing? Your changes will be lost.')){stopEdit()}">Stop editing</button></div>`
+    ${ed?`<div class="edbar"><b>Editing quote ${ed}</b><span>${CART.some(item=>item.legacyArea)?'Area-based lines are rounded up to full boxes. Review the updated quantities and total. ':''}Saving updates the same quote, restarts the ${QUOTE_LBL} validity and notifies HTT${(QUOTES.find(q=>q.no===ed)||{}).freight?' · the delivery fee will be re-quoted':''}.</span><button class="lnkbtn" onclick="if(confirm('Stop editing? Your changes will be lost.')){stopEdit()}">Stop editing</button></div>`
       :`<div class="nftabs">${[['quote','Quote',ICON.doc],['order','Order',ICON.truck]].map(([k,l,ic])=>`<button class="${t===k?'on':''}" onclick="dSet('type','${k}');render()">${ic}${l}</button>`).join('')}</div>`}
     <div class="nfsteps"><span class="${step===1?'on':'done'}"><i>${step===1?1:'✓'}</i>Details &amp; products</span><b></b><span class="${step===2?'on':''}"><i>2</i>Shipping &amp; review</span></div>
     ${step===2&&t==='order'?holdBox('order')+codBox():''}
@@ -369,7 +376,7 @@ function cartPage(){
           const tag = x.p.clr?'<span class="ptag clr">Clearance · final sale</span>':x.p.promo?`<span class="ptag pro">Promo · ends ${esc(promoEnd(x.p)).replace(/ \d{4}$/,'')}</span>`:'<span class="ptag trd">Trade price</span>';
           const warn = x.p.promo&&!x.p.clr&&t==='quote'&&daysTo(promoEnd(x.p))<QUOTE_DAYS ? '<div class="promowarn">Promo ends before this quote expires</div>' : '';
           const isM = x.b&&x.c.mode==='m2';
-          const qIn = `<div class="qgrp"><input type="number" min="${isM?0:1}" step="${isM?'0.01':'1'}" value="${isM?(x.c.want||x.amt.toFixed(2)):x.c.qty}" onfocus="this.select()" onkeydown="if(event.key==='Enter')this.blur()" onchange="${isM?`cartSetM2('${x.p.id}',this.value)`:`cartSet('${x.p.id}',this.value)`}">${x.b?`<select onchange="cartMode('${x.p.id}',this.value)"><option value="box" ${isM?'':'selected'}>box</option><option value="m2" ${isM?'selected':''}>m²</option></select>`:`<span class="qsuf">${esc(unitLbl(x.p.unit))}</span>`}</div>`;
+          const qIn = `<div class="qgrp"><input type="number" min="${isM?0:1}" step="${isM?'0.01':'1'}" value="${isM?(x.c.want||x.amt.toFixed(2)):x.c.qty}" onfocus="this.select()" onkeydown="if(event.key==='Enter')this.blur()" oninput="stageCartQty('${x.p.id}',this.value,${!!isM})" onchange="${isM?`cartSetM2('${x.p.id}',this.value)`:`cartSet('${x.p.id}',this.value)`}">${x.b?`<select onchange="cartMode('${x.p.id}',this.value)"><option value="box" ${isM?'':'selected'}>box</option><option value="m2" ${isM?'selected':''}>m²</option></select>`:`<span class="qsuf">${esc(unitLbl(x.p.unit))}</span>`}</div>`;
           return `<tr class="${x.short?'short':''}">
           <td><b class="pnm">${esc(x.S.name)}</b><span class="code">${x.p.code}</span>${x.short?`<span class="oosp">${x.p.stock==null?'Out of stock':'Not enough stock for this quantity'}${t==='order'?' · quote only':''}</span>`:''}</td>
           <td><span class="ccol"><i style="background:${x.p.sw}"></i>${esc(x.p.colour)}</span></td>
@@ -424,9 +431,9 @@ function submittedPage(no){ no=(no||'').toUpperCase(); const isQ=no.startsWith('
                        del?['Delivery fee added','HTT checks freight with the carrier, adds it to the order and books the delivery. Extra carrier charges (e.g. waiting time on site, a failed or re-delivery) may be added after delivery — HTT will update your order and let you know.']:['We get it ready','You\'ll be told when it\'s ready to pick up'],
                        [del?'Delivered':'Picked up','The invoice is issued when the order is completed']];
   return `<div class="subm"><div class="wrap" style="max-width:760px">
-    <div class="subhd"><div class="subok ${d.hold?'hold':''}">${d.hold?'!':'✓'}</div><small>${isQ?(d.edits?'Quote updated':'Quote saved'):'Order sent'}</small><h1>${no}</h1>
+    <div class="subhd"><div class="subok ${d.hold?'hold':''}">${d.hold?'!':'✓'}</div><small>${isQ?(d.edits?'Quote updated':'Quote saved'):'Order saved locally'}</small><h1>${no}</h1>
       <span class="badge ${isQ?'b-open':orderBadge(d)}">${isQ?'Open · valid until '+esc(d.valid):orderLabel(d)}</span>
-      <p>${isQ?'Your quote is in HTT\'s system.':d.hold?'Your order is in HTT\'s system and on hold because of your account status.':'Your order is in HTT\'s system and waiting for HTT to confirm.'}</p></div>
+      <p>${isQ?'Your quote is saved locally in this browser.':'Your order is saved locally in this browser.'} Business APIs are not connected; nothing has been sent to HTT.</p></div>
     <div class="subgrid">
       <section class="nfc"><h3>What happens next</h3><ol class="subst">${steps.map(([a,b],i)=>`<li><i>${i+1}</i><div><b>${a}</b><span>${b}</span></div></li>`).join('')}</ol></section>
       <section class="nfc"><h3>Summary</h3>
@@ -437,17 +444,17 @@ function submittedPage(no){ no=(no||'').toUpperCase(); const isQ=no.startsWith('
         <div class="sm"><span>${del?'Ship to':'Pick up'}</span><span style="text-align:right">${del&&d.shipTo?esc(d.shipTo.suburb+' '+d.shipTo.state):esc(br.name||'HTT')}</span></div>
         ${d.ref&&!/^Online /.test(d.ref)?`<div class="sm"><span>PO / ref.</span><b>${esc(d.ref)}</b></div>`:''}</section>
     </div>
-    <section class="nfc subsent"><h3>Sent to</h3>
-      <div><i>✉</i><span><b>You</b>Confirmation emailed to ${esc(me.email||'you')}</span></div>
-      <div><i>✉</i><span><b>HTT</b>${esc(am.name||'Your account manager')}${am.email?' · '+esc(am.email):''}${br.email?' and '+esc(br.email):''}</span></div>
-      <div><i>⇄</i><span><b>HTT's system</b>Recorded as ${no}</span></div></section>
+    <section class="nfc subsent"><h3>Submission preview</h3>
+      <div><i>✉</i><span><b>You</b>No email sent · ${esc(me.email||'your email')}</span></div>
+      <div><i>✉</i><span><b>HTT · not notified</b>${esc(am.name||'Your account manager')}${am.email?' · '+esc(am.email):''}${br.email?' and '+esc(br.email):''}</span></div>
+      <div><i>⇄</i><span><b>Local browser</b>Saved as ${no}</span></div></section>
     <div class="subbtn"><a class="btn" href="#/${isQ?'quotes':'orders'}/${no.toLowerCase()}">View ${isQ?'quote':'order'}</a><a class="btn-o" href="#/purchases">Back to Purchases</a><a class="lnk" href="#/cart" onclick="DRAFT.type='${isQ?'quote':'order'}'">Start another ${isQ?'quote':'order'}</a></div>
   </div></div>`; }
 /* 草稿自动保存。原型存在浏览器；正式版 IT 存后端（PUT /api/portal/me/draft），换电脑也能接着做 */
 let DRAFT_SAVED=null;
 function draftSave(){ try{ const act = hasContent() ? (()=>{ if(!DRAFT.id) DRAFT.id='D'+Date.now(); if(!DRAFT.store) DRAFT.store=newDocStore(); DRAFT_SAVED=new Date(); return {cart:CART, draft:DRAFT, at:Date.now()}; })() : (DRAFT_SAVED=null, null);
-  localStorage.setItem('htt.reference.drafts.v1', JSON.stringify({active:act, parked:DRAFTS})); }catch(e){} }
-function draftLoad(){ try{ const o=JSON.parse(localStorage.getItem('htt.reference.drafts.v1')||'null'), cut=Date.now()-DRAFT_DAYS*864e5; if(!o) return;
+  localStorage.setItem(referenceStorageKey('drafts'), JSON.stringify({active:act, parked:DRAFTS})); }catch(e){} }
+function draftLoad(){ try{ const o=JSON.parse(localStorage.getItem(referenceStorageKey('drafts'))||'null'), cut=Date.now()-DRAFT_DAYS*864e5; if(!o) return;
   DRAFTS=(o.parked||[]).filter(d=>d.at>cut);
   if(o.active && o.active.at>cut){ CART=o.active.cart.filter(c=>byId(c.id)); DRAFT={...blankDraft(o.active.draft.type), ...o.active.draft}; DRAFT_SAVED=new Date(o.active.at); } }catch(e){} }
 function draftClear(){ DRAFT={...DRAFT, id:null, editing:null, store:null}; DRAFT_SAVED=null; }
@@ -573,8 +580,22 @@ function pzPaint(){ document.body.classList.toggle('pzoff',!PRICE_ON); const b=d
   bar.innerHTML = PRICE_ON ? `<div class="wrap"><span>👁 Prices are showing on this screen — they hide automatically after ${Math.round(PZ_SECS/60*10)/10} minutes without activity.</span><b>${mm}:${ss}</b><button onclick="pzToggle()">Hide now</button></div>` : '';
   bar.style.display = PRICE_ON ? 'block' : 'none'; }
 /* 打印 / 存 PDF：即使屏幕上价格是隐藏的，打印出来也显示真实金额，打印完恢复隐藏 */
-async function printDoc(){ const was=PRICE_ON; if(!was){ PRICE_ON=true; await render(); }
-  window.print(); if(!was){ PRICE_ON=false; render(); } }
+let DOC_PRINTING = false;
+async function printDoc(){
+  if(!can('prices')){toast('Your login does not include prices.');return;}
+  const source=document.querySelector('#app .doc');
+  if(!source){toast('Open a document before printing.');return;}
+  if(DOC_PRINTING)return;
+  const job=window.HTTPrint?.open(source.querySelector('h1')?.textContent||'Document');
+  if(!job){toast('Allow pop-ups for this site, then try Print / Save PDF again.');return;}
+  DOC_PRINTING=true;const was=PRICE_ON;
+  try{
+    try{PRICE_ON=true;await render();job.setDocument(document.querySelector('#app .doc'));}
+    finally{PRICE_ON=was;await render();}
+    await job.print();
+  }catch{job.fail();toast('Unable to prepare the print document. Please try again.');}
+  finally{DOC_PRINTING=false;}
+}
 function pzToggle(){ if(!can('prices')){ toast('Your login doesn\'t include prices — ask your admin'); return; } PRICE_ON=!PRICE_ON; PZ_LEFT=PZ_SECS; clearInterval(PZ_T);
   if(PRICE_ON) PZ_T=setInterval(()=>{ PZ_LEFT--; if(PZ_LEFT<=0){ PRICE_ON=false; clearInterval(PZ_T); render(); toast('Prices hidden'); } else pzPaint(); },1000);
   render(); }
@@ -634,8 +655,8 @@ const stLabel = id => (STORES().find(a=>a.addressId===id)||{}).label||id;
 function stShort(id){ const L=STORES().map(a=>a.label); let p=L[0]||''; L.forEach(x=>{ while(p && !x.startsWith(p)) p=p.slice(0,-1); }); p=p.replace(/\S*$/,''); const full=stLabel(id); return L.length>1&&p.trim()?full.slice(p.length)||full:full; }
 function userStoreLbl(u){ const st=userStores(u); return st==='all'?'All stores':st.map(stLabel).join(' · '); }
 /* 绑定多家门店的员工：登录时先选「今天在哪家门店上班」 */
-const TODAY_STORE = (()=>{ try{ return JSON.parse(sessionStorage.getItem('htt.reference.today-store.v1')||'{}'); }catch(e){ return {}; } })();   // 本次登录记住选的门店（IT：存在登录 session）
-const saveToday = () => { try{ sessionStorage.setItem('htt.reference.today-store.v1', JSON.stringify(TODAY_STORE)); }catch(e){} };
+const TODAY_STORE = (()=>{ try{ return JSON.parse(sessionStorage.getItem(referenceStorageKey('today-store'))||'{}'); }catch(e){ return {}; } })();   // 本次登录记住选的门店（IT：存在登录 session）
+const saveToday = () => { try{ sessionStorage.setItem(referenceStorageKey('today-store'), JSON.stringify(TODAY_STORE)); }catch(e){} };
 function pickTodayStore(){ const me=curUser(), L=allowedStores(), m=document.getElementById('modal');
   m.innerHTML=`<div class="mbox" style="max-width:460px"><h3 class="serif" style="font-weight:500;font-size:26px;margin:0 0 4px">Hi ${esc(me.name.split(' ')[0])}, where are you working today?</h3>
     <p class="muted" style="margin:0 0 16px;font-size:13px">You'll see this store's quotes, orders and invoices, and new quotes and orders are recorded under it. You can change store at the top any time.</p>
@@ -1263,7 +1284,7 @@ function docPage({kind,no,status,statusCls,metaA,metaB,party,ref,lines,freight,e
       <div class="lbl">${party}<b style="color:var(--ink);font-size:13px">${CUSTOMER.name}</b><div style="color:var(--ink);font-size:13px;margin-top:6px">${CUSTOMER.address}</div></div></div>
     ${ref?`<div class="lbl" style="font-size:11px">Reference &nbsp;<b style="display:inline;color:var(--ink);font-size:13px">${ref}</b></div>`:''}
     ${top}
-    <table><thead><tr><th>Description</th><th>Size Per Box</th><th>Qty</th><th>Total Size</th><th>Unit Price</th><th>Amount</th></tr></thead>
+    <table class="print-lines"><thead><tr><th>Description</th><th>Size Per Box</th><th>Qty</th><th>Total Size</th><th>Unit Price</th><th>Amount</th></tr></thead>
     <tbody>${lines.map(l=>`<tr><td>${l.d}</td><td>${l.box?l.box+' m²':'-'}</td><td>${l.qty}${l.box?' <span class="muted">box'+(l.qty>1?'es':'')+'</span>':''}</td><td>${l.box?(l.box*l.qty).toFixed(3)+' m²':l.unit?l.qty+' '+l.unit:'-'}</td><td>${money(l.price)}</td><td>${money(lineAmt(l))}</td></tr>`).join('')}</tbody></table>
     <div class="totals">
       <div><span>Subtotal</span><b>${money(c.subtotal)}</b></div><div><span>${tbq?'Delivery fee':'Freight'}</span>${tbq?'<span class="dfee">To be quoted</span>':`<b>${money(freight)}</b>`}</div>
@@ -1271,7 +1292,7 @@ function docPage({kind,no,status,statusCls,metaA,metaB,party,ref,lines,freight,e
       ${extra||''}
     </div>
     ${note}
-    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:26px">${actions}<button class="${actions?'btn-o':'btn'}" onclick="printDoc()">${ICON.dl.replace('#fff', actions?'currentColor':'#fff')} Print / Save PDF</button></div>
+    <div class="print-actions" style="display:flex;justify-content:flex-end;gap:10px;margin-top:26px">${actions}<button class="${actions?'btn-o':'btn'}" onclick="printDoc()">${ICON.dl.replace('#fff', actions?'currentColor':'#fff')} Print / Save PDF</button></div>
   </div></div>`;
 }
 /* 客户可以修改 Open 的报价（同一个单号，保存后有效期重新算 7 天，通知 HTT）。Order 不能修改产品。
@@ -1279,11 +1300,16 @@ function docPage({kind,no,status,statusCls,metaA,metaB,party,ref,lines,freight,e
 function lineToProduct(l){ return l.productId ? byId(l.productId) : PRODUCTS.find(p=>{ const S=SERIES.find(x=>x.id===p.series)||{}; return `${S.name} ${p.colour}`.toLowerCase()===(l.d||'').toLowerCase(); }); }
 const quoteInDraft = no => DRAFT.editing===no || DRAFTS.some(d=>d.draft.editing===no);
 function canEditQuote(q){ return q.status==='Open' && q.lines.every(l=>lineToProduct(l)); }
+function lineToCart(l){
+ const p=lineToProduct(l),box=p&&boxOf(p);if(!p)return null;
+ if(!l.box&&p.unit==='m²'&&box)return {id:p.id,qty:Math.ceil(l.qty/box-1e-9),mode:'m2',want:l.qty,legacyArea:true};
+ return {id:p.id,qty:l.qty};
+}
 function editQuote(no){ const q=QUOTES.find(x=>x.no===no); if(!q) return;
   if(DRAFT.editing===no){ go('#/cart'); return; }
   const ex=DRAFTS.find(d=>d.draft.editing===no); if(ex){ openDraft(ex.id); return; }
   startFresh('quote');
-  CART = q.lines.map(l=>({id:lineToProduct(l).id, qty:l.qty}));
+  CART = q.lines.map(lineToCart).filter(Boolean);
   DRAFT = {...DRAFT, type:'quote', editing:q.no, store:q.store, ref:/^Online /.test(q.ref||'')?'':(q.ref||''), note:q.note||'', method:q.method||'Delivery', ship:q.shipTo||DRAFT.ship, step:1, editShip:false};
   go('#/cart'); }
 function stopEdit(){ const no=DRAFT.editing; CART=[]; DRAFT=blankDraft('quote'); DRAFT_SAVED=null; go('#/quotes/'+no.toLowerCase()); }
@@ -1361,9 +1387,14 @@ function demoAdvance(no){
   render();
 }
 async function submitQuoteAction(f, no, act){
-  const q = QUOTES.find(x=>x.no===no), fd = new FormData(f);
+  const q = QUOTES.find(x=>x.no===no);
+  if(!q||q.status!=='Open'||daysTo(q.valid)<0){toast('This quote is no longer available for this action.');return;}
+  if(!can('quotes')||(act==='accept'&&(!can('place')||!can('orders')))){toast('Your login cannot perform this action.');return;}
+  if(act==='accept'&&!PRICE_ON){toast('Show prices first (top right) to check the amounts');return;}
+  if(!f.reportValidity())return;
+  const fd = new FormData(f);
   q.status = act==='accept' ? 'Accepted' : 'Cancelled';
-  q.actionAt = fmtDay(SYSTEM_INFO.systemDate); q.actionBy = 'John Smith';
+  q.actionAt = fmtDay(SYSTEM_INFO.systemDate); q.actionBy = curUser()?.name||CUSTOMER.contact.name;
   q.po = fd.get('po')||null; q.reason = fd.get('reason')||null; q.note = fd.get('note')||null;
   if(act==='accept'){   // 报价接受 → 生成订单（IT：由主系统生成订单号并返回）
     const ordNo = sameNo(q.no,'ORD');
@@ -1395,7 +1426,7 @@ function orderDetail(no){
 }
 function invStatus(i){ return i.balance<=0?['Paid','b-completed']:i.overdue>0?[i.overdue+' days overdue','b-overdue']:['Outstanding','b-open']; }
 function invoiceDetail(no){
-  const i = docLookup(INVOICES, x=>x.no.toLowerCase()===no); if(!i) return notFound(); if(i.__deny) return denyPage(i.__deny);
+  const i = docLookup(INVOICES, x=>x.no.toLowerCase()===no); if(!i && no==='inv-10340') return `<div class="wrap"><a class="back" href="#/rebates">${ICON.back} Back to rebate history</a><div class="doc"><div class="top"><div><div class="lbl">HISTORICAL INVOICE REFERENCE</div><h1>INV-10340</h1></div></div><p>This invoice is referenced by the sample rebate settlement CN-R0924.</p><p class="muted">The reference prototype does not include its invoice lines or balance. No amount is assumed. Connect the business API to retrieve the original document.</p></div></div>`; if(!i) return notFound(); if(i.__deny) return denyPage(i.__deny);
   const [st,cls]=invStatus(i);
   const extra = `<div><span>Paid</span><b>${money(i.paid)}</b></div>
     ${i.credits.length?`<div><span>Credits Applied</span><b>${money(-i.credits.reduce((s,c)=>s+c.amt,0))}</b></div>`+i.credits.map(c=>`<div style="padding-top:0;font-size:11px"><a class="lnk" href="#/invoices/credits/${c.slug}">${c.no}</a><span class="muted">${money(-c.amt)}</span></div>`).join(''):''}
@@ -1412,7 +1443,7 @@ function creditDetail(slug){
   <div class="lbl">Customer<b style="color:var(--ink);font-size:13px">${CUSTOMER.name}</b></div></div>
   <table class="lines" style="margin-top:18px"><thead><tr><th>Returned item</th><th style="text-align:right">Qty</th></tr></thead><tbody>${c.items.map(x=>`<tr><td>${esc(x.d)}</td><td style="text-align:right">${esc(x.q)}</td></tr>`).join('')}</tbody></table>
   <div class="totals"><div class="t"><span>Credit Amount (incl. GST)</span><b>${money(c.amt)}</b></div>
-  <div><span>Applied to</span><b>${c.applyTo||'-'}</b></div></div></div></div>`;
+  <div><span>Applied to</span><b>${c.applyTo||'-'}</b></div></div><div class="print-actions" style="text-align:right;margin-top:26px"><button class="btn" onclick="printDoc()">${ICON.dl} Print / Save PDF</button></div></div></div>`;
 }
 
 function invoices(params){
@@ -1549,7 +1580,7 @@ async function statement(params){
   return `<div class="wrap"><a class="back" href="#/invoices">${ICON.back} Back to invoices</a>
   <div class="doc">
     <div class="top"><div><div class="lbl">STATEMENT</div><h1>Account Statement</h1></div>
-      <div style="text-align:right"><select class="sel" onchange="toast('原型：历史月份对账单待接系统')"><option>As at 18 Nov 2026</option>${months.slice(1).map(m=>`<option>Month end ${m}</option>`).join('')}</select></div></div>
+      <div style="text-align:right"><select class="sel" onchange="this.selectedIndex=0;toast('Historical statements are not available in this local preview.')"><option>As at 18 Nov 2026</option>${months.slice(1).map(m=>`<option>Month end ${m}</option>`).join('')}</select></div></div>
     <div class="meta"><div class="lbl">Customer ID<b style="color:var(--ink);font-size:13px">${esc(sm.customerId)}</b></div>
       <div class="lbl">Payment terms<b style="color:var(--ink);font-size:13px">${esc(sm.paymentTerms.code.replace('NET','Net '))}</b></div>
       <div class="lbl">Customer<b style="color:var(--ink);font-size:13px">${CUSTOMER.name}</b><div style="color:var(--ink);font-size:13px;margin-top:6px">${fmtAddr(sm.addresses.billing)}</div></div></div>
@@ -1561,7 +1592,7 @@ async function statement(params){
       <div><span>Unapplied credits</span><b>${money(-unappliedAmt)}</b></div>
       <div class="t"><span>Net balance</span><b>${money(net)}</b></div></div>
     <p class="muted" style="font-size:11px;margin-top:22px">Amounts in AUD including GST. Unapplied credits will reduce your balance once applied to an invoice.</p>
-    <div style="text-align:right;margin-top:18px"><button class="btn" onclick="printDoc()">${ICON.dl} Print / Save PDF</button></div>
+    <div class="print-actions" style="text-align:right;margin-top:18px"><button class="btn" onclick="printDoc()">${ICON.dl} Print / Save PDF</button></div>
   </div></div>`;
 }
 
@@ -1887,13 +1918,16 @@ function trendChart(T, params, showLy){
         ${x.part?`<text x="${X(i)}" y="${H+34}" class="tx2">to ${x.t.getUTCDate()} ${MON3s(x.t)}</text>`:showLy&&ch!=null?`<text x="${X(i)}" y="${H+34}" class="tx2 ${ch>=0?'up':'down'}">${ch>=0?'▲':'▼'} ${Math.abs(ch)}%</text>`:''}</g></a>`; }).join('')}
   </svg>`;
 }
+function csvText(rows){return '\uFEFF'+rows.map(row=>row.map(value=>'"'+String(value).replace(/"/g,'""')+'"').join(',')).join('\r\n');}
+function downloadCsv(filename,rows){
+ try{const url=URL.createObjectURL(new Blob([csvText(rows)],{type:'text/csv;charset=utf-8;'}));const anchor=document.createElement('a');anchor.href=url;anchor.download=filename;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{toast('Download is not available here');}
+}
 function salesCsv(){
+  if(!can("prices")){toast("Your login does not include prices.");return;}
   const params=new URLSearchParams(location.hash.split('?')[1]||''), R=salesRange(params);
   const rows=[['Category','Type','Series','Colour','Code','Net qty (invoiced - returns)','Unit','Returned qty','Amount incl. GST','Previous amount incl. GST','Change %','Last ordered']];
-  buildSales(R).forEach(s=>s.cols.forEach(c=>rows.push([s.cat,s.type,s.name,c.colour,c.code,c.qty,s.unit,c.ret,c.amount,c.prevAmount,c.prevAmount?r2((c.amount-c.prevAmount)/c.prevAmount*100):'',c.last?fmtD(c.last):''])));
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`product-sales_${ISO(R.from)}_${ISO(R.to)}.csv`; a.click(); }
-  catch(e){ toast('Download is not available here'); }
+  buildSales(R).filter(s=>(!params.get('cat')||params.get('cat')==='All'||s.cat===params.get('cat'))&&(!params.get('type')||params.get('type')==='All'||s.type===params.get('type'))).forEach(s=>s.cols.filter(c=>!params.get('q')||(s.name+' '+c.colour+' '+c.code).toLowerCase().includes(params.get('q').toLowerCase())).forEach(c=>rows.push([s.cat,s.type,s.name,c.colour,c.code,c.qty,s.unit,c.ret,c.amount,c.prevAmount,c.prevAmount?r2((c.amount-c.prevAmount)/c.prevAmount*100):'',c.last?fmtD(c.last):''])));
+  downloadCsv(`product-sales_${ISO(R.from)}_${ISO(R.to)}.csv`,rows);
 }
 /* 返利进度：有返利方案的颜色，显示离下一档还差多少 */
 function rebateHint(ser){
@@ -2429,12 +2463,12 @@ function settleCell(r){
     : `<span class="badge b-completed">Bank transfer</span><div class="sm2" style="margin-top:3px">Paid ${fmtDay(st.date)}</div>`;
 }
 function rebateCsv(){
-  const rows=[['Rebate','Series','Colours','Cycle','From','To','Minimum m2','Rate per m2','Net m2 (invoiced - returns)','Rebate (incl. GST)','Status','Settlement']].concat(
-    rebateRows().map(r=>[r.no||'',r.prod,r.sku,r.cycle,r.from,r.to,r.min,r.rate,r.qty,gst(r.amount),r.met?'Settled':'Not reached',
+  if(!can("prices")){toast("Your login does not include prices.");return;}
+  const params=new URLSearchParams(location.hash.split('?')[1]||''),R=salesRange(params),q=(document.getElementById('rq')?.value||'').toLowerCase(),prod=document.getElementById('rp')?.value||'All products',cycle=document.getElementById('rc')?.value||'All cycles',result=document.getElementById('rs')?.value||'All';
+  const rows=[['Rebate','Series','Colours','Cycle','From','To','Minimum m2','Rate per m2 (incl. GST)','Net m2 (invoiced - returns)','Rebate (incl. GST)','Status','Settlement']].concat(
+    rebateRows().filter(r=>r.to>=ISO(R.from)&&r.to<=ISO(R.to)&&(prod==='All products'||r.prod===prod)&&(cycle==='All cycles'||r.cycle===cycle)&&(result==='All'||(r.met?'Settled':'Not reached')===result)&&[r.no,r.prod,r.sku,r.st?.cn,r.st?.inv].join(' ').toLowerCase().includes(q)).map(r=>[r.no||'',r.prod,r.sku,r.cycle,r.from,r.to,r.min,gst(r.rate),r.qty,gst(r.amount),r.met?'Settled':'Not reached',
       !r.met?'':r.st?.method==='credit'?`${r.st.cn} applied to ${r.st.inv}`:r.st?`Bank transfer ${r.st.date}`:'Pending']));
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='rebates.csv'; a.click(); }
-  catch(e){ toast('Download is not available here'); }
+  downloadCsv('rebates.csv',rows);
 }
 function filterRebates(){
   const q=document.getElementById('rq').value.toLowerCase(), prod=document.getElementById('rp').value, cyc=document.getElementById('rc').value, stv=(document.getElementById('rs')||{}).value||'All';
@@ -2538,7 +2572,7 @@ const portalApi = {
   },
   async submitChangeRequest(req){       // IT: POST /api/portal/me/contact-change-requests，返回 {requestId, status:'pending'}
     const r = {requestId:'CR-'+String(31+MOCK_CONTACTS.pendingRequests.length).padStart(4,'0'), type:req.type, contactId:req.contactId||null,
-      changes:req.changes, submittedAt:new Date().toISOString(), status:'pending'};
+      changes:req.changes, note:req.note||null, submittedAt:new Date().toISOString(), status:'pending'};
     MOCK_CONTACTS.pendingRequests.push(r); return r;
   }
 };
@@ -2915,6 +2949,8 @@ async function copyPw(){ try{ await navigator.clipboard.writeText(document.getEl
 async function sendReset(id){ const u=MOCK_USERS.users.find(x=>x.userId===id); toast('Password reset email sent to '+u.email); }   // IT: POST /api/portal/me/users/{id}/password-reset
 async function saveTempPw(id){ toast('Temporary password saved — they must change it at next login'); document.getElementById('temppw').style.display='none'; } // IT: POST /api/portal/me/users/{id}/temporary-password
 async function submitAccess(f, userId){
+  if(!f.reportValidity())return;
+  if(!userId && !f.elements.namedItem("name").value.trim()){toast("Enter a staff member name.");return;}
   const perms = readPerms(f);
   if(!Object.values(perms).some(Boolean)){ toast('Turn on at least one item'); return; }
   const stAll = f.st_all && f.st_all.checked, stPick = STORES().map(a=>a.addressId).filter(id=>f['st_'+id] && f['st_'+id].checked);
@@ -2932,7 +2968,7 @@ async function setUserStatus(id, status){ await portalApi.updateUser(id,{status}
 function openAddressForm(type){
   const isStore = type==='store';
   const m = document.getElementById('modal');
-  m.innerHTML = `<form class="mbox" onsubmit="event.preventDefault();closeModal();toast('${isStore?'Store':'Address'} request submitted for review')">
+  m.innerHTML = `<form class="mbox" onsubmit="event.preventDefault();submitAddressRequest(this)">
     <h3 class="serif" style="font-weight:500;font-size:26px;margin:0 0 4px">${isStore?'Add a store':'Add a delivery address'}</h3>
     <p class="muted" style="font-size:12px;margin:0 0 16px">${isStore?'Another store you run that is billed to this account. HTT will add it after review.':'A warehouse or job site we deliver to. HTT will add it after review.'}</p>
     <input type="hidden" name="type" value="${type}">
@@ -2968,6 +3004,8 @@ function openContactForm(contactId){
 }
 function closeModal(){ document.getElementById('modal').style.display='none'; }
 async function submitContactForm(f, contactId){
+  if(!f.reportValidity())return;
+  if(!f.elements.namedItem("name").value.trim()){toast("Enter a contact name.");f.elements.namedItem("name").focus();return;}
   const fd = new FormData(f), orig = contactId ? MOCK_CONTACTS.contacts.find(x=>x.contactId===contactId) : {};
   const changes = {};
   ['name','role','position','email','mobile'].forEach(k=>{ const v=fd.get(k).trim(); if(v!==(orig[k]||'')) changes[k]=v; });

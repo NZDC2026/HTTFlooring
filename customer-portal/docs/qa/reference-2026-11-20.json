@@ -1,0 +1,792 @@
+{
+  "checkedAt": "2026-11-20",
+  "reference": "https://claude.ai/artifact/Wry2z8AeuyjCaUTEzPEuig",
+  "businessIntegration": "Skipped at user request. All business mutations are local sample state.",
+  "pages": [
+    {
+      "route": "#/series/bonita",
+      "ok": true,
+      "heading": "Back to Engineered Timber\nENGINEERED TIMBER · PLANK · PRODUCT SERIES\nBonita\nEngineered Eur"
+    },
+    {
+      "route": "#/series/quercus",
+      "ok": true,
+      "heading": "Back to Engineered Timber\nENGINEERED TIMBER · HERRINGBONE · PRODUCT SERIES\nQuercus\nEnginee"
+    },
+    {
+      "route": "#/series/heritage",
+      "ok": true,
+      "heading": "Back to Engineered Timber\nENGINEERED TIMBER · CHEVRON · PRODUCT SERIES\nHeritage\nEngineered"
+    },
+    {
+      "route": "#/series/guardian",
+      "ok": true,
+      "heading": "Back to Hybrid\nHYBRID · PLANK · PRODUCT SERIES\nGuardian\nWaterproof Hybrid Flooring\n9mm wit"
+    },
+    {
+      "route": "#/series/terra",
+      "ok": true,
+      "heading": "Back to Hybrid\nHYBRID · HERRINGBONE · PRODUCT SERIES\nTerra\nHybrid Herringbone\n8mm with und"
+    },
+    {
+      "route": "#/series/aquaglow",
+      "ok": true,
+      "heading": "Back to Laminate\nLAMINATE · PLANK · PRODUCT SERIES\nAquaGlow\nWater-resistant Laminate\n12mm "
+    },
+    {
+      "route": "#/series/nordic",
+      "ok": true,
+      "heading": "Back to Laminate\nLAMINATE · CHEVRON · PRODUCT SERIES\nNordic\nLaminate Chevron\n12mm · AC4 · "
+    },
+    {
+      "route": "#/series/scotia",
+      "ok": true,
+      "heading": "Back to Accessories\nACCESSORIES · SCOTIA · PRODUCT SERIES\nScotia\nColour-matched Scotia\n2.4"
+    },
+    {
+      "route": "#/series/stair-nose",
+      "ok": true,
+      "heading": "Back to Accessories\nACCESSORIES · STAIR NOSE · PRODUCT SERIES\nStair Nose\nStair Nose to mat"
+    },
+    {
+      "route": "#/series/trims",
+      "ok": true,
+      "heading": "Back to Accessories\nACCESSORIES · TRIMS · PRODUCT SERIES\nTrims\nTransition & End Trims\nAlum"
+    },
+    {
+      "route": "#/products/bonita-natural-oak",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nNatural Oak\nENGINEERED TIMBER"
+    },
+    {
+      "route": "#/products/bonita-latte-oak",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nLatte Oak\nNEW\nENGINEERED TIMB"
+    },
+    {
+      "route": "#/products/bonita-lime-wash",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nLime Wash\nENGINEERED TIMBER ·"
+    },
+    {
+      "route": "#/products/bonita-grey-wash",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nGrey Wash\nENGINEERED TIMBER ·"
+    },
+    {
+      "route": "#/products/bonita-brescia",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nBrescia\nENGINEERED TIMBER · P"
+    },
+    {
+      "route": "#/products/bonita-white-oak",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nWhite Oak\nENGINEERED TIMBER ·"
+    },
+    {
+      "route": "#/products/bonita-cuban",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nCuban\nENGINEERED TIMBER · PLA"
+    },
+    {
+      "route": "#/products/bonita-cotton-oak",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nCotton Oak\nENGINEERED TIMBER "
+    },
+    {
+      "route": "#/products/bonita-smoked-brown",
+      "ok": true,
+      "heading": "Back to Bonita colours\nProducts\n›\nEngineered Timber\n›\nPlank\n›\nBonita\n›\nSmoked Brown\nENGINEERED TIMBE"
+    },
+    {
+      "route": "#/products/quercus-natural",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nNatural\nENGINEERED TI"
+    },
+    {
+      "route": "#/products/quercus-coastal",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nCoastal\nENGINEERED TI"
+    },
+    {
+      "route": "#/products/quercus-sandstone",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nSandstone\nENGINEERED "
+    },
+    {
+      "route": "#/products/quercus-driftwood",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nDriftwood\nENGINEERED "
+    },
+    {
+      "route": "#/products/quercus-honey",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nHoney\nENGINEERED TIMB"
+    },
+    {
+      "route": "#/products/quercus-smoke",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nSmoke\nENGINEERED TIMB"
+    },
+    {
+      "route": "#/products/quercus-chalk",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nChalk\nENGINEERED TIMB"
+    },
+    {
+      "route": "#/products/quercus-walnut",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nWalnut\nENGINEERED TIM"
+    },
+    {
+      "route": "#/products/quercus-grey-mist",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nGrey Mist\nENGINEERED "
+    },
+    {
+      "route": "#/products/quercus-espresso",
+      "ok": true,
+      "heading": "Back to Quercus colours\nProducts\n›\nEngineered Timber\n›\nHerringbone\n›\nQuercus\n›\nEspresso\nENGINEERED T"
+    },
+    {
+      "route": "#/products/heritage-rustic-oak",
+      "ok": true,
+      "heading": "Back to Heritage colours\nProducts\n›\nEngineered Timber\n›\nChevron\n›\nHeritage\n›\nRustic Oak\nENGINEERED T"
+    },
+    {
+      "route": "#/products/guardian-natural-grey",
+      "ok": true,
+      "heading": "Back to Guardian colours\nProducts\n›\nHybrid\n›\nPlank\n›\nGuardian\n›\nNatural Grey\nHYBRID · PLANK · GUARDI"
+    },
+    {
+      "route": "#/products/guardian-coastal-ash",
+      "ok": true,
+      "heading": "Back to Guardian colours\nProducts\n›\nHybrid\n›\nPlank\n›\nGuardian\n›\nCoastal Ash\nHYBRID · PLANK · GUARDIA"
+    },
+    {
+      "route": "#/products/guardian-smoked-oak",
+      "ok": true,
+      "heading": "Back to Guardian colours\nProducts\n›\nHybrid\n›\nPlank\n›\nGuardian\n›\nSmoked Oak\nHYBRID · PLANK · GUARDIAN"
+    },
+    {
+      "route": "#/products/terra-sand",
+      "ok": true,
+      "heading": "Back to Terra colours\nProducts\n›\nHybrid\n›\nHerringbone\n›\nTerra\n›\nSand\nNEW\nHYBRID · HERRINGBONE · TERR"
+    },
+    {
+      "route": "#/products/terra-clay",
+      "ok": true,
+      "heading": "Back to Terra colours\nProducts\n›\nHybrid\n›\nHerringbone\n›\nTerra\n›\nClay\nNEW\nHYBRID · HERRINGBONE · TERR"
+    },
+    {
+      "route": "#/products/terra-charcoal",
+      "ok": true,
+      "heading": "Back to Terra colours\nProducts\n›\nHybrid\n›\nHerringbone\n›\nTerra\n›\nCharcoal\nNEW\nHYBRID · HERRINGBONE · "
+    },
+    {
+      "route": "#/products/aquaglow-silver",
+      "ok": true,
+      "heading": "Back to AquaGlow colours\nProducts\n›\nLaminate\n›\nPlank\n›\nAquaGlow\n›\nSilver\nLAMINATE · PLANK · AQUAGLOW"
+    },
+    {
+      "route": "#/products/aquaglow-natural-oak",
+      "ok": true,
+      "heading": "Back to AquaGlow colours\nProducts\n›\nLaminate\n›\nPlank\n›\nAquaGlow\n›\nNatural Oak\nLAMINATE · PLANK · AQU"
+    },
+    {
+      "route": "#/products/nordic-birch",
+      "ok": true,
+      "heading": "Back to Nordic colours\nProducts\n›\nLaminate\n›\nChevron\n›\nNordic\n›\nBirch\nNEW\nLAMINATE · CHEVRON · NORDI"
+    },
+    {
+      "route": "#/products/nordic-ash-grey",
+      "ok": true,
+      "heading": "Back to Nordic colours\nProducts\n›\nLaminate\n›\nChevron\n›\nNordic\n›\nAsh Grey\nNEW\nLAMINATE · CHEVRON · NO"
+    },
+    {
+      "route": "#/products/scotia-wf807",
+      "ok": true,
+      "heading": "Back to Scotia colours\nProducts\n›\nAccessories\n›\nScotia\n›\nScotia\n›\nWF807\nACCESSORIES · SCOTIA · SCOTI"
+    },
+    {
+      "route": "#/products/scotia-d3005",
+      "ok": true,
+      "heading": "Back to Scotia colours\nProducts\n›\nAccessories\n›\nScotia\n›\nScotia\n›\nD3005\nACCESSORIES · SCOTIA · SCOTI"
+    },
+    {
+      "route": "#/products/scotia-wf806",
+      "ok": true,
+      "heading": "Back to Scotia colours\nProducts\n›\nAccessories\n›\nScotia\n›\nScotia\n›\nWF806\nACCESSORIES · SCOTIA · SCOTI"
+    },
+    {
+      "route": "#/products/scotia-a108",
+      "ok": true,
+      "heading": "Back to Scotia colours\nProducts\n›\nAccessories\n›\nScotia\n›\nScotia\n›\nA108\nACCESSORIES · SCOTIA · SCOTIA"
+    },
+    {
+      "route": "#/products/scotia-a113",
+      "ok": true,
+      "heading": "Back to Scotia colours\nProducts\n›\nAccessories\n›\nScotia\n›\nScotia\n›\nA113\nACCESSORIES · SCOTIA · SCOTIA"
+    },
+    {
+      "route": "#/products/scotia-wf08",
+      "ok": true,
+      "heading": "Back to Scotia colours\nProducts\n›\nAccessories\n›\nScotia\n›\nScotia\n›\nWF08\nACCESSORIES · SCOTIA · SCOTIA"
+    },
+    {
+      "route": "#/products/scotia-wf801",
+      "ok": true,
+      "heading": "Back to Scotia colours\nProducts\n›\nAccessories\n›\nScotia\n›\nScotia\n›\nWF801\nACCESSORIES · SCOTIA · SCOTI"
+    },
+    {
+      "route": "#/products/scotia-a115",
+      "ok": true,
+      "heading": "Back to Scotia colours\nProducts\n›\nAccessories\n›\nScotia\n›\nScotia\n›\nA115\nACCESSORIES · SCOTIA · SCOTIA"
+    },
+    {
+      "route": "#/products/stair-nose-natural-oak",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nNatural Oak\nACCESSORIE"
+    },
+    {
+      "route": "#/products/stair-nose-latte-oak",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nLatte Oak\nACCESSORIES "
+    },
+    {
+      "route": "#/products/stair-nose-lime-wash",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nLime Wash\nACCESSORIES "
+    },
+    {
+      "route": "#/products/stair-nose-grey-wash",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nGrey Wash\nACCESSORIES "
+    },
+    {
+      "route": "#/products/stair-nose-brescia",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nBrescia\nACCESSORIES · "
+    },
+    {
+      "route": "#/products/stair-nose-white-oak",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nWhite Oak\nACCESSORIES "
+    },
+    {
+      "route": "#/products/stair-nose-cuban",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nCuban\nACCESSORIES · ST"
+    },
+    {
+      "route": "#/products/stair-nose-cotton-oak",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nCotton Oak\nACCESSORIES"
+    },
+    {
+      "route": "#/products/stair-nose-smoked-brown",
+      "ok": true,
+      "heading": "Back to Stair Nose colours\nProducts\n›\nAccessories\n›\nStair Nose\n›\nStair Nose\n›\nSmoked Brown\nACCESSORI"
+    },
+    {
+      "route": "#/products/trims-blackbutt",
+      "ok": true,
+      "heading": "Back to Trims colours\nProducts\n›\nAccessories\n›\nTrims\n›\nTrims\n›\nBlackbutt\nACCESSORIES · TRIMS · TRIMS"
+    },
+    {
+      "route": "#/products/trims-hby-w019",
+      "ok": true,
+      "heading": "Back to Trims colours\nProducts\n›\nAccessories\n›\nTrims\n›\nTrims\n›\nHBY-W019\nACCESSORIES · TRIMS · TRIMS "
+    },
+    {
+      "route": "#/products/trims-cream",
+      "ok": true,
+      "heading": "Back to Trims colours\nProducts\n›\nAccessories\n›\nTrims\n›\nTrims\n›\nCream\nACCESSORIES · TRIMS · TRIMS SER"
+    },
+    {
+      "route": "#/products/trims-hby-w024",
+      "ok": true,
+      "heading": "Back to Trims colours\nProducts\n›\nAccessories\n›\nTrims\n›\nTrims\n›\nHBY-W024\nACCESSORIES · TRIMS · TRIMS "
+    },
+    {
+      "route": "#/products/trims-black",
+      "ok": true,
+      "heading": "Back to Trims colours\nProducts\n›\nAccessories\n›\nTrims\n›\nTrims\n›\nBlack\nACCESSORIES · TRIMS · TRIMS SER"
+    },
+    {
+      "route": "#/products/trims-d3015",
+      "ok": true,
+      "heading": "Back to Trims colours\nProducts\n›\nAccessories\n›\nTrims\n›\nTrims\n›\nD3015\nACCESSORIES · TRIMS · TRIMS SER"
+    },
+    {
+      "route": "#/products/trims-hby-004",
+      "ok": true,
+      "heading": "Back to Trims colours\nProducts\n›\nAccessories\n›\nTrims\n›\nTrims\n›\nHBY-004\nACCESSORIES · TRIMS · TRIMS S"
+    },
+    {
+      "route": "#/dashboard",
+      "ok": true,
+      "heading": "This month\n1 Nov – 18 Nov 2026\n▾\nSystem date\nWed, 18 Nov 2026\n· updated 11:40 am\nGood afte"
+    },
+    {
+      "route": "#/inventory",
+      "ok": true,
+      "heading": "System date\nWed, 18 Nov 2026\n· updated 11:40 am\nProducts\n\nCheck current stock in Melbourne"
+    },
+    {
+      "route": "#/collections/new",
+      "ok": true,
+      "heading": "Back to home\nPRODUCT COLLECTION\nNew Product\n\nThe latest additions to the HTT range — 6 new"
+    },
+    {
+      "route": "#/collections/promotion",
+      "ok": true,
+      "heading": "Back to home\nPRODUCT COLLECTION\nPromotion\n\nLimited-time prices, even lower than your trade"
+    },
+    {
+      "route": "#/collections/clearance",
+      "ok": true,
+      "heading": "Back to home\nPRODUCT COLLECTION\nClearance\n\nRemaining stock at clearance prices — 3 colours"
+    },
+    {
+      "route": "#/boards",
+      "ok": true,
+      "heading": "System date\nWed, 18 Nov 2026\n· updated 11:40 am\nDisplay Boards\n\nHTT display boards in your"
+    },
+    {
+      "route": "#/boards?tab=requests",
+      "ok": true,
+      "heading": "System date\nWed, 18 Nov 2026\n· updated 11:40 am\nDisplay Boards\n\nHTT display boards in your"
+    },
+    {
+      "route": "#/boards?tab=requests&rf=all",
+      "ok": true,
+      "heading": "System date\nWed, 18 Nov 2026\n· updated 11:40 am\nDisplay Boards\n\nHTT display boards in your"
+    },
+    {
+      "route": "#/quotes",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes?st=Open",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes?st=Cancelled",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes?st=Expired",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes/quo-10605",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes/quo-10601",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes/quo-10540",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes/quo-10570",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/orders",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/orders/ord-10560",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/orders/ord-10551",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/orders/ord-10540",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices?tab=credits",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices?tab=closed",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/statement",
+      "ok": true,
+      "heading": "Back to invoices\nSTATEMENT\nAccount Statement\nAs at 18 Nov 2026\nMonth end 2026-10\nMonth end"
+    },
+    {
+      "route": "#/invoices/inv-10540",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/inv-10482",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/inv-10398",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/inv-10381",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/inv-10355",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1002",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1001",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/credits/cn-f3f20370-7a44-4ba3-bc17-521df979b92e",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/sales",
+      "ok": true,
+      "heading": "This month\n1 Nov – 18 Nov 2026\n▾\nvs 1 Oct 2026 – 18 Oct 2026\nSystem date\nWed, 18 Nov 2026\n"
+    },
+    {
+      "route": "#/rebates",
+      "ok": true,
+      "heading": "This financial year\n1 Jul – 18 Nov 2026\n▾\nSystem date\nWed, 18 Nov 2026\n· updated 11:40 am\n"
+    },
+    {
+      "route": "#/account",
+      "ok": true,
+      "heading": "System date\nWed, 18 Nov 2026\n· updated 11:40 am\nMY ACCOUNT\nABC Flooring Pty Ltd\nCustomer I"
+    },
+    {
+      "route": "#/cart",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/drafts",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes/quo-10605 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes/quo-10601 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes/quo-10540 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/quotes/quo-10570 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/orders/ord-10560 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/orders/ord-10551 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/orders/ord-10540 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/statement [prices on]",
+      "ok": true,
+      "heading": "Back to invoices\nSTATEMENT\nAccount Statement\nAs at 18 Nov 2026\nMonth end 2026-10\nMonth end"
+    },
+    {
+      "route": "#/invoices/inv-10540 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/inv-10482 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/inv-10398 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/inv-10381 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/inv-10355 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1002 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1001 [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    },
+    {
+      "route": "#/invoices/credits/cn-f3f20370-7a44-4ba3-bc17-521df979b92e [prices on]",
+      "ok": true,
+      "heading": "Reserve\n2\n1 expiring\nOrders\n2\n2 late\nInvoices\n4\n4 overdue\nQuote → Order → Invoice\nDrafts\n▾"
+    }
+  ],
+  "modals": [
+    {
+      "trigger": "openContactForm(null)",
+      "title": "Add contact",
+      "dialog": 1
+    },
+    {
+      "trigger": "openContactForm(null)",
+      "title": "Add contact",
+      "dialog": 1
+    },
+    {
+      "trigger": "openContactForm('C",
+      "title": "Edit contact",
+      "dialog": 1
+    },
+    {
+      "trigger": "openAddressForm('store')",
+      "title": "Add a store",
+      "dialog": 1
+    },
+    {
+      "trigger": "openAddressForm('delivery')",
+      "title": "Add a delivery address",
+      "dialog": 1
+    },
+    {
+      "trigger": "confirmMainStore(",
+      "title": "Change your main store?",
+      "dialog": 1
+    },
+    {
+      "trigger": "openAccessForm(null)",
+      "title": "Invite a staff member",
+      "dialog": 1
+    },
+    {
+      "trigger": "openAccessForm('",
+      "title": "MW",
+      "dialog": 1
+    },
+    {
+      "trigger": "[onclick=\"boardReq('new')\"]",
+      "title": "Request a new display board",
+      "dialog": 1
+    },
+    {
+      "trigger": "[onclick^=\"reqPanels(\"]",
+      "title": "COLOUR PANELS",
+      "dialog": 1
+    },
+    {
+      "trigger": "[onclick^=\"reqSwatches(\"]",
+      "title": "SWATCHES",
+      "dialog": 1
+    },
+    {
+      "trigger": "[onclick=\"boardInfo('DB-1063')\"]",
+      "title": "Natural Oak",
+      "dialog": 1
+    },
+    {
+      "trigger": "[onclick=\"boardInfo('DB-1080')\"]",
+      "title": "SWATCHES",
+      "dialog": 1
+    },
+    {
+      "trigger": "Return board",
+      "title": "Return DB-1063"
+    },
+    {
+      "trigger": "Product add chooser",
+      "title": "Add Bonita Natural Oak to…"
+    },
+    {
+      "trigger": "Accept quote",
+      "title": "Accept quote QUO-10606?"
+    },
+    {
+      "trigger": "Order date edit",
+      "title": "Change pick up date"
+    },
+    {
+      "trigger": "Cancel quote",
+      "title": "Cancel quote QUO-10601?"
+    }
+  ],
+  "mobile": [
+    {
+      "route": "#/dashboard",
+      "scroll": 375,
+      "title": "Good afternoon, John",
+      "width": 390
+    },
+    {
+      "route": "#/inventory",
+      "scroll": 375,
+      "title": "Products",
+      "width": 390
+    },
+    {
+      "route": "#/boards",
+      "scroll": 375,
+      "title": "Display Boards",
+      "width": 390
+    },
+    {
+      "route": "#/quotes",
+      "scroll": 375,
+      "title": "Quotes",
+      "width": 390
+    },
+    {
+      "route": "#/orders",
+      "scroll": 375,
+      "title": "Orders",
+      "width": 390
+    },
+    {
+      "route": "#/invoices",
+      "scroll": 378,
+      "title": "Invoices",
+      "width": 390
+    },
+    {
+      "route": "#/invoices/statement",
+      "scroll": 375,
+      "title": "Account Statement",
+      "width": 390
+    },
+    {
+      "route": "#/sales",
+      "scroll": 375,
+      "title": "Product Insights",
+      "width": 390
+    },
+    {
+      "route": "#/rebates",
+      "scroll": 375,
+      "title": "Rebate",
+      "width": 390
+    },
+    {
+      "route": "#/account",
+      "scroll": 375,
+      "title": "ABC Flooring Pty Ltd",
+      "width": 390
+    },
+    {
+      "route": "#/cart",
+      "scroll": 375,
+      "width": 390
+    }
+  ],
+  "datePresets": [
+    {
+      "preset": "Today",
+      "shown": "Today\n18 Nov 2026\n▾"
+    },
+    {
+      "preset": "Yesterday",
+      "shown": "Yesterday\n17 Nov 2026\n▾"
+    },
+    {
+      "preset": "This month",
+      "shown": "This month\n1 Nov – 18 Nov 2026\n▾"
+    },
+    {
+      "preset": "Last month",
+      "shown": "Last month\n1 Oct – 31 Oct 2026\n▾"
+    },
+    {
+      "preset": "This financial year",
+      "shown": "This financial year\n1 Jul – 18 Nov 2026\n▾"
+    },
+    {
+      "preset": "Last financial year",
+      "shown": "Last financial year\n1 Jul 2025 – 30 Jun 2026\n▾"
+    }
+  ],
+  "manualChecks": [
+    "Modal initial focus, Shift+Tab/Tab trap and Escape",
+    "Inventory category, promotion, descending price sort and empty search",
+    "Invoice ageing two rows and search one row",
+    "Product Insights series Trend, colour expansion and year comparison",
+    "Rebate 305-record pagination advances 1–25 to 26–50, combination-filter empty state",
+    "Area quote edit converts Guardian 12 m² to 5 full boxes",
+    "Local address/contact validation and persistence",
+    "Local quote -> accept -> order -> schedule edit -> completion -> invoice workflow",
+    "Production unauthenticated guard and absence of demo credentials"
+  ],
+  "limitations": [
+    "No business API integration requested",
+    "Real authenticated backend session not exercised without user credentials",
+    "Native system print/PDF dialog and download delivery not automatically verified; handlers and CSV contents tested"
+  ],
+  "tests": {
+    "passed": 75,
+    "failed": 0
+  }
+}
