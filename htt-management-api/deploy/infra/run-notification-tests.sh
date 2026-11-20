@@ -1,6 +1,10 @@
 #!/bin/sh
 # Run only trusted HTT source: mounting the Docker socket gives the runner Docker-level privileges.
 set -eu
+test "${HTT_TEST_ON_DEVELOPMENT_DATABASE:-}" = true || { echo 'Explicit shared-development test opt-in required' >&2; exit 2; }
+for required in HTT_DB_URL HTT_DB_USERNAME HTT_DB_PASSWORD HTT_DB_MIGRATION_USERNAME HTT_DB_MIGRATION_PASSWORD; do
+    printenv "$required" >/dev/null || { echo "Missing database environment: $required" >&2; exit 2; }
+done
 if [ "$#" -ne 1 ]; then echo "Usage: $0 /absolute/htt-management-api-checkout" >&2; exit 2; fi
 workspace=$(realpath "$1")
 test -f "$workspace/pom.xml"
@@ -22,6 +26,9 @@ docker run --rm --init --network host --cpus 2 --memory 2g --pids-limit 512 \
     -e MAVEN_USER_HOME=/maven-cache/wrapper \
     -e MAVEN_OPTS=-Xmx512m \
     -e HTT_TEST_RABBIT_IMAGE="$rabbit_image" \
+    -e HTT_TEST_ON_DEVELOPMENT_DATABASE \
+    -e HTT_DB_URL -e HTT_DB_USERNAME -e HTT_DB_PASSWORD \
+    -e HTT_DB_MIGRATION_USERNAME -e HTT_DB_MIGRATION_PASSWORD \
     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
     --mount "type=bind,source=$workspace,target=/workspace" \
     --mount type=volume,source=htt-notification-it-maven-cache,target=/maven-cache \

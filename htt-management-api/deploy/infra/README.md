@@ -1,6 +1,6 @@
 # HTT RabbitMQ / Redis 部署与运行
 
-2026-11-06。此目录提供 Linux 单节点部署基础，含测试和生产 TLS 配置；不是十万在线容量承诺，也不是跨主机高可用集群。Java 暂未接入 Redis；它不会自动接管 Keycloak 会话或业务权限。
+此目录提供 Linux 单节点部署及生产 TLS 配置。启用通知模块需要 RabbitMQ。Redis 是预留组件，现有 Compose 模板仍会一起启动它；Java 应用和登录会话不依赖 Redis。
 
 ## 文件与前置条件
 
@@ -122,9 +122,9 @@ RabbitMQ 在线导出定义不能恢复排队消息；灾难恢复应使用冷�
 sh deploy/infra/run-notification-tests.sh /absolute/htt-management-api-checkout
 ```
 
-runner 使用 Maven Wrapper、Java 21、2 核/2 GiB，挂载自身 Maven 缓存与宿主机 Docker socket；Linux host 网络与 127.0.0.1 override 使现有本机 Docker 安全校验仍成立。测试自己创建临时 PostgreSQL/RabbitMQ，结束清理；不连接 5432 的现有库。不会开放 Docker TCP 或关闭测试的目标校验。
+runner 使用 Maven Wrapper、Java 21、2 核/2 GiB，挂载自身 Maven 缓存与宿主机 Docker socket。先加载 Main 开发库的 `HTT_DB_URL`、`HTT_DB_USERNAME`、`HTT_DB_PASSWORD`、`HTT_DB_MIGRATION_USERNAME`、`HTT_DB_MIGRATION_PASSWORD` 并设置 `HTT_TEST_ON_DEVELOPMENT_DATABASE=true`。测试使用唯一的 `htt_management` 开发库，校验开发库标记、获取测试锁，并在已有待处理通知数据时拒绝运行。只有 RabbitMQ 使用临时容器。详见 [单开发库说明](../../docs/development-database.md)。
 
-可用 HTT_TEST_RABBIT_IMAGE 指定已审核 digest，HTT_TEST_RUNNER_IMAGE 指定构建镜像；默认 tag 在拉取后解析 digest。普通运行只执行 notification-it 编译和 6 项 Failsafe 用例；报告在源码 target/failsafe-reports。缓存卷 htt-notification-it-maven-cache 可保留，无需重复下载。
+可用 HTT_TEST_RABBIT_IMAGE 指定已审核 digest，HTT_TEST_RUNNER_IMAGE 指定构建镜像。runner 执行 notification-it 编译和 7 项 Failsafe 用例，报告在源码 target/failsafe-reports。缓存卷 htt-notification-it-maven-cache 可保留，无需重复下载。
 
 ## 本次实测
 

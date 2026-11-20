@@ -68,6 +68,10 @@ springdoc:
     enabled: false
 
 htt:
+  employees:
+    enabled: ${HTT_EMPLOYEES_ENABLED:false}
+  companies:
+    enabled: ${HTT_COMPANIES_ENABLED:false}
   customers:
     enabled: ${HTT_CUSTOMERS_ENABLED:false}
   keycloak:
