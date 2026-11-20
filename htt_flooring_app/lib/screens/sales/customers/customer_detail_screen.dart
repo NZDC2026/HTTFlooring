@@ -1,3 +1,31 @@
+import '../../../models/sales_quote_quantity.dart';
+import '../../../services/sales_session.dart';
+import 'customer_board_data.dart';
+import 'customer_series_price_screen.dart';
+import '../../../widgets/sales_date_picker.dart';
+import '../../../models/customer_note.dart';
+import '../../../models/customer_snapshot.dart';
+import '../../../models/product_snapshot.dart';
+import '../../../models/sales_document_item.dart';
+import '../../../services/local_sales_request_store.dart';
+
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../widgets/sales_detail_ui.dart';
+import '../../../models/product.dart';
+import '../../../models/sales_document.dart';
+import '../../../services/pricing_service.dart';
+import '../home/sales_dashboard_support.dart';
+import '../home/reminder_calendar_screen.dart';
+import '../more/sales_more_screen.dart';
+import '../inventory/inventory_catalog_data.dart';
+import '../inventory/inventory_screen.dart' show InventorySwatch;
+import '../orders/sales_document_detail_screen.dart';
+import 'customer_directory_data.dart';
+import 'sales_visit_screen.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -22,13 +50,20 @@ import 'customer_notes_screen.dart';
 import 'customer_orders_screen.dart';
 import 'business_card_photo_input.dart';
 
+part 'customer_reference_detail.dart';
+part 'customer_reference_tabs.dart';
+part 'customer_reference_actions.dart';
+part 'customer_reference_boards.dart';
+part 'customer_reference_documents.dart';
+part 'sales_quote_request.dart';
+
 class CustomerDetailScreen extends StatefulWidget {
   final Customer customer;
 
   const CustomerDetailScreen({super.key, required this.customer});
 
   @override
-  State<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
+  State<CustomerDetailScreen> createState() => _ReferenceCustomerDetailState();
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {

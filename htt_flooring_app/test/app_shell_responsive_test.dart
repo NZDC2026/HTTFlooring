@@ -23,9 +23,10 @@ void main() {
       );
       expect(find.text('Existing business content'), findsOneWidget);
       expect(
-        find.byType(width < 760 ? NavigationBar : NavigationRail),
-        findsOneWidget,
+        find.byType(NavigationRail),
+        width < 760 ? findsNothing : findsOneWidget,
       );
+      expect(find.text('Inventory'), findsOneWidget);
       await tester.tap(find.text('Inventory'));
       await tester.pumpAndSettle();
       expect(selected, 2);

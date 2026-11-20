@@ -28,7 +28,7 @@ class AppColors {
   static const border = HttTokens.border;
 }
 
-ThemeData buildTheme() {
+ThemeData buildTheme({bool salesReference = false}) {
   final baseTheme = ThemeData(
     useMaterial3: true,
     scaffoldBackgroundColor: AppColors.background,
@@ -39,21 +39,51 @@ ThemeData buildTheme() {
     ),
   );
 
-  final interFont = GoogleFonts.inter();
+  final interFont = salesReference ? null : GoogleFonts.inter();
 
   return baseTheme.copyWith(
-    textTheme: baseTheme.textTheme.apply(fontFamily: interFont.fontFamily),
+    textTheme: salesReference
+        ? baseTheme.textTheme
+              .apply(
+                fontFamily: 'HttReference',
+                bodyColor: const Color(0xFF19231F),
+                displayColor: const Color(0xFF19231F),
+              )
+              .copyWith(
+                bodyMedium: const TextStyle(
+                  fontFamily: 'HttReference',
+                  fontSize: 14,
+                  height: 1.35,
+                  letterSpacing: 0,
+                  color: Color(0xFF19231F),
+                ),
+                bodySmall: const TextStyle(
+                  fontFamily: 'HttReference',
+                  fontSize: 12,
+                  height: 1.35,
+                  letterSpacing: 0,
+                  color: Color(0xFF69756F),
+                ),
+              )
+        : baseTheme.textTheme.apply(fontFamily: interFont?.fontFamily),
 
     appBarTheme: AppBarTheme(
       backgroundColor: AppColors.card,
       foregroundColor: AppColors.green,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: GoogleFonts.inter(
-        fontSize: 22,
-        fontWeight: FontWeight.w600,
-        color: AppColors.text,
-      ),
+      titleTextStyle: salesReference
+          ? const TextStyle(
+              fontFamily: 'HttReference',
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF19231F),
+            )
+          : GoogleFonts.inter(
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            ),
     ),
 
     filledButtonTheme: FilledButtonThemeData(

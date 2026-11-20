@@ -15,10 +15,12 @@ class ActivityAttachments extends StatefulWidget {
     required this.attachments,
     this.onChanged,
     this.allowFilePicker = true,
+    this.title = 'Attachments',
   });
 
   final List<ActivityAttachment> attachments;
   final bool allowFilePicker;
+  final String title;
   final ValueChanged<List<ActivityAttachment>>? onChanged;
 
   @override
@@ -100,7 +102,7 @@ class _ActivityAttachmentsState extends State<ActivityAttachments> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-        Text('Attachments', style: Theme.of(context).textTheme.titleSmall),
+        Text(widget.title, style: Theme.of(context).textTheme.titleSmall),
         for (final attachment in widget.attachments)
           ListTile(
             contentPadding: EdgeInsets.zero,

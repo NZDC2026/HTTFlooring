@@ -116,11 +116,12 @@ class CustomerService extends ChangeNotifier {
     required String address,
     required String abn,
     required SalesRegion region,
+    String type = 'Trade Customer',
   }) {
     final customer = Customer(
       id: _generateCustomerId(),
       businessName: businessName.trim(),
-      type: 'Trade Customer',
+      type: type,
       region: region,
       address: address.trim(),
       abn: abn.trim(),

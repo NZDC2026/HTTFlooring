@@ -1,3 +1,6 @@
+import '../../../services/app_session.dart';
+import 'sales_reference_document_body.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,6 +16,14 @@ class SalesDocumentDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppSession?>();
+    if (app?.isWarehouse != true) {
+      return SalesDocumentReferenceBody(document: document);
+    }
+    return _legacyBuild(context);
+  }
+
+  Widget _legacyBuild(BuildContext context) {
     final service = context.watch<SalesDocumentService>();
 
     // 不直接使用传进来的旧 document。

@@ -44,6 +44,12 @@ class CustomerNoteService extends ChangeNotifier {
     return results;
   }
 
+  void restoreLocalFollowUp(CustomerNote note) {
+    if (!note.isFollowUp || _notes.any((n) => n.id == note.id)) return;
+    _notes.add(note);
+    notifyListeners();
+  }
+
   void addNote({
     required String customerId,
     String? existingId,

@@ -61,7 +61,7 @@ class HttFlooringApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'HTT Flooring',
-      theme: buildTheme(),
+      theme: buildTheme(salesReference: context.watch<AppSession>().isSales),
       home: const RoleRouter(),
     );
   }

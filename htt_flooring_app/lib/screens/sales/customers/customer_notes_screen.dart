@@ -1,3 +1,25 @@
+import '../../../models/customer_contact.dart';
+import '../home/calendar_agenda_data.dart';
+import 'customer_detail_screen.dart' show referenceCustomerDocuments;
+import '../orders/sales_document_detail_screen.dart';
+import '../../../models/sales_document.dart';
+import '../../../services/sales_document_service.dart';
+import '../../../widgets/sales_task_completion.dart';
+import '../../../widgets/sales_date_picker.dart';
+import '../../../services/local_sales_request_store.dart';
+
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../services/customer_service.dart';
+
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../widgets/sales_detail_ui.dart';
+import '../home/sales_dashboard_support.dart';
+import '../more/sales_more_screen.dart' show chooseSalesCustomer;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +32,9 @@ import '../../../services/customer_note_service.dart';
 import '../../../services/app_session.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/activity_attachments.dart';
+
+part 'customer_reference_forms.dart';
+part 'customer_reference_task.dart';
 
 enum _ActivityFilter { all, notes, followUps, completed }
 
@@ -429,7 +454,7 @@ class AddNoteScreen extends StatefulWidget {
   final Customer? customer;
 
   @override
-  State<AddNoteScreen> createState() => _AddNoteScreenState();
+  State<AddNoteScreen> createState() => _ReferenceAddNoteState();
 }
 
 class _AddNoteScreenState extends State<AddNoteScreen> {
@@ -626,17 +651,19 @@ class AddFollowUpScreen extends StatefulWidget {
     this.existing,
     this.initialDueDate,
     this.initialDescription,
+    this.initialType,
   });
 
   final DateTime? initialDueDate;
   final String? initialDescription;
+  final String? initialType;
 
   final CustomerNote? existing;
 
   final Customer? customer;
 
   @override
-  State<AddFollowUpScreen> createState() => _AddFollowUpScreenState();
+  State<AddFollowUpScreen> createState() => _ReferenceAddFollowUpState();
 }
 
 class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
@@ -647,7 +674,7 @@ class _AddFollowUpScreenState extends State<AddFollowUpScreen> {
   late final _description = TextEditingController(
     text: widget.existing?.content ?? widget.initialDescription,
   );
-  late String? _type = widget.existing?.followUpType;
+  late String? _type = widget.existing?.followUpType ?? widget.initialType;
   late String _priority = widget.existing?.priority ?? 'Normal';
   static const _customReminder = 'Custom date';
   late String _reminder =
@@ -1212,6 +1239,7 @@ class FollowUpDetail extends StatefulWidget {
 }
 
 class _FollowUpDetailState extends State<FollowUpDetail> {
+  void _referenceUpdate(VoidCallback fn) => setState(fn);
   final _comment = TextEditingController();
   List<ActivityAttachment> _commentAttachments = const [];
 
@@ -1235,6 +1263,9 @@ class _FollowUpDetailState extends State<FollowUpDetail> {
         appBar: AppBar(title: const Text('Follow-up Detail')),
         body: const Center(child: Text('Follow-up no longer available')),
       );
+    }
+    if (!context.read<AppSession>().isWarehouse) {
+      return _referenceTask(context, task, service);
     }
     final status = switch (task.followUpStatus) {
       FollowUpStatus.completed => 'Completed',

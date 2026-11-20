@@ -125,6 +125,16 @@ class _SalesVisitScreenState extends State<SalesVisitScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (context.read<AppSession>().employeeAccessToken?.isNotEmpty != true &&
+        widget.initialSearch.trim().isNotEmpty) {
+      final query = widget.initialSearch.trim().toLowerCase();
+      final location = context
+          .watch<CustomerLocationService>()
+          .getForRegion(context.read<AppSession>().region)
+          .where((l) => l.name.toLowerCase().contains(query))
+          .firstOrNull;
+      if (location != null) return VisitCheckInScreen.demo(location);
+    }
     final supported =
         kIsWeb ||
         defaultTargetPlatform == TargetPlatform.android ||
@@ -145,9 +155,16 @@ class _SalesVisitScreenState extends State<SalesVisitScreen> {
               true) ...[
             const Text('Demo check-in · Photos are previewed on this device.'),
             for (final location
-                in context.watch<CustomerLocationService>().getForRegion(
-                  context.watch<AppSession>().region,
-                ))
+                in context
+                    .watch<CustomerLocationService>()
+                    .getForRegion(context.watch<AppSession>().region)
+                    .where(
+                      (l) =>
+                          widget.initialSearch.isEmpty ||
+                          l.name.toLowerCase().contains(
+                            widget.initialSearch.toLowerCase(),
+                          ),
+                    ))
               ListTile(
                 title: Text(location.name),
                 subtitle: Text(location.address),

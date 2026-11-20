@@ -1,3 +1,5 @@
+import 'sales_customer_form.dart';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -23,7 +25,12 @@ class BusinessCardReviewScreen extends StatefulWidget {
 
   @override
   State<BusinessCardReviewScreen> createState() =>
-      _BusinessCardReviewScreenState();
+      _ReferenceBusinessCardState();
+}
+
+class _ReferenceBusinessCardState extends _BusinessCardReviewScreenState {
+  @override
+  Widget build(BuildContext context) => SalesCustomerForm(initial: widget.result);
 }
 
 class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
@@ -152,6 +159,7 @@ class _BusinessCardReviewScreenState extends State<BusinessCardReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.manualEntry) return SalesCustomerForm(initial: widget.result);
     final session = context.watch<SalesSession>();
 
     return Scaffold(

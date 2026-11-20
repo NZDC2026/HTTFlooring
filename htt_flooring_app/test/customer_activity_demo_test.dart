@@ -49,10 +49,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(task);
     await tester.pumpAndSettle();
-    expect(find.text('Follow-up Detail'), findsOneWidget);
+    expect(find.text('Follow-up'), findsOneWidget);
     await tester.tap(find.byTooltip('Edit Follow-up'));
     await tester.pumpAndSettle();
-    expect(find.text('Edit Follow-up'), findsOneWidget);
+    await tester.tap(find.text('Edit follow-up'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AddFollowUpScreen), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     final comment = find.byType(EditableText);
@@ -63,9 +65,9 @@ void main() {
     );
     await tester.enterText(comment, 'Sample delivered.');
     await tester.pump();
-    await tester.ensureVisible(find.text('Send Comment'));
+    await tester.ensureVisible(find.text('Add update'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Send Comment'));
+    await tester.tap(find.text('Add update'));
     await tester.pumpAndSettle();
     expect(find.text('Sample delivered.'), findsOneWidget);
     expect(realService.notes, isEmpty);

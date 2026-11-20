@@ -1,4 +1,13 @@
+import 'visit_in_progress_screen.dart';
+import '../../../widgets/sales_detail_ui.dart';
+import '../home/sales_dashboard_support.dart';
+
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../services/app_session.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -44,6 +53,42 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
   Uint8List? _photo;
   String? _message;
   bool _staged = false;
+  bool _submitted = false;
+  Position? _capturedPosition;
+  double? _distance;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resumeVisit());
+  }
+
+  Future<void> _resumeVisit() async {
+    try {
+      final user = context.read<AppSession>().currentUser;
+      final key = 'active-visit-${user.id}-${widget.branch['customerId']}';
+      final raw = (await SharedPreferences.getInstance()).getString(key);
+      if (raw == null || !mounted) return;
+      final record = jsonDecode(raw) as Map<String, dynamic>;
+      final photo = base64Decode(record['checkInPhoto'] as String);
+      final started = DateTime.parse(record['started'] as String);
+      final saved = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VisitInProgressScreen(
+            customerId: widget.branch['customerId'] as String,
+            name: widget.branch['name'] as String,
+            checkedInAt: started,
+            photo: photo,
+            demo: widget.backend == null,
+          ),
+        ),
+      );
+      if (mounted) Navigator.pop(context, saved);
+    } catch (_) {
+      // Older or incomplete drafts fall back to verified check-in.
+    }
+  }
 
   bool get _supportsCamera =>
       kIsWeb ||
@@ -82,6 +127,7 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
         'Move closer or try again with a clearer view of the sky.',
       );
     }
+    if (mounted) setState(() => _distance = distance);
     return position;
   }
 
@@ -118,15 +164,11 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
       final position = await _verifyLocation();
       if (!mounted) return;
       final backend = widget.backend;
+      _capturedPosition = position;
       if (backend == null) {
-        await context.read<CustomerLocationService>().recordDemoVisit(
-          widget.branch['customerId'] as String,
-          position.timestamp,
-        );
-        if (!mounted) return;
         setState(() {
           _photo = bytes;
-          _message = 'Location verified. Demo photo captured for preview.';
+          _message = null;
         });
         return;
       }
@@ -141,7 +183,6 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
         _photo = bytes;
         _staged = true;
       });
-      await _submit();
     } on FormatException catch (error) {
       if (mounted) setState(() => _message = error.message);
     } on TimeoutException {
@@ -165,8 +206,11 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
       _message = null;
     });
     try {
-      await widget.backend!.submitPending();
-      if (mounted) Navigator.pop(context, true);
+      if (!_submitted) {
+        await widget.backend!.submitPending();
+        _submitted = true;
+      }
+      if (mounted) await _openVisit();
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -180,45 +224,262 @@ class _VisitCheckInScreenState extends State<VisitCheckInScreen> {
     }
   }
 
+  Future<void> _finish() async {
+    if (_photo == null || _capturedPosition == null || _busy) return;
+    if (widget.backend != null) {
+      await _submit();
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await context.read<CustomerLocationService>().recordDemoVisit(
+        widget.branch['customerId'] as String,
+        _capturedPosition!.timestamp,
+      );
+      if (mounted) await _openVisit();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openVisit() async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VisitInProgressScreen(
+          customerId: widget.branch['customerId'] as String,
+          name: widget.branch['name'] as String,
+          checkedInAt: _capturedPosition!.timestamp,
+          photo: _photo!,
+          demo: widget.backend == null,
+        ),
+      ),
+    );
+    if (mounted && saved == true) Navigator.pop(context, true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final name = widget.branch['name'] as String;
+    final initials = name
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0])
+        .join();
     return PopScope(
       canPop: !_busy,
       child: Scaffold(
-        appBar: AppBar(title: const Text('Visit Check-in')),
+        backgroundColor: Colors.white,
+        appBar: dashboardBar('Check in'),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           children: [
-            Text(
-              widget.branch['name'] as String,
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: detailPale,
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: detailGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Trade Customer',
+                        style: TextStyle(fontSize: 12, color: detailMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            Text(visitAddress(widget.branch)),
             const SizedBox(height: 16),
-            const Text('Take an on-site photo within 50 m of this address.'),
-            if (!_supportsCamera)
-              const Text(
-                'Use the Android or iOS app, or a browser with camera access.',
-              ),
-            if (_message case final message?) Text(message),
-            if (_photo case final photo?) ...[
-              const SizedBox(height: 16),
-              Image.memory(photo, height: 240, fit: BoxFit.contain),
-            ],
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const DetailGlyph('pin', size: 16, color: detailMuted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    visitAddress(widget.branch),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: detailMuted,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _busy || !_supportsCamera
-                  ? null
-                  : (_staged ? _submit : _capture),
-              icon: const Icon(Icons.camera_alt_outlined),
-              label: Text(
-                _busy
-                    ? 'Checking…'
-                    : _staged
-                    ? 'Retry Submission'
-                    : 'Take Photo',
+            detailCard(
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const DetailGlyph('pin', size: 19),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _distance == null
+                                ? 'Verify your location on site'
+                                : "You're ${_distance!.round()} m from $name",
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            _distance == null
+                                ? 'Camera capture checks your location within ${radiusMetres.round()} m.'
+                                : 'Within ${radiusMetres.round()} m · location confirmed',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: detailMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F9F7),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: detailLine),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Row(
+                    children: [
+                      DetailGlyph('camera', size: 22),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Take an on-site photo',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: 5),
+                            Text(
+                              'Camera only · stamped with time and location',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: detailMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_photo != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(
+                        _photo!,
+                        height: 210,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _capturedPosition?.timestamp.toLocal().toString() ?? '',
+                      style: const TextStyle(fontSize: 10, color: detailMuted),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  detailAction(
+                    _busy
+                        ? 'Checking…'
+                        : _photo == null
+                        ? 'Open camera'
+                        : 'Retake photo',
+                    'camera',
+                    _busy || !_supportsCamera ? null : _capture,
+                  ),
+                ],
+              ),
+            ),
+            if (_message != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  _message!,
+                  style: const TextStyle(fontSize: 12, color: Colors.red),
+                ),
+              ),
+            const SizedBox(height: 20),
+            detailAction(
+              _busy
+                  ? 'Checking…'
+                  : _staged && _message != null
+                  ? 'Retry check-in'
+                  : 'Check in',
+              'pin',
+              _busy || _photo == null ? null : _finish,
+              filled: true,
+            ),
+            const SizedBox(height: 14),
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DetailGlyph('clock', size: 14, color: detailMuted),
+                SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    "No signal? The photo and capture time stay on this phone. Retry check-in when you're back online.",
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: detailMuted,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (widget.backend == null)
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: Text(
+                  'Demo check-in stays on this device.',
+                  style: TextStyle(fontSize: 10, color: detailMuted),
+                ),
+              ),
           ],
         ),
       ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/htt_tokens.dart';
-import 'design/crm_design.dart';
 
 /// The same destination callbacks drive compact and expanded navigation.
 class AppShell extends StatelessWidget {
@@ -70,16 +69,81 @@ class AppShell extends StatelessWidget {
         ),
         bottomNavigationBar: wide
             ? null
-            : CrmBottomNavigation(
-                selectedIndex: currentIndex,
-                onDestinationSelected: onDestinationSelected,
-                destinations: [
-                  for (var i = 0; i < labels.length; i++)
-                    NavigationDestination(
-                      icon: Icon(icons[i]),
-                      label: labels[i],
+            : DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE5E9E6))),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    height: 64,
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < labels.length; i++)
+                          Expanded(
+                            child: Semantics(
+                              selected: currentIndex == i,
+                              button: true,
+                              label: labels[i],
+                              child: InkWell(
+                                onTap: () => onDestinationSelected(i),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: 6,
+                                    bottom: 5,
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 44,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: currentIndex == i
+                                              ? const Color(0xFFE3F0E9)
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Icon(
+                                          icons[i],
+                                          size: 19,
+                                          color: currentIndex == i
+                                              ? const Color(0xFF103F33)
+                                              : const Color(0xFF78877F),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        labels[i],
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: 'HttReference',
+                                          fontSize: 11,
+                                          height: 1.1,
+                                          letterSpacing: 0,
+                                          fontWeight: currentIndex == i
+                                              ? FontWeight.w600
+                                              : FontWeight.w400,
+                                          color: currentIndex == i
+                                              ? const Color(0xFF103F33)
+                                              : const Color(0xFF78877F),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
       );
     },
