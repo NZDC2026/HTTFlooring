@@ -124,3 +124,24 @@ test('statement print date cannot relabel current balances as an unavailable his
  const read=runtime();read.run('PRICE_ON=true');const html=await read.run('statement(new URLSearchParams())');
  assert.ok(html.includes('this.selectedIndex=0'));assert.ok(html.includes('$24,324.62'));assert.ok(html.includes('onclick="printDoc()"'));
 });
+test('same-route navigation refreshes completed local actions without depending on hashchange',()=>{
+ const read=runtime();read.run('let refreshes=0;render=()=>{refreshes++};go("#/dashboard")');
+ assert.equal(read('refreshes'),1);read.run('go("#/orders")');assert.equal(read('refreshes'),1);assert.equal(read('location.hash'),'#/orders');
+});
+test('document numbering includes records hidden by the selected store',()=>{
+ const read=runtime();const next=read('nextDocNum()');
+ read.run('STORE="ADR-01";applyStore()');assert.equal(read('nextDocNum()'),next);
+ read.run('_HID.get(QUOTES).push({no:"QUO-10999",store:"ADR-02",_ix:999})');assert.equal(read('nextDocNum()'),11000);
+ read.run('STORE="ADR-02";applyStore()');assert.equal(read('nextDocNum()'),11000);
+});
+test('switching stores parks the current draft and preserves its original products and store',()=>{
+ const read=runtime();read.run('render=()=>{};CART=[{id:"bonita-natural-oak",qty:2}];DRAFT={...blankDraft("quote"),store:"ADR-01",ref:"Richmond job"};setStore("ADR-02")');
+ assert.equal(read('CART.length'),0);assert.equal(read('DRAFTS.length'),1);assert.equal(read('DRAFTS[0].draft.store'),'ADR-01');assert.equal(read('DRAFTS[0].cart[0].qty'),2);assert.equal(read('STORE'),'ADR-02');
+ read.run('setStore("ADR-03")');assert.equal(read('STORE'),'ADR-02');
+});
+test('submitting a draft from all stores keeps its owning store; creation permission is enforced',()=>{
+ const read=runtime();read.run('render=()=>{};PRICE_ON=true;CART=[{id:"bonita-natural-oak",qty:1}];DRAFT={...blankDraft("quote"),store:"ADR-02",method:"Pick up"};submitCart("quote")');
+ assert.equal(read('QUOTES[0].store'),'ADR-02');
+ const denied=runtime();denied.run('render=()=>{};PRICE_ON=true;CART=[{id:"bonita-natural-oak",qty:1}];curUser().permissions={users:false,prices:true,place:false};submitCart("quote")');
+ assert.equal(denied('QUOTES.length'),4);assert.equal(denied('CART.length'),1);
+});

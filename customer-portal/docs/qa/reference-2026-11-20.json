@@ -788,5 +788,8 @@
   "tests": {
     "passed": 75,
     "failed": 0
-  }
+  },
+  "distinctRouteCount": 101,
+  "checkCount": 117,
+  "routeLabelNote": "The [prices on] suffix labels a repeated price-visible state check, not a distinct URL."
 }

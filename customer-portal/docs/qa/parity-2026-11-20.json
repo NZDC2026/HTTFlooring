@@ -1,0 +1,1654 @@
+{
+  "checkedAt": "2026-11-20",
+  "reference": "https://claude.ai/artifact/Wry2z8AeuyjCaUTEzPEuig",
+  "method": "Published authored DOM scripts/styles captured in full. A temporary baseline with isolated local storage was checked against the live reference and compared at the same viewport. Measurements cover headings, cards, tables, fonts and rendered text. Browser automation uses UI actions and read-only DOM observations.",
+  "liveReference": [
+    {
+      "route": "dashboard",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "inventory",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "boards",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "quotes",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "orders",
+      "textEqual": true,
+      "geometryEqual": false
+    },
+    {
+      "route": "invoices",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "sales",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "rebates",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "account",
+      "textEqual": true,
+      "geometryEqual": true
+    }
+  ],
+  "desktopPages": [
+    {
+      "route": "#/series/bonita",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/quercus",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/heritage",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/guardian",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/terra",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/aquaglow",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/nordic",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/scotia",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/stair-nose",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/series/trims",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-natural-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-latte-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-lime-wash",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-grey-wash",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-brescia",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-white-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-cuban",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-cotton-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/bonita-smoked-brown",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-natural",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-coastal",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-sandstone",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-driftwood",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-honey",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-smoke",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-chalk",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-walnut",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-grey-mist",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/quercus-espresso",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/heritage-rustic-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/guardian-natural-grey",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/guardian-coastal-ash",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/guardian-smoked-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/terra-sand",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/terra-clay",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/terra-charcoal",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/aquaglow-silver",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/aquaglow-natural-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/nordic-birch",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/nordic-ash-grey",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/scotia-wf807",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/scotia-d3005",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/scotia-wf806",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/scotia-a108",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/scotia-a113",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/scotia-wf08",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/scotia-wf801",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/scotia-a115",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-natural-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-latte-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-lime-wash",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-grey-wash",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-brescia",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-white-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-cuban",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-cotton-oak",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/stair-nose-smoked-brown",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/trims-blackbutt",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/trims-hby-w019",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/trims-cream",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/trims-hby-w024",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/trims-black",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/trims-d3015",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/products/trims-hby-004",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/dashboard",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/inventory",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/collections/new",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/collections/promotion",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/collections/clearance",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/boards",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/boards?tab=requests",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/boards?tab=requests&rf=all",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/quotes",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/quotes?st=Open",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/quotes?st=Cancelled",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/quotes?st=Expired",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/quotes/quo-10605",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/quotes/quo-10601",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/quotes/quo-10540",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/quotes/quo-10570",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/orders",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/orders/ord-10560",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/orders/ord-10551",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/orders/ord-10540",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices?tab=credits",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices?tab=closed",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/statement",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/inv-10540",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/inv-10482",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/inv-10398",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/inv-10381",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/inv-10355",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1002",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1001",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/invoices/credits/cn-f3f20370-7a44-4ba3-bc17-521df979b92e",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/sales",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/rebates",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/account",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/cart",
+      "textEqual": true,
+      "geometryEqual": true
+    },
+    {
+      "route": "#/drafts",
+      "textEqual": true,
+      "geometryEqual": true
+    }
+  ],
+  "modals": [
+    {
+      "trigger": "boardReq('new')",
+      "equal": true
+    },
+    {
+      "trigger": "boardInfo('DB-1063')",
+      "equal": true
+    },
+    {
+      "trigger": "boardInfo('DB-1080')",
+      "equal": true
+    },
+    {
+      "trigger": "reqPanels('ADR-02','quercus')",
+      "equal": true
+    },
+    {
+      "trigger": "reqSwatches('ADR-01','quercus')",
+      "equal": true
+    },
+    {
+      "trigger": "openContactForm(null)",
+      "equal": true
+    },
+    {
+      "trigger": "openContactForm('CON-5521')",
+      "equal": true
+    },
+    {
+      "trigger": "openContactForm('CON-5522')",
+      "equal": true
+    },
+    {
+      "trigger": "openAddressForm('store')",
+      "equal": true
+    },
+    {
+      "trigger": "openAddressForm('delivery')",
+      "equal": true
+    },
+    {
+      "trigger": "confirmMainStore('ADR-02')",
+      "equal": true
+    },
+    {
+      "trigger": "openAccessForm('U-002')",
+      "equal": true
+    },
+    {
+      "trigger": "openAccessForm('U-003')",
+      "equal": true
+    },
+    {
+      "trigger": "openAccessForm(null)",
+      "equal": true
+    },
+    {
+      "trigger": "Accept quote",
+      "equal": true
+    },
+    {
+      "trigger": "Cancel quote",
+      "equal": true
+    },
+    {
+      "trigger": "Change pick up date",
+      "equal": true
+    }
+  ],
+  "calendars": [
+    {
+      "route": "#/dashboard",
+      "equal": true
+    },
+    {
+      "route": "#/quotes",
+      "equal": true
+    },
+    {
+      "route": "#/orders",
+      "equal": true
+    },
+    {
+      "route": "#/invoices?tab=closed",
+      "equal": true
+    },
+    {
+      "route": "#/sales",
+      "equal": true
+    },
+    {
+      "route": "#/rebates",
+      "equal": true
+    }
+  ],
+  "production": [
+    {
+      "route": "#/series/bonita",
+      "equal": true
+    },
+    {
+      "route": "#/series/quercus",
+      "equal": true
+    },
+    {
+      "route": "#/series/heritage",
+      "equal": true
+    },
+    {
+      "route": "#/series/guardian",
+      "equal": true
+    },
+    {
+      "route": "#/series/terra",
+      "equal": true
+    },
+    {
+      "route": "#/series/aquaglow",
+      "equal": true
+    },
+    {
+      "route": "#/series/nordic",
+      "equal": true
+    },
+    {
+      "route": "#/series/scotia",
+      "equal": true
+    },
+    {
+      "route": "#/series/stair-nose",
+      "equal": true
+    },
+    {
+      "route": "#/series/trims",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-natural-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-latte-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-lime-wash",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-grey-wash",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-brescia",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-white-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-cuban",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-cotton-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/bonita-smoked-brown",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-natural",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-coastal",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-sandstone",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-driftwood",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-honey",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-smoke",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-chalk",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-walnut",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-grey-mist",
+      "equal": true
+    },
+    {
+      "route": "#/products/quercus-espresso",
+      "equal": true
+    },
+    {
+      "route": "#/products/heritage-rustic-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/guardian-natural-grey",
+      "equal": true
+    },
+    {
+      "route": "#/products/guardian-coastal-ash",
+      "equal": true
+    },
+    {
+      "route": "#/products/guardian-smoked-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/terra-sand",
+      "equal": true
+    },
+    {
+      "route": "#/products/terra-clay",
+      "equal": true
+    },
+    {
+      "route": "#/products/terra-charcoal",
+      "equal": true
+    },
+    {
+      "route": "#/products/aquaglow-silver",
+      "equal": true
+    },
+    {
+      "route": "#/products/aquaglow-natural-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/nordic-birch",
+      "equal": true
+    },
+    {
+      "route": "#/products/nordic-ash-grey",
+      "equal": true
+    },
+    {
+      "route": "#/products/scotia-wf807",
+      "equal": true
+    },
+    {
+      "route": "#/products/scotia-d3005",
+      "equal": true
+    },
+    {
+      "route": "#/products/scotia-wf806",
+      "equal": true
+    },
+    {
+      "route": "#/products/scotia-a108",
+      "equal": true
+    },
+    {
+      "route": "#/products/scotia-a113",
+      "equal": true
+    },
+    {
+      "route": "#/products/scotia-wf08",
+      "equal": true
+    },
+    {
+      "route": "#/products/scotia-wf801",
+      "equal": true
+    },
+    {
+      "route": "#/products/scotia-a115",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-natural-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-latte-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-lime-wash",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-grey-wash",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-brescia",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-white-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-cuban",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-cotton-oak",
+      "equal": true
+    },
+    {
+      "route": "#/products/stair-nose-smoked-brown",
+      "equal": true
+    },
+    {
+      "route": "#/products/trims-blackbutt",
+      "equal": true
+    },
+    {
+      "route": "#/products/trims-hby-w019",
+      "equal": true
+    },
+    {
+      "route": "#/products/trims-cream",
+      "equal": true
+    },
+    {
+      "route": "#/products/trims-hby-w024",
+      "equal": true
+    },
+    {
+      "route": "#/products/trims-black",
+      "equal": true
+    },
+    {
+      "route": "#/products/trims-d3015",
+      "equal": true
+    },
+    {
+      "route": "#/products/trims-hby-004",
+      "equal": true
+    },
+    {
+      "route": "#/dashboard",
+      "equal": true
+    },
+    {
+      "route": "#/inventory",
+      "equal": true
+    },
+    {
+      "route": "#/collections/new",
+      "equal": true
+    },
+    {
+      "route": "#/collections/promotion",
+      "equal": true
+    },
+    {
+      "route": "#/collections/clearance",
+      "equal": true
+    },
+    {
+      "route": "#/boards",
+      "equal": true
+    },
+    {
+      "route": "#/boards?tab=requests",
+      "equal": true
+    },
+    {
+      "route": "#/boards?tab=requests&rf=all",
+      "equal": true
+    },
+    {
+      "route": "#/quotes",
+      "equal": true
+    },
+    {
+      "route": "#/quotes?st=Open",
+      "equal": true
+    },
+    {
+      "route": "#/quotes?st=Cancelled",
+      "equal": true
+    },
+    {
+      "route": "#/quotes?st=Expired",
+      "equal": true
+    },
+    {
+      "route": "#/quotes/quo-10605",
+      "equal": true
+    },
+    {
+      "route": "#/quotes/quo-10601",
+      "equal": true
+    },
+    {
+      "route": "#/quotes/quo-10540",
+      "equal": true
+    },
+    {
+      "route": "#/quotes/quo-10570",
+      "equal": true
+    },
+    {
+      "route": "#/orders",
+      "equal": true
+    },
+    {
+      "route": "#/orders/ord-10560",
+      "equal": true
+    },
+    {
+      "route": "#/orders/ord-10551",
+      "equal": true
+    },
+    {
+      "route": "#/orders/ord-10540",
+      "equal": true
+    },
+    {
+      "route": "#/invoices",
+      "equal": true
+    },
+    {
+      "route": "#/invoices?tab=credits",
+      "equal": true
+    },
+    {
+      "route": "#/invoices?tab=closed",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/statement",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/inv-10540",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/inv-10482",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/inv-10398",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/inv-10381",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/inv-10355",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1002",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1001",
+      "equal": true
+    },
+    {
+      "route": "#/invoices/credits/cn-f3f20370-7a44-4ba3-bc17-521df979b92e",
+      "equal": true
+    },
+    {
+      "route": "#/sales",
+      "equal": true
+    },
+    {
+      "route": "#/rebates",
+      "equal": true
+    },
+    {
+      "route": "#/account",
+      "equal": true
+    },
+    {
+      "route": "#/cart",
+      "equal": true
+    },
+    {
+      "route": "#/drafts",
+      "equal": true
+    }
+  ],
+  "mobile": [
+    {
+      "route": "#/series/bonita",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/series/quercus",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/series/heritage",
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "route": "#/series/guardian",
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "route": "#/series/terra",
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "route": "#/series/aquaglow",
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "route": "#/series/nordic",
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "route": "#/series/scotia",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/series/stair-nose",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/series/trims",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-natural-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-latte-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-lime-wash",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-grey-wash",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-brescia",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-white-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-cuban",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-cotton-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/bonita-smoked-brown",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-natural",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-coastal",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-sandstone",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-driftwood",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-honey",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-smoke",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-chalk",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-walnut",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-grey-mist",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/quercus-espresso",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/heritage-rustic-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/guardian-natural-grey",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/guardian-coastal-ash",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/guardian-smoked-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/terra-sand",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/terra-clay",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/terra-charcoal",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/aquaglow-silver",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/aquaglow-natural-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/nordic-birch",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/nordic-ash-grey",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/scotia-wf807",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/scotia-d3005",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/scotia-wf806",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/scotia-a108",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/scotia-a113",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/scotia-wf08",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/scotia-wf801",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/scotia-a115",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-natural-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-latte-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-lime-wash",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-grey-wash",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-brescia",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-white-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-cuban",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-cotton-oak",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/stair-nose-smoked-brown",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/trims-blackbutt",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/trims-hby-w019",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/trims-cream",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/trims-hby-w024",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/trims-black",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/trims-d3015",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/products/trims-hby-004",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/dashboard",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/inventory",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/collections/new",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/collections/promotion",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/collections/clearance",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/boards",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/boards?tab=requests",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/boards?tab=requests&rf=all",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/quotes",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/quotes?st=Open",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/quotes?st=Cancelled",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/quotes?st=Expired",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/quotes/quo-10605",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/quotes/quo-10601",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/quotes/quo-10540",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/quotes/quo-10570",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/orders",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/orders/ord-10560",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/orders/ord-10551",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/orders/ord-10540",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices",
+      "scroll": 378,
+      "width": 390
+    },
+    {
+      "route": "#/invoices?tab=credits",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices?tab=closed",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/statement",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/inv-10540",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/inv-10482",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/inv-10398",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/inv-10381",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/inv-10355",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1002",
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/credits/cn-ret-1001",
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "route": "#/invoices/credits/cn-f3f20370-7a44-4ba3-bc17-521df979b92e",
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "route": "#/sales",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/rebates",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/account",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/cart",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "route": "#/drafts",
+      "scroll": 390,
+      "width": 390
+    }
+  ],
+  "tablet": [
+    {
+      "head": 1009,
+      "route": "#/dashboard",
+      "scroll": 1009,
+      "width": 1024
+    },
+    {
+      "head": 1009,
+      "route": "#/inventory",
+      "scroll": 1009,
+      "width": 1024
+    },
+    {
+      "head": 1009,
+      "route": "#/boards",
+      "scroll": 1009,
+      "width": 1024
+    },
+    {
+      "head": 1024,
+      "route": "#/quotes",
+      "scroll": 1024,
+      "width": 1024
+    },
+    {
+      "head": 1024,
+      "route": "#/orders",
+      "scroll": 1024,
+      "width": 1024
+    },
+    {
+      "head": 1009,
+      "route": "#/invoices",
+      "scroll": 1009,
+      "width": 1024
+    },
+    {
+      "head": 1009,
+      "route": "#/sales",
+      "scroll": 1009,
+      "width": 1024
+    },
+    {
+      "head": 1009,
+      "route": "#/rebates",
+      "scroll": 1009,
+      "width": 1024
+    },
+    {
+      "head": 1009,
+      "route": "#/account",
+      "scroll": 1009,
+      "width": 1024
+    },
+    {
+      "head": 1009,
+      "route": "#/cart",
+      "scroll": 1009,
+      "width": 1024
+    }
+  ],
+  "tests": {
+    "passed": 84,
+    "failed": 0
+  },
+  "fixes": [
+    "Same-route actions immediately refresh their list and counters",
+    "Document numbers include all stores, including hidden records",
+    "Switching stores parks the active draft; submission retains the owning store",
+    "Price privacy no longer hides user permissions, store tags or permission counts",
+    "Credit-note print action uses existing footer space without shifting the document",
+    "Product navigation, collection summaries and order steps wrap on small screens",
+    "Local invitation/notification text does not claim server delivery"
+  ],
+  "normalizations": [
+    "Prototype diagnostic controls are hidden in API mode",
+    "New print controls and local-only submission disclosures are intentional differences",
+    "Desktop comparison uses price-visible state; permission tags are intentionally corrected in price-hidden state",
+    "Live reference orders geometry differs when the Claude wrapper reduces usable height and introduces a scrollbar"
+  ],
+  "limits": [
+    "Business API integration explicitly skipped at user request",
+    "Real authenticated backend session not exercised without credentials; production unauthenticated guard verified",
+    "Printed PDFs were verified in the prior print audit; this pass retains that pipeline"
+  ]
+}

@@ -19,7 +19,7 @@ function portalLogout() {
   saveTempPw=async()=>toast('Local preview: authentication credentials have not been changed.');
   const originalToast=toast;
   toast=function(message){
-    if(/email sent|invitation sent|invite sent|notified|submitted|access updated|user disabled|user enabled/i.test(message))message='Local preview (no server update or email): '+message.replace(/email sent|invitation sent/ig,'request saved (no email sent)').replace(/HTT notified/ig,'saved locally').replace(/submitted for review/ig,'saved locally for review');
+    if(/email sent|invitation sent|invite sent|notified|submitted|access updated|user disabled|user enabled/i.test(message))message='Local preview (no server update or email): '+message.replace(/email sent|invitation sent|invite sent/ig,'request saved (no email sent)').replace(/HTT has been notified|HTT notified/ig,'saved locally; no notification sent').replace(/submitted for review/ig,'saved locally for review');
     originalToast(message);
   };
   // The isolated frame owns scrolling, including browser find and in-page account anchors.
@@ -106,7 +106,7 @@ function paintLocalWorkflowNotices(){
   const app=document.getElementById('app');if(!app)return;
   const walker=document.createTreeWalker(app,NodeFilter.SHOW_TEXT);let node;
   while((node=walker.nextNode())){
-    node.nodeValue=node.nodeValue.replace(/HTT has been notified|HTT notified/g,'Saved locally · no notification sent').replace(/notifies HTT/g,'saves locally (no notification sent)').replace(/Sent to HTT's system with your quote\./g,'Saved locally with your quote. No request is sent to HTT.');
+    node.nodeValue=node.nodeValue.replace(/HTT has been notified|HTT notified/g,'Saved locally · no notification sent').replace(/notifies HTT/g,'saves locally (no notification sent)').replace(/Sent to HTT's system with your (quote|order)\./g,'Saved locally with your $1. No request is sent to HTT.');
   }
 }
 new MutationObserver(()=>{paintAddressRequests();paintLocalWorkflowNotices();}).observe(document.getElementById('app'),{childList:true});

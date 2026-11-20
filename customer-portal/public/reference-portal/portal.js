@@ -135,7 +135,7 @@ function startFresh(type){ const had=hasContent(); parkActive(); CART=[]; DRAFT=
 function openDraft(id){ closeDrafts(); if(DRAFT.id===id){ go('#/cart'); return; } const d=DRAFTS.find(x=>x.id===id); if(!d) return;
   parkActive(); DRAFTS=DRAFTS.filter(x=>x.id!==id); CART=d.cart.filter(c=>byId(c.id)); DRAFT={...blankDraft(d.draft.type),...d.draft}; DRAFT_SAVED=new Date(d.at);
   if(DRAFT.store && STORE!=='all' && STORE!==DRAFT.store && allowedStores().includes(DRAFT.store)){ STORE=DRAFT.store; applyStore(); }
-  go('#/cart'); if(location.hash==='#/cart') render(); }
+  go('#/cart'); }
 function discardDraft(id){ closeDrafts(); const d = id===DRAFT.id ? {draft:DRAFT,cart:CART} : DRAFTS.find(x=>x.id===id); if(!d) return;
   if(!confirm(`Discard this ${d.draft.editing?'edit of '+d.draft.editing:d.draft.type+' draft'}?`)) return;
   if(id===DRAFT.id){ CART=[]; DRAFT=blankDraft(DRAFT.type); DRAFT_SAVED=null; } else DRAFTS=DRAFTS.filter(x=>x.id!==id);
@@ -162,7 +162,7 @@ function draftsPage(){ const L=draftList();
 function draftTitle(){ const n=draftList().length; return n?`${n} draft${n!==1?'s':''}`:'New quote / order'; }
 function newDoc(type){ if(!can('place')){ toast('Your login can\'t create quotes or orders — ask your admin'); return; }
   if(hasContent()){ startFresh(type); toast('Your previous draft is saved in Drafts'); } else DRAFT.type=type;
-  go('#/cart'); if(location.hash==='#/cart') render(); }
+  go('#/cart'); }
 /* 从产品页加入：还没有草稿时，先问加到 Quote 还是 Order；已有草稿就直接加进去 */
 function addFromCatalog(id, qty){ if(!can('place')){ toast('Your login can\'t create quotes or orders — ask your admin'); return; } const p=byId(id), S=SERIES.find(x=>x.id===p.series)||{};
   const oos = p.stock==null && !p.madeToOrder, m=document.getElementById('modal');
@@ -419,7 +419,8 @@ ${PRICE_ON?`      <div class="sm muted"><span>Standard price ex GST</span><span>
       :`<button class="btn" style="margin-left:auto" ${missing.length||(DRAFT.method==='Delivery'&&DRAFT.editShip)?'disabled':''} onclick="submitCart('${t}')">${ed?'Update quote':t==='quote'?'Save quote':'Place order'}</button>`}
   </div></div></div>`;
 }
-const nextDocNum = () => 1 + Math.max(...[...QUOTES,...ORDERS,...INVOICES].map(x=>+x.no.split('-')[1]));
+const allStoreDocs = docs => [...docs,...(_HID.get(docs)||[])];
+const nextDocNum = () => 1 + Math.max(0,...[QUOTES,ORDERS,INVOICES].flatMap(allStoreDocs).map(x=>Number(x.no.split('-')[1])).filter(Number.isFinite));
 /* 提交后的确认页。IT：提交成功后 ① 写入主系统 ② 邮件给客户（下单人 + Primary contact）③ 邮件给 HTT（对接业务员 + 门店邮箱） */
 function submittedPage(no){ no=(no||'').toUpperCase(); const isQ=no.startsWith('QUO'), d=(isQ?QUOTES:ORDERS).find(x=>x.no===no);
   if(!d) return `<div class="wrap" style="padding:60px 0"><p>Not found. <a class="lnk" href="#/purchases">Back to Purchases</a></p></div>`;
@@ -460,6 +461,7 @@ function draftLoad(){ try{ const o=JSON.parse(localStorage.getItem(referenceStor
 function draftClear(){ DRAFT={...DRAFT, id:null, editing:null, store:null}; DRAFT_SAVED=null; }
 function draftDiscard(){ if(DRAFT.id && hasContent()) discardDraft(DRAFT.id); }
 function submitCart(kind){
+  if(!can('place')){toast('Your login cannot create quotes or orders.');return;}
   if(!PRICE_ON){ toast('Show prices first (top right) to check the amounts'); return; }
   const L=CART.map(cartLine);
   if(!L.length){ toast('Add at least one product'); return; }
@@ -467,7 +469,7 @@ function submitCart(kind){
   if(kind==='order' && L.some(x=>x.short)){ toast('Some items are short of stock — save as a quote instead'); return; }
   const lines = L.map(x=>({d:`${x.S.name} ${x.p.colour}`, box:x.b, qty:x.c.qty, price:x.price, unit:x.b?null:'lengths', productId:x.p.id}));
   const n = nextDocNum(), today = fmtDay(SYSTEM_INFO.systemDate), D = DRAFT;
-  const base = {store:newDocStore(), issued:today, ref:D.ref||'Online '+kind, lines, freight:0, online:true, method:D.method, shipTo:D.method==='Delivery'?{...D.ship}:null, note:D.note||null, rep:((MOCK_ACCOUNT_MANAGER||{}).accountManager||{}).employeeId||null, openedBy:MOCK_USERS.currentUserId, freightPending:D.method==='Delivery'};
+  const base = {store:D.store||newDocStore(), issued:today, ref:D.ref||'Online '+kind, lines, freight:0, online:true, method:D.method, shipTo:D.method==='Delivery'?{...D.ship}:null, note:D.note||null, rep:((MOCK_ACCOUNT_MANAGER||{}).accountManager||{}).employeeId||null, openedBy:MOCK_USERS.currentUserId, freightPending:D.method==='Delivery'};
   if(kind==='quote' && D.editing){ const q=QUOTES.find(x=>x.no===D.editing);
     Object.assign(q, {...base, no:q.no, issued:q.issued, updated:today, valid:fmtDay(ISO(addDays(SYS,QUOTE_DAYS))), status:'Open', freight:0, edits:(q.edits||0)+1});
     CART=[]; DRAFT=blankDraft('quote'); draftClear(); go('#/submitted/'+q.no.toLowerCase()); return; }
@@ -638,7 +640,9 @@ function applyStore(){ [QUOTES,ORDERS,INVOICES,CREDITS].forEach(A=>{ A.forEach((
     _HID.set(A,h); });
   recalcInvoices(); }
 function storeUsed(){ return r2(INVOICES.reduce((t,i)=>t+(i.balance||0),0) + ORDERS.filter(o=>o.status!=='Completed'&&o.status!=='Cancelled').reduce((t,o)=>t+calc(o).total,0)); }
-function setStore(v){ STORE=v; applyStore(); const sg=location.hash.split('?')[0].split('/'); if(sg.length>2 && ['quotes','orders','invoices'].includes(sg[1])){ location.hash='#/'+sg[1]; return; } render(); }
+function setStore(v){ if(v!=='all'&&!allowedStores().includes(v)){toast('Choose a store you have access to.');return;}
+  if(v!=='all'&&hasContent()&&DRAFT.store&&DRAFT.store!==v){startFresh(DRAFT.type);toast('Your previous store draft is saved in Drafts.');}
+  STORE=v; applyStore(); const sg=location.hash.split('?')[0].split('/'); if(sg.length>2 && ['quotes','orders','invoices'].includes(sg[1])){ location.hash='#/'+sg[1]; return; } render(); }
 const newDocStore = () => STORE!=='all' ? STORE : ((STORES().find(s=>s.type==='main')||{}).addressId||'ADR-01');
 /* 每个员工账号由 Admin 绑定门店：'all' = 可以看全部门店并切换；某个门店 ID = 只能看那家店（没有切换下拉） */
 const curUser = () => (MOCK_USERS.users||[]).find(u=>u.userId===MOCK_USERS.currentUserId);
@@ -1437,7 +1441,7 @@ function creditDetail(slug){
   const c = docLookup(CREDITS, x=>x.slug===slug); if(!c) return notFound(); if(c.__deny) return denyPage(c.__deny);
   // 原站 Credit Note 详情页未截取，以下为按同款单据样式补的版面
   return `<div class="wrap"><a class="back" href="#/invoices?tab=credits">${ICON.back} Back to invoices</a>
-  <div class="doc"><div class="top"><div><div class="lbl">CREDIT NOTE</div><h1>${c.no}</h1></div><div>${c.applyTo?'<span class="badge b-completed">Applied</span>':'<span class="badge b-open">Not yet applied</span>'}</div></div>
+  <div class="doc credit-doc"><div class="top"><div><div class="lbl">CREDIT NOTE</div><h1>${c.no}</h1></div><div>${c.applyTo?'<span class="badge b-completed">Applied</span>':'<span class="badge b-open">Not yet applied</span>'}</div></div>
   <div class="meta"><div class="lbl">Issued<b style="color:var(--ink);font-size:13px">${c.issued}</b></div>
   <div class="lbl">Reason<b style="color:var(--ink);font-size:13px">${esc(c.reason||'-')}</b></div>
   <div class="lbl">Customer<b style="color:var(--ink);font-size:13px">${CUSTOMER.name}</b></div></div>
@@ -2868,7 +2872,7 @@ async function account(){
         ${secHead('Login &amp; security','Your own login.')}
         <div class="secrow">
           <div class="kv2" style="flex:1"><span>Login email</span><b>${esc(c.contact.email)}</b><span>Password</span><b>••••••••</b></div>
-          <button class="btn-o sm" onclick="toast('原型：修改密码未接系统')">Change password</button>
+          <button class="btn-o sm" onclick="toast('Password changes are not connected. Contact HTT to change your password.')">Change password</button>
         </div>
       </section>
 
@@ -3023,7 +3027,7 @@ function notFound(){
 }
 
 /* ===================== 路由 ===================== */
-function go(h){ location.hash = h.replace(/^#/,''); }
+function go(h){ const next='#'+h.replace(/^#/,''); if(location.hash===next){render();return;} location.hash=next; }
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',2200); }
 function sysDateChip(){
   const d = new Date(SYSTEM_INFO.systemDate+'T00:00:00');

@@ -1069,7 +1069,7 @@ em.xfee{font-style:normal}
 .pzhid{display:flex;align-items:center;gap:10px;background:#f4f5f4;border:1px dashed #d3d8d5;border-radius:12px;padding:16px 18px;margin:14px 0;font-size:14px;color:#5c6560}
 .pzhid b{color:#3d4641}.pzhid span{font-size:12px;color:#8a918d;margin-left:auto}
 .colls.one{grid-template-columns:1fr !important}
-body.pzoff .promo-tag,body.pzoff .npromo,body.pzoff .promotag,body.pzoff .clrtag,body.pzoff .pbanner,body.pzoff .off,body.pzoff .promowarn,body.pzoff .ptag,body.pzoff .plegend,body.pzoff .pcount{display:none !important}
+body.pzoff .promo-tag,body.pzoff .npromo,body.pzoff .promotag,body.pzoff .clrtag,body.pzoff .pbanner,body.pzoff .off:not(.stopt),body.pzoff .promowarn,body.pzoff .ptag.pro,body.pzoff .ptag.clr,body.pzoff .ptag.trd,body.pzoff .plegend,body.pzoff .pcount:not(#pcount){display:none !important}
 .stsw{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:0 4px 0 9px;margin-right:10px;height:38px;cursor:pointer}
 .stsw select{background:transparent;border:0;color:#fff;font:inherit;font-size:12.5px;font-weight:600;padding:0 4px;height:36px;cursor:pointer;max-width:185px}.stsw select option{color:#1f2a24}
 .stbar{background:#e8f1fb;border-bottom:1px solid #c9dcf1;color:#24486e;font-size:12.5px}.stbar .wrap{display:flex;align-items:center;gap:12px;padding:8px 0}
@@ -1477,3 +1477,8 @@ table.nft .pqs input{width:44px;height:30px;border:0;text-align:center;font:inhe
 @media(max-width:900px){.qtabs{max-width:100%;overflow-x:auto;white-space:nowrap}.demo label,.demo select{max-width:100%;min-width:0}.demo label{white-space:normal;display:flex;flex-wrap:wrap}.demo select{width:100%}}
 
 .business-preview-api .demo{display:none!important}
+/* The added credit-note print action occupies the existing footer space. */
+.credit-doc{position:relative}.credit-doc>.print-actions{position:absolute;right:0;bottom:-44px;margin:0!important}
+@media(max-width:900px){
+ .pnav,.nghead,.otop,.osteps{flex-wrap:wrap}.pnav>*{min-width:0;max-width:100%;overflow-wrap:anywhere}.nghead>*{min-width:0;max-width:100%}.pqs{flex-shrink:0}.osteps{max-width:100%;row-gap:8px}.box{max-width:calc(100vw - 32px);box-sizing:border-box}
+}
