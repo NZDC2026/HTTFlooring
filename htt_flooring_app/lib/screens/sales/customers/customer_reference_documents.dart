@@ -75,12 +75,70 @@ List<SalesDocument> referenceCustomerDocuments(
   );
   const heritage = ProductSnapshot(
     id: 'heritage-smoked',
-    sku: 'HER-004',
+    sku: 'HER-003',
     name: 'Heritage Smoked Oak',
     category: 'Engineered Timber',
     colour: 'Smoked Oak',
     sqmPerBox: 1.44,
   );
+  const heritageNatural = ProductSnapshot(
+    id: 'heritage-natural',
+    sku: 'HER-001',
+    name: 'Heritage Natural Oak',
+    category: 'Engineered Timber',
+    colour: 'Natural Oak',
+    sqmPerBox: 1.44,
+  );
+  const aqua = ProductSnapshot(
+    id: 'aquaglow-silver',
+    sku: 'AQU-002',
+    name: 'AquaGlow Silver',
+    category: 'Laminate',
+    colour: 'Silver',
+    sqmPerBox: 2.2,
+  );
+  const mtf = ProductSnapshot(
+    id: 'mtf-white',
+    sku: 'MTF-001',
+    name: 'MTF White',
+    category: 'Laminate',
+    colour: 'White',
+    sqmPerBox: 2.41,
+  );
+  const scotia = ProductSnapshot(
+    id: 'scotia-natural',
+    sku: 'SCO-01',
+    name: 'Scotia Natural Oak',
+    category: 'Accessories',
+    colour: 'Natural Oak',
+    sqmPerBox: 0,
+  );
+  const invoiceLines = <String, List<SalesDocumentItem>>{
+    'INV-10163': [
+      SalesDocumentItem(product: bonita, boxes: 30, sqm: 66, unitPrice: 69),
+      SalesDocumentItem(
+        product: heritageNatural,
+        boxes: 20,
+        sqm: 28.8,
+        unitPrice: 81,
+      ),
+    ],
+    'INV-10161': [
+      SalesDocumentItem(product: bonita, boxes: 18, sqm: 39.6, unitPrice: 69),
+    ],
+    'INV-10160': [
+      SalesDocumentItem(product: aqua, boxes: 14, sqm: 30.8, unitPrice: 44),
+      SalesDocumentItem(product: bonita, boxes: 27, sqm: 59.4, unitPrice: 69),
+      SalesDocumentItem(product: mtf, boxes: 18, sqm: 43.38, unitPrice: 30.5),
+    ],
+    'INV-10159': [
+      SalesDocumentItem(product: guardian, boxes: 40, sqm: 88, unitPrice: 47.5),
+      SalesDocumentItem(product: scotia, boxes: 30, sqm: 0, unitPrice: 9.5),
+    ],
+    'INV-10548': [
+      SalesDocumentItem(product: bonita, boxes: 52, sqm: 114.4, unitPrice: 69),
+    ],
+  };
   final snapshot = CustomerSnapshot.fromCustomer(customer);
   final examples = [
     SalesDocument(
@@ -127,14 +185,7 @@ List<SalesDocument> referenceCustomerDocuments(
             ? DateTime(2026, 11, 18)
             : DateTime(2026, 12, r.$3),
         status: SalesDocumentStatus.invoice,
-        items: [
-          SalesDocumentItem(
-            product: bonita,
-            boxes: r.$1 == 'INV-10548' ? 52 : (r.$2 / 1.1 / 69 / 2.2).round(),
-            sqm: r.$1 == 'INV-10548' ? 114.4 : r.$2 / 1.1 / 69,
-            unitPrice: 69,
-          ),
-        ],
+        items: invoiceLines[r.$1]!,
       ),
   ];
   return [

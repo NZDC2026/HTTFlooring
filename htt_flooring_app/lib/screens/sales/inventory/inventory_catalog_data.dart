@@ -184,11 +184,22 @@ List<StockSeries> inventoryCatalog({
             : id == 'heritage' && i == 2
             ? 98
             : price,
-        salesFloorPrice: id == 'mtf' ? 29 : original?.salesFloorPrice ?? price * .8,
+        salesFloorPrice: id == 'mtf'
+            ? 29
+            : original?.salesFloorPrice ?? price * .8,
         discount: original?.discount ?? 0,
         stockBoxes: quantities[i],
         stockSqm: quantities[i] * area / boxes,
-        sqmPerBox: area / boxes,
+        sqmPerBox:
+            const {
+              'bonita': 2.2,
+              'heritage': 1.44,
+              'studio': 1.3,
+              'mtf': 2.41,
+              'aquaglow': 2.2,
+              'guardian': 2.2,
+            }[id] ??
+            area / boxes,
         status: quantities[i] <= 24 ? 'Low Stock' : 'In Stock',
       );
       colours.add(

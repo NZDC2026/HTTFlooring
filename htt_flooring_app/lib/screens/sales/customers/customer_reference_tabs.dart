@@ -40,352 +40,102 @@ extension _CustomerReferenceTabs on _ReferenceCustomerDetailState {
       ],
     ),
   );
-  Widget _sales() {
-    final now = DateTime.now();
-    final invoices = context
-        .read<SalesDocumentService>()
-        .getCustomerInvoices(_customer.id)
-        .where(
-          (d) => now.difference(d.invoiceDate ?? d.createdAt).inDays < _period,
-        )
-        .toList();
-    final amount = _abc
-        ? (_period == 30
-              ? 20861.09
-              : _period == 90
-              ? 68420.32
-              : 231780.45)
-        : invoices.fold<double>(0, (s, d) => s + d.subtotal);
-    final volume = _abc
-        ? (_period == 30
-              ? 355.98
-              : _period == 90
-              ? 1164.2
-              : 3896.8)
-        : invoices.fold<double>(
-            0,
-            (s, d) => s + d.items.fold<double>(0, (s, i) => s + i.sqm),
+  Widget _customerDocumentPreview() {
+    final docs =
+        referenceCustomerDocuments(context, _customer)
+            .where(
+              (d) =>
+                  d.status ==
+                  [
+                    SalesDocumentStatus.quotation,
+                    SalesDocumentStatus.order,
+                    SalesDocumentStatus.invoice,
+                  ][_documentTab],
+            )
+            .toList()
+          ..sort(
+            (a, b) => (b.invoiceDate ?? b.createdAt).compareTo(
+              a.invoiceDate ?? a.createdAt,
+            ),
           );
-    final boxes = _abc
-        ? (_period == 30
-              ? 197
-              : _period == 90
-              ? 643
-              : 2171)
-        : invoices.fold<int>(
-            0,
-            (s, d) => s + d.items.fold<int>(0, (s, i) => s + i.boxes),
-          );
-    final categories = <String, double>{};
-    for (final d in invoices) {
-      for (final i in d.items) {
-        categories.update(
-          i.product.category,
-          (v) => v + i.subtotal,
-          ifAbsent: () => i.subtotal,
-        );
-      }
-    }
-    final summary = _abc
-        ? <String, double>{
-            'Engineered': 13717.8,
-            'Hybrid': 4180,
-            'Laminate': 2678.29,
-            'Accessories': 285,
-          }
-        : categories;
-    String categoryMetric(String name, double value) {
-      if (_salesUnit == 'Value') return _cash(value, cents: true);
-      if (_abc) {
-        final area = {
-          'Engineered': 193.8,
-          'Hybrid': 88.0,
-          'Laminate': 74.2,
-          'Accessories': 0.0,
-        };
-        final count = {
-          'Engineered': 95,
-          'Hybrid': 40,
-          'Laminate': 32,
-          'Accessories': 30,
-        };
-        return _salesUnit == 'm²'
-            ? '${area[name] ?? 0} m²'
-            : '${count[name] ?? 0} boxes';
-      }
-      final lines = invoices
-          .expand((d) => d.items)
-          .where((i) => i.product.category == name);
-      return _salesUnit == 'm²'
-          ? '${lines.fold<double>(0, (sum, i) => sum + i.sqm).toStringAsFixed(2)} m²'
-          : '${lines.fold<int>(0, (sum, i) => sum + i.boxes)} boxes';
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 14),
-        _segments(
-          ['Last 30 days', 'Last 90 days', 'Last 12 months'],
-          _period == 30
-              ? 'Last 30 days'
-              : _period == 90
-              ? 'Last 90 days'
-              : 'Last 12 months',
-          (v) => _refresh(
-            () => _period = v == 'Last 30 days'
-                ? 30
-                : v == 'Last 90 days'
-                ? 90
-                : 365,
-          ),
-        ),
-        const SizedBox(height: 12),
-        detailCard(
+        if (_documentTab == 2 && docs.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 13),
-            child: Row(
-              children: [
-                _stat(
-                  'Sales · ex GST',
-                  _cash(amount, cents: true),
-                  _abc ? 'Up 53.9%' : '',
-                  color: detailGreen,
-                ),
-                _stat(
-                  'Volume',
-                  '${NumberFormat('#,##0.00').format(volume)} m²',
-                  _abc ? 'Up 39.5%' : '',
-                ),
-                _stat('Boxes / pcs', '$boxes', _abc ? 'Up 72.8%' : ''),
-              ],
+            padding: const EdgeInsets.only(bottom: 9),
+            child: Text(
+              '${_cash(docs.fold<double>(0, (n, d) => n + d.balanceDue), cents: true)} outstanding · incl GST',
+              style: const TextStyle(fontSize: 11, color: detailMuted),
             ),
           ),
-        ),
-        const SizedBox(height: 7),
-        Text(
-          '${_day(now.subtract(Duration(days: _period - 1)))} – ${_day(now)} · vs previous $_period days',
-          style: const TextStyle(fontSize: 10, color: detailMuted),
-        ),
-        const SizedBox(height: 14),
-        detailCard(
-          Padding(
-            padding: const EdgeInsets.all(13),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sales trend',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 3),
-                const Text(
-                  'Weekly · ex GST       This period       Previous',
-                  style: TextStyle(fontSize: 10, color: detailMuted),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 126,
-                  width: double.infinity,
-                  child: CustomPaint(
-                    painter: _CustomerTrend(
-                      _abc
-                          ? const [0, 0, 0, 15156, 5705]
-                          : List<double>.generate(
-                              5,
-                              (i) => invoices
-                                  .where(
-                                    (d) =>
-                                        now
-                                                .difference(
-                                                  d.invoiceDate ?? d.createdAt,
-                                                )
-                                                .inDays ~/
-                                            mathMax(1, _period ~/ 5) ==
-                                        i,
-                                  )
-                                  .fold<double>(
-                                    0,
-                                    (sum, d) => sum + d.subtotal,
-                                  ),
-                            ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        detailHeading('By product'),
-        _segments(
-          ['Value', 'm²', 'Boxes'],
-          _salesUnit,
-          (v) => _refresh(() => _salesUnit = v),
-        ),
-        const SizedBox(height: 10),
         detailCard(
           Column(
             children: [
-              for (final e in summary.entries) ...[
-                InkWell(
-                  onTap: () => _refresh(
-                    () => _productOpen.contains(e.key)
-                        ? _productOpen.remove(e.key)
-                        : _productOpen.add(e.key),
+              for (final d in docs) ...[
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 2,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(13),
-                    child: Row(
-                      children: [
-                        DetailGlyph(
-                          e.key == 'Accessories' ? 'box' : 'layers',
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                e.key,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                categoryMetric(e.key, e.value),
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: detailMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (_abc)
-                          detailBadge(
-                            e.key == 'Laminate'
-                                ? 'Down 25.1%'
-                                : e.key == 'Accessories'
-                                ? 'New'
-                                : 'Up ${e.key == 'Engineered' ? '69.4' : '110.5'}%',
-                          ),
-                        const SizedBox(width: 8),
-                        DetailGlyph(
-                          _productOpen.contains(e.key) ? 'down' : 'chevron',
-                          size: 13,
-                        ),
-                      ],
+                  leading: const DetailGlyph(
+                    'doc',
+                    size: 18,
+                    color: detailMuted,
+                  ),
+                  title: Text(
+                    d.number,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
+                  ),
+                  subtitle: Text(
+                    '${DateFormat('d MMM yyyy').format(d.invoiceDate ?? d.createdAt)}${d.dueDate == null ? '' : ' · due ${DateFormat('d MMM').format(d.dueDate!)}'}',
+                    style: const TextStyle(fontSize: 10, color: detailMuted),
+                  ),
+                  trailing: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _cash(d.total, cents: true),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      detailBadge(
+                        d.status == SalesDocumentStatus.quotation
+                            ? 'Draft'
+                            : d.status == SalesDocumentStatus.order
+                            ? 'Confirmed'
+                            : d.balanceDue == 0
+                            ? 'Paid'
+                            : 'Outstanding',
+                      ),
+                    ],
+                  ),
+                  onTap: () => dashboardOpen(
+                    context,
+                    SalesDocumentDetailScreen(document: d),
                   ),
                 ),
-                if (_productOpen.contains(e.key))
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                    child: Column(
-                      children: [
-                        for (final s in _catalog.where(
-                          (s) => s.category.contains(e.key),
-                        ))
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              s.name,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            subtitle: Text(
-                              '${s.colours.length} colours',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: detailMuted,
-                              ),
-                            ),
-                            trailing: Text(
-                              'From ${_cash(s.colours.first.product.standardPrice, cents: true)}/m²',
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                const Divider(height: 1, color: detailLine),
+                if (d != docs.last) const Divider(height: 1, color: detailLine),
               ],
+              if (docs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'No documents recorded.',
+                    style: TextStyle(fontSize: 13, color: detailMuted),
+                  ),
+                ),
             ],
           ),
         ),
-        const SizedBox(height: 9),
-        const Text(
-          'All figures ex GST, from invoices. Change compares m² (value for accessories).',
-          style: TextStyle(fontSize: 10, color: detailMuted, height: 1.5),
-        ),
-        detailHeading(
-          'Documents',
-          action: '+ Request quote',
-          onTap: _openQuoteRequest,
-        ),
-        _segments(
-          ['Quotes', 'Orders', 'Invoices'],
-          ['Quotes', 'Orders', 'Invoices'][_documentTab],
-          (v) => _refresh(
-            () => _documentTab = ['Quotes', 'Orders', 'Invoices'].indexOf(v),
-          ),
-        ),
-        const SizedBox(height: 9),
-        _customerDocumentPreview(),
       ],
-    );
-  }
-
-  Widget _customerDocumentPreview() {
-    final docs = referenceCustomerDocuments(context, _customer)
-        .where(
-          (d) =>
-              d.status ==
-              [
-                SalesDocumentStatus.quotation,
-                SalesDocumentStatus.order,
-                SalesDocumentStatus.invoice,
-              ][_documentTab],
-        )
-        .toList();
-    return detailCard(
-      Column(
-        children: [
-          for (final d in docs)
-            ListTile(
-              title: Text(
-                d.number,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: Text(
-                _day(d.createdAt),
-                style: const TextStyle(fontSize: 11, color: detailMuted),
-              ),
-              trailing: Text(
-                _cash(d.total, cents: true),
-                style: const TextStyle(fontSize: 13),
-              ),
-              onTap: () => dashboardOpen(
-                context,
-                SalesDocumentDetailScreen(document: d),
-              ),
-            ),
-          if (docs.isEmpty && !_abc)
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                'No documents recorded.',
-                style: TextStyle(fontSize: 13, color: detailMuted),
-              ),
-            ),
-        ],
-      ),
     );
   }
 
@@ -959,36 +709,3 @@ extension _CustomerReferenceTabs on _ReferenceCustomerDetailState {
 }
 
 int mathMax(int a, int b) => a > b ? a : b;
-
-class _CustomerTrend extends CustomPainter {
-  _CustomerTrend(this.values);
-  final List<double> values;
-  @override
-  void paint(Canvas c, Size s) {
-    final max = values.fold<double>(1, (a, b) => a > b ? a : b);
-    final grid = Paint()
-      ..color = detailLine
-      ..strokeWidth = 1;
-    for (var i = 0; i < 3; i++) {
-      c.drawLine(
-        Offset(0, s.height * i / 2),
-        Offset(s.width, s.height * i / 2),
-        grid,
-      );
-    }
-    final width = s.width / values.length;
-    for (var i = 0; i < values.length; i++) {
-      final h = values[i] / max * (s.height - 12);
-      c.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(i * width + width * .2, s.height - h, width * .55, h),
-          const Radius.circular(3),
-        ),
-        Paint()..color = detailGreen,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CustomerTrend old) => old.values != values;
-}

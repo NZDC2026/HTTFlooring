@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:htt_flooring_app/screens/sales/customers/customer_series_price_screen.dart';
 import 'package:htt_flooring_app/widgets/sales_task_completion.dart';
 import 'package:htt_flooring_app/screens/sales/customers/customer_directory_data.dart';
@@ -5,7 +6,6 @@ import 'package:htt_flooring_app/models/customer_note.dart';
 import 'package:htt_flooring_app/models/business_card_scan_result.dart';
 
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:htt_flooring_app/screens/sales/customers/visit_in_progress_screen.dart';
 
@@ -69,6 +69,346 @@ void main() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
   });
+  testWidgets(
+    'visit time wheel reminders and optional next-day task work at narrow phone width',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 812));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      late BuildContext host;
+      await tester.pumpWidget(
+        app(
+          Builder(
+            builder: (context) {
+              host = context;
+              return Scaffold(
+                body: TextButton(
+                  onPressed: () => showSalesVisitScheduler(context),
+                  child: const Text('Plan visit'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.text('Plan visit'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('4:00 PM'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoPicker), findsNWidgets(3));
+      expect(find.textContaining('is free'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Select customer'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Harbour');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Harbour Floors'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Relationship visit'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('1 hr'));
+      await tester.tap(find.text('1 hr'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Also create a follow-up task'));
+      await tester.tap(find.text('Also create a follow-up task'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Schedule'));
+      await tester.pumpAndSettle();
+      final notes = host.read<CustomerNoteService>().notes;
+      expect(notes, hasLength(2));
+      expect(notes.map((n) => n.id).toSet(), hasLength(2));
+      final visit = notes.firstWhere((n) => n.followUpType == 'Customer Visit');
+      expect(visit.content, 'Relationship visit');
+      expect(visit.reminder, '1 hr');
+      expect(
+        visit.reminderDate,
+        visit.followUpDate!.subtract(const Duration(hours: 1)),
+      );
+      expect(
+        notes.last.followUpDate!.day,
+        visit.followUpDate!.add(const Duration(days: 1)).day,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'board delivery confirms once and updates panels at the customer store',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(375, 812));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(app(const SalesSamplesScreen()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Display board  2 open'));
+      await tester.pumpAndSettle();
+      expect(find.text('4 colour panels'), findsOneWidget);
+      await tester.ensureVisible(find.text('Mark delivered').first);
+      await tester.tap(find.text('Mark delivered').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Mark as delivered?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Display board  2 open'), findsOneWidget);
+      await tester.tap(find.text('Mark delivered').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Complete'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Display board  1 open'), findsOneWidget);
+      await tester.tap(find.text('Completed'));
+      await tester.pumpAndSettle();
+      expect(find.text('DBR-0415'), findsOneWidget);
+      expect(find.text('DBR-0398'), findsOneWidget);
+      await tester.tap(find.text('ABC Flooring ›'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Display board').first);
+      await tester.pumpAndSettle();
+      expect(find.text('25'), findsOneWidget);
+      expect(find.textContaining('Chatswood Store  7'), findsOneWidget);
+      expect(find.text('Boards  10'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'inventory series grid and calculator remain valid at narrow phone widths',
+    (tester) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final series = inventoryCatalog(
+        demo: true,
+        region: SalesRegion.sydney,
+      ).first;
+      for (final width in [320.0, 375.0, 430.0]) {
+        await tester.binding.setSurfaceSize(Size(width, 812));
+        await tester.pumpWidget(
+          app(
+            InventorySeriesDetails(
+              key: ValueKey('series-$width'),
+              series: series,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byTooltip('Grid view'));
+        await tester.tap(find.byTooltip('Grid view'));
+        await tester.pumpAndSettle();
+        final grid = tester.widget<GridView>(find.byType(GridView));
+        expect(
+          (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+              .crossAxisCount,
+          3,
+        );
+        expect(tester.takeException(), isNull, reason: 'series width $width');
+        await tester.pumpWidget(
+          app(
+            InventoryColourDetails(
+              key: ValueKey('colour-$width'),
+              series: series,
+              colour: series.colours.first,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byType(TextField).first);
+        await tester.enterText(find.byType(TextField).first, 'Infinity');
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Enter a valid positive quantity'),
+          findsOneWidget,
+        );
+        await tester.enterText(find.byType(TextField).first, '500');
+        await tester.pumpAndSettle();
+        expect(find.textContaining('228 boxes'), findsWidgets);
+        expect(
+          find.textContaining('No single batch has 228 boxes'),
+          findsOneWidget,
+        );
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'calculator width $width',
+        );
+      }
+    },
+  );
+  testWidgets(
+    'inventory offcut carries the selected colour and validates customer before saving',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(375, 812));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final series = inventoryCatalog(
+        demo: true,
+        region: SalesRegion.sydney,
+      ).first;
+      await tester.pumpWidget(
+        app(
+          InventoryColourDetails(series: series, colour: series.colours.first),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Request offcut'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Request offcut'));
+      await tester.pumpAndSettle();
+      expect(find.text('Bonita Natural Oak'), findsOneWidget);
+      expect(find.text('Select customer'), findsOneWidget);
+      await tester.tap(find.text('Request 1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Select a customer.'), findsOneWidget);
+      await tester.tap(find.text('Select customer'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'ABC');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ABC Flooring').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Request 1'));
+      await tester.pumpAndSettle();
+      final ctx = tester.element(find.byType(InventoryColourDetails));
+      final rows = await readSalesSampleRecords(
+        ctx.read<AppSession>().currentUser.id,
+        demo: true,
+      );
+      expect(rows, hasLength(5));
+      expect(rows.first['customerId'], 'abc');
+      expect(rows.first['colours'], ['Bonita Natural Oak']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'customer sales expands purchased colours, sorts units and updates periods and invoice links',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(375, 812));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        app(CustomerDetailScreen(customer: fixtures.customers.first)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sales'));
+      await tester.pumpAndSettle();
+      Future<void> reveal(Finder target) async {
+        await tester.scrollUntilVisible(
+          target,
+          160,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+      }
+
+      final engineered = find.byKey(
+        const ValueKey('sales-category-Engineered'),
+      );
+      await reveal(engineered);
+      await tester.tap(engineered);
+      await tester.pumpAndSettle();
+      expect(find.text('Natural Oak · BON-001'), findsOneWidget);
+      expect(find.textContaining('previous 114.4 m²'), findsOneWidget);
+      expect(find.textContaining('From \$'), findsNothing);
+      final laminate = find.byKey(const ValueKey('sales-category-Laminate'));
+      await reveal(laminate);
+      await tester.tap(laminate);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('sales-series-AquaGlow')))
+            .dy,
+        lessThan(
+          tester.getTopLeft(find.byKey(const ValueKey('sales-series-MTF'))).dy,
+        ),
+      );
+      await tester.drag(find.byType(ListView).first, const Offset(0, 1200));
+      await tester.pumpAndSettle();
+      await reveal(find.text('m²'));
+      await tester.tap(find.text('m²'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('sales-series-MTF'))).dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const ValueKey('sales-series-AquaGlow')))
+              .dy,
+        ),
+      );
+      await tester.drag(find.byType(ListView).first, const Offset(0, 1500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Last 90 days'));
+      await tester.pumpAndSettle();
+      expect(find.text('\$34,673.40'), findsOneWidget);
+      await tester.tap(find.text('Last 12 months'));
+      await tester.pumpAndSettle();
+      expect(find.text('\$81,478.73'), findsOneWidget);
+      await reveal(find.byKey(const ValueKey('sales-documents-Invoices')));
+      await tester.tap(find.byKey(const ValueKey('sales-documents-Invoices')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('\$31,630.16 outstanding'), findsOneWidget);
+      await reveal(find.text('INV-10163'));
+      await tester.tap(find.text('INV-10163'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SalesDocumentDetailScreen), findsOneWidget);
+      expect(find.text('Heritage Natural Oak'), findsOneWidget);
+      expect(find.textContaining('66.00 m² · 30 boxes'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'reference invoice lines retain floor area and piece pricing and delivery confirmation can cancel',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(375, 812));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      late BuildContext host;
+      await tester.pumpWidget(
+        app(
+          Builder(
+            builder: (context) {
+              host = context;
+              return const Scaffold(body: Text('Invoice fixtures'));
+            },
+          ),
+        ),
+      );
+      final docs = referenceCustomerDocuments(host, fixtures.customers.first);
+      final invoice = docs.firstWhere((d) => d.number == 'INV-10159');
+      expect(invoice.items.length, 2);
+      expect(invoice.items.last.sqm, 0);
+      expect(invoice.items.last.subtotal, 285);
+      expect(invoice.total, closeTo(4911.5, .0001));
+      for (final entry in {
+        'INV-10163': 7575.48,
+        'INV-10161': 3005.64,
+        'INV-10160': 7454.58,
+        'INV-10159': 4911.5,
+        'INV-10548': 8682.96,
+      }.entries) {
+        expect(
+          docs.firstWhere((d) => d.number == entry.key).total,
+          closeTo(entry.value, .005),
+        );
+      }
+      await tester.pumpWidget(
+        app(SalesDocumentDetailScreen(document: invoice)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('30 pcs @ \$9.50'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      final order = docs.firstWhere((d) => d.number == 'SO-2051');
+      await tester.pumpWidget(app(SalesDocumentDetailScreen(document: order)));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Mark as delivered'));
+      await tester.tap(find.text('Mark as delivered'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mark as delivered?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mark as delivered'), findsOneWidget);
+      await tester.tap(find.text('Mark as delivered'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delivered'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mark as delivered'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'brand pricing bulk edit saves all colours and a Special Price follow-up',
     (tester) async {
@@ -315,7 +655,7 @@ void main() {
         host.read<AppSession>().currentUser.id,
         demo: true,
       );
-      expect(rows, hasLength(4));
+      expect(rows, hasLength(5));
       expect(rows.first['boardType'], 'Stand');
       expect(rows.first['series'], 'Bonita');
       expect(rows.first['delivery'], 'Chatswood Store');
@@ -958,15 +1298,17 @@ void main() {
       expect(find.text('Note & Task'), findsOneWidget);
       await tester.tap(find.text('Schedule visit'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.text('Select customer'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'ABC');
       await tester.pumpAndSettle();
       await tester.tap(find.text('ABC Flooring').last);
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.byType(TextFormField),
+        find.byType(TextField),
         'Discuss the showroom flooring proposal',
       );
-      await tester.tap(find.text('Schedule visit').last);
+      await tester.tap(find.text('Schedule').last);
       await tester.pumpAndSettle();
       final screen = tester.element(find.byType(ReminderCalendarScreen));
       final notes = screen.read<CustomerNoteService>().notes;
@@ -1056,7 +1398,7 @@ void main() {
     await tester.tap(find.text('Completed'));
     await tester.pumpAndSettle();
     expect(find.text('SMP-301'), findsOneWidget);
-    expect(find.text('Delivered'), findsOneWidget);
+    expect(find.text('✓ Delivered'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Samples'));
@@ -1102,7 +1444,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, 'Request'))
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Request 0'),
+            )
             .onPressed,
         isNull,
       );
@@ -1116,7 +1460,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Request'));
+      await tester.tap(find.text('Request 1'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Swatches  2 open'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -1191,11 +1535,32 @@ void main() {
       await tester.tap(find.text('INV-10163'));
       await tester.pumpAndSettle();
       expect(find.byType(SalesDocumentDetailScreen), findsOneWidget);
-      await tester.ensureVisible(find.text('Add payment follow-up'));
+      await tester.ensureVisible(find.text('Add payment\nfollow-up'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add payment follow-up'));
+      await tester.tap(find.text('Add payment\nfollow-up'));
       await tester.pumpAndSettle();
       expect(find.byType(AddFollowUpScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'Follow-up assignment uses the reference dialog and retains selected owners',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(375, 812));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        app(AddFollowUpScreen(customer: fixtures.customers.first)),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('James Wilson').first);
+      await tester.tap(find.text('James Wilson').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Sarah Chen'), findsOneWidget);
+      expect(find.text('Sales Manager'), findsOneWidget);
+      await tester.tap(find.text('Sarah Chen'));
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Sarah Chen'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

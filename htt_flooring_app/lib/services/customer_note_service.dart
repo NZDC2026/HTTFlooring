@@ -1,11 +1,94 @@
+import 'package:uuid/uuid.dart';
+
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/customer_note_codec.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/customer_note.dart';
 import '../models/app_user.dart';
 
 class CustomerNoteService extends ChangeNotifier {
-  CustomerNoteService({Iterable<CustomerNote> initialNotes = const []})
-    : _notes = List.of(initialNotes);
+  CustomerNoteService({
+    Iterable<CustomerNote> initialNotes = const [],
+    this.persistenceKey,
+  }) : _notes = List.of(initialNotes) {
+    ready = _loadLocal();
+  }
+  final String? persistenceKey;
+  late final Future<void> ready;
+  Future<void> _pendingSave = Future<void>.value();
+  Object? _saveError;
+  bool _disposed = false;
+  Future<void> _loadLocal() async {
+    if (persistenceKey == null) return;
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString(
+        persistenceKey!,
+      );
+      if (raw == null || _disposed) return;
+      for (final row in jsonDecode(raw) as List) {
+        try {
+          final note = decodeCustomerNote(
+            Map<String, dynamic>.from(row as Map),
+          );
+          if (!_notes.any((n) => n.id == note.id)) _notes.add(note);
+        } catch (_) {
+          /* Keep other valid activities. */
+        }
+      }
+      if (!_disposed) notifyListeners();
+    } catch (_) {
+      /* Preserve in-memory records if storage is unavailable. */
+    }
+  }
+
+  void _changed() {
+    if (persistenceKey != null) {
+      _pendingSave = _pendingSave
+          .then((_) async {
+            await ready;
+            final raw = jsonEncode(_notes.map(encodeCustomerNote).toList());
+            final saved = await (await SharedPreferences.getInstance())
+                .setString(persistenceKey!, raw);
+            if (!saved)
+              throw StateError('Activity could not be saved on this device.');
+            _saveError = null;
+          })
+          .catchError((Object error) {
+            _saveError = error;
+          });
+    }
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> commit(void Function() update) async {
+    final before = List<CustomerNote>.of(_notes);
+    try {
+      update();
+      await flush();
+    } catch (_) {
+      _notes
+        ..clear()
+        ..addAll(before);
+      if (!_disposed) notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> flush() async {
+    await _pendingSave;
+    if (_saveError != null) throw _saveError!;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   final List<CustomerNote> _notes;
 
@@ -47,7 +130,7 @@ class CustomerNoteService extends ChangeNotifier {
   void restoreLocalFollowUp(CustomerNote note) {
     if (!note.isFollowUp || _notes.any((n) => n.id == note.id)) return;
     _notes.add(note);
-    notifyListeners();
+    _changed();
   }
 
   void addNote({
@@ -92,7 +175,7 @@ class CustomerNoteService extends ChangeNotifier {
       _notes[index] = activity;
     }
 
-    notifyListeners();
+    _changed();
   }
 
   void addFollowUp({
@@ -173,7 +256,7 @@ class CustomerNoteService extends ChangeNotifier {
       _notes[index] = activity;
     }
 
-    notifyListeners();
+    _changed();
   }
 
   void setFollowUpStatus(
@@ -209,7 +292,7 @@ class CustomerNoteService extends ChangeNotifier {
         ),
       ]),
     );
-    notifyListeners();
+    _changed();
   }
 
   void replyToFollowUp(
@@ -242,16 +325,16 @@ class CustomerNoteService extends ChangeNotifier {
         ),
       ]),
     );
-    notifyListeners();
+    _changed();
   }
 
   void deleteNote(String id) {
     _notes.removeWhere((note) => note.id == id);
 
-    notifyListeners();
+    _changed();
   }
 
   String _generateId() {
-    return DateTime.now().microsecondsSinceEpoch.toString();
+    return const Uuid().v4();
   }
 }

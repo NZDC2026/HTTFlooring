@@ -26,8 +26,6 @@ Future<Map<String, dynamic>?> requestCustomerDisplayBoard(
   String type = 'Colour Panels',
   bool details = false,
 }) async {
-  final userId = context.read<AppSession>().currentUser.id;
-  final demo = SalesDashboardData(context).sample;
   final result = await _requestBoard(
     context,
     customer,
@@ -37,12 +35,6 @@ Future<Map<String, dynamic>?> requestCustomerDisplayBoard(
     details: details,
   );
   if (result == null) return null;
-  final records = await readSalesSampleRecords(userId, demo: demo);
-  records.insert(0, result);
-  await (await SharedPreferences.getInstance()).setString(
-    'sales-sample-requests-$userId',
-    jsonEncode(records),
-  );
   return result;
 }
 
@@ -69,6 +61,34 @@ class _BoardRequestSheetState extends State<_BoardRequestSheet> {
   final Map<String, int> _quantities = {};
   final _note = TextEditingController();
   late List<StockSeries> _catalog;
+  bool _saving = false;
+  List<Map<String, dynamic>> _delivered = [];
+  bool _loadedHoldings = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loadedHoldings) return;
+    _loadedHoldings = true;
+    readSalesSampleRecords(
+      context.read<AppSession>().currentUser.id,
+      demo: _sample,
+    ).then((rows) {
+      if (mounted)
+        setState(
+          () => _delivered = rows
+              .where(
+                (r) =>
+                    r['board'] == true &&
+                    r['done'] == true &&
+                    (r['customerId'] == widget.customer.id ||
+                        r['customer'] == widget.customer.businessName),
+              )
+              .toList(),
+        );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -93,13 +113,29 @@ class _BoardRequestSheetState extends State<_BoardRequestSheet> {
               : widget.customer.address,
         ];
   StockSeries get _series => _catalog.firstWhere((s) => s.id == _seriesId);
-  int _have(int index) => _sample && widget.customer.id == 'abc'
-      ? customerBoardFixture(
-              _seriesId,
-              _store == 'Chatswood Store' ? 1 : 0,
-            )?.held[_series.colours[index].product.colour] ??
-            0
-      : 0;
+  int _have(int index) {
+    final colour = _series.colours[index].product.colour;
+    final base =
+        _sample &&
+            widget.customer.id == 'abc' &&
+            ['George St Showroom', 'Chatswood Store'].contains(_store)
+        ? customerBoardFixture(
+                _seriesId,
+                _store == 'Chatswood Store' ? 1 : 0,
+              )?.held[colour] ??
+              0
+        : 0;
+    return base +
+        _delivered
+            .where(
+              (r) => r['series'] == _series.name && r['delivery'] == _store,
+            )
+            .fold<int>(
+              0,
+              (n, r) => n + (salesBoardPanelQuantities(r)[colour] ?? 0),
+            );
+  }
+
   Widget _quantity(int value, ValueChanged<int> update, {String? label}) =>
       DetailQuantity(
         key: ValueKey(label ?? 'sets'),
@@ -124,7 +160,8 @@ class _BoardRequestSheetState extends State<_BoardRequestSheet> {
     items: items,
     onChanged: (v) => change(v as T),
   );
-  void _send() {
+  Future<void> _send() async {
+    if (_saving) return;
     final colors = _type == 'Colour Panels'
         ? [
             for (final c in _series.colours)
@@ -132,7 +169,7 @@ class _BoardRequestSheetState extends State<_BoardRequestSheet> {
                 '${c.product.colour} × ${_quantities[c.product.id]}',
           ]
         : ['$_type × $_sets'];
-    Navigator.pop(context, <String, dynamic>{
+    final record = <String, dynamic>{
       'id': 'DBR-${DateTime.now().microsecondsSinceEpoch}',
       'board': true,
       'customer': widget.customer.businessName,
@@ -148,7 +185,22 @@ class _BoardRequestSheetState extends State<_BoardRequestSheet> {
       'note': _note.text.trim(),
       'done': false,
       'status': 'Requested',
-    });
+    };
+    final userId = context.read<AppSession>().currentUser.id;
+    setState(() => _saving = true);
+    try {
+      await saveSalesSampleRecord(userId, record, demo: _sample);
+      if (mounted) Navigator.pop(context, record);
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save the request. Your entries are kept.'),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -392,9 +444,11 @@ class _BoardRequestSheetState extends State<_BoardRequestSheet> {
               const SizedBox(width: 10),
               Expanded(
                 child: detailAction(
-                  'Send request',
+                  _saving ? 'Saving…' : 'Send request',
                   'doc',
-                  _type == 'Colour Panels'
+                  _saving
+                      ? null
+                      : _type == 'Colour Panels'
                       ? total == 0
                             ? null
                             : _send

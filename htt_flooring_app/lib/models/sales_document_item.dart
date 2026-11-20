@@ -18,8 +18,10 @@ class SalesDocumentItem {
   // the quotation is created.
   final double unitPrice;
 
+  bool get pricedByPiece => product.category == 'Accessories' && sqm == 0;
+
   double get subtotal {
-    return sqm * unitPrice;
+    return (pricedByPiece ? boxes : sqm) * unitPrice;
   }
 
   factory SalesDocumentItem.fromQuoteItem(QuoteItem item) {

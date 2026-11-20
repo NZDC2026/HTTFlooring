@@ -1,3 +1,6 @@
+import 'dart:ui' as ui;
+
+import '../../../models/customer_sales_summary.dart';
 import '../../../models/sales_quote_quantity.dart';
 import '../../../services/sales_session.dart';
 import 'customer_board_data.dart';
@@ -52,6 +55,7 @@ import 'business_card_photo_input.dart';
 
 part 'customer_reference_detail.dart';
 part 'customer_reference_tabs.dart';
+part 'customer_sales_tab.dart';
 part 'customer_reference_actions.dart';
 part 'customer_reference_boards.dart';
 part 'customer_reference_documents.dart';

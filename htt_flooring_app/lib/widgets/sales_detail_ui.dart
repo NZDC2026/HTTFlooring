@@ -236,8 +236,10 @@ Widget detailAction(
   String glyph,
   VoidCallback? onTap, {
   bool filled = false,
+  double fontSize = 12,
+  double height = 40,
 }) => SizedBox(
-  height: 40,
+  height: height,
   child: OutlinedButton(
     onPressed: onTap,
     style: OutlinedButton.styleFrom(
@@ -246,7 +248,7 @@ Widget detailAction(
       disabledBackgroundColor: const Color(0xFFF0F2F1),
       disabledForegroundColor: detailMuted,
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      minimumSize: const Size(0, 40),
+      minimumSize: Size(0, height),
       side: const BorderSide(color: detailLine),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ),
@@ -254,7 +256,7 @@ Widget detailAction(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        if (label != 'Cancel') ...[
+        if (label != 'Cancel' && glyph.isNotEmpty) ...[
           DetailGlyph(
             glyph,
             size: 15,
@@ -272,7 +274,7 @@ Widget detailAction(
             maxLines: 2,
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -551,4 +553,64 @@ class _DetailQuantityState extends State<DetailQuantity> {
       ),
     ],
   );
+}
+
+Widget detailAddAction(String label, VoidCallback? onTap) => SizedBox(
+  height: 44,
+  width: double.infinity,
+  child: CustomPaint(
+    painter: _DetailDashedBorder(),
+    child: Material(
+      color: const Color(0x55EAF3EF),
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(11),
+        onTap: onTap,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            DetailGlyph(
+              'plus',
+              size: 15,
+              color: onTap == null ? detailMuted : detailGreen,
+            ),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: onTap == null ? detailMuted : detailGreen,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+);
+
+class _DetailDashedBorder extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(11)),
+      );
+    final paint = Paint()
+      ..color = const Color(0xffbecbc5)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    for (final metric in path.computeMetrics()) {
+      for (double start = 0; start < metric.length; start += 7) {
+        canvas.drawPath(
+          metric.extractPath(start, (start + 4).clamp(0, metric.length)),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DetailDashedBorder old) => false;
 }

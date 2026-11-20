@@ -459,9 +459,8 @@ class _ReferenceQuoteRequestState extends State<SalesQuoteRequestScreen> {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: _line(line),
                 ),
-              detailAction(
+              detailAddAction(
                 _items.isEmpty ? 'Add product' : 'Add another product',
-                'plus',
                 _saving ? null : _pickProduct,
               ),
               if (_needsBatches) ...[

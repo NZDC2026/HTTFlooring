@@ -286,7 +286,7 @@ extension _ReferenceTask on _FollowUpDetailState {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Other tasks for ${customer!.businessName}',
+                        'Other tasks for ${customer?.businessName ?? 'customer'}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -331,7 +331,7 @@ extension _ReferenceTask on _FollowUpDetailState {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${otherTasks.length} other tasks for ${customer!.businessName}',
+                            '${otherTasks.length} other tasks for ${customer?.businessName ?? 'customer'}',
                             style: const TextStyle(fontSize: 12),
                           ),
                         ),
@@ -879,95 +879,100 @@ class ReferenceExampleFollowUp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.read<AppSession>().currentUser;
-    final service = _examples.putIfAbsent('${user.id}-${task.id}', () {
-      final owned = CustomerNote(
-        id: task.id,
-        customerId: task.customerId,
-        type: CustomerNoteType.followUp,
-        content: task.content,
-        createdAt: task.createdAt,
-        followUpDate: task.followUpDate,
-        followUpStatus: task.followUpStatus ?? FollowUpStatus.pending,
-        followUpType: task.followUpType == 'Quote'
-            ? 'Quotation / Order Follow-up'
-            : task.followUpType == 'Payment'
-            ? 'Payment Follow-up'
-            : task.followUpType == 'Swatches'
-            ? 'Swatch Delivery'
-            : task.followUpType,
-        creatorId: user.id,
-        authorName: user.name,
-        assignees: [user],
-        priority:
-            task.priority ??
-            (task.content.contains('QT-1003') ? 'High' : 'Normal'),
-        reminder: task.reminder,
-        events: task.events.isNotEmpty || !task.content.contains('QT-1003')
-            ? task.events
-            : [
-                (
-                  author: user.name,
-                  action: 'Created',
-                  message: 'Created this follow-up.',
-                  at: DateTime(
-                    task.createdAt.year,
-                    task.createdAt.month,
-                    task.createdAt.day,
-                    9,
-                    44,
+    final service = _examples.putIfAbsent(
+      '${user.id}-${task.id}-${task.customerId}-${task.content}',
+      () {
+        final owned = CustomerNote(
+          id: task.id,
+          customerId: task.customerId,
+          type: CustomerNoteType.followUp,
+          content: task.content,
+          createdAt: task.createdAt,
+          followUpDate: task.followUpDate,
+          followUpStatus: task.followUpStatus ?? FollowUpStatus.pending,
+          followUpType: task.followUpType == 'Quote'
+              ? 'Quotation / Order Follow-up'
+              : task.followUpType == 'Payment'
+              ? 'Payment Follow-up'
+              : task.followUpType == 'Swatches'
+              ? 'Swatch Delivery'
+              : task.followUpType,
+          creatorId: user.id,
+          authorName: user.name,
+          assignees: [user],
+          priority:
+              task.priority ??
+              (task.content.contains('QT-1003') ? 'High' : 'Normal'),
+          reminder: task.reminder,
+          events: task.events.isNotEmpty || !task.content.contains('QT-1003')
+              ? task.events
+              : [
+                  (
+                    author: user.name,
+                    action: 'Created',
+                    message: 'Created this follow-up.',
+                    at: DateTime(
+                      task.createdAt.year,
+                      task.createdAt.month,
+                      task.createdAt.day,
+                      9,
+                      44,
+                    ),
+                    attachments: const <ActivityAttachment>[],
                   ),
-                  attachments: const <ActivityAttachment>[],
-                ),
-                (
-                  author: user.name,
-                  action: 'Assigned',
-                  message: 'Assigned to ${user.name}.',
-                  at: DateTime(
-                    task.createdAt.year,
-                    task.createdAt.month,
-                    task.createdAt.day,
-                    9,
-                    45,
+                  (
+                    author: user.name,
+                    action: 'Assigned',
+                    message: 'Assigned to ${user.name}.',
+                    at: DateTime(
+                      task.createdAt.year,
+                      task.createdAt.month,
+                      task.createdAt.day,
+                      9,
+                      45,
+                    ),
+                    attachments: const <ActivityAttachment>[],
                   ),
-                  attachments: const <ActivityAttachment>[],
-                ),
-                (
-                  author: user.name,
-                  action: 'Reply',
-                  message: 'Left voicemail',
-                  at: DateTime(
-                    task.createdAt.year,
-                    task.createdAt.month,
-                    task.createdAt.day + 2,
-                    10,
-                    12,
+                  (
+                    author: user.name,
+                    action: 'Reply',
+                    message: 'Left voicemail',
+                    at: DateTime(
+                      task.createdAt.year,
+                      task.createdAt.month,
+                      task.createdAt.day + 2,
+                      10,
+                      12,
+                    ),
+                    attachments: const <ActivityAttachment>[],
                   ),
-                  attachments: const <ActivityAttachment>[],
-                ),
-              ],
-      );
-      final state = CustomerNoteService(initialNotes: [owned]);
-      if (task.id.startsWith('calendar-demo-')) {
-        state.addListener(() async {
-          final note = state.notes.first;
-          final prefs = await SharedPreferences.getInstance();
-          final key = 'calendar-agenda-${user.id}';
-          final data = Map<String, dynamic>.from(
-            jsonDecode(prefs.getString(key) ?? '{}') as Map,
-          );
-          final completed = Map<String, dynamic>.from(data['completed'] ?? {});
-          completed[task.id] = note.isCompleted;
-          data['completed'] = completed;
-          final dates = Map<String, dynamic>.from(data['dates'] ?? {});
-          if (note.followUpDate != null) {
-            dates[task.id] = note.followUpDate!.toIso8601String();
-          }
-          data['dates'] = dates;
-          await prefs.setString(key, jsonEncode(data));
-        });
-      }
-      return state;
-    });
+                ],
+        );
+        final state = CustomerNoteService(initialNotes: [owned]);
+        if (task.id.startsWith('calendar-demo-')) {
+          state.addListener(() async {
+            final note = state.notes.first;
+            final prefs = await SharedPreferences.getInstance();
+            final key = 'calendar-agenda-${user.id}';
+            final data = Map<String, dynamic>.from(
+              jsonDecode(prefs.getString(key) ?? '{}') as Map,
+            );
+            final completed = Map<String, dynamic>.from(
+              data['completed'] ?? {},
+            );
+            completed[task.id] = note.isCompleted;
+            data['completed'] = completed;
+            final dates = Map<String, dynamic>.from(data['dates'] ?? {});
+            if (note.followUpDate != null) {
+              dates[task.id] = note.followUpDate!.toIso8601String();
+            }
+            data['dates'] = dates;
+            await prefs.setString(key, jsonEncode(data));
+          });
+        }
+        return state;
+      },
+    );
     return ChangeNotifierProvider.value(
       value: service,
       child: FollowUpDetail(customer: customer, taskId: task.id),

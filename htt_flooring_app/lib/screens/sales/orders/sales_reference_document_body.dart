@@ -1,4 +1,6 @@
 import '../../../models/sales_user.dart';
+import '../../../models/customer.dart';
+import '../inventory/inventory_screen.dart' show InventorySwatch;
 
 import 'dart:convert';
 
@@ -76,23 +78,24 @@ class _SalesDocumentReferenceState extends State<SalesDocumentReferenceBody> {
     );
   }
 
-  Widget _value(String label, String value, {String? hint}) => Expanded(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: detailMuted)),
-        const SizedBox(height: 5),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        if (hint != null) ...[
-          const SizedBox(height: 3),
-          Text(hint, style: const TextStyle(fontSize: 11, color: detailMuted)),
-        ],
-      ],
-    ),
-  );
+  bool get _referenceAbcQuote =>
+      SalesDashboardData(context).sample && _document.number == 'QT-1004';
+  String _lineQuantity(SalesDocument d, int i) => _referenceQuote
+      ? i == 0
+            ? '420 m² + 5% wastage → 442.20 m² · 201 boxes @ \$52.00/m²'
+            : '180 m² + 10% wastage → 200.03 m² · 83 boxes @ \$36.00/m²'
+      : _referenceAbcQuote
+      ? '60 m² + 10% wastage → 66.24 m² · 46 boxes @ \$83.50/m²'
+      : d.items[i].pricedByPiece
+      ? '${d.items[i].boxes} pcs @ ${_money(d.items[i].unitPrice)}'
+      : '${d.items[i].sqm.toStringAsFixed(2)} m² · ${d.items[i].boxes} boxes @ ${_money(d.items[i].unitPrice)}/m²';
+  String? _lineAvailability(int i) => _referenceQuote
+      ? i == 0
+            ? 'Only 374 m² (170 bx) available'
+            : 'Only 0 m² (0 bx) available · 723 m² arriving 25 Nov'
+      : _referenceAbcQuote
+      ? 'Only 26 m² (18 bx) available · 173 m² arriving 28 Nov'
+      : null;
   Widget _lineItems(SalesDocument d) => detailCard(
     Column(
       children: [
@@ -101,51 +104,50 @@ class _SalesDocumentReferenceState extends State<SalesDocumentReferenceBody> {
           Padding(
             padding: const EdgeInsets.all(13),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                InventorySwatch(
+                  seed: d.items[i].product.colour,
+                  size: 36,
+                  single: true,
+                ),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         d.items[i].product.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(fontSize: 14),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
-                        _referenceQuote
-                            ? i == 0
-                                  ? '420 m² + 5% wastage → 442.20 m² · 201 boxes @ \$52.00/m²'
-                                  : '180 m² + 10% wastage → 200.03 m² · 83 boxes @ \$36.00/m²'
-                            : '${d.items[i].sqm.toStringAsFixed(2)} m² · ${d.items[i].boxes} boxes @ ${_money(d.items[i].unitPrice)}${d.status == SalesDocumentStatus.invoice ? '' : '/m²'}',
+                        _lineQuantity(d, i),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
                           color: detailMuted,
-                          height: 1.5,
+                          height: 1.3,
                         ),
                       ),
-                      if (_referenceQuote)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            i == 0 ? 'Only 374 m² (170 bx) available' : 'Only 0 m² (0 bx) available · 723 m² arriving 25 Nov',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFFB67100),
-                            ),
+                      if (_lineAvailability(i) != null)
+                        Text(
+                          _lineAvailability(i)!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: detailMuted,
                           ),
                         ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 9),
                 Text(
                   _money(d.items[i].subtotal),
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -156,6 +158,38 @@ class _SalesDocumentReferenceState extends State<SalesDocumentReferenceBody> {
       ],
     ),
   );
+  Widget _documentMetric(String label, String value, {String? hint}) =>
+      Expanded(
+        child: detailCard(
+          Padding(
+            padding: const EdgeInsets.all(13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 12, color: detailMuted),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (hint != null) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    hint,
+                    style: const TextStyle(fontSize: 12, color: detailMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
   Widget _totals(SalesDocument d) => detailCard(
     Padding(
       padding: const EdgeInsets.all(14),
@@ -214,100 +248,94 @@ class _SalesDocumentReferenceState extends State<SalesDocumentReferenceBody> {
         quote = d.status == SalesDocumentStatus.quotation;
     final date = d.invoiceDate ?? d.createdAt;
     final customer = context.read<CustomerService>().findById(d.customer.id);
+    if (invoice) return _invoiceBody(d, customer);
+    final validUntil = d.createdAt.add(const Duration(days: 30));
+    final validDays = DateUtils.dateOnly(validUntil)
+        .difference(DateUtils.dateOnly(DateTime.now()))
+        .inDays;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xfff3f5f4),
       appBar: dashboardBar(d.number),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 28),
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 28),
         children: [
-          detailCard(
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${invoice
-                        ? 'Tax invoice'
-                        : quote
-                        ? 'Quotation'
-                        : 'Sales order'} ${d.number}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    '${d.customer.businessName}${invoice ? '' : ' · ${DateFormat('d MMM yyyy').format(date)}'}',
-                    style: const TextStyle(fontSize: 13, color: detailMuted),
-                  ),
-                  const SizedBox(height: 11),
-                  detailBadge(
-                    invoice
-                        ? (d.balanceDue <= 0 ? 'Paid' : 'Outstanding')
-                        : quote
-                        ? (_referenceQuote ? 'Sent' : 'Draft')
-                        : _delivered
-                        ? 'Delivered'
-                        : 'Confirmed',
-                  ),
-                  const SizedBox(height: 16),
-                  if (invoice)
-                    Row(
-                      children: [
-                        _value(
-                          'Invoice date',
-                          DateFormat('d MMM yyyy').format(date),
-                        ),
-                        _value(
-                          'Due date',
-                          d.dueDate == null
-                              ? '—'
-                              : DateFormat('d MMM yyyy').format(d.dueDate!),
-                        ),
-                      ],
-                    )
-                  else
-                    Row(
-                      children: [
-                        _value(
-                          quote ? 'Valid until' : 'Delivery',
-                          DateFormat('d MMM yyyy').format(
-                            quote
-                                ? d.createdAt.add(const Duration(days: 30))
-                                : d.createdAt.add(const Duration(days: 9)),
-                          ),
-                        ),
-                        _value(
-                          'Total incl. GST',
-                          _money(d.total),
-                          hint: '${_money(d.subtotal)} excl. GST',
-                        ),
-                      ],
-                    ),
-                  if (invoice) ...[
-                    const Divider(height: 24, color: detailLine),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      'Balance',
-                      style: const TextStyle(fontSize: 11, color: detailMuted),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      _money(d.balanceDue),
+                      '${quote ? 'Quotation' : 'Sales order'} ${d.number}',
                       style: const TextStyle(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Text(
-                      'of ${_money(d.total)}',
-                      style: const TextStyle(fontSize: 12, color: detailMuted),
+                    const SizedBox(height: 5),
+                    Wrap(
+                      children: [
+                        InkWell(
+                          onTap: customer == null
+                              ? null
+                              : () => dashboardOpen(
+                                  context,
+                                  CustomerDetailScreen(customer: customer),
+                                ),
+                          child: Text(
+                            d.customer.businessName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: detailGreen,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          ' · ${DateFormat('d MMM yyyy').format(date)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: detailMuted,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              detailBadge(
+                quote
+                    ? (_referenceQuote ? 'Sent' : 'Draft')
+                    : _delivered
+                    ? 'Delivered'
+                    : 'Confirmed',
+              ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _documentMetric(
+                quote ? 'Valid until' : 'Delivery',
+                DateFormat('d MMM yyyy').format(
+                  quote ? validUntil : d.createdAt.add(const Duration(days: 9)),
+                ),
+                hint: quote
+                    ? (validDays < 0
+                          ? 'Expired'
+                          : validDays == 0
+                          ? 'Expires today'
+                          : '$validDays days left')
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              _documentMetric(
+                'Total incl. GST',
+                _money(d.total),
+                hint: quote ? '${_money(d.subtotal)} excl. GST' : null,
+              ),
+            ],
           ),
           detailHeading(invoice ? 'Lines' : 'Products'),
           _lineItems(d),
@@ -428,6 +456,239 @@ class _SalesDocumentReferenceState extends State<SalesDocumentReferenceBody> {
     );
   }
 
+  Widget _invoiceBody(SalesDocument d, Customer? customer) {
+    Widget valueCard(String label, String value, {String? hint}) => detailCard(
+      Padding(
+        padding: const EdgeInsets.all(13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: detailMuted),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            if (hint != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                hint,
+                style: const TextStyle(fontSize: 12, color: detailMuted),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    return Scaffold(
+      backgroundColor: const Color(0xfff3f5f4),
+      appBar: dashboardBar(d.number),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 28),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tax invoice ${d.number}',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      d.customer.businessName,
+                      style: const TextStyle(fontSize: 13, color: detailMuted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: d.balanceDue <= 0
+                      ? const Color(0xffe5f2eb)
+                      : const Color(0xfffff3dc),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  d.balanceDue <= 0 ? 'Paid' : 'Outstanding',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: d.balanceDue <= 0
+                        ? detailGreen
+                        : const Color(0xff9b660d),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: valueCard(
+                  'Invoice date',
+                  DateFormat('d MMM yyyy').format(d.invoiceDate ?? d.createdAt),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: valueCard(
+                  'Due date',
+                  d.dueDate == null
+                      ? '—'
+                      : DateFormat('d MMM yyyy').format(d.dueDate!),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: valueCard(
+                  'Balance',
+                  _money(d.balanceDue),
+                  hint: 'of ${_money(d.total)}',
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(child: SizedBox()),
+            ],
+          ),
+          detailHeading('Lines'),
+          detailCard(
+            Column(
+              children: [
+                for (final line in d.items) ...[
+                  Padding(
+                    padding: const EdgeInsets.all(13),
+                    child: Row(
+                      children: [
+                        InventorySwatch(
+                          seed: line.product.colour,
+                          size: 36,
+                          single: true,
+                        ),
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                line.product.name,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                line.pricedByPiece
+                                    ? '${line.boxes} pcs @ ${_money(line.unitPrice)}'
+                                    : '${line.sqm.toStringAsFixed(2)} m² · ${line.boxes} boxes @ ${_money(line.unitPrice)}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: detailMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Text(
+                          _money(line.subtotal),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: detailLine),
+                ],
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Subtotal ${_money(d.subtotal)} + GST ${_money(d.gst)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: detailMuted,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      Text(
+                        _money(d.total),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: detailAction(
+                  'Add payment\nfollow-up',
+                  'calendar',
+                  customer == null
+                      ? null
+                      : () => dashboardOpen(
+                          context,
+                          AddFollowUpScreen(
+                            customer: customer,
+                            initialType: 'Payment Follow-up',
+                            initialDueDate: DateUtils.dateOnly(DateTime.now()),
+                            initialDescription:
+                                'Follow up ${d.number} — ${_money(d.balanceDue)} outstanding.',
+                          ),
+                        ),
+                  filled: true,
+                  fontSize: 13,
+                  height: 44,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: detailAction(
+                  'Open customer',
+                  '',
+                  customer == null
+                      ? null
+                      : () => dashboardOpen(
+                          context,
+                          CustomerDetailScreen(customer: customer),
+                        ),
+                  fontSize: 13,
+                  height: 44,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   String _text() {
     final d = _document;
     final quote = d.status == SalesDocumentStatus.quotation;
@@ -435,7 +696,7 @@ class _SalesDocumentReferenceState extends State<SalesDocumentReferenceBody> {
         ? 'Tax invoice'
         : quote
         ? 'Quotation'
-        : 'Sales order'} ${d.number}\n${d.customer.businessName}\nDate ${DateFormat('d MMM yyyy').format(d.invoiceDate ?? d.createdAt)}${quote ? ' · Valid until ${DateFormat('d MMM yyyy').format(d.createdAt.add(const Duration(days: 30)))}' : ''}\n${d.items.map((i) => '${i.product.name} (${i.product.sku}) — ${i.sqm.toStringAsFixed(2)} m² · ${i.boxes} boxes @ ${_money(i.unitPrice)} = ${_money(i.subtotal)}').join('\n')}\nSubtotal ${_money(d.subtotal)}\nGST ${_money(d.gst)}\nTotal ${_money(d.total)}${_customerNotes == '—' ? '' : '\nNotes: $_customerNotes'}';
+        : 'Sales order'} ${d.number}\n${d.customer.businessName}\nDate ${DateFormat('d MMM yyyy').format(d.invoiceDate ?? d.createdAt)}${quote ? ' · Valid until ${DateFormat('d MMM yyyy').format(d.createdAt.add(const Duration(days: 30)))}' : ''}\n${d.items.map((i) => '${i.product.name} (${i.product.sku}) — ${i.pricedByPiece ? '${i.boxes} pcs' : '${i.sqm.toStringAsFixed(2)} m² · ${i.boxes} boxes'} @ ${_money(i.unitPrice)} = ${_money(i.subtotal)}').join('\n')}\nSubtotal ${_money(d.subtotal)}\nGST ${_money(d.gst)}\nTotal ${_money(d.total)}${_customerNotes == '—' ? '' : '\nNotes: $_customerNotes'}';
   }
 
   Future<void> _copy() async {
@@ -492,23 +753,41 @@ class _SalesDocumentReferenceState extends State<SalesDocumentReferenceBody> {
   }
 
   Future<void> _markDelivered() async {
-    final yes = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Mark as delivered?', style: TextStyle(fontSize: 18)),
-        content: Text(
-          'Confirm delivery for ${_document.number}.',
-          style: const TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, false),
-            child: const Text('Cancel'),
+    final yes = await showReferenceModal<bool>(
+      context,
+      (dialog) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Mark as delivered?',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Confirm'),
+          const SizedBox(height: 9),
+          const Text(
+            'Confirm delivery and save the result for office review.',
+            style: TextStyle(fontSize: 12, color: detailMuted, height: 1.5),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: detailAction(
+                  'Cancel',
+                  '',
+                  () => Navigator.pop(dialog, false),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: detailAction(
+                  'Delivered',
+                  '',
+                  () => Navigator.pop(dialog, true),
+                  filled: true,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -686,7 +965,7 @@ class _SalesDocumentPreview extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${d.items[i].product.sku}${referenceQuote
+                                    '${d.items[i].product.sku}${d.number == 'QT-1004' ? ' · 60 m² + 10%' : ''}${referenceQuote
                                         ? i == 0
                                               ? ' · 420 m² + 5%'
                                               : ' · 180 m² + 10%'
@@ -705,7 +984,9 @@ class _SalesDocumentPreview extends StatelessWidget {
                                 horizontal: 3,
                               ),
                               child: Text(
-                                '${d.items[i].sqm.toStringAsFixed(2)} m² · ${d.items[i].boxes} boxes',
+                                d.items[i].pricedByPiece
+                                    ? '${d.items[i].boxes} pcs'
+                                    : '${d.items[i].sqm.toStringAsFixed(2)} m² · ${d.items[i].boxes} boxes',
                                 style: const TextStyle(fontSize: 9),
                               ),
                             ),

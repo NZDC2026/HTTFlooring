@@ -563,7 +563,7 @@ class _ReferenceCustomerDetailState extends _CustomerDetailScreenState {
                 _openItem(
                   'Display board',
                   'layers',
-                  _abc ? 21 : 0,
+                  _boardPanelCount,
                   _abc ? '3 to update' : 'none',
                   w,
                   () => setState(() => _tab = 4),

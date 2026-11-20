@@ -20,6 +20,14 @@ class AppSession extends ChangeNotifier {
     region: SalesRegion.sydney,
   );
 
+  static const AppUser sarahChen = AppUser(
+    id: 'manager-001',
+    name: 'Sarah Chen',
+    email: 'sarah@httflooring.com.au',
+    role: UserRole.manager,
+    region: SalesRegion.sydney,
+  );
+
   AppUser _currentUser = jamesWilson;
   String? _employeeAccessToken;
 

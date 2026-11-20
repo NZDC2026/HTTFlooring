@@ -1,3 +1,7 @@
+import 'package:uuid/uuid.dart';
+
+import 'local_sales_record_store.dart';
+
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,14 +24,13 @@ class LocalSalesRequestStore {
     String userId,
     Map<String, dynamic> request,
   ) async {
-    final rows = await read(userId);
-    rows.insert(0, {
-      ...request,
-      'id': DateTime.now().microsecondsSinceEpoch.toString(),
-      'createdAt': DateTime.now().toIso8601String(),
-      'status': 'Waiting',
+    await LocalSalesRecordStore.change(_key(userId), (rows) {
+      rows.insert(0, {
+        ...request,
+        'id': const Uuid().v4(),
+        'createdAt': DateTime.now().toIso8601String(),
+        'status': 'Waiting',
+      });
     });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key(userId), jsonEncode(rows));
   }
 }

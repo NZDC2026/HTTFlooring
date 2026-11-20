@@ -1,3 +1,4 @@
+import '../customers/customer_directory_data.dart';
 import '../inventory/inventory_catalog_data.dart';
 
 import 'package:flutter/material.dart';
@@ -44,15 +45,12 @@ AppBar dashboardBar(String title, {List<Widget>? actions}) => AppBar(
 
 class SalesDashboardData {
   SalesDashboardData(BuildContext context) {
-    final session = context.read<SalesSession>();
     final app = context.read<AppSession>();
     sample =
         AppSession.demoLoginEnabled &&
         (app.employeeAccessToken?.isEmpty ?? true);
-    customers = context
-        .read<CustomerService>()
-        .customers
-        .where((c) => !c.archived && session.canAccessRegion(c.region))
+    customers = CustomerDirectoryData(context).rows
+        .map((r) => r.customer)
         .toList();
     final ids = customers.map((c) => c.id).toSet();
     tasks = context
@@ -387,16 +385,14 @@ class DashboardTaskDetail extends StatelessWidget {
   final CustomerNote task;
   @override
   Widget build(BuildContext context) {
+    final customer = CustomerDirectoryData(context).rows
+        .where((r) => r.customer.id == task.customerId)
+        .firstOrNull
+        ?.customer;
     if (!task.id.startsWith('sample-dashboard-')) {
-      return FollowUpDetail(
-        customer: context.read<CustomerService>().findById(task.customerId),
-        taskId: task.id,
-      );
+      return FollowUpDetail(customer: customer, taskId: task.id);
     }
-    return ReferenceExampleFollowUp(
-      task: task,
-      customer: context.read<CustomerService>().findById(task.customerId),
-    );
+    return ReferenceExampleFollowUp(task: task, customer: customer);
   }
 }
 

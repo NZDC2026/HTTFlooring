@@ -95,14 +95,17 @@ Future<List<AppUser>?> _referencePickOwners(
     context.read<AppSession>().currentUser.id: context
         .read<AppSession>()
         .currentUser,
-    AppSession.jamesWilson.id: AppSession.jamesWilson,
-    AppSession.liWei.id: AppSession.liWei,
-    for (final p in current) p.id: p,
+    if (SalesDashboardData(context).sample) ...{
+      AppSession.jamesWilson.id: AppSession.jamesWilson,
+      AppSession.liWei.id: AppSession.liWei,
+      AppSession.sarahChen.id: AppSession.sarahChen,
+    },
+    for (final person in current) person.id: person,
   }.values.toList();
   final selected = current.map((p) => p.id).toSet();
-  return showDetailSheet<List<AppUser>>(
+  return showReferenceModal<List<AppUser>>(
     context,
-    (sheet) => StatefulBuilder(
+    (dialog) => StatefulBuilder(
       builder: (context, update) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,34 +114,48 @@ Future<List<AppUser>?> _referencePickOwners(
             'Assign to',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 12),
-          for (final p in people)
+          const SizedBox(height: 10),
+          for (final person in people) ...[
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(p.name, style: const TextStyle(fontSize: 14)),
+              dense: true,
+              title: Text(person.name, style: const TextStyle(fontSize: 14)),
               subtitle: Text(
-                p.roleLabel,
+                person.id == AppSession.sarahChen.id
+                    ? 'Sales Manager'
+                    : person.roleLabel,
                 style: const TextStyle(fontSize: 11, color: detailMuted),
               ),
-              value: selected.contains(p.id),
-              onChanged: (v) => update(
-                () => v == true ? selected.add(p.id) : selected.remove(p.id),
+              value: selected.contains(person.id),
+              onChanged: (value) => update(
+                () => value == true
+                    ? selected.add(person.id)
+                    : selected.remove(person.id),
               ),
             ),
+            const Divider(height: 1, color: detailLine),
+          ],
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: detailAction(
-              'Done',
-              'check',
-              selected.isEmpty
-                  ? null
-                  : () => Navigator.pop(
-                      sheet,
-                      people.where((p) => selected.contains(p.id)).toList(),
-                    ),
-              filled: true,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: detailAction('Cancel', '', () => Navigator.pop(dialog)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: detailAction(
+                  'Done',
+                  '',
+                  selected.isEmpty
+                      ? null
+                      : () => Navigator.pop(
+                          dialog,
+                          people.where((p) => selected.contains(p.id)).toList(),
+                        ),
+                  filled: true,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -148,12 +165,13 @@ Future<List<AppUser>?> _referencePickOwners(
 
 class _ReferenceAddNoteState extends _AddNoteScreenState {
   late Customer? _selectedCustomer = widget.customer;
-  bool _createTask = false;
+  bool _createTask = false, _saving = false;
   String _taskType = 'Other';
   DateTime _taskDate = DateUtils.dateOnly(DateTime.now())
       .add(const Duration(days: 1));
   final _owners = GlobalKey<FormFieldState<List<AppUser>>>();
-  void _referenceSave() {
+  Future<void> _referenceSave() async {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
     final user = context.read<AppSession>().currentUser,
         service = context.read<CustomerNoteService>();
@@ -165,40 +183,56 @@ class _ReferenceAddNoteState extends _AddNoteScreenState {
       ).showSnackBar(const SnackBar(content: Text('Pick a customer first.')));
       return;
     }
-    service.addNote(
-      existingId: widget.existing?.id,
-      customerId: customerId,
-      attachments: _attachments,
-      content: _controller.text,
-      noteType: _noteType,
-      author: user,
-    );
-    if (_createTask) {
-      service.addFollowUp(
-        customerId: customerId,
-        actor: user,
-        content: _controller.text,
-        attachments: _attachments,
-        followUpDate: _taskDate,
-        followUpType: _taskType,
-        assignees: _owners.currentState?.value ?? [user],
-        priority: 'Normal',
-        reminder: '1 day before',
-      );
+    setState(() => _saving = true);
+    try {
+      await service.commit(() {
+        service.addNote(
+          existingId: widget.existing?.id,
+          customerId: customerId,
+          attachments: _attachments,
+          content: _controller.text,
+          noteType: _noteType,
+          author: user,
+        );
+        if (_createTask) {
+          service.addFollowUp(
+            customerId: customerId,
+            actor: user,
+            content: _controller.text,
+            attachments: _attachments,
+            followUpDate: _taskDate,
+            followUpType: _taskType,
+            assignees: _owners.currentState?.value ?? [user],
+            priority: 'Normal',
+            reminder: '1 day before',
+          );
+        }
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not save the note. Your entries are kept. Try again.',
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
     final sales = context.read<AppSession>().isSales;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xfff3f5f4),
       appBar: dashboardBar(widget.existing == null ? 'Add note' : 'Note'),
       bottomNavigationBar: _referenceFooter(
         context,
-        'Save note',
-        _controller.text.trim().isEmpty ? null : _referenceSave,
+        _saving ? 'Saving…' : 'Save note',
+        _saving || _controller.text.trim().isEmpty ? null : _referenceSave,
       ),
       body: Form(
         key: _formKey,
@@ -351,24 +385,44 @@ class _ReferenceAddFollowUpState extends _AddFollowUpScreenState {
   }
 
   late Customer? _selectedCustomer = widget.customer;
-  void _referenceSave() {
+  bool _saving = false;
+  Future<void> _referenceSave() async {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
-    context.read<CustomerNoteService>().addFollowUp(
-      existingId: widget.existing?.id,
-      actor: context.read<AppSession>().currentUser,
-      customerId: _selectedCustomer?.id ?? widget.existing?.customerId ?? '',
-      attachments: _attachments,
-      content: _description.text,
-      followUpDate: _dueDate,
-      followUpType: _type,
-      assignees: _assigneesKey.currentState!.value!,
-      priority: _priority,
-      reminder: _reminder,
-      reminderDate: _reminder == 'Custom date'
-          ? _reminderDate ?? _dueDate
-          : null,
-    );
-    Navigator.pop(context, true);
+    final service = context.read<CustomerNoteService>();
+    setState(() => _saving = true);
+    try {
+      await service.commit(() {
+        service.addFollowUp(
+          existingId: widget.existing?.id,
+          actor: context.read<AppSession>().currentUser,
+          customerId:
+              _selectedCustomer?.id ?? widget.existing?.customerId ?? '',
+          attachments: _attachments,
+          content: _description.text,
+          followUpDate: _dueDate,
+          followUpType: _type,
+          assignees: _assigneesKey.currentState!.value!,
+          priority: _priority,
+          reminder: _reminder,
+          reminderDate: _reminder == 'Custom date'
+              ? _reminderDate ?? _dueDate
+              : null,
+        );
+      });
+      if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not save the follow-up. Your entries are kept. Try again.',
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -388,7 +442,7 @@ class _ReferenceAddFollowUpState extends _AddFollowUpScreenState {
     ];
     final types = [
       'Customer Visit',
-      'Sample Delivery',
+      if (_type == 'Sample Delivery') 'Sample Delivery',
       'Swatch Delivery',
       'Quotation / Order Follow-up',
       'Payment Follow-up',
@@ -398,14 +452,18 @@ class _ReferenceAddFollowUpState extends _AddFollowUpScreenState {
       'Other',
     ];
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xfff3f5f4),
       appBar: dashboardBar(
         widget.existing == null ? 'Add follow-up' : 'Edit follow-up',
       ),
       bottomNavigationBar: _referenceFooter(
         context,
-        widget.existing == null ? 'Create follow-up' : 'Save follow-up',
-        _description.text.trim().isEmpty || _type == null
+        _saving
+            ? 'Saving…'
+            : widget.existing == null
+            ? 'Create follow-up'
+            : 'Save follow-up',
+        _saving || _description.text.trim().isEmpty || _type == null
             ? null
             : _referenceSave,
       ),
@@ -543,7 +601,7 @@ class _ReferenceAddFollowUpState extends _AddFollowUpScreenState {
                   'On due date',
                   '1 day before',
                   '1 week before',
-                  'Custom date',
+                  if (_reminder == 'Custom date') 'Custom date',
                 ])
                   DropdownMenuItem(
                     value: r,

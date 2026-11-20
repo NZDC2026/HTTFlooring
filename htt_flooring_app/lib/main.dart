@@ -22,6 +22,10 @@ Future<void> main() async {
   final warehouseOrders = WarehouseOrderService();
   await warehouseOrders.load();
   await InventoryService.loadReceipts();
+  final activities = CustomerNoteService(
+    persistenceKey: 'local-customer-activities-v1',
+  );
+  await activities.ready;
   runApp(
     MultiProvider(
       providers: [
@@ -32,7 +36,7 @@ Future<void> main() async {
 
         ChangeNotifierProvider(create: (_) => CustomerLocationService()),
 
-        ChangeNotifierProvider(create: (_) => CustomerNoteService()),
+        ChangeNotifierProvider.value(value: activities),
 
         ChangeNotifierProvider(create: (_) => DocumentNumberService()),
 

@@ -144,3 +144,18 @@ CustomerBoardFixture? customerBoardFixture(String series, int location) {
     _ => null,
   };
 }
+
+Map<String, int> salesBoardPanelQuantities(Map<String, dynamic> record) {
+  if (record['boardType'] == 'Stand' || record['boardType'] == 'Swatches')
+    return {};
+  final values = <String, int>{};
+  for (final value in record['colours'] as List? ?? const []) {
+    final text = '$value';
+    final match = RegExp(r'^(.*?)\s*[×x]\s*(\d+)\s*$').firstMatch(text);
+    final name = match?.group(1)?.trim() ?? text.trim();
+    final count = match == null ? 1 : int.tryParse(match.group(2)!) ?? 0;
+    if (name.isNotEmpty && count > 0)
+      values.update(name, (old) => old + count, ifAbsent: () => count);
+  }
+  return values;
+}

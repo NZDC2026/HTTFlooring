@@ -765,18 +765,31 @@ class _CalendarVisitForm extends StatefulWidget {
 }
 
 class _CalendarVisitFormState extends State<_CalendarVisitForm> {
-  final _form = GlobalKey<FormState>();
   final _description = TextEditingController();
   late Customer? _customer = widget.initialCustomer;
   late DateTime _date = widget.initialDate;
-  TimeOfDay _time = const TimeOfDay(hour: 10, minute: 30);
-  int _duration = 45;
+  TimeOfDay _time = const TimeOfDay(hour: 16, minute: 0);
+  final int _duration = 45;
+  String _reminder = '30 min';
+  bool _followUp = false, _saving = false;
+  String? _error, _createdVisit, _createdTask;
   @override
   void dispose() {
     _description.dispose();
     super.dispose();
   }
 
+  List<AgendaEvent> get _visits =>
+      CalendarAgendaData(context, today: DateUtils.dateOnly(DateTime.now()))
+          .events
+          .where(
+            (e) =>
+                e.kind == AgendaKind.visit &&
+                !e.completed &&
+                DateUtils.isSameDay(e.at, _date),
+          )
+          .toList()
+        ..sort((a, b) => a.at.compareTo(b.at));
   Future<void> _pickDay() async {
     final today = DateUtils.dateOnly(DateTime.now());
     final date = await pickSalesDate(
@@ -789,12 +802,37 @@ class _CalendarVisitFormState extends State<_CalendarVisitForm> {
   }
 
   Future<void> _pickTime() async {
-    final time = await showTimePicker(context: context, initialTime: _time);
+    final time = await pickSalesVisitTime(
+      context: context,
+      date: _date,
+      initial: _time,
+      booked: [
+        for (final e in _visits)
+          (
+            start: e.at,
+            end: e.end,
+            label: e.customerName == 'ABC Flooring'
+                ? 'ABC'
+                : e.customerName == 'City Timber Floors'
+                ? 'CT'
+                : e.customerName,
+          ),
+      ],
+    );
     if (time != null && mounted) setState(() => _time = time);
   }
 
-  void _submit() {
-    if (!_form.currentState!.validate()) return;
+  Future<void> _pickCustomer() async {
+    final customer = await chooseSalesCustomer(context);
+    if (customer != null && mounted) setState(() => _customer = customer);
+  }
+
+  Future<void> _submit() async {
+    if (_saving) return;
+    if (_customer == null) {
+      setState(() => _error = 'Select a customer.');
+      return;
+    }
     final service = context.read<CustomerNoteService>();
     final actor = context.read<AppSession>().currentUser;
     final at = DateTime(
@@ -804,138 +842,328 @@ class _CalendarVisitFormState extends State<_CalendarVisitForm> {
       _time.hour,
       _time.minute,
     );
-    service.addFollowUp(
-      customerId: _customer!.id,
-      actor: actor,
-      content: _description.text.trim(),
-      followUpDate: at,
-      followUpType: 'Customer Visit',
-      assignees: [actor],
-      priority: 'Normal',
-      reminder: 'On due date',
-    );
-    final id = service.notes.last.id;
-    Navigator.pop(context, (id, _duration));
+    final description = _description.text.trim().isEmpty
+        ? 'Customer visit'
+        : _description.text.trim();
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final previousVisit = _createdVisit;
+      final previousTask = _createdTask;
+      try {
+        await service.commit(() {
+          service.addFollowUp(
+            customerId: _customer!.id,
+            existingId: _createdVisit,
+            actor: actor,
+            content: description,
+            followUpDate: at,
+            followUpType: 'Customer Visit',
+            assignees: [actor],
+            priority: 'Normal',
+            reminder: _reminder,
+            reminderDate: _reminder == 'None'
+                ? null
+                : at.subtract(
+                    Duration(
+                      minutes: _reminder == '30 min'
+                          ? 30
+                          : _reminder == '1 hr'
+                          ? 60
+                          : 1440,
+                    ),
+                  ),
+          );
+          _createdVisit ??= service.notes.last.id;
+          if (_followUp) {
+            service.addFollowUp(
+              customerId: _customer!.id,
+              existingId: _createdTask,
+              actor: actor,
+              content: 'Follow up after visit: $description',
+              followUpDate: DateTime(_date.year, _date.month, _date.day + 1, 9),
+              followUpType: 'Other',
+              assignees: [actor],
+              priority: 'Normal',
+              reminder: 'On due date',
+            );
+            _createdTask ??= service.notes.last.id;
+          }
+        });
+      } catch (_) {
+        _createdVisit = previousVisit;
+        _createdTask = previousTask;
+        rethrow;
+      }
+      if (!mounted) return;
+      final key = 'calendar-agenda-${actor.id}';
+      final prefs = await SharedPreferences.getInstance();
+      final values = Map<String, dynamic>.from(
+        jsonDecode(prefs.getString(key) ?? '{}') as Map,
+      );
+      values['durations'] = {
+        ...Map<String, dynamic>.from(values['durations'] as Map? ?? {}),
+        _createdVisit!: _duration,
+      };
+      await prefs.setString(key, jsonEncode(values));
+      if (mounted) Navigator.pop(context, (_createdVisit!, _duration));
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => _error =
+              'Could not save the visit. Your entries are kept. Try again.',
+        );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final rows = CustomerDirectoryData(context).rows;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: dashboardBar('Schedule visit'),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: FilledButton.icon(
-            onPressed: _submit,
-            style: FilledButton.styleFrom(
-              backgroundColor: dashboardGreen,
-              minimumSize: const Size(double.infinity, 44),
+  Widget _dateField(
+    String title,
+    String icon,
+    String value,
+    String hint,
+    VoidCallback onTap,
+  ) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        detailLabel(title, required: true),
+        detailCard(
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+            minLeadingWidth: 17,
+            horizontalTitleGap: 7,
+            leading: DetailGlyph(icon, size: 17),
+            title: Text(value, style: const TextStyle(fontSize: 13)),
+            subtitle: Text(
+              hint,
+              style: const TextStyle(fontSize: 10, color: detailMuted),
             ),
-            icon: const Icon(Icons.check, size: 18),
-            label: const Text('Schedule visit'),
+            trailing: const DetailGlyph('down', size: 12),
+            onTap: onTap,
           ),
         ),
-      ),
-      body: Form(
-        key: _form,
-        child: ListView(
-          padding: const EdgeInsets.all(18),
-          children: [
-            const Text(
-              'Plan a customer visit',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Choose a customer, date and time for your calendar.',
-              style: TextStyle(fontSize: 13, color: _agendaMuted),
-            ),
-            const SizedBox(height: 22),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _customer?.id,
-              decoration: const InputDecoration(
-                labelText: 'Customer *',
-                prefixIcon: Icon(Icons.person_outline),
-              ),
-              items: rows
-                  .map(
-                    (r) => DropdownMenuItem(
-                      value: r.customer.id,
-                      child: Text(
-                        r.customer.businessName,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              validator: (c) => c == null ? 'Select a customer' : null,
-              onChanged: (id) => setState(
-                () => _customer = rows
-                    .where((r) => r.customer.id == id)
-                    .firstOrNull
-                    ?.customer,
-              ),
-            ),
-            const SizedBox(height: 18),
-            TextFormField(
-              controller: _description,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Visit purpose *',
-                hintText: 'What will you discuss or deliver?',
-              ),
-              validator: (v) => v == null || v.trim().isEmpty
-                  ? 'Enter the visit purpose'
-                  : null,
-            ),
-            const SizedBox(height: 18),
-            Row(
+      ],
+    ),
+  );
+  @override
+  Widget build(BuildContext context) {
+    final at = DateTime(
+      _date.year,
+      _date.month,
+      _date.day,
+      _time.hour,
+      _time.minute,
+    );
+    final today = DateUtils.dateOnly(DateTime.now());
+    final dayLabel = DateUtils.isSameDay(_date, today)
+        ? 'Today'
+        : DateUtils.isSameDay(_date, today.add(const Duration(days: 1)))
+        ? 'Tomorrow'
+        : DateFormat('EEE d MMM').format(_date);
+    final visits = _visits;
+    return PopScope(
+      canPop: !_saving,
+      child: Scaffold(
+        backgroundColor: const Color(0xfff3f5f4),
+        appBar: dashboardBar('Schedule visit'),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickDay,
-                    icon: const Icon(Icons.calendar_today_outlined, size: 17),
-                    label: Text(
-                      DateFormat('d MMM yyyy').format(_date),
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                  child: detailAction(
+                    'Cancel',
+                    '',
+                    _saving ? null : () => Navigator.pop(context),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickTime,
-                    icon: const Icon(Icons.schedule, size: 17),
-                    label: Text(
-                      _time.format(context),
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                  child: detailAction(
+                    _saving ? 'Saving…' : 'Schedule',
+                    'check',
+                    _saving ? null : _submit,
+                    filled: true,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            DropdownButtonFormField<int>(
-              initialValue: _duration,
-              decoration: const InputDecoration(labelText: 'Duration'),
-              items: [30, 45, 60, 90, 120]
-                  .map(
-                    (m) => DropdownMenuItem(
-                      value: m,
-                      child: Text(
-                        '$m minutes',
-                        style: const TextStyle(fontSize: 13),
+          ),
+        ),
+        body: AbsorbPointer(
+          absorbing: _saving,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+            children: [
+              detailLabel('Customer', required: true),
+              detailCard(
+                ListTile(
+                  dense: true,
+                  leading: const DetailGlyph('person', size: 18),
+                  title: Text(
+                    _customer?.businessName ?? 'Select customer',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  trailing: const DetailGlyph('down', size: 13),
+                  onTap: _pickCustomer,
+                ),
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _dateField(
+                    'Date',
+                    'calendar',
+                    DateFormat('EEE d MMM').format(_date),
+                    dayLabel,
+                    _pickDay,
+                  ),
+                  const SizedBox(width: 10),
+                  _dateField(
+                    'Time',
+                    'clock',
+                    DateFormat('h:mm a').format(at),
+                    'until ${DateFormat('h:mm a').format(at.add(Duration(minutes: _duration)))}',
+                    _pickTime,
+                  ),
+                ],
+              ),
+              detailLabel('Purpose'),
+              Wrap(
+                spacing: 6,
+                runSpacing: 5,
+                children: [
+                  for (final purpose in [
+                    'Quote walkthrough',
+                    'Deliver swatches',
+                    'Display board check',
+                    'Relationship visit',
+                    'Payment collection',
+                    'Complaint follow-up',
+                  ])
+                    ActionChip(
+                      label: Text(
+                        purpose,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: detailGreen,
+                        ),
                       ),
+                      backgroundColor: Colors.white,
+                      onPressed: () =>
+                          setState(() => _description.text = purpose),
                     ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => _duration = v!),
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _description,
+                maxLines: 1,
+                style: const TextStyle(fontSize: 13),
+                decoration: detailInput(hint: 'Add detail (optional)'),
+              ),
+              detailLabel('Remind me'),
+              Wrap(
+                spacing: 6,
+                runSpacing: 5,
+                children: [
+                  for (final option in ['None', '30 min', '1 hr', 'Day before'])
+                    ChoiceChip(
+                      showCheckmark: false,
+                      label: Text(
+                        option,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _reminder == option
+                              ? Colors.white
+                              : detailMuted,
+                        ),
+                      ),
+                      selected: _reminder == option,
+                      selectedColor: detailGreen,
+                      backgroundColor: Colors.white,
+                      onSelected: (_) => setState(() => _reminder = option),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              detailCard(
+                CheckboxListTile(
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _followUp,
+                  onChanged: (v) => setState(() => _followUp = v ?? false),
+                  title: const Text(
+                    'Also create a follow-up task',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'Due the day after the visit',
+                    style: TextStyle(fontSize: 11, color: detailMuted),
+                  ),
+                ),
+              ),
+              detailHeading(
+                'Your day · $dayLabel',
+                action: '${visits.length} visits',
+              ),
+              detailCard(
+                Column(
+                  children: [
+                    for (final visit in visits)
+                      ListTile(
+                        dense: true,
+                        leading: Text(
+                          DateFormat('h:mm a').format(visit.at),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: detailMuted,
+                          ),
+                        ),
+                        title: Text(
+                          visit.customerName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          visit.description,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: detailMuted,
+                          ),
+                        ),
+                      ),
+                    if (visits.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(15),
+                        child: Text(
+                          'No visits planned.',
+                          style: TextStyle(fontSize: 12, color: detailMuted),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(fontSize: 12, color: Colors.red),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

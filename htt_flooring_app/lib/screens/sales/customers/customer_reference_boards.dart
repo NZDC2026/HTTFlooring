@@ -4,15 +4,131 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
   List<StockSeries> get _boardSeries =>
       _catalog.where((s) => s.flooring).toList();
   int get _boardLocation => (_metadata['boardLocation'] as int?) ?? 0;
-  String get _boardStore => _abc
-      ? _boardLocation == 1
-            ? 'Chatswood Store'
-            : 'George St Showroom'
+  List<String> get _boardLocations => [
+    if (_abc) ...['George St Showroom', 'Chatswood Store'],
+    ..._boardRequests
+        .map((r) => '${r['delivery'] ?? ''}')
+        .where((v) => v.isNotEmpty),
+  ].toSet().toList();
+  String get _boardStore => _boardLocations.isNotEmpty
+      ? _boardLocations[_boardLocation.clamp(0, _boardLocations.length - 1)]
       : _customer.address.isEmpty
       ? _customer.businessName
       : _customer.address;
-  CustomerBoardFixture? _heldBoard(StockSeries series) =>
-      _abc ? customerBoardFixture(series.id, _boardLocation) : null;
+  List<Map<String, dynamic>> get _deliveredBoards =>
+      _boardRequests.where((r) => r['done'] == true).toList();
+  int get _boardPanelCount =>
+      (_abc ? 21 : 0) +
+      _deliveredBoards.fold<int>(
+        0,
+        (n, r) =>
+            n +
+            salesBoardPanelQuantities(r).values.fold<int>(0, (n, q) => n + q),
+      );
+  int _locationPanelCount(String location) =>
+      (_abc
+          ? (location == 'George St Showroom'
+                ? 18
+                : location == 'Chatswood Store'
+                ? 3
+                : 0)
+          : 0) +
+      _deliveredBoards
+          .where((r) => r['delivery'] == location)
+          .fold<int>(
+            0,
+            (n, r) =>
+                n +
+                salesBoardPanelQuantities(r).values
+                    .fold<int>(0, (n, q) => n + q),
+          );
+  int get _boardCount =>
+      (_abc ? 9 : 0) +
+      _deliveredBoards
+          .where((r) => salesBoardPanelQuantities(r).isNotEmpty)
+          .map((r) => ('${r['series']}', '${r['delivery']}'))
+          .toSet()
+          .where(
+            (pair) =>
+                !_abc ||
+                customerBoardFixture(
+                      _boardSeries
+                              .where((s) => s.name == pair.$1)
+                              .firstOrNull
+                              ?.id ??
+                          '',
+                      pair.$2 == 'George St Showroom' ? 0 : 1,
+                    ) ==
+                    null,
+          )
+          .length;
+  int _swatchQuantity(StockSeries series) =>
+      (_abc && _boardLocation == 0 && series.id == 'bonita'
+          ? 2
+          : _abc && _boardLocation == 1 && series.id == 'guardian'
+          ? 1
+          : 0) +
+      _deliveredBoards
+          .where(
+            (r) =>
+                r['series'] == series.name &&
+                r['delivery'] == _boardStore &&
+                r['boardType'] == 'Swatches',
+          )
+          .fold<int>(0, (n, r) => n + ((r['sets'] as num?)?.toInt() ?? 1));
+  Map<String, int> get _standHoldings {
+    final result = <String, int>{
+      if (_abc && _boardLocation == 0) ...{'Bonita': 2, 'Guardian': 1},
+      if (_abc && _boardLocation == 1) 'Bonita': 1,
+    };
+    for (final record in _deliveredBoards.where(
+      (r) => r['delivery'] == _boardStore && r['boardType'] == 'Stand',
+    )) {
+      final name = '${record['series']}';
+      final count = (record['sets'] as num?)?.toInt() ?? 1;
+      result.update(name, (n) => n + count, ifAbsent: () => count);
+    }
+    return result;
+  }
+
+  CustomerBoardFixture? _heldBoard(StockSeries series) {
+    final base =
+        _abc && ['George St Showroom', 'Chatswood Store'].contains(_boardStore)
+        ? customerBoardFixture(
+            series.id,
+            _boardStore == 'Chatswood Store' ? 1 : 0,
+          )
+        : null;
+    final held = <String, int>{...?base?.held};
+    final matching = _deliveredBoards
+        .where(
+          (r) => r['series'] == series.name && r['delivery'] == _boardStore,
+        )
+        .toList();
+    for (final record in matching) {
+      for (final entry in salesBoardPanelQuantities(record).entries)
+        held.update(
+          entry.key,
+          (n) => n + entry.value,
+          ifAbsent: () => entry.value,
+        );
+    }
+    if (held.isEmpty) return null;
+    return CustomerBoardFixture(
+      base?.id ?? '${matching.first['id']}',
+      base?.since ??
+          DateFormat('d MMM yyyy').format(
+            DateTime.tryParse('${matching.first['completedAt']}') ??
+                DateTime.now(),
+          ),
+      base?.age ?? 'recently',
+      held,
+      base?.colours ?? series.colours.map((c) => c.product.colour).toList(),
+      warning: base?.warning,
+      newColours: base?.newColours ?? const [],
+    );
+  }
+
   List<Map<String, dynamic>> get _returnRequests =>
       ((_metadata['boardReturns'] as List?) ?? [])
           .map((r) => Map<String, dynamic>.from(r as Map))
@@ -23,7 +139,12 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
     if (mounted)
       _refresh(
         () => _boardRequests = rows
-            .where((r) => r['board'] == true && r['customerId'] == _customer.id)
+            .where(
+              (r) =>
+                  r['board'] == true &&
+                  (r['customerId'] == _customer.id ||
+                      r['customer'] == _customer.businessName),
+            )
             .toList(),
       );
   }
@@ -42,6 +163,7 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
     final pending = _boardRequests.where((r) => r['done'] != true).toList();
     final returns = _returnRequests;
     final count = pending.length + returns.length;
+    final allCount = _boardRequests.length + returns.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -51,7 +173,7 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               children: [
-                _stat('On display', _abc ? '21' : '0', 'colour panels'),
+                _stat('On display', '$_boardPanelCount', 'colour panels'),
                 _stat('In progress', '$count', 'requests'),
                 _stat('To update', _abc ? '3' : '0', 'boards'),
               ],
@@ -60,8 +182,8 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
         ),
         const SizedBox(height: 12),
         _segments(
-          ['Boards  ${_abc ? 9 : 0}', 'Requests  $count'],
-          requests ? 'Requests  $count' : 'Boards  ${_abc ? 9 : 0}',
+          ['Boards  $_boardCount', 'Requests  $allCount'],
+          requests ? 'Requests  $allCount' : 'Boards  $_boardCount',
           (v) => _refresh(
             () => _metadata['boardTab'] = v.startsWith('Requests')
                 ? 'Requests'
@@ -70,7 +192,7 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
         ),
         const SizedBox(height: 10),
         if (requests) ...[
-          for (final r in [...pending, ...returns])
+          for (final r in [..._boardRequests, ...returns])
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: detailCard(
@@ -88,7 +210,11 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
                     '${r['series']} · ${r['return'] == true ? 'Return · ${r['reason']}' : (r['colours'] as List? ?? []).join(', ')}\n${r['delivery'] ?? ''}',
                     style: const TextStyle(fontSize: 11, color: detailMuted),
                   ),
-                  trailing: detailBadge('${r['status'] ?? 'Requested'}'),
+                  trailing: detailBadge(
+                    r['done'] == true
+                        ? 'Completed'
+                        : '${r['status'] ?? 'Requested'}',
+                  ),
                   onTap: () => showReferenceModal<void>(
                     context,
                     (_) => Column(
@@ -104,7 +230,7 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
                         ),
                         const SizedBox(height: 7),
                         Text(
-                          '${r['id']} · ${r['status']}',
+                          '${r['id']} · ${r['done'] == true ? 'Completed' : r['status']}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: detailMuted,
@@ -142,7 +268,7 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
                 ),
               ),
             ),
-          if (count == 0)
+          if (allCount == 0)
             const Padding(
               padding: EdgeInsets.all(20),
               child: Text(
@@ -151,16 +277,16 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
               ),
             ),
         ] else ...[
-          if (_abc)
+          if (_boardLocations.length > 1)
             Wrap(
               spacing: 7,
               runSpacing: 7,
               children: [
-                for (var i = 0; i < 2; i++)
+                for (var i = 0; i < _boardLocations.length; i++)
                   ChoiceChip(
                     showCheckmark: false,
                     label: Text(
-                      i == 0 ? 'George St Showroom  18' : 'Chatswood Store  3',
+                      '${_boardLocations[i]}  ${_locationPanelCount(_boardLocations[i])}',
                       style: TextStyle(
                         fontSize: 11,
                         color: _boardLocation == i ? Colors.white : detailGreen,
@@ -253,12 +379,8 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
                           TextButton(
                             onPressed: () => _requestBoard(s, swatch: true),
                             child: Text(
-                              _abc && _boardLocation == 0 && s.id == 'bonita'
-                                  ? '✓ Swatch ×2'
-                                  : _abc &&
-                                        _boardLocation == 1 &&
-                                        s.id == 'guardian'
-                                  ? '✓ Swatch ×1'
+                              _swatchQuantity(s) > 0
+                                  ? '✓ Swatch ×${_swatchQuantity(s)}'
                                   : '+ Swatch',
                               style: const TextStyle(
                                 fontSize: 10,
@@ -279,18 +401,18 @@ extension _CustomerReferenceBoards on _ReferenceCustomerDetailState {
           detailCard(
             ListTile(
               title: Text(
-                'Stands · ${_abc ? (_boardLocation == 0 ? 3 : 1) : 0}',
+                'Stands · ${_standHoldings.values.fold<int>(0, (n, q) => n + q)}',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               subtitle: Text(
-                _abc
-                    ? _boardLocation == 0
-                          ? 'Bonita ×2 · Guardian ×1'
-                          : 'Bonita ×1'
-                    : 'No stands recorded',
+                _standHoldings.isEmpty
+                    ? 'No stands recorded'
+                    : _standHoldings.entries
+                          .map((e) => '${e.key} ×${e.value}')
+                          .join(' · '),
                 style: const TextStyle(fontSize: 11, color: detailMuted),
               ),
               trailing: TextButton(

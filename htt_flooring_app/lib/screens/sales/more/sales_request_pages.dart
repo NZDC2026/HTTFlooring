@@ -9,7 +9,7 @@ List<Map<String, dynamic>> salesSampleReferenceRecords() => [
     'series': '',
     'colours': ['Heritage Natural Oak', 'Heritage White Oak'],
     'delivery': 'I will deliver',
-    'date': '18 Nov',
+    'date': '16 Nov',
     'note': 'For a client kitchen',
     'done': false,
     'status': 'Sent · need 18 Nov',
@@ -42,27 +42,55 @@ List<Map<String, dynamic>> salesSampleReferenceRecords() => [
     'done': false,
     'status': 'Delivery 20 Nov',
   },
+  {
+    'id': 'DBR-0398',
+    'board': true,
+    'customer': 'City Timber Floors',
+    'customerId': '',
+    'series': 'Studio',
+    'category': 'Engineered Timber',
+    'colours': ['Walnut × 1'],
+    'delivery': 'Parramatta Showroom',
+    'date': '21 Oct',
+    'note': '',
+    'reason': 'Damaged',
+    'done': true,
+    'completedAt': '2026-11-02T12:00:00',
+    'status': 'Completed 2 Nov',
+    'boardType': 'Panels',
+    'requestType': 'Add more',
+  },
 ];
 
 Future<List<Map<String, dynamic>>> readSalesSampleRecords(
   String userId, {
   required bool demo,
-}) async {
-  final raw = (await SharedPreferences.getInstance()).getString(
-    'sales-sample-requests-$userId',
-  );
-  if (raw == null) return demo ? salesSampleReferenceRecords() : [];
-  try {
-    return (jsonDecode(raw) as List)
-        .map((r) => Map<String, dynamic>.from(r as Map))
-        .toList();
-  } catch (_) {
-    return [];
-  }
-}
+}) => LocalSalesRecordStore.read(
+  'sales-sample-requests-$userId',
+  initial: demo ? salesSampleReferenceRecords() : const [],
+);
 
-Future<Customer?> chooseSalesCustomer(BuildContext context) =>
-    _chooseSampleCustomer(context);
+Future<void> saveSalesSampleRecord(
+  String userId,
+  Map<String, dynamic> record, {
+  required bool demo,
+}) => LocalSalesRecordStore.upsert(
+  'sales-sample-requests-$userId',
+  record,
+  initial: demo ? salesSampleReferenceRecords() : const [],
+);
+
+Future<Customer?> chooseSalesCustomer(
+  BuildContext context, {
+  bool prices = false,
+  Customer? current,
+  VoidCallback? onClear,
+}) => _chooseSampleCustomer(
+  context,
+  prices: prices,
+  current: current,
+  onClear: onClear,
+);
 
 class SalesSamplesScreen extends StatelessWidget {
   const SalesSamplesScreen({
@@ -103,8 +131,6 @@ class _SalesRequestsState extends State<_SalesRequestsScreen> {
   bool _loaded = false;
   final List<Map<String, dynamic>> _records = [];
   List<Map<String, dynamic>> _office = [];
-  String get _key =>
-      'sales-sample-requests-${context.read<AppSession>().currentUser.id}';
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -130,11 +156,12 @@ class _SalesRequestsState extends State<_SalesRequestsScreen> {
     }
   }
 
-  Future<void> _save() async {
-    final key = _key;
-    final p = await SharedPreferences.getInstance();
-    await p.setString(key, jsonEncode(_records));
-  }
+  Future<void> _saveRecord(Map<String, dynamic> record) =>
+      saveSalesSampleRecord(
+        context.read<AppSession>().currentUser.id,
+        record,
+        demo: SalesDashboardData(context).sample,
+      );
 
   Widget _tabs(List<String> labels) => Container(
     padding: const EdgeInsets.all(3),
@@ -208,7 +235,7 @@ class _SalesRequestsState extends State<_SalesRequestsScreen> {
         )
         .toList();
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xfff3f5f4),
       appBar: dashboardBar(
         widget.samples ? 'Samples' : 'Requests',
         actions: widget.samples
@@ -581,37 +608,63 @@ class _SalesRequestsState extends State<_SalesRequestsScreen> {
         children: [
           Row(
             children: [
-              Text(
-                '${r['id']}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                flex: 2,
+                child: Wrap(
+                  spacing: 7,
+                  runSpacing: 5,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '${r['id']}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF0F2),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        r['board'] == true
+                            ? '${r['requestType'] ?? 'New board'}'
+                            : 'Loose swatch',
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 7),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF0F2),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Text(
-                  r['board'] == true ? 'New board' : 'Loose swatch',
-                  style: const TextStyle(fontSize: 10),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF0FD),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Text(
-                  r['done'] == true ? 'Delivered' : '${r['status']}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF275FB2),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF0FD),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    r['done'] == true
+                        ? (r['board'] == true
+                              ? '✓ Completed ${r['completedAt'] == null ? '' : DateFormat('d MMM').format(DateTime.tryParse('${r['completedAt']}') ?? DateTime.now())}'
+                              : '✓ Delivered')
+                        : '${r['status']}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF275FB2),
+                    ),
                   ),
                 ),
               ),
@@ -665,7 +718,7 @@ class _SalesRequestsState extends State<_SalesRequestsScreen> {
                 ? '${r['sets']} stands'
                 : r['boardType'] == 'Swatches'
                 ? '${r['sets']} swatch sets'
-                : '${(r['colours'] as List).length} ${r['board'] == true ? 'colour panels' : 'colours'}',
+                : '${r['board'] == true ? salesBoardPanelQuantities(r).values.fold<int>(0, (n, v) => n + v) : (r['colours'] as List).length} ${r['board'] == true ? 'colour panels' : 'colours'}',
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
@@ -717,10 +770,7 @@ class _SalesRequestsState extends State<_SalesRequestsScreen> {
                     borderRadius: BorderRadius.circular(11),
                   ),
                 ),
-                onPressed: () async {
-                  setState(() => r['done'] = true);
-                  await _save();
-                },
+                onPressed: () => _deliverSample(r),
                 icon: const _MoreIcon(
                   CupertinoIcons.check_mark_circled,
                   size: 14,
@@ -736,6 +786,69 @@ class _SalesRequestsState extends State<_SalesRequestsScreen> {
       ),
     ),
   );
+  Future<void> _deliverSample(Map<String, dynamic> record) async {
+    if (record['board'] == true) {
+      final yes = await showReferenceModal<bool>(
+        context,
+        (dialog) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mark as delivered?',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 9),
+            Text(
+              '${record['id']} will be completed and the boards at ${record['delivery']} updated.',
+              style: const TextStyle(
+                fontSize: 12,
+                color: detailMuted,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: detailAction(
+                    'Cancel',
+                    '',
+                    () => Navigator.pop(dialog, false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: detailAction(
+                    'Complete',
+                    '',
+                    () => Navigator.pop(dialog, true),
+                    filled: true,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      if (yes != true || !mounted) return;
+    }
+    if (record['done'] == true) return;
+    setState(() {
+      record['done'] = true;
+      record['completedAt'] = DateTime.now().toIso8601String();
+    });
+    try {
+      await _saveRecord(record);
+    } catch (_) {
+      if (mounted) setState(() => record['done'] = false);
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save delivery. Try again.')),
+        );
+    }
+  }
+
   Future<void> _newRequest() async {
     final customer =
         widget.initialCustomer ?? await _chooseSampleCustomer(context);
@@ -795,11 +908,15 @@ class _SalesRequestsState extends State<_SalesRequestsScreen> {
       _tab = board ? 1 : 0;
       _status = 'In progress';
     });
-    await _save();
   }
 }
 
-Future<Customer?> _chooseSampleCustomer(BuildContext context) {
+Future<Customer?> _chooseSampleCustomer(
+  BuildContext context, {
+  bool prices = false,
+  Customer? current,
+  VoidCallback? onClear,
+}) {
   final rows = [...CustomerDirectoryData(context).rows]
     ..sort((a, b) {
       if (a.dueVisit != b.dueVisit) return a.dueVisit ? -1 : 1;
@@ -814,9 +931,26 @@ Future<Customer?> _chooseSampleCustomer(BuildContext context) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Customer',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    prices ? 'Show prices for' : 'Customer',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (current != null && onClear != null)
+                  TextButton(
+                    onPressed: () {
+                      onClear();
+                      Navigator.pop(sheet);
+                    },
+                    child: const Text('Clear'),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
             TextField(
@@ -904,9 +1038,20 @@ Future<Customer?> _chooseSampleCustomer(BuildContext context) {
                           ),
                           style: const TextStyle(fontSize: 10),
                         ),
-                        trailing: r.dueVisit
-                            ? _badge('Due', amber: true)
-                            : null,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (r.dueVisit) _badge('Due', amber: true),
+                            if (current?.id == r.customer.id) ...[
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.check,
+                                size: 17,
+                                color: detailGreen,
+                              ),
+                            ],
+                          ],
+                        ),
                         onTap: () => Navigator.pop(sheet, r.customer),
                       ),
                     ),
@@ -921,8 +1066,15 @@ Future<Customer?> _chooseSampleCustomer(BuildContext context) {
 }
 
 class _SampleRequestForm extends StatefulWidget {
-  const _SampleRequestForm({required this.customer, required this.board});
-  final Customer customer;
+  const _SampleRequestForm({
+    this.customer,
+    required this.board,
+    this.initialProducts = const [],
+    this.offcut = false,
+  });
+  final Customer? customer;
+  final List<Product> initialProducts;
+  final bool offcut;
   final bool board;
   @override
   State<_SampleRequestForm> createState() => _SampleRequestFormState();
@@ -934,8 +1086,12 @@ class _SampleRequestFormState extends State<_SampleRequestForm> {
     demo: SalesDashboardData(context).sample,
     region: context.read<SalesSession>().region,
   ).expand((s) => s.colours.map((c) => c.product)).toList();
-  final Set<String> _products = {};
-  late Customer _customer = widget.customer;
+  late final Set<String> _products = widget.initialProducts
+      .map((p) => p.id)
+      .toSet();
+  late Customer? _customer = widget.customer;
+  String? _error;
+  bool _saving = false;
   DateTime _date = DateUtils.dateOnly(DateTime.now())
       .add(const Duration(days: 3));
   String _delivery = 'I will deliver';
@@ -959,11 +1115,60 @@ class _SampleRequestFormState extends State<_SampleRequestForm> {
     }
   }
 
+  Future<void> _submit() async {
+    if (_saving || _products.isEmpty) return;
+    if (_customer == null) {
+      setState(() => _error = 'Select a customer.');
+      return;
+    }
+    final userId = context.read<AppSession>().currentUser.id;
+    final demo = SalesDashboardData(context).sample;
+    final record = <String, dynamic>{
+      'id':
+          '${widget.board ? 'DBR' : 'SMP'}-${DateTime.now().microsecondsSinceEpoch}',
+      'board': widget.board,
+      'customer': _customer!.businessName,
+      'customerId': _customer!.id,
+      'series': '',
+      'category': '',
+      'colours': [
+        for (final p in _catalogue.where((p) => _products.contains(p.id)))
+          p.name,
+      ],
+      'delivery': _delivery,
+      'date': DateFormat('d MMM').format(DateTime.now()),
+      'neededBy': _date.toIso8601String(),
+      'note': _note.text.trim(),
+      'done': false,
+      'status': 'Requested · need ${DateFormat('d MMM').format(_date)}',
+    };
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await saveSalesSampleRecord(userId, record, demo: demo);
+      if (mounted) Navigator.pop(context, record);
+    } catch (_) {
+      if (mounted)
+        setState(
+          () => _error =
+              'Could not save the request. Your entries are kept. Try again.',
+        );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
+    backgroundColor: const Color(0xfff3f5f4),
     appBar: dashboardBar(
-      widget.board ? 'Request display board' : 'Request swatches',
+      widget.board
+          ? 'Request display board'
+          : widget.offcut
+          ? 'Request offcut'
+          : 'Request swatches',
     ),
     bottomNavigationBar: SafeArea(
       top: false,
@@ -980,33 +1185,11 @@ class _SampleRequestFormState extends State<_SampleRequestForm> {
             const SizedBox(width: 10),
             Expanded(
               child: FilledButton(
-                onPressed: _products.isEmpty
-                    ? null
-                    : () {
-                        Navigator.pop(context, <String, dynamic>{
-                          'id':
-                              '${widget.board ? 'DBR' : 'SMP'}-${DateTime.now().millisecondsSinceEpoch}',
-                          'board': widget.board,
-                          'customer': _customer.businessName,
-                          'customerId': _customer.id,
-                          'series': '',
-                          'category': '',
-                          'colours': [
-                            for (final p in _catalogue.where(
-                              (p) => _products.contains(p.id),
-                            ))
-                              p.name,
-                          ],
-                          'delivery': _delivery,
-                          'date': DateFormat('d MMM').format(DateTime.now()),
-                          'neededBy': _date.toIso8601String(),
-                          'note': _note.text.trim(),
-                          'done': false,
-                          'status':
-                              'Requested · need ${DateFormat('d MMM').format(_date)}',
-                        });
-                      },
-                child: const Text('Request', style: TextStyle(fontSize: 13)),
+                onPressed: _saving || _products.isEmpty ? null : _submit,
+                child: Text(
+                  _saving ? 'Saving…' : 'Request ${_products.length}',
+                  style: const TextStyle(fontSize: 13),
+                ),
               ),
             ),
           ],
@@ -1021,13 +1204,15 @@ class _SampleRequestFormState extends State<_SampleRequestForm> {
         _box(
           ListTile(
             title: Text(
-              _customer.businessName,
+              _customer?.businessName ?? 'Select customer',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
-            subtitle: Text(
-              '${_customer.region.label} · ${_customer.type}',
-              style: const TextStyle(fontSize: 11),
-            ),
+            subtitle: _customer == null
+                ? null
+                : Text(
+                    '${_customer!.region.label} · ${_customer!.type}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
             trailing: const _MoreIcon(CupertinoIcons.chevron_down, size: 14),
             onTap: () async {
               final c = await _chooseSampleCustomer(context);
@@ -1038,25 +1223,26 @@ class _SampleRequestFormState extends State<_SampleRequestForm> {
         const SizedBox(height: 18),
         const Text('Products *', style: TextStyle(fontSize: 12)),
         const SizedBox(height: 7),
-        OutlinedButton.icon(
-          onPressed: _pickProducts,
-          icon: const _MoreIcon(CupertinoIcons.plus, size: 15),
-          label: Text(
-            _products.isEmpty
-                ? 'Pick products'
-                : '${_products.length} products selected',
-            style: const TextStyle(fontSize: 13),
-          ),
-        ),
         for (final p in _catalogue.where((p) => _products.contains(p.id)))
-          ListTile(
-            dense: true,
-            title: Text(p.name, style: const TextStyle(fontSize: 13)),
-            trailing: IconButton(
-              icon: const Icon(Icons.close, size: 15),
-              onPressed: () => setState(() => _products.remove(p.id)),
+          _box(
+            ListTile(
+              leading: InventorySwatch(seed: p.colour, size: 30, single: true),
+              title: Text(p.name, style: const TextStyle(fontSize: 14)),
+              subtitle: Text(
+                p.sku,
+                style: const TextStyle(fontSize: 11, color: _muted),
+              ),
+              trailing: IconButton(
+                tooltip: 'Remove',
+                icon: const Icon(Icons.close, size: 17),
+                onPressed: () => setState(() => _products.remove(p.id)),
+              ),
             ),
           ),
+        detailAddAction(
+          _products.isEmpty ? 'Pick products' : 'Add more',
+          _pickProducts,
+        ),
         const SizedBox(height: 18),
         Row(
           children: [
@@ -1119,12 +1305,21 @@ class _SampleRequestFormState extends State<_SampleRequestForm> {
         const SizedBox(height: 7),
         TextField(
           controller: _note,
-          maxLines: 3,
+          maxLines: 1,
           decoration: const InputDecoration(
+            fillColor: Colors.white,
             hintText: 'e.g. For a client kitchen',
             hintStyle: TextStyle(fontSize: 13),
           ),
         ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              _error!,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
         const SizedBox(height: 14),
         const Text(
           'Saved on this device for follow-up.',
@@ -1133,4 +1328,26 @@ class _SampleRequestFormState extends State<_SampleRequestForm> {
       ],
     ),
   );
+}
+
+Future<void> requestSalesOffcut(
+  BuildContext context, {
+  Customer? customer,
+  Product? product,
+}) async {
+  final record = await Navigator.push<Map<String, dynamic>>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => _SampleRequestForm(
+        customer: customer,
+        board: false,
+        initialProducts: product == null ? const [] : [product],
+        offcut: product != null,
+      ),
+    ),
+  );
+  if (record == null) return;
+  if (context.mounted)
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Sample request saved.')));
 }

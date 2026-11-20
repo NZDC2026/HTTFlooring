@@ -83,8 +83,23 @@ class _InventorySeriesDetailsState extends State<InventorySeriesDetails> {
   }
 
   Future<void> _choose() async {
-    final c = await chooseSalesCustomer(context);
-    if (c != null && mounted) setState(() => _customer = c);
+    final c = await chooseSalesCustomer(
+      context,
+      prices: true,
+      current: _customer,
+      onClear: () => setState(() => _customer = null),
+    );
+    if (c != null && mounted) {
+      seedCustomerReferencePrices(
+        context,
+        c,
+        inventoryCatalog(
+          demo: SalesDashboardData(context).sample,
+          region: c.region,
+        ),
+      );
+      setState(() => _customer = c);
+    }
   }
 
   @override
@@ -99,7 +114,8 @@ class _InventorySeriesDetailsState extends State<InventorySeriesDetails> {
                           .toLowerCase()
                           .contains(_query.toLowerCase())) &&
                   (_filter == 'All' ||
-                      _filter == 'Low' && c.low ||
+                      _filter == 'Low' && c.low && c.quantity > 0 ||
+                      _filter == 'Out' && c.quantity == 0 ||
                       _filter == 'Incoming' && c.incoming > 0 ||
                       _filter == 'In stock' && !c.low && c.quantity > 0),
             )
@@ -112,201 +128,265 @@ class _InventorySeriesDetailsState extends State<InventorySeriesDetails> {
                 : a.quantity.compareTo(b.quantity),
           );
     final incoming = s.colours.fold<double>(0, (v, c) => v + c.incoming);
+    context.watch<PricingService>();
+    final count = s.colours.length;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xfff3f5f4),
       appBar: dashboardBar(
         'Series',
-        actions: [
-          TextButton(
-            onPressed: _choose,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const DetailGlyph('person', size: 15),
-                const SizedBox(width: 6),
-                Text(
-                  _customer == null
-                      ? 'Customer'
-                      : _customer!.businessName
-                            .split(' ')
-                            .map((word) => word.isEmpty ? '' : word[0])
-                            .take(2)
-                            .join(),
-                  style: const TextStyle(fontSize: 12, color: dashboardGreen),
-                ),
-                const SizedBox(width: 5),
-                const DetailGlyph('down', size: 12),
-              ],
-            ),
-          ),
-        ],
+        actions: [_inventoryCustomerButton(_customer, _choose)],
       ),
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
           Text(
             '${s.category} · ${s.style}'.toUpperCase(),
-            style: const TextStyle(fontSize: 10, color: _stockMuted),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            s.name,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 10,
+              color: _stockMuted,
+              letterSpacing: .5,
+            ),
           ),
           const SizedBox(height: 5),
           Text(
-            '${s.dimensions}${s.flooring ? ' · ${_stockNumber(s.colours.first.product.sqmPerBox)} m²/box' : ''} · from \$${s.colours.first.product.standardPrice.toStringAsFixed(2)}/${s.priceUnit}',
+            s.name,
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${s.dimensions}${s.flooring ? ' · ${_stockNumber(s.colours.first.product.sqmPerBox)} m²/box' : ''} · from \$${s.colours.map((c) => c.product.standardPrice).reduce((a, b) => a < b ? a : b).toStringAsFixed(2)}/${s.priceUnit}',
             style: const TextStyle(fontSize: 11, color: _stockMuted),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              for (final value in [
-                (
-                  'In stock',
-                  '${_stockNumber(s.flooring ? s.area : s.quantity)} ${s.flooring ? 'm²' : s.unit}',
-                  '${s.quantity} ${s.unit}',
-                ),
-                (
-                  'Incoming',
-                  '+${_stockNumber(incoming)} ${s.flooring ? 'm²' : s.unit}',
-                  'next ${s.id == 'bonita' ? '25 Nov' : s.colours.where((c) => c.incoming > 0).firstOrNull?.eta ?? '—'}',
-                ),
-                (
-                  'Low stock',
-                  '${s.lowCount}',
-                  'of ${s.colours.length} colours',
-                ),
-              ])
-                Expanded(
-                  child: detailCard(
-                    _detailPad(
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 13),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: detailCard(
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ['In stock', 'Incoming', 'Low stock'][i],
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _stockMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: i == 0
+                                        ? _stockNumber(
+                                            s.flooring
+                                                ? s.area.round()
+                                                : s.quantity,
+                                          )
+                                        : i == 1
+                                        ? '+${_stockNumber(incoming)}'
+                                        : '${s.lowCount}',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: i == 1
+                                          ? const Color(0xff1561b2)
+                                          : i == 2
+                                          ? _stockAmber
+                                          : detailGreen,
+                                    ),
+                                  ),
+                                  if (i < 2)
+                                    TextSpan(
+                                      text: ' ${s.flooring ? 'm²' : s.unit}',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: _stockMuted,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              i == 0
+                                  ? '${s.quantity} ${s.unit}'
+                                  : i == 1
+                                  ? 'next ${s.id == 'bonita' ? '25 Nov' : s.colours.where((c) => c.incoming > 0).firstOrNull?.eta ?? '—'}'
+                                  : 'of $count ${s.flooring ? 'colours' : 'options'}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _stockMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          _stockPanel(
+            'Colours',
+            'layers',
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          onChanged: (v) => setState(() => _query = v),
+                          style: const TextStyle(fontSize: 13),
+                          decoration: detailInput(hint: 'Find a colour')
+                              .copyWith(
+                                fillColor: Colors.white,
+                                prefixIcon: const Icon(Icons.search, size: 17),
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _sort,
+                            isDense: true,
+                            items: ['A–Z', 'Most', 'Least']
+                                .map(
+                                  (v) => DropdownMenuItem(
+                                    value: v,
+                                    child: Text(
+                                      v,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (v) {
+                              if (v != null) setState(() => _sort = v);
+                            },
+                          ),
+                        ),
+                      ),
+                      for (final grid in [true, false])
+                        SizedBox(
+                          width: 37,
+                          child: IconButton(
+                            tooltip: grid ? 'Grid view' : 'List view',
+                            onPressed: () => setState(() => _grid = grid),
+                            style: IconButton.styleFrom(
+                              backgroundColor: _grid == grid
+                                  ? Colors.white
+                                  : Colors.transparent,
+                            ),
+                            icon: Icon(
+                              grid
+                                  ? Icons.grid_view_rounded
+                                  : Icons.format_list_bulleted,
+                              size: 17,
+                              color: _grid == grid ? detailGreen : _stockMuted,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 5,
+                    children: [
+                      for (final f in [
+                        'All',
+                        'In stock',
+                        'Low',
+                        if (s.colours.any((c) => c.quantity == 0)) 'Out',
+                        'Incoming',
+                      ])
+                        ChoiceChip(
+                          showCheckmark: false,
+                          label: Text(
+                            '$f ${f == 'All'
+                                ? count
+                                : f == 'Low'
+                                ? s.colours.where((c) => c.low && c.quantity > 0).length
+                                : f == 'Out'
+                                ? s.colours.where((c) => c.quantity == 0).length
+                                : f == 'Incoming'
+                                ? s.colours.where((c) => c.incoming > 0).length
+                                : s.colours.where((c) => !c.low && c.quantity > 0).length}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: _filter == f
+                                  ? Colors.white
+                                  : f == 'Low'
+                                  ? _stockAmber
+                                  : f == 'Incoming'
+                                  ? const Color(0xff1561b2)
+                                  : _stockMuted,
+                            ),
+                          ),
+                          selected: _filter == f,
+                          selectedColor: detailGreen,
+                          backgroundColor: Colors.white,
+                          onSelected: (_) => setState(() => _filter = f),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (colours.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text(
+                        'No matching colours.',
+                        style: TextStyle(fontSize: 12, color: _stockMuted),
+                      ),
+                    ),
+                  if (_grid)
+                    LayoutBuilder(
+                      builder: (_, constraints) => GridView.count(
+                        crossAxisCount: 3,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisExtent: (constraints.maxWidth - 14) / 3 + 85,
+                        mainAxisSpacing: 7,
+                        crossAxisSpacing: 7,
                         children: [
-                          Text(
-                            value.$1,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: _stockMuted,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            value.$2,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            value.$3,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: _stockMuted,
-                            ),
-                          ),
+                          for (final c in colours) _colour(s, c, true),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          detailHeading(
-            'Colours',
-            action: '${colours.length} of ${s.colours.length}',
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  onChanged: (v) => setState(() => _query = v),
-                  decoration: detailInput(hint: 'Search colour or SKU...'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: _sort,
-                items: ['A–Z', 'Most', 'Least']
-                    .map(
-                      (v) => DropdownMenuItem(
-                        value: v,
-                        child: Text(v, style: const TextStyle(fontSize: 12)),
-                      ),
                     )
-                    .toList(),
-                onChanged: (v) => setState(() => _sort = v!),
+                  else
+                    for (final c in colours)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: _colour(s, c, false),
+                      ),
+                ],
               ),
-              IconButton(
-                tooltip: _grid ? 'List view' : 'Grid view',
-                onPressed: () => setState(() => _grid = !_grid),
-                icon: DetailGlyph(_grid ? 'doc' : 'box'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            children: [
-              for (final f in ['All', 'In stock', 'Low', 'Incoming'])
-                ChoiceChip(
-                  showCheckmark: false,
-                  label: Text(
-                    '$f ${f == 'All'
-                        ? s.colours.length
-                        : f == 'Low'
-                        ? s.lowCount
-                        : f == 'Incoming'
-                        ? s.colours.where((c) => c.incoming > 0).length
-                        : s.colours.where((c) => !c.low && c.quantity > 0).length}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: _filter == f ? Colors.white : _stockMuted,
-                    ),
-                  ),
-                  selected: _filter == f,
-                  selectedColor: dashboardGreen,
-                  onSelected: (_) => setState(() => _filter = f),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (_grid)
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.2,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              children: [for (final c in colours) _colour(s, c, true)],
-            )
-          else
-            for (final c in colours)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: _colour(s, c, false),
-              ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Specifications',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
-            subtitle: Text(
-              s.dimensions,
-              style: const TextStyle(fontSize: 11, color: _stockMuted),
-            ),
-            trailing: DetailGlyph(_spec ? 'down' : 'chevron'),
-            onTap: () => setState(() => _spec = !_spec),
+            trailing: '${colours.length} of $count',
           ),
-          if (_spec)
-            Text(
-              '${s.category} · ${s.style}\n${s.dimensions}\nCoverage: ${s.colours.first.product.sqmPerBox} m²/box',
-              style: const TextStyle(fontSize: 12, height: 1.8),
-            ),
+          const SizedBox(height: 14),
+          _inventorySpecifications(
+            s,
+            _spec,
+            () => setState(() => _spec = !_spec),
+          ),
+          const SizedBox(height: 15),
         ],
       ),
     );
@@ -319,65 +399,165 @@ class _InventorySeriesDetailsState extends State<InventorySeriesDetails> {
             customerId: _customer!.id,
             product: c.product,
           );
-    final text = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          c.product.colour,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+    Widget badge(String label, {bool incoming = false}) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      decoration: BoxDecoration(
+        color: incoming ? const Color(0xffe5efff) : const Color(0xfffff3dc),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 9,
+          color: incoming ? const Color(0xff1764d9) : _stockAmber,
+          fontWeight: FontWeight.w500,
         ),
-        const SizedBox(height: 4),
-        Text(
-          '${c.product.sku} · \$${price.toStringAsFixed(2)}',
-          style: const TextStyle(fontSize: 10, color: _stockMuted),
-        ),
-        const SizedBox(height: 7),
-        Text(
-          s.flooring
-              ? '${_stockNumber(c.area.round())} m²  ${c.quantity} bx'
-              : '${c.quantity} ${s.unit}',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-        if (c.low || c.incoming > 0)
-          Text(
-            '${c.low ? 'Low  ' : ''}${c.incoming > 0 ? '+${_stockNumber(c.incoming)} ${s.flooring ? 'm²' : s.unit} · ${c.eta}' : ''}',
-            style: const TextStyle(fontSize: 10, color: Color(0xFF2167CD)),
-          ),
-      ],
+      ),
     );
-    return detailCard(
-      InkWell(
-        onTap: () => dashboardOpen(
-          context,
-          InventoryColourDetails(series: s, colour: c, customer: _customer),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: grid
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InventorySwatch(
-                      seed: c.product.colour,
-                      size: 44,
-                      single: true,
-                    ),
-                    const SizedBox(height: 8),
-                    text,
-                  ],
-                )
-              : Row(
-                  children: [
-                    InventorySwatch(
-                      seed: c.product.colour,
-                      size: 42,
-                      single: true,
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(child: text),
-                    const DetailGlyph('chevron', size: 14, color: _stockMuted),
-                  ],
-                ),
+    Widget amount() => Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '${_stockNumber(s.flooring ? c.area.round() : c.quantity)} ',
+            style: TextStyle(
+              fontSize: grid ? 12 : 14,
+              fontWeight: FontWeight.w600,
+              color: c.low ? _stockAmber : const Color(0xff18241f),
+            ),
+          ),
+          TextSpan(
+            text: s.flooring ? 'm²  ${c.quantity} bx' : s.unit,
+            style: TextStyle(fontSize: grid ? 8 : 10, color: _stockMuted),
+          ),
+        ],
+      ),
+    );
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: c.low && grid
+            ? Border.all(color: const Color(0xffdab461), width: 1.5)
+            : null,
+      ),
+      child: detailCard(
+        InkWell(
+          onTap: () => dashboardOpen(
+            context,
+            InventoryColourDetails(series: s, colour: c, customer: _customer),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(grid ? 6 : 10),
+            child: grid
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LayoutBuilder(
+                        builder: (_, constraints) => Stack(
+                          children: [
+                            InventorySwatch(
+                              seed: c.product.colour,
+                              size: constraints.maxWidth,
+                              single: true,
+                            ),
+                            if (c.low)
+                              Positioned(
+                                top: 4,
+                                left: 4,
+                                child: badge(
+                                  c.quantity == 0 ? 'Out of stock' : 'Low',
+                                ),
+                              ),
+                            if (c.incoming > 0)
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: badge(
+                                  '+${_stockNumber(c.incoming)} · ${c.eta}',
+                                  incoming: true,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        c.product.colour,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        c.product.sku,
+                        style: const TextStyle(fontSize: 9, color: _stockMuted),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${price.toStringAsFixed(2)}/${s.priceUnit}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: detailGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      amount(),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      InventorySwatch(
+                        seed: c.product.colour,
+                        size: 30,
+                        single: true,
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.product.colour,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${c.product.sku} · \$${price.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: _stockMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            amount(),
+                            if (c.low || c.incoming > 0) ...[
+                              const SizedBox(height: 4),
+                              if (c.low)
+                                badge(c.quantity == 0 ? 'Out of stock' : 'Low'),
+                              if (c.incoming > 0)
+                                badge(
+                                  '+${_stockNumber(c.incoming)} ${s.flooring ? 'm²' : s.unit} · ${c.eta}',
+                                  incoming: true,
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );
@@ -415,29 +595,41 @@ class _InventoryColourDetailsState extends State<InventoryColourDetails> {
   }
 
   Future<void> _choose() async {
-    final c = await chooseSalesCustomer(context);
-    if (c != null && mounted) setState(() => _customer = c);
+    final c = await chooseSalesCustomer(
+      context,
+      prices: true,
+      current: _customer,
+      onClear: () => setState(() => _customer = null),
+    );
+    if (c != null && mounted) {
+      seedCustomerReferencePrices(
+        context,
+        c,
+        inventoryCatalog(
+          demo: SalesDashboardData(context).sample,
+          region: c.region,
+        ),
+      );
+      setState(() => _customer = c);
+    }
   }
 
   Future<void> _request(bool quote) async {
-    final c = _customer ?? await chooseSalesCustomer(context);
-    if (!mounted || c == null) return;
     if (quote) {
-      dashboardOpen(
+      await Navigator.push<void>(
         context,
-        SalesQuoteRequestScreen(
-          customer: c,
-          initialProduct: widget.colour.product,
+        MaterialPageRoute(
+          builder: (_) => SalesQuoteRequestScreen(
+            customer: _customer,
+            initialProduct: widget.colour.product,
+          ),
         ),
       );
     } else {
-      dashboardOpen(
+      await requestSalesOffcut(
         context,
-        SalesSamplesScreen(
-          createOnOpen: true,
-          initialCustomer: c,
-          initialBoard: false,
-        ),
+        customer: _customer,
+        product: widget.colour.product,
       );
     }
   }
@@ -465,36 +657,18 @@ class _InventoryColourDetailsState extends State<InventoryColourDetails> {
             customerId: _customer!.id,
             product: p,
           );
-    final input = double.tryParse(_area.text) ?? 0;
-    final boxes = (_boxes ? input : input / sqm).ceil();
+    final calculation = SalesQuoteQuantity.parse(
+      _area.text,
+      flooring: s.flooring,
+      boxes: _boxes,
+      coverage: sqm,
+    );
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xfff3f5f4),
       appBar: dashboardBar(
         s.name,
-        actions: [
-          TextButton(
-            onPressed: _choose,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const DetailGlyph('person', size: 15),
-                const SizedBox(width: 6),
-                Text(
-                  _customer == null
-                      ? 'Customer'
-                      : _customer!.businessName
-                            .split(' ')
-                            .map((word) => word.isEmpty ? '' : word[0])
-                            .take(2)
-                            .join(),
-                  style: const TextStyle(fontSize: 12, color: dashboardGreen),
-                ),
-                const SizedBox(width: 5),
-                const DetailGlyph('down', size: 12),
-              ],
-            ),
-          ),
-        ],
+        actions: [_inventoryCustomerButton(_customer, _choose)],
       ),
       body: ListView(
         padding: const EdgeInsets.all(12),
@@ -778,36 +952,20 @@ class _InventoryColourDetailsState extends State<InventoryColourDetails> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    if (input <= 0)
-                      const Text(
-                        'Enter the floor area to see boxes needed, stock and batch cover.',
-                        style: TextStyle(fontSize: 11, color: _stockMuted),
+                    if (calculation == null)
+                      Text(
+                        _area.text.trim().isEmpty
+                            ? 'Enter the floor area to see boxes needed, stock and batch cover.'
+                            : 'Enter a valid positive quantity${_boxes ? ' in whole boxes' : ''}.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _area.text.trim().isEmpty
+                              ? _stockMuted
+                              : Colors.red,
+                        ),
                       )
                     else
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${_stockNumber(_boxes ? input * sqm : input)} m² = $boxes boxes (${_stockNumber(boxes * sqm)} m²)',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            boxes <= c.quantity
-                                ? '✓ In stock · ${c.quantity - boxes} boxes left'
-                                : 'Stock shortfall · ${boxes - c.quantity} boxes required',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: boxes <= c.quantity
-                                  ? dashboardGreen
-                                  : Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
+                      _inventoryJobResult(s, c, calculation, boxes: _boxes),
                   ],
                 ),
               ),
@@ -854,80 +1012,455 @@ class _InventoryColourDetailsState extends State<InventoryColourDetails> {
               ),
             ],
           ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Specifications',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-            subtitle: Text(
-              s.dimensions,
-              style: const TextStyle(fontSize: 11, color: _stockMuted),
-            ),
-            trailing: DetailGlyph(_spec ? 'down' : 'chevron'),
-            onTap: () => setState(() => _spec = !_spec),
+          const SizedBox(height: 14),
+          _inventorySpecifications(
+            s,
+            _spec,
+            () => setState(() => _spec = !_spec),
           ),
-          if (_spec)
-            Text(
-              '${s.category} · ${s.style}\n${s.dimensions}${s.flooring ? '\nCoverage: $sqm m²/box' : ''}',
-              style: const TextStyle(fontSize: 12, height: 1.8),
-            ),
           detailHeading(
             'Other ${s.name} colours',
             action: '${s.colours.length - 1}',
           ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final other in s.colours.where((o) => o.product.id != p.id))
-                SizedBox(
-                  width: 100,
-                  child: detailCard(
-                    InkWell(
-                      onTap: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => InventoryColourDetails(
-                            series: s,
-                            colour: other,
-                            customer: _customer,
+          SizedBox(
+            height: 112,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final other in s.colours.where(
+                  (o) => o.product.id != p.id,
+                ))
+                  SizedBox(
+                    width: 100,
+                    child: detailCard(
+                      InkWell(
+                        onTap: () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => InventoryColourDetails(
+                              series: s,
+                              colour: other,
+                              customer: _customer,
+                            ),
                           ),
                         ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(9),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            InventorySwatch(
-                              seed: other.product.colour,
-                              size: 38,
-                              single: true,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              other.product.colour,
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                            Text(
-                              '${_stockNumber(s.flooring ? other.area.round() : other.quantity)} ${s.flooring ? 'm²' : s.unit}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: _stockMuted,
+                        child: Padding(
+                          padding: const EdgeInsets.all(9),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              InventorySwatch(
+                                seed: other.product.colour,
+                                size: 38,
+                                single: true,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 6),
+                              Text(
+                                other.product.colour,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              Text(
+                                '${_stockNumber(s.flooring ? other.area.round() : other.quantity)} ${s.flooring ? 'm²' : s.unit}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: _stockMuted,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 20),
         ],
       ),
     );
   }
+}
+
+Widget _inventoryCustomerButton(Customer? customer, VoidCallback onTap) =>
+    Padding(
+      padding: const EdgeInsets.only(right: 12, top: 7, bottom: 7),
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: customer == null
+              ? const Color(0xfff1f7f4)
+              : detailGreen,
+          foregroundColor: customer == null ? detailGreen : Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+          side: const BorderSide(color: Color(0xffc7d9d0)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.person_outline, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              customer == null
+                  ? 'Customer'
+                  : customer.businessName
+                        .split(' ')
+                        .where((s) => s.isNotEmpty)
+                        .take(2)
+                        .map((s) => s[0])
+                        .join(),
+              style: const TextStyle(fontSize: 12),
+            ),
+            const SizedBox(width: 5),
+            const Icon(Icons.keyboard_arrow_down, size: 15),
+          ],
+        ),
+      ),
+    );
+
+Widget _inventorySpecifications(StockSeries s, bool open, VoidCallback onTap) {
+  final specs = <String, (String, Map<String, String>)>{
+    'bonita': (
+      '14/2 mm · 25 yr',
+      {
+        'Construction': '14 mm engineered, 2 mm oak wear layer',
+        'Finish': 'Matt UV lacquer',
+        'Installation': 'Floating or direct stick',
+        'Underlay': '3 mm acoustic',
+        'Warranty': '25 years residential',
+      },
+    ),
+    'heritage': (
+      '14/3 mm · 25 yr',
+      {
+        'Construction': '14 mm engineered, 3 mm oak wear layer',
+        'Finish': 'Natural oil',
+        'Installation': 'Direct stick only',
+        'Pattern': 'A + B boards (herringbone)',
+        'Warranty': '25 years residential',
+      },
+    ),
+    'studio': (
+      '15/4 mm · 30 yr',
+      {
+        'Construction': '15 mm engineered, 4 mm oak wear layer',
+        'Finish': 'Hard-wax oil',
+        'Installation': 'Direct stick only',
+        'Pattern': '45° chevron',
+        'Warranty': '30 years residential',
+      },
+    ),
+    'mtf': (
+      '12 mm · 20 yr',
+      {
+        'Thickness': '12 mm',
+        'Rating': 'AC4 commercial',
+        'Edge': '4-sided V-groove',
+        'Installation': 'Click floating',
+        'Warranty': '20 years residential',
+      },
+    ),
+    'aquaglow': (
+      '8 mm · 15 yr',
+      {
+        'Thickness': '8 mm',
+        'Rating': 'AC3 residential',
+        'Core': 'Water-resistant HDF',
+        'Installation': 'Click floating',
+        'Warranty': '15 years residential',
+      },
+    ),
+    'guardian': (
+      '6.5 mm · Lifetime',
+      {
+        'Thickness': '6.5 mm + 1.5 mm IXPE underlay',
+        'Wear layer': '0.5 mm',
+        'Core': 'Rigid SPC, 100% waterproof',
+        'Installation': 'Click floating',
+        'Warranty': 'Lifetime residential',
+      },
+    ),
+    'scotia': (
+      'Quarter round 18 mm · MDF, foil wrapped',
+      {
+        'Length': '2400 mm',
+        'Profile': 'Quarter round 18 mm',
+        'Material': 'MDF, foil wrapped',
+      },
+    ),
+    'skirting': (
+      '12 mm · 2400 mm',
+      {
+        'Length': '2400 mm',
+        'Height': '90 mm',
+        'Material': 'MDF primed / oak veneer',
+      },
+    ),
+    'tmould': (
+      'Same-height floors, doorways · Aluminium, laminated',
+      {
+        'Length': '2700 mm',
+        'Use': 'Same-height floors, doorways',
+        'Material': 'Aluminium, laminated',
+      },
+    ),
+    'reducer': (
+      'Floor to lower surface · Aluminium, laminated',
+      {
+        'Length': '2700 mm',
+        'Use': 'Floor to lower surface',
+        'Material': 'Aluminium, laminated',
+      },
+    ),
+    'endcap': (
+      'Sliding doors, fireplaces · Aluminium',
+      {
+        'Length': '2700 mm',
+        'Use': 'Sliding doors, fireplaces',
+        'Material': 'Aluminium',
+      },
+    ),
+    'underlay': (
+      '2 mm / 3 mm · Acoustic, AAAC 5-star (3 mm)',
+      {
+        'Coverage': '15 m² per roll',
+        'Thickness': '2 mm / 3 mm',
+        'Rating': 'Acoustic, AAAC 5-star (3 mm)',
+      },
+    ),
+    'barrier': (
+      '200 µm · Over concrete slabs',
+      {
+        'Size': '25 m² roll',
+        'Thickness': '200 µm',
+        'Use': 'Over concrete slabs',
+      },
+    ),
+    'adhesive': (
+      'MS polymer, solvent free · ≈ 15 m² per pail',
+      {
+        'Size': '15 kg pail',
+        'Type': 'MS polymer, solvent free',
+        'Coverage': '≈ 15 m² per pail',
+      },
+    ),
+    'care': (
+      'pH-neutral · Timber, hybrid and laminate',
+      {
+        'Size': '1 L',
+        'Type': 'pH-neutral',
+        'Use': 'Timber, hybrid and laminate',
+      },
+    ),
+    'tools': (
+      'Floating floors',
+      {
+        'Includes': 'Spacers, tapping block, pull bar',
+        'Use': 'Floating floors',
+      },
+    ),
+    'stair': (
+      'Bullnose, 14 mm rebate · Solid oak',
+      {
+        'Length': '2400 mm',
+        'Profile': 'Bullnose, 14 mm rebate',
+        'Material': 'Solid oak',
+      },
+    ),
+  };
+  final spec = specs[s.id];
+  final rows =
+      spec?.$2 ??
+      <String, String>{
+        'Category': s.category,
+        'Style': s.style,
+        'Dimensions': s.dimensions,
+        if (s.flooring)
+          'Coverage':
+              '${_stockNumber(s.colours.first.product.sqmPerBox)} m²/box',
+      };
+  return detailCard(
+    Column(
+      children: [
+        ListTile(
+          dense: true,
+          title: const Text(
+            'Specifications',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            spec?.$1 ?? s.dimensions,
+            style: const TextStyle(fontSize: 11, color: _stockMuted),
+          ),
+          trailing: Icon(
+            open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+            size: 17,
+            color: _stockMuted,
+          ),
+          onTap: onTap,
+        ),
+        if (open)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(13, 0, 13, 13),
+            child: Column(
+              children: [
+                for (final row in rows.entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 88,
+                          child: Text(
+                            row.key,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: _stockMuted,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            row.value,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+Widget _inventoryJobResult(
+  StockSeries series,
+  StockColour colour,
+  SalesQuoteQuantity quantity, {
+  bool boxes = false,
+}) {
+  final lot = colour.product.sku == 'BON-001';
+  final sufficient = quantity.count <= colour.quantity;
+  final oneBatch = lot ? quantity.count <= 210 : null;
+  final incomingBoxes = colour.product.sqmPerBox > 0
+      ? ((colour.incoming + 1e-8) / colour.product.sqmPerBox).floor()
+      : 0;
+  Widget notice(String text, {bool blue = false}) => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(top: 9),
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: blue ? const Color(0xffe7f0ff) : Colors.white,
+      borderRadius: BorderRadius.circular(9),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        color: blue ? const Color(0xff2167cd) : _stockMuted,
+        height: 1.5,
+      ),
+    ),
+  );
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        boxes
+            ? '${quantity.count} boxes = ${_stockNumber(quantity.area)} m²'
+            : '${_stockNumber(quantity.requested)} m² = ${quantity.count} boxes (${_stockNumber(quantity.area)} m²)',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      const SizedBox(height: 10),
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final item in [
+              (
+                'Order',
+                '${quantity.count} boxes',
+                '${_stockNumber(quantity.area)} m²',
+              ),
+              (
+                'Stock',
+                sufficient
+                    ? '✓ In stock'
+                    : 'Short ${quantity.count - colour.quantity} boxes',
+                sufficient
+                    ? '${colour.quantity - quantity.count} boxes left'
+                    : '${colour.quantity} boxes available',
+              ),
+              (
+                'One batch',
+                oneBatch == null
+                    ? 'Check'
+                    : oneBatch
+                    ? 'Yes'
+                    : 'No',
+                lot ? 'max lot 210 bx' : 'Ask the warehouse',
+              ),
+            ])
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: detailCard(
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.$1,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: _stockMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            item.$2,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: item.$1 == 'Stock' && !sufficient
+                                  ? Colors.red
+                                  : detailGreen,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.$3,
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: _stockMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      if (lot)
+        notice(
+          quantity.count <= 210
+              ? 'One batch: BN-2408 · 210 boxes in lot'
+              : 'No single batch has ${quantity.count} boxes — other batches:\nBN-2408   210 boxes in lot   use ${quantity.count < 210 ? quantity.count : 210}\nBN-2410   118 boxes in lot   use ${(quantity.count - 210).clamp(0, 118)}${quantity.count > 328 ? '\nShort ${quantity.count - 328} boxes across existing batches.' : ''}',
+        ),
+      if (incomingBoxes >= quantity.count && oneBatch == false)
+        notice(
+          'New batch ${colour.eta}: $incomingBoxes boxes — enough for one batch if the customer can wait',
+          blue: true,
+        ),
+    ],
+  );
 }
