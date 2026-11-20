@@ -1,0 +1,11 @@
+import {z} from 'zod';
+const text=z.string().trim().min(1).max(200),qty=z.number().finite().nonnegative();
+export const pdaKinds=['RECEIVE','PICK','COUNT','DISPATCH'] as const;
+export const pdaStartSchema=z.object({operationId:text,kind:z.enum(pdaKinds),siteId:text,sourceId:text.optional(),productIds:z.array(text).min(1).max(100).optional(),date:text}).strict();
+export const pdaScanSchema=z.object({id:text,revision:z.number().int().positive(),operationId:text,code:text,quantity:z.number().finite().positive().max(1000000),lineId:text.optional(),batch:text.optional()}).strict();
+export const pdaLineSchema=z.object({id:text,productId:text,sku:text,name:text,unitId:text,unit:text,factor:z.number().positive().finite(),whole:z.boolean(),expected:qty,baseline:qty,stockVersion:z.string().max(200),scanned:qty,touched:z.boolean(),purchaseOrderId:text.optional(),sourceLineId:text.optional(),batchId:text.optional(),batchNumber:text.optional()}).strict();
+export const pdaEventSchema=z.object({id:text,lineId:text,code:z.string().max(200),delta:z.number().finite(),fingerprint:z.string().max(2000),action:z.enum(['SCAN','ZERO','UNDO']),actor:text,at:text}).strict();
+export const pdaSessionSchema=z.object({id:text,startFingerprint:z.string().max(2000),kind:z.enum(pdaKinds),siteId:text,sourceId:text.optional(),sourceVersion:z.string(),number:text,date:text,status:z.enum(['OPEN','PICKED','REVIEW','COMPLETED','CANCELLED']),revision:z.number().int().positive(),lines:z.array(pdaLineSchema).min(1).max(500),events:z.array(pdaEventSchema).max(20000),createdBy:text,createdAt:text,updatedAt:text,closedBy:text.optional(),resultId:text.optional(),resultNumber:text.optional()}).strict();
+export type PdaSession=z.infer<typeof pdaSessionSchema>;export type PdaLine=z.infer<typeof pdaLineSchema>;
+export const roundScan=(n:number)=>Math.round(n*10000)/10000;
+export function nextScanned(line:PdaLine,quantity:number,unlimited=false){if(!Number.isFinite(quantity)||quantity<=0||roundScan(quantity)!==quantity)throw Error('Enter a positive quantity with at most four decimal places.');if(line.whole&&!Number.isInteger(quantity))throw Error('Scan whole packs for this product.');const next=roundScan(line.scanned+quantity);if(!unlimited&&next>line.expected+0.00001)throw Error('Scanned quantity exceeds the remaining document quantity.');return next;}

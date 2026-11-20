@@ -1,7 +1,9 @@
 import { snapshotRepositories } from './repositoryHost';
 import type { SecurityReply } from './securityContract';
 export const isWeb = import.meta.env.VITE_WEB_ONLY === '1';
-export const publicPreview = isWeb && import.meta.env.VITE_PUBLIC_PREVIEW === '1';
+// Keep the public demo read-only. The warehouse entry uses the existing authenticated server bridge.
+export const warehouseLiveEntry = typeof window !== 'undefined' && /^\/warehouse(?:\/|$)/.test(window.location?.pathname??'');
+export const publicPreview = isWeb && import.meta.env.VITE_PUBLIC_PREVIEW === '1' && !warehouseLiveEntry;
 export function downloadWebFile(value: unknown, name: string, type = 'application/json'): void {
     const blob = value instanceof Blob ? value : new Blob([JSON.stringify(value, null, 2)], { type });
     const url = URL.createObjectURL(blob);
@@ -17,7 +19,7 @@ if (publicPreview) {
         if (action === 'preferences.columnOrder.get') return { ok: true, value: null };
         return { ok: false, error: 'Sample preview is read-only. Changes and notifications are disabled.' };
     } };
-    window.location.hash = '/dashboard';
+    if (!window.location.hash || window.location.hash === '#/') window.location.hash = '/dashboard';
 }
 if (isWeb && !publicPreview && !window.securityBridge) {
     window.securityBridge = {

@@ -1,0 +1,4 @@
+import type {Product} from '../inventory/types/product';
+/** Preserve leading zeroes. Strip scanner terminators and optional AIM symbology ID only. */
+export function normalizeScan(value:string){const code=value.trim().replace(/^\][A-Za-z][0-9]/,'');if(!code||code.length>200||Array.from(code).some(c=>c.charCodeAt(0)<32||c.charCodeAt(0)===127))throw Error('Scan a valid barcode or SKU (maximum 200 characters).');return code;}
+export function matchBarcode(products:Product[],value:string){const code=normalizeScan(value),matches=products.filter(p=>p.status==='ACTIVE'&&(p.setup?.barcode?.trim()===code||p.sku.trim().toLowerCase()===code.toLowerCase()));if(!matches.length)throw Error('No active product matches this barcode or SKU.');if(matches.length!==1)throw Error('This barcode/SKU matches multiple products. Correct the product catalogue before scanning.');return matches[0];}

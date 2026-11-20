@@ -39,7 +39,7 @@ export function AppLayout() {
     const setNavigationOpen = (open: boolean) => setNavigationPath(open ? location.pathname : null);
     const primaryWorkspace=isPrimaryWorkspace(location.pathname);
     const settingsReference=(location.pathname==='/settings'||location.pathname==='/settings/preferences')&&new URLSearchParams(location.search).get('view')!=='legacy';
-    const reportsWorkspace=location.pathname==='/documents/templates'||settingsReference||(location.pathname==='/sales'&&!new URLSearchParams(location.search).has('view'))||location.pathname.startsWith('/reports')||location.pathname==='/dashboard'||location.pathname==='/promotions'||location.pathname==='/reports/aged-payables'||location.pathname==='/accounting'||location.pathname==='/banking'||location.pathname.startsWith('/banking/');
+    const reportsWorkspace=location.pathname==='/inventory/scan'||location.pathname==='/documents/templates'||settingsReference||(location.pathname==='/sales'&&!new URLSearchParams(location.search).has('view'))||location.pathname.startsWith('/reports')||location.pathname==='/dashboard'||location.pathname==='/promotions'||location.pathname==='/reports/aged-payables'||location.pathname==='/accounting'||location.pathname==='/banking'||location.pathname.startsWith('/banking/');
     const purchaseEditor=/^\/purchases\/(new|[^/]+\/edit)$/.test(location.pathname);
     const purchasesOverview=location.pathname==='/purchases'&&!new URLSearchParams(location.search).get('view')&&!new URLSearchParams(location.search).get('stage');
     const isDemoVisit = new URLSearchParams(location.search).get("demo") === "1";

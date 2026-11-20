@@ -61,6 +61,7 @@ registerRepository('salesRecovery', {
     commands: { withdrawSourceRepair:'accounting.recover',previewSourceRepair:'audit.read',proposeSourceRepair:'accounting.recover',executeSourceRepair:'accounting.recover',previewTargetedRepair:'audit.read',proposeTargetedRepair:'accounting.recover',executeTargetedRepair:'accounting.recover',inspectRecovery:'audit.read', recordSalesManualReview: 'accounting.recover', closeVerifiedSalesReview: 'accounting.recover' },
     snapshot: () => [], restore: () => {}, publish: () => {},
 });
+import '../../src/features/pda/pdaRepository';
 export const workspaceDefaults = snapshotRepositories();
 export function initialize(principal: Parameters<typeof trustedAuthorization.connect>[0]) {
     configurePeriodControls(periodCloseChecks, () => principal()?.userId ?? '');
